@@ -36,3 +36,13 @@ jobs:
       run: dotnet build './src/SmartApplicationFramework.sln' --configuration Release --no-restore
     - name: Test
       run: dotnet test './src/SmartApplicationFramework.sln' --configuration Release --no-build --verbosity normal
+      
+    - name: Setup Python
+      uses: actions/setup-python@v2
+      with:
+        python-version: '3.x'
+
+    - name: REUSE Compliance Check
+      run: |
+        pip3 install --user reuse
+        reuse lint
