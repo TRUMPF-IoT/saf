@@ -24,4 +24,4 @@ jobs:
     - name: Build
       run: dotnet build './src/SmartApplicationFramework.sln' --configuration Release --no-restore
     - name: Test
-      run: dotnet test './src/SmartApplicationFramework.sln' --configuration Release --no-restore --verbosity normal
+      run: dotnet test './src/SmartApplicationFramework.sln' --configuration Release --no-build --verbosity normal
