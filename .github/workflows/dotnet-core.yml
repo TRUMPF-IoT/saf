@@ -28,7 +28,7 @@ jobs:
         
     - name: .net SxS
       run: |
-      rsync -a ${DOTNET_ROOT/3.1.101/2.2.402}/* $DOTNET_ROOT/
+        rsync -a ${DOTNET_ROOT/3.1.101/2.2.402}/* $DOTNET_ROOT/
       
     - name: Install dependencies
       run: dotnet restore './src/SmartApplicationFramework.sln'
