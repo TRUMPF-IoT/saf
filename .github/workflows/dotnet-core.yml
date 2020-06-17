@@ -16,6 +16,20 @@ jobs:
     steps:
     - uses: actions/checkout@v2
     
+    - name: Setup Python
+      uses: actions/setup-python@v2
+      with:
+        python-version: '3.x'
+
+    - name: Install REUSE
+      run: |
+        python -m pip install --upgrade pip
+        pip install reuse
+        
+    - name: REUSE Compliance Check
+      run: |
+        reuse lint
+        
     - name: Setup .NET Core 2.2
       uses: actions/setup-dotnet@v1
       with:
@@ -37,16 +51,4 @@ jobs:
     - name: Test
       run: dotnet test './src/SmartApplicationFramework.sln' --configuration Release --no-build --verbosity normal
       
-    - name: Setup Python
-      uses: actions/setup-python@v2
-      with:
-        python-version: '3.x'
-
-    - name: Install REUSE
-      run: |
-        python -m pip install --upgrade pip
-        pip install reuse
-        
-    - name: REUSE Compliance Check
-      run: |
-        reuse lint
+    
