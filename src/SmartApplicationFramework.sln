@@ -73,6 +73,7 @@ EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "_build", "_build", "{2C13739B-7911-4D4D-82D5-8FD959A2D362}"
 	ProjectSection(SolutionItems) = preProject
 		..\Directory.Build.props = ..\Directory.Build.props
+		..\.github\workflows\dotnet-core.yml = ..\.github\workflows\dotnet-core.yml
 	EndProjectSection
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "SAF.Messaging.Cde", "Messaging\SAF.Messaging.Cde\SAF.Messaging.Cde.csproj", "{10D8D3DF-CEBA-4A74-8567-D5E1C479C20E}"

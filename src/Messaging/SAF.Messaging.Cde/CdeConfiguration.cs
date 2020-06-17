@@ -25,7 +25,7 @@ namespace SAF.Messaging.Cde
         public bool AllowLocalHost { get; set; }
         public bool UseRandomDeviceId { get; set; }
         public bool UseUserMapper { get; set; }
-        public bool IgnoreAdminCheck { get; set; }
+        public bool FailOnAdminCheck { get; set; }
         public bool DontVerifyTrust { get; set; }
         public string LogIgnore { get; set; }
         public int PreShutdownDelay { get; set; }

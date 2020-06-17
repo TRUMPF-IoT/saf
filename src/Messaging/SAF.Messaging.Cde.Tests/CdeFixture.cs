@@ -41,7 +41,7 @@ namespace SAF.Messaging.Cde.Tests
                 MyStationPort = 8080,
                 MyStationWSPort = 8080,
                 cdeMID = new Guid("{DE4E9E30-1241-4E85-B5FC-1606910F0709}"),
-                IgnoreAdminCheck = true,
+                FailOnAdminCheck = false,
                 CloudServiceRoute = string.Empty,
                 LocalServiceRoute = string.Empty,
                 IsCloudService = false,

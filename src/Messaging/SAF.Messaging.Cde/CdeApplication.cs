@@ -59,7 +59,7 @@ namespace SAF.Messaging.Cde
                 MyStationPort = config.HttpPort,
                 MyStationWSPort = config.WsPort,
                 cdeMID = TheCommonUtils.CGuid(config.StorageId),
-                IgnoreAdminCheck = config.IgnoreAdminCheck,
+                FailOnAdminCheck = config.FailOnAdminCheck,
                 CloudServiceRoute = config.CloudServiceRoutes,
                 LocalServiceRoute = config.LocalServiceRoutes,
                 IsCloudService = config.IsCloudService,

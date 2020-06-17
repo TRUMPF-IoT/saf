@@ -34,7 +34,7 @@ namespace TestRunnerCdeWithSafPlugin
                 MyStationPort = Convert.ToUInt16(GetConfigValue(settings, "HTTPPort")),
                 MyStationWSPort = Convert.ToUInt16(GetConfigValue(settings, "WSPort")),
                 cdeMID = TheCommonUtils.CGuid(GetConfigValue(settings, "StorageID")),
-                IgnoreAdminCheck = Convert.ToBoolean(GetConfigValue(settings, "IgnoreAdminCheck")),
+                FailOnAdminCheck = Convert.ToBoolean(GetConfigValue(settings, "FailOnAdminCheck")),
                 CloudServiceRoute = GetConfigValue(settings, "CloudServiceRoutes"),
                 LocalServiceRoute = GetConfigValue(settings, "LocalServiceRoutes"),
                 IsCloudService = Convert.ToBoolean(GetConfigValue(settings, "IsCloudService")),
