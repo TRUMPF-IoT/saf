@@ -15,10 +15,21 @@ jobs:
 
     steps:
     - uses: actions/checkout@v2
-    - name: Setup .NET Core
+    
+    - name: Setup .NET Core 2.2
+      uses: actions/setup-dotnet@v1
+      with:
+        dotnet-version: 2.2.402
+        
+    - name: Setup .NET Core 3.1
       uses: actions/setup-dotnet@v1
       with:
         dotnet-version: 3.1.101
+        
+    - name: .net SxS
+      run: |
+      rsync -a ${DOTNET_ROOT/3.1.101/2.2.402}/* $DOTNET_ROOT/
+        
     - name: Install dependencies
       run: dotnet restore './src/SmartApplicationFramework.sln'
     - name: Build
