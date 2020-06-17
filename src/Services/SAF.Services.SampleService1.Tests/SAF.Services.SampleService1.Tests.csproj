@@ -1,0 +1,40 @@
+<!--
+SPDX-FileCopyrightText: 2017-2020 TRUMPF Laser GmbH
+
+SPDX-License-Identifier: MPL-2.0
+-->
+
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>netcoreapp2.2</TargetFramework>
+    <CopyLocalLockFileAssemblies>true</CopyLocalLockFileAssemblies>
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="16.6.1" />
+    <PackageReference Include="NSubstitute" Version="4.2.2" />
+    <PackageReference Include="xunit" Version="2.4.1" />
+    <PackageReference Include="xunit.runner.visualstudio" Version="2.4.2">
+      <PrivateAssets>all</PrivateAssets>
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+    </PackageReference>
+    <PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions" Version="2.2.0" />
+    <DotNetCliToolReference Include="dotnet-xunit" Version="2.3.1" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\SAF.Common\SAF.Common.csproj" />
+    <ProjectReference Include="..\SAF.Services.SampleService1\SAF.Services.SampleService1.csproj" />
+  </ItemGroup>
+
+  <!-- Copy Package PDBs to output dir:
+       https://github.com/dotnet/sdk/issues/1458 -->
+  <Target Name="_ResolveCopyLocalNuGetPackagePdbs" Condition="$(CopyLocalLockFileAssemblies) == true" AfterTargets="ResolveReferences">
+    <ItemGroup>
+      <ReferenceCopyLocalPaths Include="@(ReferenceCopyLocalPaths->'%(RootDir)%(Directory)%(Filename).pdb')" Condition="'%(ReferenceCopyLocalPaths.NuGetPackageId)' != '' and Exists('%(RootDir)%(Directory)%(Filename).pdb')" />
+    </ItemGroup>
+  </Target>
+
+</Project>

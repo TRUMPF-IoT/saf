@@ -1,0 +1,61 @@
+{
+  "routings": [
+    {
+      "messaging": {
+        "type": "IRedisMessagingInfrastructure",
+        "config": {
+          "connectionString": "localhost:6379"
+        }
+      }
+    },
+    {
+      "messaging": {
+        "type": "ICdeMessagingInfrastructure",
+        "config": {
+          "routingOptions": "Local"
+        }
+      }
+    },
+    {
+      "messaging": {
+        "type": "ICdeMessagingInfrastructure",
+        "config": {
+          "routingOptions": "Remote"
+        }
+      },
+      "publishPatterns": [
+        "private/*/registries",
+        "public/device-registries/*",
+        "private/device-registries/*",
+        "private/data/transfer/receipt/*",
+        "private/drivers/*/data*",
+        "public/daco/*",
+        "private/*/resource",
+        "private/*/short-text",
+        "private/*/licenses",
+        "private/*/device/messages",
+        "public/service/message/*",
+        "public/monitored-property-history/*",
+        "saf/*",
+        "public/folderSync/*",
+        "public/drivers/qds/*"
+      ],
+      "subscriptionPatterns": [
+        "public/device-registries/*",
+        "private/device-registries/*",
+        "private/data/transfer/receipt/*",
+        "public/daco/*",
+        "public/resource/get",
+        "public/resource/messages/*/short/get",
+        "private/drivers/truMark/*",
+        "public/service/message/*",
+        "private/drivers/truControl/*",
+        "public/monitored-property-history/*",
+        "saf/*",
+        "public/service/cm-report/*",
+        "public/folderSync/*",
+        "public/drivers/qds/*"
+      ]
+    }
+  ]
+}

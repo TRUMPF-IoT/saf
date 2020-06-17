@@ -1,0 +1,28 @@
+<!--
+SPDX-FileCopyrightText: 2017-2020 TRUMPF Laser GmbH
+
+SPDX-License-Identifier: MPL-2.0
+-->
+
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>netstandard2.0</TargetFramework>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="C-DEngine" Version="5.106.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\SAF.Communication.Cde\SAF.Communication.Cde.csproj" />
+    <ProjectReference Include="..\SAF.Communication.PubSub.Interfaces\SAF.Communication.PubSub.Interfaces.csproj" />
+    <ProjectReference Include="..\SAF.Communication.PubSub\SAF.Communication.PubSub.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <AssemblyAttribute Include="System.Runtime.CompilerServices.InternalsVisibleTo">
+      <_Parameter1>CDMyPubSub.Registry</_Parameter1>
+    </AssemblyAttribute>
+  </ItemGroup>
+</Project>

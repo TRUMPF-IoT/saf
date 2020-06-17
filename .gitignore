@@ -1,0 +1,81 @@
+# SPDX-FileCopyrightText: 2017-2020 TRUMPF Laser GmbH
+#
+# SPDX-License-Identifier: MPL-2.0
+
+# User-specific files
+*.suo
+*.user
+*.userprefs
+*.userosscache
+*.sln.docstates
+
+# Build results
+[Dd]ebug/
+[Dd]ebugPublic/
+[Rr]elease/
+[Rr]eleases/
+x64/
+x86/
+bld/
+[Bb]in/
+[Oo]bj/
+wix/
+tools/
+
+# Visual Studio 2015 cache/options directory
+.vs/
+.vscode/
+
+# MSTest test Results
+[Tt]est[Rr]esult*/
+[Bb]uild[Ll]og.*
+
+*_i.c
+*_p.c
+*_i.h
+*.ilk
+*.meta
+*.obj
+*.pch
+*.pdb
+*.pgc
+*.pgd
+*.rsp
+*.sbr
+*.tlb
+*.tli
+*.tlh
+*.tmp
+*.tmp_proj
+*.log
+*.vspscc
+*.vssscc
+.builds
+*.pidb
+*.svclog
+*.scc
+
+# Visual Studio profiler
+*.psess
+*.vsp
+*.vspx
+
+# ReSharper is a .NET coding add-in
+_ReSharper*/
+*.[Rr]e[Ss]harper
+*.DotSettings.user
+
+# DotCover is a Code Coverage Tool
+*.dotCover
+
+# NuGet Packages
+*.nupkg
+
+# The packages folder can be ignored because of Package Restore
+**/packages/*
+
+# Nodejs
+**/node_modules/*
+
+# Artifacts
+artifacts/

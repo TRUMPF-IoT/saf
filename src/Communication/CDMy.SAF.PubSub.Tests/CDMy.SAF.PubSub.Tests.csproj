@@ -1,0 +1,25 @@
+<!--
+SPDX-FileCopyrightText: 2017-2020 TRUMPF Laser GmbH
+
+SPDX-License-Identifier: MPL-2.0
+-->
+
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>netstandard2.0</TargetFramework>
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="C-DEngine" Version="5.106.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="System.Reactive.Linq" Version="4.4.1" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\SAF.Communication.PubSub.Cde\SAF.Communication.PubSub.Cde.csproj" />
+  </ItemGroup>
+</Project>

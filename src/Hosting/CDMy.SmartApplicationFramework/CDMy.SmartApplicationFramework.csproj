@@ -1,0 +1,42 @@
+<!--
+SPDX-FileCopyrightText: 2017-2020 TRUMPF Laser GmbH
+
+SPDX-License-Identifier: MPL-2.0
+-->
+
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>netstandard2.0</TargetFramework>
+  </PropertyGroup>
+
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|AnyCPU'">
+    <DefineConstants>TRACE;DEBUG;CDE_SYSLOG</DefineConstants>
+  </PropertyGroup>
+
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|AnyCPU'">
+    <DefineConstants>TRACE;CDE_SYSLOG</DefineConstants>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="C-DEngine" Version="5.106.0" />
+   </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\Communication\CDMy.SAF.PubSub.Registry\CDMy.SAF.PubSub.Registry.csproj" />
+    <ProjectReference Include="..\..\Communication\SAF.Communication.Cde\SAF.Communication.Cde.csproj" />
+    <ProjectReference Include="..\..\Communication\SAF.Communication.PubSub.Cde\SAF.Communication.PubSub.Cde.csproj" />
+    <ProjectReference Include="..\..\Communication\SAF.Communication.PubSub.Interfaces\SAF.Communication.PubSub.Interfaces.csproj" />
+    <ProjectReference Include="..\..\Messaging\SAF.Messaging.Redis\SAF.Messaging.Redis.csproj" />
+    <ProjectReference Include="..\..\Messaging\SAF.Messaging.Routing\SAF.Messaging.Routing.csproj" />
+    <ProjectReference Include="..\..\SAF.Common\SAF.Common.csproj" />
+    <ProjectReference Include="..\SAF.Hosting.Cde\SAF.Hosting.Cde.csproj" />
+  </ItemGroup>
+
+  <!-- Copy Package PDBs to output dir: https://github.com/dotnet/sdk/issues/1458 -->
+  <Target Name="_ResolveCopyLocalNuGetPackagePdbs" Condition="$(CopyLocalLockFileAssemblies) == true" AfterTargets="ResolveReferences">
+    <ItemGroup>
+      <ReferenceCopyLocalPaths Include="@(ReferenceCopyLocalPaths->'%(RootDir)%(Directory)%(Filename).pdb')" Condition="'%(ReferenceCopyLocalPaths.NuGetPackageId)' != '' and Exists('%(RootDir)%(Directory)%(Filename).pdb')" />
+    </ItemGroup>
+  </Target>
+</Project>

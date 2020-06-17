@@ -1,0 +1,39 @@
+<!--
+SPDX-FileCopyrightText: 2017-2020 TRUMPF Laser GmbH
+
+SPDX-License-Identifier: MPL-2.0
+-->
+
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>netcoreapp2.2</TargetFramework>
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <None Remove="appsettings.json" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Content Include="appsettings.json">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.Extensions.Configuration.Json" Version="2.2.0" />
+    <PackageReference Include="Microsoft.Extensions.Logging.Configuration" Version="2.2.0" />
+    <PackageReference Include="Microsoft.Extensions.Logging.Console" Version="2.2.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Hosting\SAF.Hosting\SAF.Hosting.csproj" />
+    <ProjectReference Include="..\Messaging\SAF.Messaging.Cde\SAF.Messaging.Cde.csproj" />
+    <ProjectReference Include="..\SAF.Common\SAF.Common.csproj" />
+    <ProjectReference Include="..\Services\SAF.Services.SampleService1\SAF.Services.SampleService1.csproj" />
+    <ProjectReference Include="..\Services\SAF.Services.SampleService2\SAF.Services.SampleService2.csproj" />
+  </ItemGroup>
+
+</Project>

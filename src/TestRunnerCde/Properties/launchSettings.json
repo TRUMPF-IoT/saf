@@ -1,0 +1,8 @@
+{
+  "profiles": {
+    "TestRunnerCde": {
+      "commandName": "Project",
+      "commandLineArgs": "host=saf"
+    }
+  }
+}

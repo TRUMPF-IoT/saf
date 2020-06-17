@@ -1,0 +1,60 @@
+<!--
+SPDX-FileCopyrightText: 2017-2020 TRUMPF Laser GmbH
+
+SPDX-License-Identifier: MPL-2.0
+-->
+
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>netcoreapp2.2</TargetFramework>
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <None Remove="TestData\FilePatterns1\My.Messaging.3.Contracts.txt" />
+    <None Remove="TestData\FilePatterns1\My.Messaging.3.txt" />
+    <None Remove="TestData\FilePatterns1\SubDir\Messaging.1.txt" />
+    <None Remove="TestData\FilePatterns1\SubDir\My.Messaging.1.Contracts.txt" />
+    <None Remove="TestData\FilePatterns1\SubDir\My.Messaging.1.txt" />
+    <None Remove="TestData\FilePatterns1\SubDir\My.Messaging.2.txt" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Content Include="TestData\FilePatterns1\My.Messaging.3.Contracts.txt">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="TestData\FilePatterns1\My.Messaging.3.txt">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="TestData\FilePatterns1\SubDir\My.Messaging.1.Contracts.txt">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="TestData\FilePatterns1\SubDir\My.Messaging.1.txt">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="TestData\FilePatterns1\SubDir\My.Messaging.2.txt">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="TestData\FilePatterns1\SubDir\Messaging.1.txt">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="16.6.1" />
+    <PackageReference Include="NSubstitute" Version="4.2.2" />
+    <PackageReference Include="xunit" Version="2.4.1" />
+    <PackageReference Include="xunit.runner.visualstudio" Version="2.4.2">
+      <PrivateAssets>all</PrivateAssets>
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+    </PackageReference>
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\SAF.Common\SAF.Common.csproj" />
+    <ProjectReference Include="..\SAF.Messaging.Redis\SAF.Messaging.Redis.csproj" />
+    <ProjectReference Include="..\SAF.Messaging.Routing\SAF.Messaging.Routing.csproj" />
+  </ItemGroup>
+
+</Project>

@@ -1,0 +1,31 @@
+<!--
+SPDX-FileCopyrightText: 2017-2020 TRUMPF Laser GmbH
+
+SPDX-License-Identifier: MPL-2.0
+-->
+
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>netstandard2.0</TargetFramework>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.Extensions.Configuration.Binder" Version="2.2.4" />
+    <PackageReference Include="Microsoft.Extensions.Configuration.Json" Version="2.2.0" />
+    <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="2.2.0" />
+    <PackageReference Include="Microsoft.Extensions.Logging" Version="2.2.0" />
+    <PackageReference Include="Microsoft.Extensions.Logging.Configuration" Version="2.2.0" />
+    <PackageReference Include="Microsoft.Extensions.Logging.Console" Version="2.2.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\Hosting\SAF.Hosting\SAF.Hosting.csproj" />
+    <ProjectReference Include="..\..\Messaging\SAF.Messaging.Cde\SAF.Messaging.Cde.csproj" />
+    <ProjectReference Include="..\..\Messaging\SAF.Messaging.InProcess\SAF.Messaging.InProcess.csproj" />
+    <ProjectReference Include="..\..\Messaging\SAF.Messaging.Redis\SAF.Messaging.Redis.csproj" />
+    <ProjectReference Include="..\..\Messaging\SAF.Messaging.Test\SAF.Messaging.Test.csproj" />
+    <ProjectReference Include="..\..\SAF.Common\SAF.Common.csproj" />
+  </ItemGroup>
+
+</Project>

@@ -1,0 +1,34 @@
+Format: https://www.debian.org/doc/packaging-manuals/copyright-format/1.0/
+Upstream-Name: Smart Application Framework
+Upstream-Contact: TRUMPF Laser GmbH <support.tls560@trumpf.com>
+Source: https://github.com/TRUMPF-IoT/saf
+
+# Sample paragraph, commented out:
+#
+# Files: src/*
+# Copyright: $YEAR $NAME <$CONTACT>
+# License: ...
+
+Files: *.md
+Copyright: 2017-2019 TRUMPF Laser GmbH
+License: MPL-2.0
+
+Files: src/**/*.txt
+Copyright: 2017-2019 TRUMPF Laser GmbH
+License: MPL-2.0
+
+Files: src/*.sln
+Copyright: 2017-2019 TRUMPF Laser GmbH
+License: MPL-2.0
+
+Files: src/**/*.sln
+Copyright: 2017-2019 TRUMPF Laser GmbH
+License: MPL-2.0
+
+Files: src/**/*.json
+Copyright: 2017-2019 TRUMPF Laser GmbH
+License: MPL-2.0
+
+Files: src/**/app.config
+Copyright: 2017-2019 TRUMPF Laser GmbH
+License: MPL-2.0
