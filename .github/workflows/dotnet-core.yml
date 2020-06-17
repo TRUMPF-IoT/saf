@@ -50,5 +50,9 @@ jobs:
       run: dotnet build './src/SmartApplicationFramework.sln' --configuration Release --no-restore
     - name: Test
       run: dotnet test './src/SmartApplicationFramework.sln' --configuration Release --no-build --verbosity normal
+    - name: Pack
+      run: |
+        mkdir -p ./artifacts
+        dotnet pack './src/SmartApplicationFramework.sln' --configuration Release --no-build --output './artifacts'
       
     
