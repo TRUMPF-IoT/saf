@@ -3,7 +3,7 @@
 // SPDX-License-Identifier: MPL-2.0
 
 ﻿
-namespace SAF.Toolbox.Filetransfer
+namespace SAF.Toolbox.FileTransfer
 {
     public enum FileTransferStatus
     {

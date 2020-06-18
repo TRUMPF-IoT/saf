@@ -5,7 +5,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.IO;
-using SAF.Toolbox.Filetransfer;
+using SAF.Toolbox.FileTransfer;
 using Xunit;
 using System.Linq;
 

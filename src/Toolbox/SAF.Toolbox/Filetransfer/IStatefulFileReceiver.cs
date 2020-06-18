@@ -4,7 +4,7 @@
 
 ﻿using System;
 
-namespace SAF.Toolbox.Filetransfer
+namespace SAF.Toolbox.FileTransfer
 {
     public interface IStatefulFileReceiver
     {

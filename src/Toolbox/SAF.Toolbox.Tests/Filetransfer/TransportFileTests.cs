@@ -4,7 +4,7 @@
 
 ﻿using System;
 using System.IO;
-using SAF.Toolbox.Filetransfer;
+using SAF.Toolbox.FileTransfer;
 using Xunit;
 
 namespace SAF.Toolbox.Tests.FileTransfer

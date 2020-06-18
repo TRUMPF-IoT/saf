@@ -14,7 +14,7 @@ using Microsoft.Extensions.Logging.Abstractions;
 using SAF.Common;
 using SAF.Toolbox.Serialization;
 
-namespace SAF.Toolbox.Filetransfer
+namespace SAF.Toolbox.FileTransfer
 {
     internal class FileSender : IFileSender
     {

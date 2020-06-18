@@ -7,7 +7,7 @@ using System.IO;
 using System.Threading.Tasks;
 using NSubstitute;
 using SAF.Common;
-using SAF.Toolbox.Filetransfer;
+using SAF.Toolbox.FileTransfer;
 using SAF.Toolbox.Serialization;
 using Xunit;
 

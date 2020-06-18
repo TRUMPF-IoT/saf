@@ -5,7 +5,7 @@
 ﻿
 using System.Collections.Generic;
 
-namespace SAF.Toolbox.Filetransfer
+namespace SAF.Toolbox.FileTransfer
 {
     internal class TransportFileEnvelope
     {

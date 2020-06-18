@@ -8,7 +8,7 @@ using System.Runtime.CompilerServices;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using SAF.Toolbox.FileHandling;
-using SAF.Toolbox.Filetransfer;
+using SAF.Toolbox.FileTransfer;
 using SAF.Toolbox.Heartbeat;
 using SAF.Toolbox.RequestClient;
 
