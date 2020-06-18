@@ -9,7 +9,7 @@ on:
     branches: [ master ]
 
 jobs:
-  build:
+  build_test_pack:
 
     runs-on: ubuntu-latest
 
@@ -47,7 +47,7 @@ jobs:
       with:
         dotnet-version: 3.1.101
         
-    - name: .net SxS
+    - name: .NET Core SxS Workaround
       run: |
         rsync -a ${DOTNET_ROOT/3.1.101/2.2.402}/* $DOTNET_ROOT/
       
