@@ -77,5 +77,6 @@ _ReSharper*/
 # Nodejs
 **/node_modules/*
 
-# Artifacts
+# Some build output folders
 artifacts/
+minver/

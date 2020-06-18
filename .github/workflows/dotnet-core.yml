@@ -19,10 +19,6 @@ jobs:
       with:
         fetch-depth: 0
     
-    - name: Run minver
-      id: version
-      uses: thefringeninja/action-minver@2.0.0-preview1
-    
     - name: Setup Python
       uses: actions/setup-python@v2
       with:
@@ -37,6 +33,10 @@ jobs:
       run: |
         reuse lint
         
+    - name: Run minver
+      id: version
+      uses: thefringeninja/action-minver@2.0.0-preview1
+      
     - name: Setup .NET Core 2.2
       uses: actions/setup-dotnet@v1
       with:
