@@ -2,9 +2,10 @@ name: .NET Core
 
 on:
   push:
-    branches: [ master ]
+    branches:
+      - '**'
     tags:
-    - '*'
+      - '*'
   pull_request:
     branches: [ master ]
 
@@ -63,6 +64,7 @@ jobs:
         dotnet pack './src/SmartApplicationFramework.sln' --configuration Release --no-build --output './artifacts'
         
     - name: Upload artifacts
+      if: github.event_name == 'push' && (contains(github.ref, 'refs/tags/') || contains(github.ref, 'refs/heads/master'))
       uses: actions/upload-artifact@v2
       with:
         name: SmartApplicationFramework-${{ steps.minver.outputs.version }}
@@ -71,6 +73,5 @@ jobs:
     - name: Publish nuget packages
       if: github.event_name == 'push' && contains(github.ref, 'refs/tags/')
       run: |
-        echo 'A tag has been pushed'
-      # dotnet nuget push './artifacts/*.nupkg' --api-key ${{secrets.SAF_NUGETORG_APIKEY}} --source https://api.nuget.org/v3/index.json
+        dotnet nuget push './artifacts/*.nupkg' --api-key ${{secrets.SAF_NUGETORG_APIKEY}} --source https://api.nuget.org/v3/index.json
       
