@@ -17,6 +17,10 @@ Files: *.md
 Copyright: 2017-2020 TRUMPF Laser GmbH
 License: MPL-2.0
 
+Files: docs/_config.yml
+Copyright: 2017-2020 TRUMPF Laser GmbH
+License: MPL-2.0
+
 Files: src/**/*.txt
 Copyright: 2017-2020 TRUMPF Laser GmbH
 License: MPL-2.0

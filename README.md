@@ -6,7 +6,7 @@ SAF runs on [.NET Core](https://dotnet) and can easily be integrated into [ASP.N
 
 ## Get Started
 
-To get started find the overview documentation in the [SAF docs](https://docs.trumpf-iot/saf/index).
+To get started find the overview documentation in the [SAF docs](https://trumpf-iot.github.io/saf/).
 
 ## How to Engage, Contribute, and Give Feedback
 

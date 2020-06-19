@@ -12,7 +12,7 @@ To build a distributed application using SAF you need at least two things. A [SA
 
 A Smart Application Framework Host or `ServiceHost` loads one or more SAF Plug-ins. It is also possible to run several SAF Hosts with different plug-ins in certain IT infrastructures. 
 
-It initializes its own main DI container that contains the [SAF Infrastructure Services](./infrastructureAndToolboxServices.md#SAF-Infrastructure-Services). The `ServiceHost` is responsible to create one DI container for every loaded Plug-in. So every loaded SAF Plug-in gets it's own DI container. It then  redirects the SAF Infrastructure Services to every plug-in specific DI containers.
+It initializes its own main DI container that contains the [SAF Infrastructure Services](./infrastructureAndToolboxServices.md). The `ServiceHost` is responsible to create one DI container for every loaded Plug-in. So every loaded SAF Plug-in gets it's own DI container. It then  redirects the SAF Infrastructure Services to every plug-in specific DI containers.
 
 ### SAF Plug-in
 
