@@ -2,8 +2,8 @@
 
 To provide commonly used services to the plug-in assemblies, two different types of infrastructure services are known:
 
-- [SAF Infrastructure Services](#-SAF-Infrastructure-Services)
-- [SAF Toolbox Services](#-SAF-Toolbox-Services)
+- [SAF Infrastructure Services](#saf-infrastructure-services)
+- [SAF Toolbox Services](#saf-toolbox-services)
 
 As a service consumer (typically a SAF Plug-in), it doesn't really matter how or better where the service is implemented. But in case the framework needs to be extended with commonly used services, they should be placed in the right place.
 
