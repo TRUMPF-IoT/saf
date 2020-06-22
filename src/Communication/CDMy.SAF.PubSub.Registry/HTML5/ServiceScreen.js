@@ -2,6 +2,6 @@
 //
 // SPDX-License-Identifier: MPL-2.0
 
-﻿(function (id) {
+(function (id) {
     console.log("Successfully loaded CDEPUBSUB");
 })("%=CONTENT%");

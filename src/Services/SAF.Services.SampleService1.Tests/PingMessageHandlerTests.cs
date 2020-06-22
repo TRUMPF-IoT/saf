@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: MPL-2.0
 
-﻿using NSubstitute;
+using NSubstitute;
 using SAF.Common;
 using SAF.Services.SampleService1.MessageHandlers;
 using Xunit;

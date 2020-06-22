@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: MPL-2.0
 
-﻿namespace SAF.Services.SampleService1
+namespace SAF.Services.SampleService1
 {
     public class MyServiceConfiguration
     {

@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: MPL-2.0
 
-﻿(function (module) {
+(function (module) {
 
     var engineName = "CDEPUBSUB";
 

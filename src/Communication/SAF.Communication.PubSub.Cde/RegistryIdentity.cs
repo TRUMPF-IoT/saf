@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: MPL-2.0
 
-﻿namespace SAF.Communication.PubSub.Cde
+namespace SAF.Communication.PubSub.Cde
 {
     internal class RegistryIdentity
     {

@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: MPL-2.0
 
-﻿namespace SAF.Messaging.Routing
+namespace SAF.Messaging.Routing
 {
     public class Configuration
     {

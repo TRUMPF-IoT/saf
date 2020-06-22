@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: MPL-2.0
 
-﻿using System.Threading.Tasks;
+using System.Threading.Tasks;
 using nsCDEngine.BaseClasses;
 using nsCDEngine.Engines.ThingService;
 

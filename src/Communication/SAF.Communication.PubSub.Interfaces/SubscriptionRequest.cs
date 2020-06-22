@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: MPL-2.0
 
-﻿
+
 namespace SAF.Communication.PubSub.Interfaces
 {
     public class SubscriptionRequest

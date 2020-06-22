@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: MPL-2.0
 
-﻿
+
 using nsCDEngine.ViewModels;
 
 namespace SAF.Communication.PubSub.Cde.MessageHandler

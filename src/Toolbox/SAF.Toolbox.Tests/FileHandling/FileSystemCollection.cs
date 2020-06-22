@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: MPL-2.0
 
-﻿using Xunit;
+using Xunit;
 
 namespace SAF.Toolbox.Tests.FileHandling
 {

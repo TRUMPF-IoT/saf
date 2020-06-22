@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: MPL-2.0
 
-﻿
+
 using SAF.Common;
 using System;
 using LiteDB;

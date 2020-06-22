@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: MPL-2.0
 
-﻿namespace SAF.Common
+namespace SAF.Common
 {
     /// <summary>
     ///     A pub / sub message.

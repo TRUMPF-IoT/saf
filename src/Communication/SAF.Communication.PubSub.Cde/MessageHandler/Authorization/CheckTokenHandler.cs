@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: MPL-2.0
 
-﻿
+
 using System;
 using SAF.Communication.PubSub.Cde.Authorization;
 using nsCDEngine.ViewModels;

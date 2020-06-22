@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: MPL-2.0
 
-﻿using System;
+using System;
 using Microsoft.Extensions.DependencyInjection;
 using SAF.Toolbox.FileHandling;
 

@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: MPL-2.0
 
-﻿using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection;
 using SAF.Common;
 using SAF.Services.SampleService1.AnyOtherInternalLogic;
 using SAF.Services.SampleService1.MessageHandlers;

@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: MPL-2.0
 
-﻿namespace SAF.Common
+namespace SAF.Common
 {
     /// <summary>
     ///     Represents a handler for a system message.

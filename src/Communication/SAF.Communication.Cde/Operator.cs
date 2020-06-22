@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: MPL-2.0
 
-﻿using nsCDEngine.Engines.ThingService;
+using nsCDEngine.Engines.ThingService;
 using SAF.Communication.Cde.ConnectionTypes;
 
 namespace SAF.Communication.Cde
