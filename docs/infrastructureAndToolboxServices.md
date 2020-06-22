@@ -29,7 +29,7 @@ Currently the following implementations are available:
 
 * In-memory/In-process: Typically used for local-only applications or test environments.
 
-* Message routing: Allows the usage of multiple infrastructures and configures routing of messages between several message infrastuctures.
+* Message routing: Allows the usage of multiple message infrastructures and configures routing of messages between them.
 
 You are allowed to choose whatever implementation you need for your use case. Also feel free to use your own pub/sub messaging infrastructure implementation.
 
