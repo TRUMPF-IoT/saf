@@ -49,10 +49,10 @@ jobs:
         dotnet-version: 3.1.101
         
     - name: .NET Core SxS Workaround
-       run: |
-         SET DOTNET_22_ROOT=%DOTNET_ROOT:3.1.101=2.2.402%
-         xcopy /s /y /d %DOTNET_22_ROOT% %DOTNET_ROOT%
-       shell: cmd
+      run: |
+        SET DOTNET_22_ROOT=%DOTNET_ROOT:3.1.101=2.2.402%
+        xcopy /s /y /d %DOTNET_22_ROOT% %DOTNET_ROOT%
+      shell: cmd
       
     - name: Install dependencies
       run: dotnet restore './src/SmartApplicationFramework.sln'
