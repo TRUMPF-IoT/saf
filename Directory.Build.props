@@ -8,7 +8,7 @@ SPDX-License-Identifier: MPL-2.0
 
   <PropertyGroup>
     <Copyright>Copyright 2017-2020 (c) TRUMPF Laser GmbH</Copyright>
-    <Product>Service Application Framework</Product>
+    <Product>Smart Application Framework</Product>
     <Authors>TRUMPF Laser GmbH</Authors>
     <PackageLicenseExpression>MPL-2.0</PackageLicenseExpression>
     <PackageRequireLicenseAcceptance>true</PackageRequireLicenseAcceptance>
