@@ -54,6 +54,10 @@ jobs:
         xcopy /s /y /d %DOTNET_22_ROOT% %DOTNET_ROOT%
       shell: cmd
       
+    - name: Create certificate path
+      run: |
+        mkdir -p ./certs
+      
     - name: Prepare code signing
       id: createCdeCert
       uses: timheuer/base64-to-file@v1.0.3
