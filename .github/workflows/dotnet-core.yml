@@ -54,12 +54,29 @@ jobs:
         xcopy /s /y /d %DOTNET_22_ROOT% %DOTNET_ROOT%
       shell: cmd
       
+    - name: Prepare code signing
+      id: createCdeCert
+      uses: timheuer/base64-to-file@v1.0.3
+      with:
+        fileName: './certs/codesign.pfx'
+        encodedString: ${{ secrets.CODESIGNCERT }}
+      
     - name: Install dependencies
       run: dotnet restore './src/SmartApplicationFramework.sln'
+      
     - name: Build
       run: dotnet build './src/SmartApplicationFramework.sln' --configuration Release --no-restore
+      
     - name: Test
-      run: dotnet test './src/SmartApplicationFramework.sln' --configuration Release --no-build --verbosity normal
+      run: dotnet test './src/SmartApplicationFramework.sln' --configuration Release --no-build --verbosity normal      
+        
+    - name: Sign CDE Plug-ins
+      run: |
+        SET SIGNTOOL_PARAMS=/f '{{ steps.createCdeCert.outputs.filePath }}' /p '${{ secrets.CODESIGNCERTPASSWORD }}' /tr 'http://timestamp.digicert.com' /td sha256 /fd sha256
+        signtool sign %SIGNTOOL_PARAMS% ./src/Communication/CDMy.SAF.PubSub.Registry/bin/Release/netstandard2.0/CDMy.SAF.PubSub.Registry.dll
+        signtool sign %SIGNTOOL_PARAMS% ./src/Hosting/CDMy.SmartApplicationFramework/bin/Release/netstandard2.0/CDMy.SmartApplicationFramework.dll
+      shell: cmd
+      
     - name: Pack
       run: |
         mkdir -p ./artifacts
