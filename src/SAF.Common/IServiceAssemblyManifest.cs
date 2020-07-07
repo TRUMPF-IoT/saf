@@ -7,7 +7,7 @@ using Microsoft.Extensions.DependencyInjection;
 namespace SAF.Common
 {
     /// <summary>
-    ///     Describes a service assembly and provides a method where the services are registred to the hosted DI container.
+    ///     Describes a service assembly and provides a method where the services are registered to the hosted DI container.
     ///     Should appear exactly once, within a service assembly.
     /// </summary>
     public interface IServiceAssemblyManifest
