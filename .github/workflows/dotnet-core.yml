@@ -54,29 +54,35 @@ jobs:
         xcopy /s /y /d %DOTNET_22_ROOT% %DOTNET_ROOT%
       shell: cmd
       
-    - name: Prepare code signing
+    - name: Prepare CDE code signing certificate
       id: createCdeCert
       uses: timheuer/base64-to-file@v1.0.3
       with:
         fileName: 'cdecodesign.pfx'
         encodedString: ${{ secrets.CODESIGNCERT }}
+        
+    - name: Prepare signtool usage
+      run: |
+        SET SIGNTOOL=%ProgramFiles(x86)%\Windows Kits\10\bin\10.0.18362.0\x64\signtool.exe
+        if not exist "signtool" mkdir "signtool"
+        xcopy /y "%SIGNTOOL%" "signtool"
+      shell: cmd
       
     - name: Install dependencies
       run: dotnet restore './src/SmartApplicationFramework.sln'
       
     - name: Build
-      run: dotnet build './src/SmartApplicationFramework.sln' --configuration Release --no-restore
-      
-    - name: Test
-      run: dotnet test './src/SmartApplicationFramework.sln' --configuration Release --no-build --verbosity normal      
+      run: |
+        dotnet build './src/SmartApplicationFramework.sln' --configuration Release --no-restore
         
     - name: Sign CDE Plug-ins
       run: |
-        SET SIGNTOOL="%ProgramFiles(x86)%\Windows Kits\10\bin\10.0.18362.0\x64\signtool.exe"
-        SET SIGNTOOL_PARAMS=sign /f '${{ steps.createCdeCert.outputs.filePath }}' /p '${{ secrets.CODESIGNCERTPASSWORD }}' /tr http://timestamp.digicert.com /td sha256 /fd sha256
-        %SIGNTOOL% %SIGNTOOL_PARAMS% %GITHUB_WORKSPACE%\src\Communication\CDMy.SAF.PubSub.Registry\bin\Release\netstandard2.0\CDMy.SAF.PubSub.Registry.dll
-        %SIGNTOOL% %SIGNTOOL_PARAMS% %GITHUB_WORKSPACE%\src\Hosting\CDMy.SmartApplicationFramework\bin\Release\netstandard2.0\CDMy.SmartApplicationFramework.dll
+        .\signtool\signtool.exe sign /f "${{ steps.createCdeCert.outputs.filePath }}" /p "${{ secrets.CODESIGNCERTPASSWORD }}" /tr http://timestamp.digicert.com /td sha256 /fd sha256 ".\src\Communication\CDMy.SAF.PubSub.Registry\bin\Release\netstandard2.0\CDMy.SAF.PubSub.Registry.dll"
+        .\signtool\signtool.exe sign /f "${{ steps.createCdeCert.outputs.filePath }}" /p "${{ secrets.CODESIGNCERTPASSWORD }}" /tr http://timestamp.digicert.com /td sha256 /fd sha256 ".\src\Hosting\CDMy.SmartApplicationFramework\bin\Release\netstandard2.0\CDMy.SmartApplicationFramework.dll"
       shell: cmd
+      
+    - name: Test
+      run: dotnet test './src/SmartApplicationFramework.sln' --configuration Release --no-build --verbosity normal      
       
     - name: Pack
       run: |

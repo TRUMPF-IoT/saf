@@ -80,3 +80,4 @@ _ReSharper*/
 # Some build output folders
 artifacts/
 minver/
+signtool/
