@@ -77,8 +77,8 @@ jobs:
         
     - name: Sign CDE Plug-ins
       run: |
-        .\signtool\signtool.exe sign /f "${{ steps.createCdeCert.outputs.filePath }}" /p "${{ secrets.CODESIGNCERTPASSWORD }}" /tr http://timestamp.digicert.com /td sha256 /fd sha256 ".\src\Communication\CDMy.SAF.PubSub.Registry\bin\Release\netstandard2.0\CDMy.SAF.PubSub.Registry.dll"
-        .\signtool\signtool.exe sign /f "${{ steps.createCdeCert.outputs.filePath }}" /p "${{ secrets.CODESIGNCERTPASSWORD }}" /tr http://timestamp.digicert.com /td sha256 /fd sha256 ".\src\Hosting\CDMy.SmartApplicationFramework\bin\Release\netstandard2.0\CDMy.SmartApplicationFramework.dll"
+        .\signtool\signtool.exe sign /f "${{ steps.createCdeCert.outputs.filePath }}" /p "${{ secrets.CODESIGNCERTPASSWORD }}" /tr http://timestamp.digicert.com ".\src\Communication\CDMy.SAF.PubSub.Registry\bin\Release\netstandard2.0\CDMy.SAF.PubSub.Registry.dll"
+        .\signtool\signtool.exe sign /f "${{ steps.createCdeCert.outputs.filePath }}" /p "${{ secrets.CODESIGNCERTPASSWORD }}" /tr http://timestamp.digicert.com ".\src\Hosting\CDMy.SmartApplicationFramework\bin\Release\netstandard2.0\CDMy.SmartApplicationFramework.dll"
       shell: cmd
       
     - name: Test
