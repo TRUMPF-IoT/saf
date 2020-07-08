@@ -93,6 +93,11 @@ namespace SAF.Toolbox.RequestClient
                         if (!tcs.TrySetResult(null))
                             _log.LogWarning($"SendRequestAwaitFirstAnswer: Couldn't set empty result for {topic}");
                     },
+                    CancelAction = () =>
+                    {
+                        if (!tcs.TrySetResult(null))
+                            _log.LogWarning($"SendRequestAwaitFirstAnswer: Couldn't set empty result for {topic}");
+                    },
                     PublishedOnHeartbeat = currentBeat,
                     ExpiresOnHeartbeat = currentBeat + heartbeatsUntilExpiry
                 };
@@ -147,6 +152,7 @@ namespace SAF.Toolbox.RequestClient
             public long ExpiresOnHeartbeat { get; set; }
             public Action<string> RequestHandlerAction { get; set; }
             public Action TimeoutAction { get; set; }
+            public Action CancelAction { get; set; }
             public string ReplyToTopic { get; set; }
             public string Topic { get; set; }
             public long PublishedOnHeartbeat { get; set; }
@@ -156,9 +162,22 @@ namespace SAF.Toolbox.RequestClient
         {
             _log.LogInformation($"Disposing RequestClient {_postfix}.");
 
-            if (_subscriptionHandle == null) return;
-            _messaging.Unsubscribe(_subscriptionHandle);
-            _subscriptionHandle = null;
+            if (_subscriptionHandle != null)
+            {
+                _messaging.Unsubscribe(_subscriptionHandle);
+                _subscriptionHandle = null;
+            }
+
+            var requests = _openRequests.Values.ToList();
+            requests.ForEach(request =>
+            {
+                if (!_openRequests.TryRemove(request.ReplyToTopic, out _)) return;
+
+                _log.LogError($"Cancelling request '{request.Topic}' (replyTo={request.ReplyToTopic}) on shutdown. Returning null.");
+                request.CancelAction();
+            });
+
+            _openRequests.Clear();
         }
     }
 }
