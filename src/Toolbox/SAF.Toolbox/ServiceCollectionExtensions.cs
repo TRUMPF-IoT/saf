@@ -7,6 +7,7 @@ using System;
 using System.Runtime.CompilerServices;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Options;
 using SAF.Toolbox.FileHandling;
 using SAF.Toolbox.FileTransfer;
 using SAF.Toolbox.Heartbeat;
@@ -52,14 +53,24 @@ namespace SAF.Toolbox
             return services;
         }
 
-        public static IServiceCollection AddServiceConfiguration<TServiceConfiguration>(this IServiceCollection serviceCollection, string configName)
+        public static IServiceCollection AddServiceConfiguration<TServiceConfiguration>(this IServiceCollection services, string configName)
             where TServiceConfiguration : class, new()
-            => serviceCollection.AddSingleton(sp =>
+        {
+            services.AddOptions();
+            services.AddSingleton<IOptionsChangeTokenSource<TServiceConfiguration>>(sp =>
             {
-                var configuration = new TServiceConfiguration();
                 var config = sp.GetService<IConfiguration>();
-                config?.Bind(configName, configuration);
-                return configuration;
+                return new ConfigurationChangeTokenSource<TServiceConfiguration>(config);
             });
+
+            services.AddSingleton<IConfigureOptions<TServiceConfiguration>>(sp =>
+            {
+                var config = sp.GetService<IConfiguration>().GetSection(configName);
+                return new NamedConfigureFromConfigurationOptions<TServiceConfiguration>(null, config, _ => { });
+            });
+
+            services.AddSingleton(sp => sp.GetService<IOptions<TServiceConfiguration>>().Value);
+            return services;
+        }
     }
 }
