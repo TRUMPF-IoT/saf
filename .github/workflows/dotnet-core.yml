@@ -99,5 +99,5 @@ jobs:
     - name: Publish nuget packages
       if: github.event_name == 'push' && contains(github.ref, 'refs/tags/')
       run: |
-        dotnet nuget push './artifacts/*.nupkg' --api-key ${{secrets.SAF_NUGETORG_APIKEY}} --source https://api.nuget.org/v3/index.json
+        dotnet nuget push ".\artifacts\*.nupkg" --api-key "${{secrets.SAF_NUGETORG_APIKEY}}" --source https://api.nuget.org/v3/index.json
       
