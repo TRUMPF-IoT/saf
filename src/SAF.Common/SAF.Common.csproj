@@ -8,6 +8,7 @@ SPDX-License-Identifier: MPL-2.0
 
   <PropertyGroup>
     <TargetFramework>netstandard2.0</TargetFramework>
+    <Description>Common interface and type definitions for the Smart Application Framework (SAF).</Description>
   </PropertyGroup>
 
   <ItemGroup>

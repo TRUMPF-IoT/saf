@@ -8,6 +8,7 @@ SPDX-License-Identifier: MPL-2.0
 
   <PropertyGroup>
     <TargetFramework>netstandard2.0</TargetFramework>
+    <Description>Startup infrasrtucture to initialize the Smart Application Framework (SAF) host in the context of a C-DEngine plug-in.</Description>
   </PropertyGroup>
 
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|AnyCPU'">
