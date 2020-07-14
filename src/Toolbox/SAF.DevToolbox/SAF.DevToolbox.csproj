@@ -24,7 +24,6 @@ SPDX-License-Identifier: MPL-2.0
     <ProjectReference Include="..\..\Messaging\SAF.Messaging.Cde\SAF.Messaging.Cde.csproj" />
     <ProjectReference Include="..\..\Messaging\SAF.Messaging.InProcess\SAF.Messaging.InProcess.csproj" />
     <ProjectReference Include="..\..\Messaging\SAF.Messaging.Redis\SAF.Messaging.Redis.csproj" />
-    <ProjectReference Include="..\..\Messaging\SAF.Messaging.Test\SAF.Messaging.Test.csproj" />
     <ProjectReference Include="..\..\SAF.Common\SAF.Common.csproj" />
   </ItemGroup>
 

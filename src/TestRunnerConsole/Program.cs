@@ -7,8 +7,9 @@ using System.IO;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
+using SAF.Common;
 using SAF.Hosting;
-using SAF.Messaging.Test;
+using SAF.Messaging.InProcess;
 
 namespace TestRunnerConsole
 {
@@ -36,7 +37,8 @@ namespace TestRunnerConsole
             applicationServices.AddConfiguration(config);
             applicationServices.AddHost(config.GetSection("ServiceHost").Bind, mainLogger);
             applicationServices.AddHostDiagnostics();
-            applicationServices.AddTestMessagingInfrastructure();
+            applicationServices.AddInProcessMessagingInfrastructure()
+                .AddSingleton<IMessagingInfrastructure>(sp => sp.GetRequiredService<IInProcessMessagingInfrastructure>());
 
             using(var applicationServiceProvider = applicationServices.BuildServiceProvider())
             {

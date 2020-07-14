@@ -23,7 +23,7 @@ SPDX-License-Identifier: MPL-2.0
 
   <ItemGroup>
     <ProjectReference Include="..\Hosting\SAF.Hosting\SAF.Hosting.csproj" />
-    <ProjectReference Include="..\Messaging\SAF.Messaging.Test\SAF.Messaging.Test.csproj" />
+    <ProjectReference Include="..\Messaging\SAF.Messaging.InProcess\SAF.Messaging.InProcess.csproj" />
     <ProjectReference Include="..\SAF.Common\SAF.Common.csproj" />
   </ItemGroup>
 

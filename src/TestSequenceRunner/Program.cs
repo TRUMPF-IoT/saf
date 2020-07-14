@@ -12,9 +12,9 @@ namespace TestSequenceRunner
         {
             using(var runner = new SAF.DevToolbox.TestRunner.TestSequenceRunner())
             {
-                //runner.UseRedisInfrastructure()
-                //runner.UseCdeInfrastructure()
-                runner.UseTestMessagingInfrastructure()
+                // runner.UseRedisInfrastructure()
+                // runner.UseCdeInfrastructure()
+                runner.UseInProcessInfrastructure()
                     .TraceTestSequences()
                     .AddTestSequence<TestSequence>()
                     .Run();
