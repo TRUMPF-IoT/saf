@@ -62,6 +62,28 @@ namespace SAF.Toolbox.Tests
             Assert.Null(response); // timed out!
         }
 
+        [Fact]
+        public async Task ReturnsNullOnDisposal()
+        {
+            // Arrange
+            var messagingMock = Substitute.For<IMessagingInfrastructure>();
+            var heartbeatMock = Substitute.For<IHeartbeat>();
+            heartbeatMock.BeatCycleTimeMillis.Returns(1000);
+
+            // Act
+            var sut = new RequestClient.RequestClient(messagingMock, heartbeatMock, null);
+            var task = sut.SendRequestAwaitFirstAnswer<DummyRequest, DummyResponse>("test", new DummyRequest(), millisecondsTimeoutTarget: 30000);
+
+            await Task.Delay(10);
+
+            sut.Dispose();
+            var response = await task;
+
+            // Assert
+            Assert.True(task.IsCompleted);
+            Assert.Null(response); // canceled!
+        }
+
         private class DummyRequest : MessageRequestBase
         {
         }
