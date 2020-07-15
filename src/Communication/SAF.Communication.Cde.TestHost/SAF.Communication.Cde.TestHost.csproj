@@ -20,7 +20,6 @@ SPDX-License-Identifier: MPL-2.0
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\CDMy.SAF.PubSub.Registry\CDMy.SAF.PubSub.Registry.csproj" />
     <ProjectReference Include="..\CDMy.SAF.PubSub.Tests\CDMy.SAF.PubSub.Tests.csproj" />
   </ItemGroup>
 
