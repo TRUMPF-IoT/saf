@@ -6,7 +6,6 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
-using System.Reflection;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
@@ -15,7 +14,6 @@ using SAF.Hosting;
 using SAF.Messaging.Cde;
 using SAF.Messaging.InProcess;
 using SAF.Messaging.Redis;
-using SAF.Messaging.Test;
 
 namespace SAF.DevToolbox.TestRunner
 {
@@ -90,15 +88,10 @@ namespace SAF.DevToolbox.TestRunner
             return this;
         }
 
-        public TestSequenceRunner UseInProcessMessagingInfrastructure()
+        public TestSequenceRunner UseInProcessInfrastructure()
         {
-            _applicationServices.AddInProcessMessagingInfrastructure(m => _currentTestSequenceTracer?.MessagingTrace(m));
-            return this;
-        }
-
-        public TestSequenceRunner UseTestMessagingInfrastructure()
-        {
-            _applicationServices.AddTestMessagingInfrastructure(m => _currentTestSequenceTracer?.MessagingTrace(m));
+            _applicationServices.AddInProcessMessagingInfrastructure(m => _currentTestSequenceTracer?.MessagingTrace(m))
+                .AddSingleton<IMessagingInfrastructure>(sp => sp.GetRequiredService<IInProcessMessagingInfrastructure>());
             return this;
         }
 
