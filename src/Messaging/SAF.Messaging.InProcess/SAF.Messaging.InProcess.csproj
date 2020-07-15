@@ -8,6 +8,7 @@ SPDX-License-Identifier: MPL-2.0
 
   <PropertyGroup>
     <TargetFramework>netstandard2.0</TargetFramework>
+    <Description>Smart Application Framework (SAF) messaging infrastructure for in-process communication.</Description>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
   </PropertyGroup>
 
