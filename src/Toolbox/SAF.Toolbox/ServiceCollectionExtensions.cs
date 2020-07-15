@@ -23,7 +23,7 @@ namespace SAF.Toolbox
         public static IServiceCollection AddHeartbeat(this IServiceCollection services, int heartbeatMillis = 1000)
             => services.AddSingleton<IHeartbeat, Heartbeat.Heartbeat>(ctx => new Heartbeat.Heartbeat(heartbeatMillis));
 
-        public static IServiceCollection AddHeartbeatFactory(this IServiceCollection services)
+        public static IServiceCollection AddHeartbeatPool(this IServiceCollection services)
             => services.AddSingleton<IHeartbeatPool, HeartbeatPool>()
                 .AddTransient<Func<int, IHeartbeat>>(sp => heartbeatMillis =>
                 {
