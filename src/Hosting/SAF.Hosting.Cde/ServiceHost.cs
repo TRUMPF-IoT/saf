@@ -42,7 +42,7 @@ namespace SAF.Hosting.Cde
 
             var config = new ConfigurationBuilder()
                 .SetBasePath(AppDomain.CurrentDomain.BaseDirectory)
-                .AddJsonFile("safsettings.json", optional: true, reloadOnChange: false)
+                .AddJsonFile("safsettings.json", optional: true, reloadOnChange: true)
                 .Build();
 
             _baseServiceProvider = applicationServices.BuildServiceProvider();

@@ -5,8 +5,10 @@
 using System;
 using System.Collections.Generic;
 using System.Threading;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
+using Microsoft.Extensions.Options;
 using SAF.Common;
 using SAF.Services.SampleService1.AnyOtherInternalLogic;
 using SAF.Services.SampleService1.MessageHandlers;
@@ -19,18 +21,27 @@ namespace SAF.Services.SampleService1
         private readonly ILogger _log;
         private readonly IMessagingInfrastructure _messaging;
         private readonly MyServiceConfiguration _config;
+        private readonly IConfiguration _hostConfig;
         private Timer _timer;
         private long _pingId;
 
         private readonly List<object> _subscriptions = new List<object>();
 
-        public MySpecialService(ILogger log, MyInternalDependency internalDependency, IMessagingInfrastructure messaging, MyServiceConfiguration serviceConfig)
+        public MySpecialService(ILogger log,
+            MyInternalDependency internalDependency,
+            IMessagingInfrastructure messaging,
+            MyServiceConfiguration serviceConfig,
+            IOptionsMonitor<MyServiceConfiguration> monitoredConfig,
+            IConfiguration hostConfig)
         {
             _log = log ?? NullLogger<MySpecialService>.Instance;
             _messaging = messaging;
             _config = serviceConfig;
+            _hostConfig = hostConfig;
 
             internalDependency.SayHello();
+
+            monitoredConfig.OnChange(OnServiceConfigurationChanged);
         }
 
         public void Start()
@@ -80,6 +91,11 @@ namespace SAF.Services.SampleService1
                 _messaging?.Unsubscribe(subscription);
 
             _subscriptions.Clear();
+        }
+
+        private void OnServiceConfigurationChanged(MyServiceConfiguration newConfig, string optionName)
+        {
+            _log.LogInformation($"Service configuration changed: {newConfig.MyNumericSetting}, {newConfig.MyStringSetting}");
         }
     }
 }
