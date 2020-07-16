@@ -6,6 +6,13 @@ using System.Collections.Generic;
 
 namespace SAF.Messaging.Cde
 {
+    public class CdeCryptoLibConfig
+    {
+        public string DllName { get; set; }
+        public bool DontVerifyTrust { get; set; }
+        public bool DontVerifyIntegrity { get; set; }
+    }
+
     public class CdeConfiguration
     {
         public bool UseRandomScopeId { get; set; }
@@ -29,6 +36,8 @@ namespace SAF.Messaging.Cde
         public bool DontVerifyTrust { get; set; }
         public string LogIgnore { get; set; }
         public int PreShutdownDelay { get; set; }
+
+        public CdeCryptoLibConfig CrypoLibConfig { get; set; }
 
         public IDictionary<string, string> AdditionalArguments { get; set; } = new Dictionary<string, string>();
     }

@@ -48,6 +48,8 @@ namespace SAF.Messaging.Cde
 
         private async Task<TheBaseApplication> StartCde(CdeConfiguration config)
         {
+            LoadAlternateCryptoLib(config.CrypoLibConfig);
+
             TheScopeManager.SetApplicationID(config.ApplicationId);
 
             TheBaseAssets.MyServiceHostInfo = new TheServiceHostInfo(cdeHostType.Application)
@@ -94,6 +96,16 @@ namespace SAF.Messaging.Cde
             await TheBaseEngine.WaitForStorageReadinessAsync(true);
 
             return app;
+        }
+
+        private void LoadAlternateCryptoLib(CdeCryptoLibConfig cryptpLibConfig)
+        {
+            if (string.IsNullOrWhiteSpace(cryptpLibConfig?.DllName)) return;
+
+            var error = TheBaseAssets.LoadCrypto(cryptpLibConfig.DllName, null, cryptpLibConfig.DontVerifyTrust, null,
+                true, cryptpLibConfig.DontVerifyIntegrity);
+            if(!string.IsNullOrWhiteSpace(error))
+                throw new InvalidOperationException($"Failed loading configured crypto DLL: '{error}'");
         }
 
         private static void ApplyScopeId(CdeConfiguration config)
