@@ -160,7 +160,7 @@ namespace SAF.Hosting.Tests
 
             public string FriendlyName => "Internal test service - only for this test";
 
-            public void RegisterDependencies(IServiceCollection services)
+            public void RegisterDependencies(IServiceCollection services, IServiceHostContext context)
             {
                 services.AddHosted<CountingTestService>();
                 services.AddSingleton(typeof(CallCounters), r => _counters);

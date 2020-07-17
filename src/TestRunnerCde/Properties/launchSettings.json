@@ -2,7 +2,10 @@
   "profiles": {
     "TestRunnerCde": {
       "commandName": "Project",
-      "commandLineArgs": "host=saf"
+      "commandLineArgs": "host=saf",
+      "environmentVariables": {
+        "NETCORE_ENVIRONMENT": "Debug"
+      }
     }
   }
 }

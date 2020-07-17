@@ -126,7 +126,7 @@ namespace SAF.DevToolbox.TestRunner
 
         public TestSequenceRunner RegisterTestDependencies(IServiceAssemblyManifest testManifest)
         {
-            testManifest?.RegisterDependencies(_applicationServices);
+            _applicationServices.AddSingleton(sp => testManifest);
             return this;
         }
 

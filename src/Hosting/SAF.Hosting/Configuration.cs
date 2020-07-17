@@ -19,6 +19,10 @@ namespace SAF.Hosting
         /// </remarks>
         public string SearchPath { get; set; }
 
+        /// <summary>
+        /// Defines the base path to search for SAF service assemblies using the globbing pattern specified in the property <see cref="SearchPath"/>.
+        /// </summary>
+        /// <remarks>In case no BasePath is specified SAF will use the current AppDomains base directory.</remarks>
         public string BasePath { get; set; }
 
         /// <summary>

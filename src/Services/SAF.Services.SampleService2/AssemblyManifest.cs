@@ -11,7 +11,7 @@ namespace SAF.Services.SampleService2
     {
         public string FriendlyName => "Meine zweite Assembly";
 
-        public void RegisterDependencies(IServiceCollection services)
+        public void RegisterDependencies(IServiceCollection services, IServiceHostContext context)
         {
             services.AddHosted<MyService>();
         }

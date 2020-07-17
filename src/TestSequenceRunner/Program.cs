@@ -16,6 +16,7 @@ namespace TestSequenceRunner
                 // runner.UseCdeInfrastructure()
                 runner.UseInProcessInfrastructure()
                     .TraceTestSequences()
+                    .RegisterTestDependencies(new TestAssemblyManifest())
                     .AddTestSequence<TestSequence>()
                     .Run();
             }

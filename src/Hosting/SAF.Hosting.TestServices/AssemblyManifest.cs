@@ -15,5 +15,8 @@ namespace SAF.Hosting.TestServices
         {
             services.AddHosted<DummyService>();
         }
+
+        public void RegisterDependencies(IServiceCollection services, IServiceHostContext context)
+            => RegisterDependencies(services);
     }
 }

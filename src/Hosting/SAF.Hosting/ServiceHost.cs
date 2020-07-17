@@ -5,6 +5,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Reflection;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
@@ -20,6 +21,10 @@ namespace SAF.Hosting
         private readonly IEnumerable<IServiceAssemblyManifest> _serviceAssemblies;
         private readonly IServiceMessageDispatcher _messageDispatcher;
 
+        private readonly IConfiguration _configuration;
+        private readonly ServiceHostEnvironment _environment;
+        private readonly IServiceHostContext _context;
+
         private readonly List<IHostedService> _services = new List<IHostedService>();
 
         public ServiceHost(
@@ -32,6 +37,10 @@ namespace SAF.Hosting
             _log = log ?? NullLogger<ServiceHost>.Instance;
             _messageDispatcher = messageDispatcher;
             _serviceAssemblies = serviceAssemblies;
+
+            _configuration = _runtimeApplicationServiceProvider.GetService<IConfiguration>();
+            _environment = BuildServiceHostEnvironment();
+            _context = BuildServiceHostContext();
 
             InitializeServices();
             AddRuntimeMessageHandlersToDispatcher();
@@ -55,6 +64,25 @@ namespace SAF.Hosting
             }
         }
 
+        private ServiceHostEnvironment BuildServiceHostEnvironment()
+        {
+            return new ServiceHostEnvironment
+            {
+                ApplicationName = Assembly.GetEntryAssembly()?.GetName().Name,
+                EnvironmentName = GetEnvironment()
+            };
+        }
+
+        private IServiceHostContext BuildServiceHostContext()
+        {
+            return new ServiceHostContext
+            {
+                Configuration = _runtimeApplicationServiceProvider.GetService<IConfiguration>(),
+                Environment = _environment,
+                HostInfo = _runtimeApplicationServiceProvider.GetService<IHostInfo>()
+            };
+        }
+
         private void InitializeServices()
         {
             foreach(var manifest in _serviceAssemblies)
@@ -65,7 +93,7 @@ namespace SAF.Hosting
 
                 RedirectCommonServicesFromOuterContainer(assemblyServiceCollection);
 
-                manifest.RegisterDependencies(assemblyServiceCollection);
+                manifest.RegisterDependencies(assemblyServiceCollection, _context);
                 var assemblyServiceProvider = assemblyServiceCollection.BuildServiceProvider();
 
                 var servicesToAdd = assemblyServiceProvider.GetServices<IHostedService>();
@@ -104,6 +132,19 @@ namespace SAF.Hosting
                 _log.LogDebug($"Add runtime message handler factory function to dispatcher: {type.FullName}.");
                 _messageDispatcher.AddHandler(type.FullName, () => runtimeApplicationMessageHandler);
             }
+        }
+
+        private string GetEnvironment()
+        {
+            string environment = null;
+
+            if (_configuration != null)
+                environment = _configuration["environment"];
+
+            if(string.IsNullOrWhiteSpace(environment))
+                environment = Environment.GetEnvironmentVariable("NETCORE_ENVIRONMENT");
+
+            return string.IsNullOrEmpty(environment) ? "Production" : environment;
         }
     }
 }

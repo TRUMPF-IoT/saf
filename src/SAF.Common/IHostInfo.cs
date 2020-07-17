@@ -6,6 +6,9 @@ using System;
 
 namespace SAF.Common
 {
+    /// <summary>
+    /// Provides information about the Smart Application Framework (SAF) host instance.
+    /// </summary>
     public interface IHostInfo
     {
         /// <summary>
@@ -24,10 +27,13 @@ namespace SAF.Common
         DateTimeOffset UpSince { get; }
 
         /// <summary>
-        /// Gets the base path, where the filesystem is accessible to the user.
+        /// Gets the file system base path in which user specific data is stored.
         /// </summary>
         string FileSystemUserBasePath { get; }
 
+        /// <summary>
+        /// Gets the file system base path representing the installation folder of the SAF host application.
+        /// </summary>
         string FileSystemInstallationPath { get; }
     }
 }

@@ -23,7 +23,7 @@ namespace TestRunnerRedis
             var config = new ConfigurationBuilder()
                 .SetBasePath(Directory.GetCurrentDirectory())
                 .AddJsonFile("appsettings.json", optional: true, reloadOnChange: false)
-                .AddJsonFile($"appsettings_{environment}.json", optional: true, reloadOnChange: false)
+                .AddJsonFile($"appsettings.{environment}.json", optional: true, reloadOnChange: false)
                 .Build();
 
             var applicationServices = new ServiceCollection();
