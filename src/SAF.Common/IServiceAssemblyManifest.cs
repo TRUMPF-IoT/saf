@@ -22,6 +22,7 @@ namespace SAF.Common
         ///     Use Microsoft.Extensions.DependencyInjection.Abstractions extension methods to register (AddTransient, ...).
         /// </summary>
         /// <param name="services">The collection to register the services.</param>
-        void RegisterDependencies(IServiceCollection services);
+        /// <param name="context">Information about the SAF hosting context the services will run in.</param>
+        void RegisterDependencies(IServiceCollection services, IServiceHostContext context);
     }
 }

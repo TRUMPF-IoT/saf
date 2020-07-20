@@ -14,7 +14,7 @@ namespace SAF.Services.SampleService1
     {
         public string FriendlyName => "My special services.";
 
-        public void RegisterDependencies(IServiceCollection services)
+        public void RegisterDependencies(IServiceCollection services, IServiceHostContext context)
         {
             // dependencies
             services.AddTransient<MyInternalDependency>();
@@ -22,7 +22,7 @@ namespace SAF.Services.SampleService1
             services.AddTransient<PingMessageHandler>();
 
             // "microservice" settings
-            services.AddServiceConfiguration<MyServiceConfiguration>(nameof(MySpecialService));
+            services.AddServiceConfiguration<MyServiceConfiguration>(context.Configuration, nameof(MySpecialService));
 
             // "microservices"
             services.AddHosted<MySpecialService>();

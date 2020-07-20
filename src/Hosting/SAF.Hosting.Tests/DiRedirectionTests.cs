@@ -119,7 +119,7 @@ namespace SAF.Hosting.Tests
         {
             public string FriendlyName => nameof(DummyServiceManifest);
 
-            public void RegisterDependencies(IServiceCollection services)
+            public void RegisterDependencies(IServiceCollection services, IServiceHostContext context)
             {
                 services.AddHosted<DummyService>();
             }

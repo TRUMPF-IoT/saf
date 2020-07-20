@@ -4,7 +4,6 @@
 
 using System;
 using System.Collections.Generic;
-using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Reflection;
@@ -38,20 +37,18 @@ namespace SAF.Hosting
         {
             logger = logger ?? NullLogger.Instance;
 
-            var config = new Configuration();
-            configure(config);
-            config.BasePath = string.IsNullOrEmpty(config.BasePath) ? AppDomain.CurrentDomain.BaseDirectory : config.BasePath;
-            config.SearchFilenamePattern = string.IsNullOrEmpty(config.SearchFilenamePattern) ? ".*" : config.SearchFilenamePattern;
-            if (string.IsNullOrWhiteSpace(config.SearchPath))
+            var config = new Configuration
             {
-                const string errorLog = "Configuration setting \"SearchPath\" not set!";
-                logger.LogCritical(errorLog);
-                throw new InvalidOperationException(errorLog);
-            }
+                BasePath = AppDomain.CurrentDomain.BaseDirectory,
+                SearchFilenamePattern = ".*"
+            };
+
+            configure(config);
+            ValidateConfiguration(logger, config);
             
             logger.LogInformation($"Searching SAF service assemblies using BasePath: {config.BasePath}, SearchPath: {config.SearchPath}, SearchFilenamePattern: {config.SearchFilenamePattern}");
             var results = SearchServiceAssemblies(config.BasePath, config.SearchPath, config.SearchFilenamePattern).ToList();
-            logger.LogInformation($"Found {results.Count} possible SAF service assemblies [{string.Join(", ", results.Select(_ => Path.GetFileName(_)))}]");
+            logger.LogInformation($"Found {results.Count} possible SAF service assemblies [{string.Join(", ", results.Select(Path.GetFileName))}]");
 
             var loaded = 0;
             foreach(var assembly in results)
@@ -118,7 +115,7 @@ namespace SAF.Hosting
 
             // Filter assemblies using RegEx
             var serviceAssemblyNameRegEx = new Regex(fileNameFilterRegEx, RegexOptions.IgnoreCase);
-            results = results.Where(_ => serviceAssemblyNameRegEx.IsMatch(Path.GetFileName(_))).ToList();
+            results = results.Where(assembly => serviceAssemblyNameRegEx.IsMatch(Path.GetFileName(assembly))).ToList();
 
             return results;
         }
@@ -142,6 +139,26 @@ namespace SAF.Hosting
                 storage?.Set(storageKey, id);
             }
             return id;
+        }
+
+        private static void ValidateConfiguration(ILogger logger, Configuration config)
+        {
+            const string errorLogFormat = "Configuration setting \"{0}\" not set!";
+
+            string missingConfig = null;
+            if (string.IsNullOrWhiteSpace(config.BasePath))
+                missingConfig = nameof(config.BasePath);
+            else if (string.IsNullOrWhiteSpace(config.SearchFilenamePattern))
+                missingConfig = nameof(config.SearchFilenamePattern);
+            else if (string.IsNullOrWhiteSpace(config.SearchPath))
+                missingConfig = nameof(config.SearchPath);
+
+            if (!string.IsNullOrWhiteSpace(missingConfig))
+            {
+                var error = string.Format(errorLogFormat, missingConfig);
+                logger.LogCritical(error);
+                throw new InvalidOperationException(error);
+            }
         }
     }
 }

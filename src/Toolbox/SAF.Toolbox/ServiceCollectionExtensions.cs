@@ -53,23 +53,12 @@ namespace SAF.Toolbox
             return services;
         }
 
-        public static IServiceCollection AddServiceConfiguration<TServiceConfiguration>(this IServiceCollection services, string configName)
+        public static IServiceCollection AddServiceConfiguration<TServiceConfiguration>(this IServiceCollection services, IConfiguration hostConfig, string configName)
             where TServiceConfiguration : class, new()
         {
-            services.AddOptions();
-            services.AddSingleton<IOptionsChangeTokenSource<TServiceConfiguration>>(sp =>
-            {
-                var config = sp.GetService<IConfiguration>();
-                return new ConfigurationChangeTokenSource<TServiceConfiguration>(config);
-            });
+            services.Configure<TServiceConfiguration>(hostConfig.GetSection(configName))
+                .AddSingleton(sp => sp.GetService<IOptions<TServiceConfiguration>>().Value);
 
-            services.AddSingleton<IConfigureOptions<TServiceConfiguration>>(sp =>
-            {
-                var config = sp.GetService<IConfiguration>().GetSection(configName);
-                return new NamedConfigureFromConfigurationOptions<TServiceConfiguration>(null, config, _ => { });
-            });
-
-            services.AddSingleton(sp => sp.GetService<IOptions<TServiceConfiguration>>().Value);
             return services;
         }
     }

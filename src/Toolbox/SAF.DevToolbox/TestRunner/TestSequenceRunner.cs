@@ -126,7 +126,8 @@ namespace SAF.DevToolbox.TestRunner
 
         public TestSequenceRunner RegisterTestDependencies(IServiceAssemblyManifest testManifest)
         {
-            testManifest?.RegisterDependencies(_applicationServices);
+            // TODO: Improve handling of tests and test dependencies to be able to apply the correct ServiceHostContext.
+            testManifest?.RegisterDependencies(_applicationServices, null);
             return this;
         }
 
