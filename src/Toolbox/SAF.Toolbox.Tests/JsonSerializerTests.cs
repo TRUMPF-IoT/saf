@@ -25,7 +25,7 @@ namespace SAF.Toolbox.Tests
         }
 
         [Fact]
-        public void DicitioariesAreNotCamelCased()
+        public void DictionariesAreNotCamelCased()
         {
             var objectToSerialize = new Dictionary<string, int>()
             {
