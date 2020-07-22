@@ -8,6 +8,7 @@ using System.Runtime.CompilerServices;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
+using SAF.Common;
 using SAF.Toolbox.FileTransfer;
 using SAF.Toolbox.Heartbeat;
 using SAF.Toolbox.RequestClient;
@@ -31,7 +32,13 @@ namespace SAF.Toolbox
                 });
 
         public static IServiceCollection AddFileHandling(this IServiceCollection services)
-            => services.AddTransient<IFileSystem, FileSystem>();
+            => services.AddTransient<IFileSystem, FileSystem>()
+                .AddTransient(sp =>
+                {
+                    var hi = sp.GetService<IHostInfo>();
+                    var fs = sp.GetService<IFileSystem>();
+                    return fs.DirectoryInfo.FromDirectoryName(hi.FileSystemUserBasePath);
+                });
 
         public static IServiceCollection AddRequestClient(this IServiceCollection services)
             => services.AddSingleton<IRequestClient, RequestClient.RequestClient>();
