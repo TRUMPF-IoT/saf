@@ -2,13 +2,13 @@
 //
 // SPDX-License-Identifier: MPL-2.0
 
-
 using System;
+using System.IO.Abstractions;
 using System.Runtime.CompilerServices;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
-using SAF.Toolbox.FileHandling;
+using SAF.Common;
 using SAF.Toolbox.FileTransfer;
 using SAF.Toolbox.Heartbeat;
 using SAF.Toolbox.RequestClient;
@@ -32,10 +32,15 @@ namespace SAF.Toolbox
                 });
 
         public static IServiceCollection AddFileHandling(this IServiceCollection services)
-        {
-            return services.AddTransient<Func<string, IFileSystemDirectory>>(sp => path => new FileSystemDirectory(path))
-                .AddTransient<IFileSystemDirectory, FileSystemDirectory>();
-        }
+            => services.AddTransient<IFileSystem, FileSystem>()
+                .AddTransient(sp =>
+                {
+                    var hi = sp.GetRequiredService<IHostInfo>();
+                    var fs = sp.GetRequiredService<IFileSystem>();
+                    var di = fs.DirectoryInfo.FromDirectoryName(hi.FileSystemUserBasePath);
+                    if(!di.Exists) di.Create();
+                    return di;
+                });
 
         public static IServiceCollection AddRequestClient(this IServiceCollection services)
             => services.AddSingleton<IRequestClient, RequestClient.RequestClient>();
