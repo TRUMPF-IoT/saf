@@ -35,9 +35,11 @@ namespace SAF.Toolbox
             => services.AddTransient<IFileSystem, FileSystem>()
                 .AddTransient(sp =>
                 {
-                    var hi = sp.GetService<IHostInfo>();
-                    var fs = sp.GetService<IFileSystem>();
-                    return fs.DirectoryInfo.FromDirectoryName(hi.FileSystemUserBasePath);
+                    var hi = sp.GetRequiredService<IHostInfo>();
+                    var fs = sp.GetRequiredService<IFileSystem>();
+                    var di = fs.DirectoryInfo.FromDirectoryName(hi.FileSystemUserBasePath);
+                    if(!di.Exists) di.Create();
+                    return di;
                 });
 
         public static IServiceCollection AddRequestClient(this IServiceCollection services)
