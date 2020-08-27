@@ -168,7 +168,7 @@ namespace SAF.Storage.LiteDb.Test
         }
 
         [Fact]
-        public void ParallelCallsOK()
+        public void ParallelCallsOk()
         {
             using (var db = new LiteDatabase(new ConnectionString(DBName)
             {
@@ -177,28 +177,27 @@ namespace SAF.Storage.LiteDb.Test
             {
                 var storage = new Storage(db);
 
-                Parallel.For(0, 20, (id) =>
+                Parallel.For(0, 20, id =>
                 {
-                    var storageId = $"Storage{id.ToString()}";
-                    Parallel.For(0, 10, (fId) =>
+                    var storageId = $"Storage{id}";
+                    Parallel.For(0, 10, fId =>
                     {
-                        var stringID = fId.ToString();
-                        storage.Set(storageId, stringID, stringID);
+                        var stringId = fId.ToString();
+                        storage.Set(storageId, stringId, stringId);
                     });
 
                     Parallel.For(0, 10, fId =>
                     {
-                        var stringID = fId.ToString();
-                        var result = storage.GetString(storageId, stringID);
-                        Assert.Equal(stringID, result);
+                        var stringId = fId.ToString();
+                        var result = storage.GetString(storageId, stringId);
+                        Assert.Equal(stringId, result);
                     });
-
                 });
             }
         }
 
         [Fact]
-        public void LegacyCallsOK()
+        public void LegacyCallsOk()
         {
             using (var db = new LiteDatabase(new ConnectionString(DBName)
             {
