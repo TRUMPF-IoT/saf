@@ -7,6 +7,7 @@ using SAF.Common;
 using System;
 using LiteDB;
 using System.Collections.Generic;
+using System.Threading;
 
 namespace SAF.Storage.LiteDb
 {
@@ -17,7 +18,9 @@ namespace SAF.Storage.LiteDb
         private const string ValueKey = "value";
         private const string IdKey = "_id";
         private const string ModifiedDateKey = "modifiedDate";
-        private ILiteDatabase _connection;
+        private readonly ILiteDatabase _connection;
+
+        private readonly ReaderWriterLockSlim _syncDbAccess = new ReaderWriterLockSlim(LockRecursionPolicy.SupportsRecursion);
 
         public Storage(ILiteDatabase connection)
         {
@@ -59,12 +62,20 @@ namespace SAF.Storage.LiteDb
 
         private BsonValue Get(string area, string key)
         {
-            var item = GetCollection(area).FindOne(Query.EQ(IdKey, key));
+            _syncDbAccess.EnterReadLock();
+            try
+            {
+                var item = GetCollection(area).FindOne(Query.EQ(IdKey, key));
 
-            if (item == null) return null;
+                if (item == null) return null;
 
-            item.TryGetValue(ValueKey, out var value);
-            return value;
+                item.TryGetValue(ValueKey, out var value);
+                return value;
+            }
+            finally
+            {
+                _syncDbAccess.ExitReadLock();
+            }
         }
 
         public IStorageInfrastructure Set(string key, string value)
@@ -88,13 +99,23 @@ namespace SAF.Storage.LiteDb
         }
         private IStorageInfrastructure Set(string area, string key, BsonValue value)
         {
-            GetCollection(area).Upsert(
-                new BsonDocument(new Dictionary<string, BsonValue> {
-                    { IdKey, key },
-                    { ValueKey, value },
-                    { ModifiedDateKey, DateTime.UtcNow }
-                }));
-            return this;
+            _syncDbAccess.EnterWriteLock();
+            try
+            {
+                GetCollection(area).Upsert(
+                    new BsonDocument(new Dictionary<string, BsonValue>
+                    {
+                        {IdKey, key},
+                        {ValueKey, value},
+                        {ModifiedDateKey, DateTime.UtcNow}
+                    }));
+
+                return this;
+            }
+            finally
+            {
+                _syncDbAccess.ExitWriteLock();
+            }
         }
 
         private ILiteCollection<BsonDocument> GetCollection(string areaName)
