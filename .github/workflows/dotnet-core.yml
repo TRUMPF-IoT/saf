@@ -37,22 +37,11 @@ jobs:
     - name: Run minver
       id: minver
       uses: thefringeninja/action-minver@2.0.0-preview1
-      
-    - name: Setup .NET Core 2.2
-      uses: actions/setup-dotnet@v1
-      with:
-        dotnet-version: 2.2.402
         
     - name: Setup .NET Core 3.1
       uses: actions/setup-dotnet@v1
       with:
         dotnet-version: 3.1.101
-        
-    - name: .NET Core SxS Workaround
-      run: |
-        SET DOTNET_22_ROOT=%DOTNET_ROOT:3.1.101=2.2.402%
-        xcopy /s /y /d %DOTNET_22_ROOT% %DOTNET_ROOT%
-      shell: cmd
       
     - name: Prepare CDE code signing certificate
       id: createCdeCert
