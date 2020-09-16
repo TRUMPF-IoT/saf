@@ -4,6 +4,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 using System.Reflection;
 using Microsoft.Extensions.Configuration;
@@ -48,20 +49,48 @@ namespace SAF.Hosting
 
         public void StartServices()
         {
-            foreach(var service in _services)
+            var stopWatch = new Stopwatch();
+            stopWatch.Start();
+
+            foreach (var service in _services)
             {
+                _log.LogDebug($"Starting service: {service.GetType().Name}");
+
+                var serviceStopWatch = new Stopwatch();
+                serviceStopWatch.Start();
+
                 service.Start();
-                _log.LogInformation($"Started service: {service.GetType().Name}");
+
+                serviceStopWatch.Stop();
+
+                _log.LogInformation($"Started service: {service.GetType().Name}, start-up took {serviceStopWatch.Elapsed.TotalMilliseconds * 1000000:N0} ns");
             }
+
+            stopWatch.Stop();
+            _log.LogInformation($"Starting all services took {stopWatch.Elapsed.TotalMilliseconds * 1000000:N0} ns");
         }
 
         public void Dispose()
         {
-            foreach(var service in _services)
+            var stopWatch = new Stopwatch();
+            stopWatch.Start();
+
+            foreach (var service in _services)
             {
+                _log.LogDebug($"Stopping service: {service.GetType().Name}");
+
+                var serviceStopWatch = new Stopwatch();
+                serviceStopWatch.Start();
+
                 service.Stop();
-                _log.LogInformation($"Stopped service: {service.GetType().Name}");
+
+                serviceStopWatch.Stop();
+
+                _log.LogInformation($"Stopped service: {service.GetType().Name}, shutdown took {serviceStopWatch.Elapsed.TotalMilliseconds * 1000000:N0} ns");
             }
+
+            stopWatch.Stop();
+            _log.LogInformation($"Stopping all services took {stopWatch.Elapsed.TotalMilliseconds * 1000000:N0} ns");
         }
 
         private ServiceHostEnvironment BuildServiceHostEnvironment()

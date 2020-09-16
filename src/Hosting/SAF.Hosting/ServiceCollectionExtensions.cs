@@ -4,6 +4,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Reflection;
@@ -54,11 +55,12 @@ namespace SAF.Hosting
             foreach(var assembly in results)
             {
                 var loadedAssembly = Assembly.LoadFrom(assembly);
-                logger.LogInformation("Loading assembly: {0}, Version: {1}", assembly, loadedAssembly.GetName().Version.ToString());
+                var versionInfo = FileVersionInfo.GetVersionInfo(loadedAssembly.Location);
+                logger.LogInformation($"Loading assembly: {assembly}, FileVersion: {versionInfo.FileVersion}, ProductVersion: {versionInfo.ProductVersion}, Version: {loadedAssembly.GetName().Version}");
 
                 var manifest = loadedAssembly.GetExportedTypes().SingleOrDefault(t => t.IsClass && typeof(IServiceAssemblyManifest).IsAssignableFrom(t));
 
-                if(manifest == default(Type))
+                if(manifest == default)
                 {
                     logger.LogError($"Assembly {loadedAssembly.FullName} skipped: a valid assembly should contain exactly one public manifest.");
                     continue;
