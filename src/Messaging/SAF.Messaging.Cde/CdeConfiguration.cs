@@ -11,6 +11,7 @@ namespace SAF.Messaging.Cde
         public string DllName { get; set; }
         public bool DontVerifyTrust { get; set; }
         public bool DontVerifyIntegrity { get; set; }
+        public bool VerifyTrustPath { get; set; } = true;
     }
 
     public class CdeConfiguration
