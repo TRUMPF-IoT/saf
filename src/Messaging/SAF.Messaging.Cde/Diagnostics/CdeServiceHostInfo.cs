@@ -4,6 +4,7 @@
 
 using nsCDEngine.BaseClasses;
 using System;
+using System.IO;
 
 namespace SAF.Messaging.Cde.Diagnostics
 {
@@ -11,17 +12,17 @@ namespace SAF.Messaging.Cde.Diagnostics
     {
         public CdeServiceHostInfo()
         {
-            var (buildNumber, buildDate) = BuildInformationFromVersionString(TheBaseAssets.MyServiceHostInfo.Version);
+            var (buildNumber, buildDate) = BuildInformationFromCdeType(TheBaseAssets.MyServiceHostInfo.GetType());
             BuildNumber = buildNumber;
             BuildDate = buildDate;
         }
 
-        private static (string buildNumber, DateTimeOffset buildDate) BuildInformationFromVersionString(string version)
+        private static (string buildNumber, DateTimeOffset buildDate) BuildInformationFromCdeType(Type cdeType)
         {
-            var versionParts = version.Split(' ');
-            var buildDateString = $"{versionParts[1].Trim('(', ')')} {versionParts[2].Trim('(', ')')}";
-            var parsedTime = DateTime.Parse(buildDateString);
-            return (versionParts[0], DateTime.SpecifyKind(parsedTime, DateTimeKind.Utc));
+            var cdeAssembly = cdeType.Assembly;
+            var cdeVersion = cdeAssembly.GetName().Version;
+            var cdeFileInfo = new FileInfo(cdeAssembly.Location);
+            return (cdeVersion.ToString(), cdeFileInfo.LastWriteTimeUtc);
         }
 
         public int DefaultLcid => TheBaseAssets.MyServiceHostInfo.DefaultLCID;
