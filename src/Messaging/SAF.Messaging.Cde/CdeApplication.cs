@@ -72,8 +72,6 @@ namespace SAF.Messaging.Cde
             };
 
             TheBaseAssets.MyServiceHostInfo.IgnoredEngines.AddRange(config.LogIgnore.Split(';'));
-            ApplyScopeId(config);
-
             IDictionary<string, string> arguments = new Dictionary<string, string>
             {
                 { "DontVerifyTrust", $"{config.DontVerifyTrust}" },
@@ -82,6 +80,11 @@ namespace SAF.Messaging.Cde
                 { "AROLE", eEngineName.NMIService + ";" + eEngineName.ContentService },
                 { "SROLE", eEngineName.NMIService + ";" + eEngineName.ContentService }
             };
+
+            var scopeId = GetScopeIdFromConfig(config);
+            if (!string.IsNullOrEmpty(scopeId))
+                arguments["EasyScope"] = config.ScopeId;
+
             arguments = MergeDictionaries(arguments, config.AdditionalArguments);
 
             var app = new TheBaseApplication();
@@ -108,22 +111,8 @@ namespace SAF.Messaging.Cde
                 throw new InvalidOperationException($"Failed loading configured crypto DLL: '{error}'");
         }
 
-        private static void ApplyScopeId(CdeConfiguration config)
-        {
-            if (config.UseRandomScopeId)
-            {
-                TheBaseAssets.MyServiceHostInfo.SealID = TheScopeManager.GenerateNewScopeID();
-                TheScopeManager.SetScopeIDFromEasyID(TheBaseAssets.MyServiceHostInfo.SealID);
-            }
-            else
-            {
-                var scopeId = config.ScopeId;
-                if (!string.IsNullOrEmpty(scopeId))
-                {
-                    TheScopeManager.SetScopeIDFromEasyID(scopeId);
-                }
-            }
-        }
+        private static string GetScopeIdFromConfig(CdeConfiguration config)
+            => config.UseRandomScopeId ? TheScopeManager.GenerateNewScopeID() : config.ScopeId;
 
         private static IDictionary<string, string> MergeDictionaries(IDictionary<string, string> dict1, IDictionary<string, string> dict2)
         {
