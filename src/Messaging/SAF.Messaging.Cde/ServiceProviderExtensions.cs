@@ -11,9 +11,7 @@ namespace SAF.Messaging.Cde
     {
         public static IServiceProvider UseCde(this IServiceProvider serviceProvider)
         {
-            var cdeApp = serviceProvider.GetService<CdeApplication>();
-            cdeApp.Start();
-
+            _ = serviceProvider.GetService<CdeApplication>();
             return serviceProvider;
         }
     }
