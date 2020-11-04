@@ -28,7 +28,12 @@ namespace SAF.Messaging.Cde
             configure?.Invoke(config);
 
             return collection.AddSingleton(sp => config)
-                .AddSingleton<CdeApplication>();
+                .AddSingleton(sp =>
+                {
+                    var cdeApp = new CdeApplication(sp.GetService<ILogger<CdeApplication>>(), sp.GetRequiredService<CdeConfiguration>());
+                    cdeApp.Start();
+                    return cdeApp;
+                });
         }
 
         public static IServiceCollection AddCdeMessagingInfrastructure(this IServiceCollection collection, Action<Message> traceAction = null)
@@ -41,7 +46,11 @@ namespace SAF.Messaging.Cde
                         traceAction));
 
         public static IServiceCollection AddCdeStorageInfrastructure(this IServiceCollection collection)
-            => collection.AddSingleton<IStorageInfrastructure, Storage>(sp => new Storage(sp.GetService<ILogger<Storage>>()));
+            => collection.AddSingleton<IStorageInfrastructure, Storage>(sp =>
+            {
+                sp.UseCde();
+                return new Storage(sp.GetService<ILogger<Storage>>());
+            });
 
         public static IServiceCollection AddCdeInfrastructure(this IServiceCollection collection, Action<CdeConfiguration> configure, Action<Message> traceAction = null)
         {
@@ -70,6 +79,7 @@ namespace SAF.Messaging.Cde
         {
             collection.AddSingleton(sp =>
             {
+                sp.UseCde();
                 var engines = TheThingRegistry.GetBaseEngines(false);
                 var engine = engines.FirstOrDefault(e => e.GetEngineName() == InfrastructureEngine);
                 if (engine != null) return engine.GetBaseThing();
