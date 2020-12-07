@@ -48,66 +48,83 @@ namespace SAF.Messaging.Cde
 
         private async Task<TheBaseApplication> StartCde(CdeConfiguration config)
         {
-            LoadAlternateCryptoLib(config.CrypoLibConfig);
-
-            TheScopeManager.SetApplicationID(config.ApplicationId);
-
-            TheBaseAssets.MyServiceHostInfo = new TheServiceHostInfo(cdeHostType.Application)
+            try
             {
-                Title = config.ApplicationTitle,
-                ApplicationName = config.ApplicationName,
-                ApplicationTitle = config.PortalTitle,
-                DebugLevel = GetDebugLevel(config.DebugLevel, eDEBUG_LEVELS.ESSENTIALS),
-                MyStationPort = config.HttpPort,
-                MyStationWSPort = config.WsPort,
-                cdeMID = TheCommonUtils.CGuid(config.StorageId),
-                FailOnAdminCheck = config.FailOnAdminCheck,
-                CloudServiceRoute = config.CloudServiceRoutes,
-                LocalServiceRoute = config.LocalServiceRoutes,
-                IsCloudService = config.IsCloudService,
-                ISMMainExecutable = Assembly.GetEntryAssembly()?.GetName().Name,
-                CurrentVersion = config.ApplicationVersion,
-                AllowLocalHost = config.AllowLocalHost,
-                PreShutDownDelay = config.PreShutdownDelay
-            };
+                LoadAlternateCryptoLib(config.CrypoLibConfig);
 
-            TheBaseAssets.MyServiceHostInfo.IgnoredEngines.AddRange(config.LogIgnore.Split(';'));
-            IDictionary<string, string> arguments = new Dictionary<string, string>
-            {
-                { "DontVerifyTrust", $"{config.DontVerifyTrust}" },
-                { "UseUserMapper", $"{config.UseUserMapper}" },
-                { "UseRandomDeviceID", $"{config.UseRandomDeviceId}" },
-                { "AROLE", eEngineName.NMIService + ";" + eEngineName.ContentService },
-                { "SROLE", eEngineName.NMIService + ";" + eEngineName.ContentService }
-            };
+                TheScopeManager.SetApplicationID(config.ApplicationId);
 
-            var scopeId = GetScopeIdFromConfig(config);
-            if (!string.IsNullOrEmpty(scopeId))
-                arguments["EasyScope"] = config.ScopeId;
+                TheBaseAssets.MyServiceHostInfo = new TheServiceHostInfo(cdeHostType.Application)
+                {
+                    Title = config.ApplicationTitle,
+                    ApplicationName = config.ApplicationName,
+                    ApplicationTitle = config.PortalTitle,
+                    DebugLevel = GetDebugLevel(config.DebugLevel, eDEBUG_LEVELS.ESSENTIALS),
+                    MyStationPort = config.HttpPort,
+                    MyStationWSPort = config.WsPort,
+                    cdeMID = TheCommonUtils.CGuid(config.StorageId),
+                    FailOnAdminCheck = config.FailOnAdminCheck,
+                    CloudServiceRoute = config.CloudServiceRoutes,
+                    LocalServiceRoute = config.LocalServiceRoutes,
+                    IsCloudService = config.IsCloudService,
+                    ISMMainExecutable = Assembly.GetEntryAssembly()?.GetName().Name,
+                    CurrentVersion = config.ApplicationVersion,
+                    AllowLocalHost = config.AllowLocalHost,
+                    PreShutDownDelay = config.PreShutdownDelay
+                };
 
-            arguments = MergeDictionaries(arguments, config.AdditionalArguments);
+                TheBaseAssets.MyServiceHostInfo.IgnoredEngines.AddRange(config.LogIgnore.Split(';'));
+                IDictionary<string, string> arguments = new Dictionary<string, string>
+                {
+                    { "DontVerifyTrust", $"{config.DontVerifyTrust}" },
+                    { "UseUserMapper", $"{config.UseUserMapper}" },
+                    { "UseRandomDeviceID", $"{config.UseRandomDeviceId}" },
+                    { "AROLE", eEngineName.NMIService + ";" + eEngineName.ContentService },
+                    { "SROLE", eEngineName.NMIService + ";" + eEngineName.ContentService }
+                };
 
-            var app = new TheBaseApplication();
-            if(!app.StartBaseApplication(null, arguments))
-            {
-                const string error = "Failed to start CDE base application!";
-                _log.LogCritical(error);
-                throw new InvalidOperationException(error);
+                var scopeId = GetScopeIdFromConfig(config);
+                if (!string.IsNullOrEmpty(scopeId))
+                    arguments["EasyScope"] = config.ScopeId;
+
+                arguments = MergeDictionaries(arguments, config.AdditionalArguments);
+
+                var app = new TheBaseApplication();
+                var startTime = DateTimeOffset.UtcNow;
+                if (!app.StartBaseApplication(null, arguments))
+                {
+                    const string error = "Failed to start CDE base application!";
+                    throw new InvalidOperationException(error);
+                }
+
+                _log.LogDebug("Started CDE Base application after {milliseconds} ms", DateTimeOffset.UtcNow.Subtract(startTime).TotalMilliseconds);
+                startTime = DateTimeOffset.UtcNow;
+
+                await TheBaseEngine.WaitForEnginesStartedAsync();
+
+                _log.LogDebug("Started CDE engines after {milliseconds} ms", DateTimeOffset.UtcNow.Subtract(startTime).TotalMilliseconds);
+                startTime = DateTimeOffset.UtcNow;
+
+                await TheBaseEngine.WaitForStorageReadinessAsync(true);
+
+                _log.LogDebug("Started CDE Storage after {milliseconds} ms", DateTimeOffset.UtcNow.Subtract(startTime).TotalMilliseconds);
+
+                return app;
             }
-
-            await TheBaseEngine.WaitForEnginesStartedAsync();
-            await TheBaseEngine.WaitForStorageReadinessAsync(true);
-
-            return app;
+            catch (Exception ex)
+            {
+                _log.LogCritical(ex, "Failed to start CDE");
+                throw ex;
+            }
         }
 
         private void LoadAlternateCryptoLib(CdeCryptoLibConfig cryptpLibConfig)
         {
             if (string.IsNullOrWhiteSpace(cryptpLibConfig?.DllName)) return;
 
-            var error = TheBaseAssets.LoadCrypto(cryptpLibConfig.DllName, null, cryptpLibConfig.DontVerifyTrust, null, 
+            var error = TheBaseAssets.LoadCrypto(cryptpLibConfig.DllName, null, cryptpLibConfig.DontVerifyTrust, null,
                 cryptpLibConfig.VerifyTrustPath, cryptpLibConfig.DontVerifyIntegrity);
-            if(!string.IsNullOrWhiteSpace(error))
+            if (!string.IsNullOrWhiteSpace(error))
                 throw new InvalidOperationException($"Failed loading configured crypto DLL: '{error}'");
         }
 
