@@ -97,7 +97,6 @@ namespace SAF.Toolbox.FileTransfer
 
             if(filePath == null) return; // only to make static code analysis happy.
 
-
             try
             {
                 long maxChunks;
@@ -155,7 +154,7 @@ namespace SAF.Toolbox.FileTransfer
             }
             catch(IOException e)
             {
-                _log.LogError($"Could not handle file {tmpName} -> {filePath}", e);
+                _log.LogError($"Could not handle file {tmpName} -> {filePath}: '{e.Message}'");
             }
         }
 
