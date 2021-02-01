@@ -12,11 +12,7 @@ SPDX-License-Identifier: MPL-2.0
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="C-DEngine" Version="5.109.0" />
-  </ItemGroup>
-
-  <ItemGroup>
-    <PackageReference Include="System.Reactive.Linq" Version="4.4.1" />
+    <PackageReference Include="C-DEngine" Version="5.121.1" />
   </ItemGroup>
 
   <ItemGroup>
