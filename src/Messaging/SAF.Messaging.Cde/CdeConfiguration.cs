@@ -1,7 +1,8 @@
-// SPDX-FileCopyrightText: 2017-2020 TRUMPF Laser GmbH
+// SPDX-FileCopyrightText: 2017-2021 TRUMPF Laser GmbH
 //
 // SPDX-License-Identifier: MPL-2.0
 
+using System;
 using System.Collections.Generic;
 
 namespace SAF.Messaging.Cde
@@ -38,7 +39,9 @@ namespace SAF.Messaging.Cde
         public string LogIgnore { get; set; }
         public int PreShutdownDelay { get; set; }
 
-        public CdeCryptoLibConfig CrypoLibConfig { get; set; }
+        [Obsolete("CrypoLibConfig will be removed in a future release. Please use CryptoLibConfig instead.")]
+        public CdeCryptoLibConfig CrypoLibConfig { get => CryptoLibConfig; set => CryptoLibConfig = value; }
+        public CdeCryptoLibConfig CryptoLibConfig { get; set; }
 
         public IDictionary<string, string> AdditionalArguments { get; set; } = new Dictionary<string, string>();
     }

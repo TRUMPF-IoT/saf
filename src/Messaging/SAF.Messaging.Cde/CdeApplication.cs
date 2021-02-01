@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: 2017-2020 TRUMPF Laser GmbH
+// SPDX-FileCopyrightText: 2017-2021 TRUMPF Laser GmbH
 //
 // SPDX-License-Identifier: MPL-2.0
 
@@ -32,9 +32,7 @@ namespace SAF.Messaging.Cde
         public void Start()
         {
             _log.LogInformation("Starting CDE...");
-#pragma warning disable IDE0067 // Dispose objects before losing scope
             _cdeApp = StartCde(_config).Result;
-#pragma warning restore IDE0067 // Dispose objects before losing scope
             _log.LogInformation("... CDE started!");
         }
 
@@ -50,7 +48,7 @@ namespace SAF.Messaging.Cde
         {
             try
             {
-                LoadAlternateCryptoLib(config.CrypoLibConfig);
+                LoadAlternateCryptoLib(config.CryptoLibConfig);
 
                 TheScopeManager.SetApplicationID(config.ApplicationId);
 
@@ -114,16 +112,16 @@ namespace SAF.Messaging.Cde
             catch (Exception ex)
             {
                 _log.LogCritical(ex, "Failed to start CDE");
-                throw ex;
+                throw;
             }
         }
 
-        private void LoadAlternateCryptoLib(CdeCryptoLibConfig cryptpLibConfig)
+        private void LoadAlternateCryptoLib(CdeCryptoLibConfig cryptoLibConfig)
         {
-            if (string.IsNullOrWhiteSpace(cryptpLibConfig?.DllName)) return;
+            if (string.IsNullOrWhiteSpace(cryptoLibConfig?.DllName)) return;
 
-            var error = TheBaseAssets.LoadCrypto(cryptpLibConfig.DllName, null, cryptpLibConfig.DontVerifyTrust, null,
-                cryptpLibConfig.VerifyTrustPath, cryptpLibConfig.DontVerifyIntegrity);
+            var error = TheBaseAssets.LoadCrypto(cryptoLibConfig.DllName, null, cryptoLibConfig.DontVerifyTrust, null,
+                cryptoLibConfig.VerifyTrustPath, cryptoLibConfig.DontVerifyIntegrity);
             if (!string.IsNullOrWhiteSpace(error))
                 throw new InvalidOperationException($"Failed loading configured crypto DLL: '{error}'");
         }
