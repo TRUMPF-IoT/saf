@@ -78,17 +78,14 @@ namespace CDMy.SAF.PubSub.Tests
             _publisher = await publisher.ConnectAsync();
 
             _subscriber = new Subscriber(comLine, publisher, _cancellationTokenSource.Token);
-            var catchAllSubscription = _subscriber.Subscribe("*");
+            _subscriber.Subscribe("*")
+                .With((time, channel, message) => SetProperty("Messages", $"[{time}] {channel}: {message}"));
             _subscriber.Subscribe("public/pubsub/test/number")
                 .With((time, channel, message) =>
                 {
                     if (int.TryParse(message, out var value))
                         SetProperty("SampleProperty", value);
                 });
-
-            SubscriptionObserver
-                .Observe(catchAllSubscription)
-                .Subscribe(e => SetProperty("Messages", $"[{e.Time}] {e.Channel}: {e.Message}"));
 
             _publisher.Publish("public:debug", "Publisher initialized");
 
