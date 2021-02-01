@@ -26,7 +26,7 @@ namespace SAF.Toolbox.RequestClient
         private readonly ConcurrentDictionary<string, OpenRequest> _openRequests = new ConcurrentDictionary<string, OpenRequest>();
         
         private string _defaultPrefix = "private/reply";
-        private readonly string _postfix = $"requestclient/{Guid.NewGuid().ToString()}";
+        private readonly string _postfix = $"requestclient/{Guid.NewGuid()}";
         private object _subscriptionHandle;
 
         public RequestClient(IMessagingInfrastructure messaging, IHeartbeat heartbeat, ILogger<RequestClient> log)

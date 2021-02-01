@@ -129,7 +129,7 @@ namespace SAF.Messaging.Cde
         }
 
         private static string GetScopeIdFromConfig(CdeConfiguration config)
-            => config.UseRandomScopeId ? TheScopeManager.GenerateNewScopeID() : config.ScopeId;
+            => config.UseRandomScopeId ? null : config.ScopeId;
 
         private static IDictionary<string, string> MergeDictionaries(IDictionary<string, string> dict1, IDictionary<string, string> dict2)
         {

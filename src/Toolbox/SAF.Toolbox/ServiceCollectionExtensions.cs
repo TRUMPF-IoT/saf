@@ -7,6 +7,8 @@ using System.IO.Abstractions;
 using System.Runtime.CompilerServices;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using SAF.Common;
 using SAF.Toolbox.FileTransfer;
@@ -21,15 +23,19 @@ namespace SAF.Toolbox
     public static class ServiceCollectionExtensions
     {
         public static IServiceCollection AddHeartbeat(this IServiceCollection services, int heartbeatMillis = 1000)
-            => services.AddSingleton<IHeartbeat, Heartbeat.Heartbeat>(ctx => new Heartbeat.Heartbeat(heartbeatMillis));
+            => services.AddSingleton<IHeartbeat>(sp => new Heartbeat.Heartbeat(heartbeatMillis));
 
         public static IServiceCollection AddHeartbeatPool(this IServiceCollection services)
-            => services.AddSingleton<IHeartbeatPool, HeartbeatPool>()
-                .AddTransient<Func<int, IHeartbeat>>(sp => heartbeatMillis =>
+        {
+            services.TryAddSingleton<IHeartbeatPool, HeartbeatPool>();
+            services.TryAddTransient<Func<int, IHeartbeat>>(sp => heartbeatMillis =>
                 {
                     var factory = sp.GetRequiredService<IHeartbeatPool>();
                     return factory.GetOrCreateHeartbeat(heartbeatMillis);
                 });
+            
+            return services;
+        }
 
         public static IServiceCollection AddFileHandling(this IServiceCollection services)
             => services.AddTransient<IFileSystem, FileSystem>()
@@ -43,7 +49,20 @@ namespace SAF.Toolbox
                 });
 
         public static IServiceCollection AddRequestClient(this IServiceCollection services)
-            => services.AddSingleton<IRequestClient, RequestClient.RequestClient>();
+        {
+            services.AddHeartbeatPool();
+            
+            services.TryAddSingleton<IRequestClient>(sp =>
+            {
+                var pool = sp.GetRequiredService<IHeartbeatPool>();
+                return new RequestClient.RequestClient(
+                    sp.GetRequiredService<IMessagingInfrastructure>(),
+                    pool.GetOrCreateHeartbeat(1000),
+                    sp.GetService<ILogger<RequestClient.RequestClient>>());
+            });
+
+            return services;
+        }
 
         public static IServiceCollection AddFileSender(this IServiceCollection services)
         {
