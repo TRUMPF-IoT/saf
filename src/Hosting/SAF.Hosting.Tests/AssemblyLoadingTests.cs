@@ -2,6 +2,7 @@
 //
 // SPDX-License-Identifier: MPL-2.0
 
+using System;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using NSubstitute;
@@ -16,7 +17,7 @@ namespace SAF.Hosting.Tests
         public void DllWithManifestThrowsNoErrorOnLoading()
         {
             // Arrange
-            var loggerMock = Substitute.For<ILogger>();
+            var loggerMock = Substitute.For<MockLogger>();
             var servicesMock = Substitute.For<IServiceCollection>();
 
             using(var tempFile = new TemporaryFileCopy("SAF.Hosting.TestServices.dll"))
@@ -43,10 +44,10 @@ namespace SAF.Hosting.Tests
         public void DllWithoutManifestLogsAnErrorOnLoading()
         {
             // Arrange
-            var loggerMock = Substitute.For<ILogger>();
+            var loggerMock = Substitute.For<MockLogger<TemporaryFileCopy>>();
             var serviceCollectionMock = Substitute.For<IServiceCollection>();
 
-            using(var tempFile = new TemporaryFileCopy("SAF.Common.dll"))
+            using (var tempFile = new TemporaryFileCopy("SAF.Common.dll"))
             {
                 var t = tempFile;
                 // Act
