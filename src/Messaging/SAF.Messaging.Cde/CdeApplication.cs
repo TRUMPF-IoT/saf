@@ -81,8 +81,7 @@ namespace SAF.Messaging.Cde
                     { "SROLE", eEngineName.NMIService + ";" + eEngineName.ContentService }
                 };
 
-                var scopeId = GetScopeIdFromConfig(config);
-                if (!string.IsNullOrEmpty(scopeId))
+                if (!string.IsNullOrEmpty(config.ScopeId))
                     arguments["EasyScope"] = config.ScopeId;
 
                 arguments = MergeDictionaries(arguments, config.AdditionalArguments);
@@ -90,9 +89,12 @@ namespace SAF.Messaging.Cde
                 var app = new TheBaseApplication();
                 var startTime = DateTimeOffset.UtcNow;
                 if (!app.StartBaseApplication(null, arguments))
+                    throw new InvalidOperationException("Failed to start CDE base application!");
+
+                if (config.UseRandomScopeId && string.IsNullOrEmpty(TheScopeManager.GetScrambledScopeID()))
                 {
-                    const string error = "Failed to start CDE base application!";
-                    throw new InvalidOperationException(error);
+                    if (!TheScopeManager.SetScopeIDFromEasyID(TheScopeManager.GenerateNewScopeID()))
+                        throw new InvalidOperationException("Failed to apply random scope!");
                 }
 
                 _log.LogDebug("Started CDE Base application after {milliseconds} ms", DateTimeOffset.UtcNow.Subtract(startTime).TotalMilliseconds);
@@ -125,9 +127,6 @@ namespace SAF.Messaging.Cde
             if (!string.IsNullOrWhiteSpace(error))
                 throw new InvalidOperationException($"Failed loading configured crypto DLL: '{error}'");
         }
-
-        private static string GetScopeIdFromConfig(CdeConfiguration config)
-            => config.UseRandomScopeId ? null : config.ScopeId;
 
         private static IDictionary<string, string> MergeDictionaries(IDictionary<string, string> dict1, IDictionary<string, string> dict2)
         {

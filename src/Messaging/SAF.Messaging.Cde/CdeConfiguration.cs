@@ -17,6 +17,7 @@ namespace SAF.Messaging.Cde
 
     public class CdeConfiguration
     {
+        [Obsolete("UseRandomScopeId will be removed in a future release.")]
         public bool UseRandomScopeId { get; set; }
         public string ScopeId { get; set; }
         public string ApplicationId { get; set; }
