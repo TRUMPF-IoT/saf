@@ -31,7 +31,7 @@ namespace TestRunnerCde
             var applicationServices = new ServiceCollection();
             applicationServices.AddLogging(l => l.AddConfiguration(config.GetSection("Logging")).AddConsole());
 
-            var baseServiceProvider = applicationServices.BuildServiceProvider();
+            using var baseServiceProvider = applicationServices.BuildServiceProvider();
             var mainLogger = baseServiceProvider.GetService<ILogger<Program>>();
             mainLogger.LogInformation("Starting test runner console app...");
 
@@ -46,15 +46,14 @@ namespace TestRunnerCde
             applicationServices.AddCdeInfrastructure(config.GetSection("Cde").Bind);
             applicationServices.AddSingleton<IMessagingInfrastructure>(sp => sp.GetRequiredService<ICdeMessagingInfrastructure>());
 
-            using(var applicationServiceProvider = applicationServices.BuildServiceProvider())
-            {
-                applicationServiceProvider.UseCde()
-                    .UseServiceHost()
-                    .UseServiceHostDiagnostics()
-                    .UseCdeServiceHostDiagnostics();
-
-                Console.ReadLine();
-            }
+            using var applicationServiceProvider = applicationServices.BuildServiceProvider();
+            
+            applicationServiceProvider.UseCde()
+                .UseServiceHost()
+                .UseServiceHostDiagnostics()
+                .UseCdeServiceHostDiagnostics();
+            
+            Console.ReadLine();
         }
 
         private static string GetEnvironment()
