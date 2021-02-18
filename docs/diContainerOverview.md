@@ -6,7 +6,7 @@ When starting to implement a SAF Host you are required to build the SAF main DI 
 
 ```csharp
 var applicationServices = new ServiceCollection();
-applicationServices.AddHost(config => {});
+applicationServices.AddHost(config => {}, null);
 applicationServices.AddCdeInfrastructure(cdeConfig => {});
 
 using var applicationServiceProvider = applicationServices.BuildServiceProvider();
@@ -15,7 +15,7 @@ applicationServiceProvider.UseServiceHost();
 
 This code builds the main DI container by adding the SAF `ServiceHost` and the [C-DEngine](https://github.com/TRUMPF-IoT/C-DEngine) specific infrastructure service implementations. In addition it loads available SAF Plug-ins. While loading the SAF Plug-ins, SAF internally creates one independent DI container for each of them. It registers the infrastructure services added to the main DI container to the independent Plug-in specific DI container. With that the added SAF infrastructure can be used inside the loaded SAF Plug-ins.
 
-Additionaly the SAF Service Host calls the Plug-ins `IServiceAssemblyManifest.RegisterDependencies` method. Inside this method the SAF Plug-in is allowed to add any type to the SAF Plug-in specific DI container that is needed inside the Plug-in itself. This could also be any of the [SAF Toolbox Services](./infrastructureAndToolboxServices.md#saf-toolbox-services) which also provide extension methods for being added to the DI container.
+Additionaly the SAF Service Host calls the Plug-ins `IServiceAssemblyManifest.RegisterDependencies` method. Inside this method the SAF Plug-in is allowed to register any type at the SAF Plug-in specific DI container that is needed inside the Plug-in itself. This could also be any of the [SAF Toolbox Services](./infrastructureAndToolboxServices.md#saf-toolbox-services) which also provide extension methods for being added to the DI container.
 
 All services registered to the Plug-in specific DI container are isolated in that container and are therefore not accessible from inside other Plug-ins. Plug-in to Plug-in communication is therefore only possible through the messaging infrastructure service registered in the main DI container.
 
