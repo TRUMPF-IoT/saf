@@ -23,7 +23,7 @@ Afterwards the code snippet above runs the SAF application by calling the `UserS
 
 The following diagram shows the existing DI containers inside a SAF application:
 
-![SAF DI Container Overview](/diagrams/saf-di-container-overview.svg).
+![SAF DI Container Overview](./diagrams/saf-di-container-overview.svg).
 
 The *Main Container* stores the Infrastructure Services that are shared with the Plug-ins because they are added to the Plug-in specific DI containers as well.  
 The Plug-in specific containers *Plug-in Container 1* and *Plug-in Container 2* store the same Infrastructure Services and in addition the Plug-in specific services registered inside the `IServiceAssemblyManifest.RegisterDependencies` call.

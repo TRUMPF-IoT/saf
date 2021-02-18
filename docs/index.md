@@ -8,7 +8,7 @@ SAF runs on [.NET Core](https://dotnet) and can easily be integrated into [ASP.N
 
 A distributed application built upon the Service Application Framework (SAF) consists at least of two things: A [SAF Host](#saf-host) and a [SAF Plug-in](#saf-plug-in). The SAF Host is responsible for loading and initializing the SAF Infrastruture Services and for loading and initializing the SAF Plug-ins. It provides the SAF Infrastrutcure Services to the SAF Plug-ins using Microsofts's .NET Core Dependency Injection.
 
-![SAF Application Overview](/diagrams/saf-overview.svg).
+![SAF Application Overview](./diagrams/saf-overview.svg).
 
 Additionaly SAF provides the SAF Toolbox Services which are a set of useful tools to support you with common tasks when implementing your SAF Plug-in functionality.
 
