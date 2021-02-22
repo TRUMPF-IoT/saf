@@ -10,33 +10,37 @@ Source: https://github.com/TRUMPF-IoT/saf
 # License: ...
 
 Files: .github/**/*
-Copyright: 2017-2020 TRUMPF Laser GmbH
+Copyright: 2017-2021 TRUMPF Laser GmbH
 License: MPL-2.0
 
 Files: *.md
-Copyright: 2017-2020 TRUMPF Laser GmbH
+Copyright: 2017-2021 TRUMPF Laser GmbH
 License: MPL-2.0
 
 Files: docs/_config.yml
-Copyright: 2017-2020 TRUMPF Laser GmbH
+Copyright: 2017-2021 TRUMPF Laser GmbH
+License: MPL-2.0
+
+Files: docs/**/*
+Copyright: 2017-2021 TRUMPF Laser GmbH
 License: MPL-2.0
 
 Files: src/**/*.txt
-Copyright: 2017-2020 TRUMPF Laser GmbH
+Copyright: 2017-2021 TRUMPF Laser GmbH
 License: MPL-2.0
 
 Files: src/*.sln
-Copyright: 2017-2020 TRUMPF Laser GmbH
+Copyright: 2017-2021 TRUMPF Laser GmbH
 License: MPL-2.0
 
 Files: src/**/*.sln
-Copyright: 2017-2020 TRUMPF Laser GmbH
+Copyright: 2017-2021 TRUMPF Laser GmbH
 License: MPL-2.0
 
 Files: src/**/*.json
-Copyright: 2017-2020 TRUMPF Laser GmbH
+Copyright: 2017-2021 TRUMPF Laser GmbH
 License: MPL-2.0
 
 Files: src/**/app.config
-Copyright: 2017-2020 TRUMPF Laser GmbH
+Copyright: 2017-2021 TRUMPF Laser GmbH
 License: MPL-2.0

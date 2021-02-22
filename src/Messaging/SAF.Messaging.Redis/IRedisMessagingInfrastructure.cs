@@ -10,7 +10,7 @@ namespace SAF.Messaging.Redis
     public interface IRedisMessagingInfrastructure : IMessagingInfrastructure
     {
         // Defined only to support specific Redis IMessagingInfrastructure in DI containers.
-        // The specific instance can be retieved like this: serviceProvider.GetService<IRedisMessagingInfrastructure>.
+        // The specific instance can be retrieved like this: serviceProvider.GetService<IRedisMessagingInfrastructure>.
         // Use IServiceCollection.AddRedisMessagingInfrastructure extension method to add IRedisMessagingInfrastructure into the DI container.
     }
 }
