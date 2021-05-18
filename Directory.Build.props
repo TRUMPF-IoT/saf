@@ -16,6 +16,7 @@ SPDX-License-Identifier: MPL-2.0
     <EmbedUntrackedSources>true</EmbedUntrackedSources>
     <IncludeSymbols>true</IncludeSymbols>
     <SymbolPackageFormat>snupkg</SymbolPackageFormat>
+    <LangVersion>9</LangVersion>
   </PropertyGroup>
 
   <ItemGroup>
