@@ -95,7 +95,7 @@ namespace SAF.Storage.SqLite.Test
         [Fact]
         public void LegacyCallsOk()
         {
-            var storage = new Storage(_connection);
+            using var storage = new Storage(_connection);
 
             var uniqueArea = "area.area1/area3";
             var key = "key1.key2/key3";
@@ -108,7 +108,7 @@ namespace SAF.Storage.SqLite.Test
         [Fact]
         public void GetStringEntryAsByteNotOk()
         {
-            var storage = new Storage(_connection);
+            using var storage = new Storage(_connection);
 
             var area = "areaName";
             var key = "globalKey";
@@ -122,7 +122,7 @@ namespace SAF.Storage.SqLite.Test
         [Fact]
         public void ParallelCallsOk()
         {
-            var storage = new Storage(_connection);
+            using var storage = new Storage(_connection);
 
             Parallel.For(0, 20, id =>
             {
