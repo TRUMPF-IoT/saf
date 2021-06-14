@@ -21,11 +21,11 @@ namespace SAF.Messaging.InProcess
         private readonly IServiceMessageDispatcher _messageDispatcher;
         private readonly Action<Message> _traceAction;
 
-        private readonly ReaderWriterLockSlim _syncSubscriptionsByType = new ReaderWriterLockSlim(LockRecursionPolicy.SupportsRecursion);
-        private readonly Dictionary<string, List<string>> _subscriptionsByType = new Dictionary<string, List<string>>();
+        private readonly ReaderWriterLockSlim _syncSubscriptionsByType = new(LockRecursionPolicy.SupportsRecursion);
+        private readonly Dictionary<string, List<string>> _subscriptionsByType = new();
 
-        private readonly ReaderWriterLockSlim _syncSubscriptionsByLambda = new ReaderWriterLockSlim(LockRecursionPolicy.SupportsRecursion);
-        private readonly Dictionary<string, List<Action<Message>>> _subscriptionsByLambda = new Dictionary<string, List<Action<Message>>>();
+        private readonly ReaderWriterLockSlim _syncSubscriptionsByLambda = new(LockRecursionPolicy.SupportsRecursion);
+        private readonly Dictionary<string, List<Action<Message>>> _subscriptionsByLambda = new();
 
         private const string MessagingKeySeparator = "###########";
 
@@ -54,7 +54,7 @@ namespace SAF.Messaging.InProcess
             {
                 foreach (var kvp in _subscriptionsByType)
                 {
-                    if (!WildcardMatcher.IsMatch(message.Topic, kvp.Key))
+                    if (!message.Topic.IsMatch(kvp.Key))
                         continue;
 
                     foreach (var handlerTypeName in kvp.Value)
@@ -71,7 +71,7 @@ namespace SAF.Messaging.InProcess
             {
                 foreach (var kvp in _subscriptionsByLambda)
                 {
-                    if (!WildcardMatcher.IsMatch(message.Topic, kvp.Key)) 
+                    if (!message.Topic.IsMatch(kvp.Key)) 
                         continue;
 
                     foreach (var action in _subscriptionsByLambda[kvp.Key])
