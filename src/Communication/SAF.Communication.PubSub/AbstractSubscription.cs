@@ -5,6 +5,7 @@
 
 using System;
 using System.Linq;
+using SAF.Common;
 using SAF.Communication.PubSub.Interfaces;
 
 namespace SAF.Communication.PubSub
@@ -13,7 +14,7 @@ namespace SAF.Communication.PubSub
     {
         protected ISubscriber Subscriber { get; }
 
-        protected Action<DateTimeOffset, string, string> Callback { get; private set; }
+        protected Action<DateTimeOffset, Message> Callback { get; private set; }
 
         public Guid Id { get; } = Guid.NewGuid();
 
@@ -32,7 +33,7 @@ namespace SAF.Communication.PubSub
             Patterns = patterns;
         }
 
-        public void With(Action<DateTimeOffset, string, string> callback)
+        public void With(Action<DateTimeOffset, Message> callback)
         {
             Callback = callback;
         }

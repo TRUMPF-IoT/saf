@@ -19,14 +19,14 @@ namespace SAF.Communication.PubSub.Cde.MessageHandler.Authorization
             _authService = authService;
         }
 
-        protected override bool CanHandleThis(TheProcessMessage message)
+        protected override bool CanHandleThis(string msgVersion, TheProcessMessage message)
         {
             return message.Message.TXT.StartsWith(Key, StringComparison.Ordinal);
         }
 
-        protected override void HandleThis(TheProcessMessage message)
+        protected override void HandleThis(string msgVersion, TheProcessMessage message)
         {
-            _authService.GetToken(message);
+            _authService.GetToken(msgVersion, message);
         }
     }
 }

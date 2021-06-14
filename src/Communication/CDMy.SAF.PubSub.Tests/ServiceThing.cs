@@ -79,11 +79,11 @@ namespace CDMy.SAF.PubSub.Tests
 
             _subscriber = new Subscriber(comLine, publisher, _cancellationTokenSource.Token);
             _subscriber.Subscribe("*")
-                .With((time, channel, message) => SetProperty("Messages", $"[{time}] {channel}: {message}"));
+                .With((time, message) => SetProperty("Messages", $"[{time}] {message.Topic}: {message.Payload}"));
             _subscriber.Subscribe("public/pubsub/test/number")
-                .With((time, channel, message) =>
+                .With((_, message) =>
                 {
-                    if (int.TryParse(message, out var value))
+                    if (int.TryParse(message.Payload, out var value))
                         SetProperty("SampleProperty", value);
                 });
 

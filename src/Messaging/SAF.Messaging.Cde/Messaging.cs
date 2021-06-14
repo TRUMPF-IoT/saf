@@ -21,7 +21,7 @@ namespace SAF.Messaging.Cde
         private readonly Action<Message> _traceAction;
         private readonly CdeMessagingConfiguration _config;
 
-        private readonly ConcurrentDictionary<string, (string pattern, ISubscription subscription)> _subscriptions = new ConcurrentDictionary<string, (string pattern, ISubscription subscription)>();
+        private readonly ConcurrentDictionary<string, (string pattern, ISubscription subscription)> _subscriptions = new();
 
         public Messaging(ILogger<Messaging> log, IServiceMessageDispatcher dispatcher, IPublisher publisher, ISubscriber subscriber, Action<Message> traceAction)
             : this(log, dispatcher, publisher, subscriber, traceAction, null)
@@ -45,7 +45,7 @@ namespace SAF.Messaging.Cde
             _log.LogDebug($"Publish message \"{message.Topic}\" with RelayOptions={_config.RoutingOptions}.");
             _traceAction?.Invoke(message);
 
-            _publisher?.Publish(message.Topic, message.Payload, _config.RoutingOptions);
+            _publisher?.Publish(message, _config.RoutingOptions);
         }
 
         public object Subscribe<TMessageHandler>() where TMessageHandler : IMessageHandler => Subscribe<TMessageHandler>("*");
@@ -54,19 +54,15 @@ namespace SAF.Messaging.Cde
         {
             _log.LogDebug($"Subscribe \"{typeof(TMessageHandler).Name}\" for route \"{routeFilterPattern}\", RelayOptions={_config.RoutingOptions}.");
 
-            return Subscribe(routeFilterPattern, (channel, message) =>
+            return InternalSubscribe(routeFilterPattern, message =>
             {
                 try
                 {
-                    _dispatcher.DispatchMessage<TMessageHandler>(new Message
-                    {
-                        Topic = channel,
-                        Payload = message
-                    });
+                    _dispatcher.DispatchMessage<TMessageHandler>(message);
                 }
                 catch (Exception e) // Exceptions in CDE callbacks are omitted, when not explicitly caught and logged!
                 {
-                    _log.LogError(e, $"Exception while trying to dispatch message \"{channel}\" from CDE callback!");
+                    _log.LogError(e, $"Exception while trying to dispatch message \"{message.Topic}\" from CDE callback!");
                     throw;
                 }
             });
@@ -78,19 +74,15 @@ namespace SAF.Messaging.Cde
         {
             _log.LogDebug($"Subscribe \"lambda handler\" for route \"{routeFilterPattern}\", RelayOptions={_config.RoutingOptions}.");
 
-            return Subscribe(routeFilterPattern, (channel, message) =>
+            return InternalSubscribe(routeFilterPattern, message =>
             {
                 try
                 {
-                    _dispatcher.DispatchMessage(handler, new Message
-                    {
-                        Topic = channel,
-                        Payload = message
-                    });
+                    _dispatcher.DispatchMessage(handler, message);
                 }
                 catch (Exception e) // Exceptions in CDE callbacks are omitted, when not explicitly caught and logged!
                 {
-                    _log.LogError(e, $"Exception while trying to dispatch message \"{channel}\" from CDE callback!");
+                    _log.LogError(e, $"Exception while trying to dispatch message \"{message.Topic}\" from CDE callback!");
                     throw;
                 }
             });
@@ -115,12 +107,12 @@ namespace SAF.Messaging.Cde
             _log.LogDebug($"Unsubscribed subscription \"{subscriptionId}\" for channel \"{sub.pattern}\"");
         }
 
-        private string Subscribe(string pattern, Action<string, string> handler)
+        private string InternalSubscribe(string pattern, Action<Message> handler)
         {
             var subscriptionId = Guid.NewGuid().ToString();
 
             var subscription = _subscriber.Subscribe(_config.RoutingOptions, pattern);
-            subscription.With((time, channel, message) => handler(channel, message));
+            subscription.With((_, message) => handler(message));
             if (!_subscriptions.TryAdd(subscriptionId, (pattern, subscription)))
                 throw new ArgumentException("An element with the same key already exists!");
 

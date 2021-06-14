@@ -11,4 +11,8 @@ SPDX-License-Identifier: MPL-2.0
     <Description>Smart Application Framework (SAF) Pub/Sub communication abstractions.</Description>
   </PropertyGroup>
 
+  <ItemGroup>
+    <ProjectReference Include="..\..\SAF.Common\SAF.Common.csproj" />
+  </ItemGroup>
+
 </Project>

@@ -3,6 +3,7 @@
 // SPDX-License-Identifier: MPL-2.0
 
 using System;
+using nsCDEngine.ViewModels;
 using SAF.Communication.PubSub.Cde.Authorization;
 using SAF.Communication.PubSub.Cde.MessageHandler.Authorization;
 
@@ -30,9 +31,9 @@ namespace SAF.Communication.PubSub.Cde.MessageHandler
                 $"{AuthorizationService.BaseChannelName}/*"
             }) as ISubscriptionInternal;
 
-            subscription?.With(msg =>
+            subscription?.With((msgVersion, msg) =>
             {
-                messageHandler.Handle(msg);
+                messageHandler.Handle(msgVersion, msg);
             });
             return subscription;
         }

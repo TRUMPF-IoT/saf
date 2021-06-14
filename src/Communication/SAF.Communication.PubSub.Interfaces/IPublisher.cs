@@ -2,6 +2,7 @@
 //
 // SPDX-License-Identifier: MPL-2.0
 
+using SAF.Common;
 
 namespace SAF.Communication.PubSub.Interfaces
 {
@@ -9,5 +10,7 @@ namespace SAF.Communication.PubSub.Interfaces
     {
         void Publish(string channel, string message);
         void Publish(string channel, string message, RoutingOptions routingOptions);
+        void Publish(Message message);
+        void Publish(Message message, RoutingOptions routingOptions);
     }
 }

@@ -40,7 +40,7 @@ namespace SAF.Communication.PubSub.Cde
         private RemoteRegistryLifetimeHandler _registryLifetimeHandler;
         private MessageListener _messageListener;
 
-        public event Action<string, TheProcessMessage> MessageEvent;
+        public event Action<string, string, TheProcessMessage> MessageEvent;
 
         public Subscriber(ComLine line, Publisher publisher)
             : this(line, publisher, new CancellationTokenSource())
@@ -185,11 +185,12 @@ namespace SAF.Communication.PubSub.Cde
 
         private RegistrySubscriptionRequest CreateSubscriptionRequest(Guid subId, string[] topics)
         {
-            return new RegistrySubscriptionRequest
+            return new()
             {
                 id = subId.ToString("N"),
                 topics = topics,
-                isRegistry = true
+                isRegistry = true,
+                version = PubSubVersion.Latest
             };
         }
 
@@ -217,10 +218,8 @@ namespace SAF.Communication.PubSub.Cde
             });
         }
 
-        private void OnMessageEvent(string topic, TheProcessMessage msg)
-        {
-            MessageEvent?.Invoke(topic, msg);
-        }
+        private void OnMessageEvent(string topic, string msgVersion, TheProcessMessage msg)
+            => MessageEvent?.Invoke(topic, msgVersion, msg);
 
         private void HandleMessage(ICDEThing sender, object pMsg)
         {
@@ -279,10 +278,10 @@ namespace SAF.Communication.PubSub.Cde
         private void HandlePublication(TheProcessMessage msg)
         {
             var topicTxt = msg.Message.TXT.Remove(0, $"{MessageToken.Publish}:".Length);
-            var msgTopic = topicTxt.ToTopic();
+            var (msgTopic, msgVersion) = topicTxt.ToTopic();
             if (msgTopic == null) return;
 
-            OnMessageEvent(msgTopic.Channel, msg);
+            OnMessageEvent(msgTopic.Channel, msgVersion, msg);
         }
 
         private void HandleError(TheProcessMessage msg)

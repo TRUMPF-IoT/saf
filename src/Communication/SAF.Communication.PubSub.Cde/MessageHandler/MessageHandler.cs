@@ -16,21 +16,21 @@ namespace SAF.Communication.PubSub.Cde.MessageHandler
             _successor = successor;
         }
 
-        public bool CanHandle(TheProcessMessage message)
+        public bool CanHandle(string msgVersion, TheProcessMessage message)
         {
-            if (CanHandleThis(message)) return true;
-            return _successor?.CanHandleThis(message) ?? false;
+            if (CanHandleThis(msgVersion, message)) return true;
+            return _successor?.CanHandleThis(msgVersion, message) ?? false;
         }
 
-        public void Handle(TheProcessMessage message)
+        public void Handle(string msgVersion, TheProcessMessage message)
         {
-            if(CanHandleThis(message))
-                HandleThis(message);
+            if(CanHandleThis(msgVersion, message))
+                HandleThis(msgVersion, message);
             else
-                _successor?.Handle(message);
+                _successor?.Handle(msgVersion, message);
         }
 
-        protected abstract bool CanHandleThis(TheProcessMessage message);
-        protected abstract void HandleThis(TheProcessMessage message);
+        protected abstract bool CanHandleThis(string msgVersion, TheProcessMessage message);
+        protected abstract void HandleThis(string msgVersion, TheProcessMessage message);
     }
 }
