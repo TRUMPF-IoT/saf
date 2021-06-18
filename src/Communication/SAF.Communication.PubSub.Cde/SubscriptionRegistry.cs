@@ -5,7 +5,6 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Runtime.Serialization.Json;
 using System.Threading;
 using System.Threading.Tasks;
 using nsCDEngine.BaseClasses;
@@ -84,7 +83,7 @@ namespace SAF.Communication.PubSub.Cde
                     if (!subscriber.IsMatch(topic.Channel)) continue;
 
                     TSM tsm;
-                    var messageTxt = $"{MessageToken.Publish}:{topic.ToTsmTxt(subscriber.Version)}";
+                    var messageTxt = $"{MessageToken.Publish}:{new Topic(topic.Channel, topic.MsgId, subscriber.Version).ToTsmTxt()}";
                     if (subscriber.Version == PubSubVersion.V1)
                     {
                         tsm = new TSM(subscriber.TargetEngine, messageTxt, message.Payload)
@@ -214,14 +213,14 @@ namespace SAF.Communication.PubSub.Cde
 
         private void DispatchPublication(string topicTxt, TSM message)
         {
-            var (topic, msgVersion) = topicTxt.ToTopic();
+            var topic = topicTxt.ToTopic();
             if (topic == null)
             {
                 _log.LogWarning($"Detected invalid cde-pubsub topic format: '{topicTxt}' (ENG={message.ENG}) -> ignoring message");
                 return;
             }
 
-            var msg = msgVersion == PubSubVersion.V1
+            var msg = topic.Version == PubSubVersion.V1
                 ? new Message {Topic = topic.Channel, Payload = message.PLS}
                 : TheCommonUtils.DeserializeJSONStringToObject<Message>(message.PLS);
 

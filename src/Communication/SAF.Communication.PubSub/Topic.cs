@@ -11,29 +11,41 @@ namespace SAF.Communication.PubSub
     {
         public string Channel;
         public string MsgId;
+        public string Version;
+
+        public Topic()
+        {}
+
+        public Topic(string channel, string msgId, string version)
+        {
+            Channel = channel;
+            MsgId = msgId;
+            Version = version;
+        }
     }
 
     public static class TopicExtensions
     {
-        public static string ToTsmTxt(this Topic topic, string version)
+        public static string ToTsmTxt(this Topic topic)
         {
             var tsmTxt = $"{topic.Channel}|{topic.MsgId}";
-            return string.IsNullOrEmpty(version) ? tsmTxt : $"{tsmTxt}|{version}";
+            return string.IsNullOrEmpty(topic.Version) ? tsmTxt : $"{tsmTxt}|{topic.Version}";
         }
     }
 
     public static class StringExtensions
     {
-        public static (Topic topic, string version) ToTopic(this string txt)
+        public static Topic ToTopic(this string txt)
         {
             var parts = txt.Split('|');
-            if (parts.Length < 2) return (null, null);
+            if (parts.Length < 2) return null;
 
-            return (new Topic
+            return new Topic
             {
                 Channel = parts[0],
-                MsgId = parts[1]
-            }, parts.Length >= 3 ? parts[2] : PubSubVersion.V1);
+                MsgId = parts[1],
+                Version = parts.Length >= 3 ? parts[2] : PubSubVersion.V1
+            };
         }
     }
 }

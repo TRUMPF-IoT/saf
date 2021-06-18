@@ -278,10 +278,10 @@ namespace SAF.Communication.PubSub.Cde
         private void HandlePublication(TheProcessMessage msg)
         {
             var topicTxt = msg.Message.TXT.Remove(0, $"{MessageToken.Publish}:".Length);
-            var (msgTopic, msgVersion) = topicTxt.ToTopic();
+            var msgTopic = topicTxt.ToTopic();
             if (msgTopic == null) return;
 
-            OnMessageEvent(msgTopic.Channel, msgVersion, msg);
+            OnMessageEvent(msgTopic.Channel, msgTopic.Version, msg);
         }
 
         private void HandleError(TheProcessMessage msg)
