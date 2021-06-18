@@ -26,7 +26,7 @@ namespace CDMy.SAF.PubSub.Tests
         private TheThing TheThing { get; set; }
         private Subscriber _subscriber;
         private IPublisher _publisher;
-        private readonly CancellationTokenSource _cancellationTokenSource = new CancellationTokenSource();
+        private readonly CancellationTokenSource _cancellationTokenSource = new();
 
         public ServiceThing(IBaseEngine baseEngine)
         {

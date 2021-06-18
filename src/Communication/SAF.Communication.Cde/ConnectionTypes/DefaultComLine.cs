@@ -15,7 +15,7 @@ namespace SAF.Communication.Cde.ConnectionTypes
     public class DefaultComLine : ComLine
     {
         private readonly TheThing _thing;
-        private readonly List<string> _subscriptions = new List<string>();
+        private readonly List<string> _subscriptions = new();
 
         public DefaultComLine(TheThing thing)
         {

@@ -9,7 +9,7 @@ namespace SAF.Toolbox.Heartbeat
 {
     internal class HeartbeatPool : IHeartbeatPool
     {
-        private readonly ConcurrentDictionary<int, Heartbeat> _heartbeatsPerCycle = new ConcurrentDictionary<int, Heartbeat>();
+        private readonly ConcurrentDictionary<int, Heartbeat> _heartbeatsPerCycle = new();
 
         public IHeartbeat GetOrCreateHeartbeat(int heartbeatMillis)
             => _heartbeatsPerCycle.GetOrAdd(heartbeatMillis, cycle => new Heartbeat(cycle));

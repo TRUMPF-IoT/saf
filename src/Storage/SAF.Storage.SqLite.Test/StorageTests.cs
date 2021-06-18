@@ -10,7 +10,7 @@ namespace SAF.Storage.SqLite.Test
 {
     public class StorageTests
     {
-        private SQLiteConnection _connection;
+        private readonly SQLiteConnection _connection;
 
         public StorageTests()
         {

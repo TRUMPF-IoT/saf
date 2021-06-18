@@ -23,11 +23,11 @@ namespace SAF.Toolbox.FileTransfer
             public Action<Message> ReceiptAction { get; set; }
         };
 
-        private readonly CancellationTokenSource _cancelTokenSource = new CancellationTokenSource();
+        private readonly CancellationTokenSource _cancelTokenSource = new();
         private readonly IMessagingInfrastructure _messaging;
         private readonly ILogger<FileSender> _log;
 
-        private readonly ConcurrentDictionary<string, SendRequest> _sendRequests = new ConcurrentDictionary<string, SendRequest>();
+        private readonly ConcurrentDictionary<string, SendRequest> _sendRequests = new();
         private object _subscription;
 
         internal const long MaxChunkSize = 204801; // roughly adding up to ~200KB
@@ -35,7 +35,7 @@ namespace SAF.Toolbox.FileTransfer
         private Guid Id { get; } = Guid.NewGuid();
         private string ReplyToPrefix => $"private/data/transfer/receipt/{Id:N}";
 
-        private object _syncTransferId = new object();
+        private readonly object _syncTransferId = new();
         private long _uniqueTransferId;
 
         public ulong Timeout { get; set; } = 10_000; // 10 sec.

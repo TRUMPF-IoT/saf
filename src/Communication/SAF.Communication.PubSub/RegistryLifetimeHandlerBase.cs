@@ -20,7 +20,7 @@ namespace SAF.Communication.PubSub
 
     public class RegistryLifetimeHandlerBase<TMessage> : IRegistryLifetimeHandler<TMessage>, IDisposable
     {
-        private readonly ConcurrentDictionary<string, RemoteRegistry<TMessage>> _knownRegistries = new ConcurrentDictionary<string, RemoteRegistry<TMessage>>();
+        private readonly ConcurrentDictionary<string, RemoteRegistry<TMessage>> _knownRegistries = new();
 
         private readonly Timer _registryLifetimeCheckTimer;
         private int _checkingLifetime;

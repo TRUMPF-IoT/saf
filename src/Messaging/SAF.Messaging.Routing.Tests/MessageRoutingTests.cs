@@ -164,7 +164,7 @@ namespace SAF.Messaging.Routing.Tests
         }
 
         private static Message CreateTestMessage(string topic)
-            => new Message
+            => new()
             {
                 Topic = topic,
                 Payload = "test"

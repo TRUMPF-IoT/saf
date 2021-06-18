@@ -22,7 +22,7 @@ namespace SAF.Communication.PubSub.Cde.Authorization
         public static readonly string ChannelGetToken = $"{BaseChannelName}/token/get";
         public static readonly string ChannelCheckToken = $"{BaseChannelName}/token/check";
 
-        private readonly ConcurrentDictionary<string, string> _tokens = new ConcurrentDictionary<string, string>();
+        private readonly ConcurrentDictionary<string, string> _tokens = new();
 
         public AuthorizationService(Publisher publisher)
         {

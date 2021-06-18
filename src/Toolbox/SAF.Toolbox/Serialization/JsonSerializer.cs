@@ -10,7 +10,7 @@ namespace SAF.Toolbox.Serialization
 {
     public static class JsonSerializer
     {
-        private static readonly JsonSerializerSettings CamelCaseDefaultSettings = new JsonSerializerSettings
+        private static readonly JsonSerializerSettings CamelCaseDefaultSettings = new()
         {
             ContractResolver = new CamelCasePropertyNamesContractResolver
             {

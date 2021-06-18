@@ -16,7 +16,9 @@ namespace SAF.Communication.PubSub.Cde
 
 #pragma warning disable IDE1006 // naming convention
 
+        // ReSharper disable once InconsistentNaming
         public string address;
+        // ReSharper disable once InconsistentNaming
         public string instanceId;
         // ReSharper disable once InconsistentNaming
         public string version => PubSubVersion.Latest;

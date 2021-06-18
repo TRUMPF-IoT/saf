@@ -30,9 +30,9 @@ namespace SAF.Communication.PubSub.Cde
         private readonly CancellationTokenSource _tokenSource;
         private bool _disposed;
 
-        private readonly Dictionary<string, CountdownEvent> _subscriptions = new Dictionary<string, CountdownEvent>();
-        private readonly ConcurrentDictionary<Guid, ISubscription> _subscribers = new ConcurrentDictionary<Guid, ISubscription>();
-        private readonly ManualResetEventSlim _registryDiscoveredEvent = new ManualResetEventSlim(false);
+        private readonly Dictionary<string, CountdownEvent> _subscriptions = new();
+        private readonly ConcurrentDictionary<Guid, ISubscription> _subscribers = new();
+        private readonly ManualResetEventSlim _registryDiscoveredEvent = new(false);
 
         private Timer _aliveTimer;
         private int _sendingAlive;

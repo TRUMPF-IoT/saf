@@ -29,7 +29,7 @@ namespace SAF.Messaging.Routing
         private readonly ILogger<Messaging> _log;
         private readonly MessageRouting[] _messageRoutings;
 
-        private readonly ConcurrentDictionary<Guid, (string pattern, IDisposable disposable)> _subscriptions = new ConcurrentDictionary<Guid, (string pattern, IDisposable disposable)>();
+        private readonly ConcurrentDictionary<Guid, (string pattern, IDisposable disposable)> _subscriptions = new();
 
         public Messaging(ILogger<Messaging> log, MessageRouting[] messageRoutings)
         {

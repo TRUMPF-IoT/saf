@@ -26,7 +26,7 @@ namespace SAF.Hosting
         private readonly ServiceHostEnvironment _environment;
         private readonly IServiceHostContext _context;
 
-        private readonly List<IHostedService> _services = new List<IHostedService>();
+        private readonly List<IHostedService> _services = new();
 
         public ServiceHost(
             IServiceProvider runtimeApplicationServiceProvider,
@@ -95,7 +95,7 @@ namespace SAF.Hosting
 
         private ServiceHostEnvironment BuildServiceHostEnvironment()
         {
-            return new ServiceHostEnvironment
+            return new()
             {
                 ApplicationName = Assembly.GetEntryAssembly()?.GetName().Name,
                 EnvironmentName = GetEnvironment()

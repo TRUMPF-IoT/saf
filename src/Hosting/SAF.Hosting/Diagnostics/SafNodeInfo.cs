@@ -20,7 +20,7 @@ namespace SAF.Hosting.Diagnostics
         }
 
         public string HostId => _hostInfo.Id;
-        public SafVersionInfo SafVersionInfo { get; } = new SafVersionInfo();
+        public SafVersionInfo SafVersionInfo { get; } = new();
         public IEnumerable<SafServiceInfo> SafServices { get; }
         public DateTimeOffset UpSince => _hostInfo.UpSince;
 

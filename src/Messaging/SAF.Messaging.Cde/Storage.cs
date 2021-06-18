@@ -23,7 +23,7 @@ namespace SAF.Messaging.Cde
     {
         private readonly ILogger<Storage> _log;
         private const string GlobalArea = "global";
-        private readonly Dictionary<string, TheStorageMirror<StorageEntry>> _openStorageAreas = new Dictionary<string, TheStorageMirror<StorageEntry>>();
+        private readonly Dictionary<string, TheStorageMirror<StorageEntry>> _openStorageAreas = new();
 
         private const int SaveStorageAreaIntervalSeconds = 5;
 

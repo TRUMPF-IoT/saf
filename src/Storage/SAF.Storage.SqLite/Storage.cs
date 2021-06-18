@@ -10,9 +10,9 @@ namespace SAF.Storage.SqLite
 {
     public class Storage : IStorageInfrastructure, IDisposable
     {
-        readonly private SQLiteConnection _connection;
-        private const string BYTES_VALUE = "bytesValue";
-        private const string STRING_VALUE = "stringValue";
+        private readonly SQLiteConnection _connection;
+        private const string BytesValue = "bytesValue";
+        private const string StringValue = "stringValue";
 
         public Storage(SQLiteConnection connection)
         {
@@ -37,23 +37,23 @@ namespace SAF.Storage.SqLite
 
         public byte[] GetBytes(string key)
         {
-            return GetValue("globals", key, BYTES_VALUE) as byte[];
+            return GetValue("globals", key, BytesValue) as byte[];
         }
 
 
         public byte[] GetBytes(string area, string key)
         {
-            return GetValue(area, key, BYTES_VALUE) as byte[];
+            return GetValue(area, key, BytesValue) as byte[];
         }
 
         public string GetString(string key)
         {
-            return GetValue("globals", key, STRING_VALUE) as string;
+            return GetValue("globals", key, StringValue) as string;
         }
 
         public string GetString(string area, string key)
         {
-            return GetValue(area, key, STRING_VALUE) as string;
+            return GetValue(area, key, StringValue) as string;
         }
 
         private object GetValue(string area, string key, string valueType)
@@ -75,25 +75,25 @@ namespace SAF.Storage.SqLite
 
         public IStorageInfrastructure Set(string key, string value)
         {
-            SaveValue("globals", key, value, STRING_VALUE);
+            SaveValue("globals", key, value, StringValue);
             return this;
         }
 
         public IStorageInfrastructure Set(string area, string key, string value)
         {
-            SaveValue(area, key, value, STRING_VALUE);
+            SaveValue(area, key, value, StringValue);
             return this;
         }
 
         public IStorageInfrastructure Set(string key, byte[] value)
         {
-            SaveValue("globals", key, value, BYTES_VALUE);
+            SaveValue("globals", key, value, BytesValue);
             return this;
         }
 
         public IStorageInfrastructure Set(string area, string key, byte[] value)
         {
-            SaveValue(area, key, value, BYTES_VALUE);
+            SaveValue(area, key, value, BytesValue);
             return this;
         }
 
@@ -111,7 +111,7 @@ namespace SAF.Storage.SqLite
         private void CreateTable(string tableName)
         {
             using var cmd = new SQLiteCommand(_connection);
-            cmd.CommandText = $"CREATE TABLE IF NOT EXISTS {tableName}(id string PRIMARY KEY, {STRING_VALUE} TEXT, {BYTES_VALUE} BLOB)";
+            cmd.CommandText = $"CREATE TABLE IF NOT EXISTS {tableName}(id string PRIMARY KEY, {StringValue} TEXT, {BytesValue} BLOB)";
             cmd.ExecuteNonQuery();
         }
 

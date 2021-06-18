@@ -22,11 +22,11 @@ namespace SAF.DevToolbox.TestRunner
         private readonly ServiceCollection _applicationServices;
         private ServiceProvider _applicationServiceProvider;
 
-        private readonly List<Type> _testSequences = new List<Type>();
-        private readonly List<TestSequenceTracer> _tracer = new List<TestSequenceTracer>();
+        private readonly List<Type> _testSequences = new();
+        private readonly List<TestSequenceTracer> _tracer = new();
         private readonly ILogger<TestSequenceRunner> _mainLogger;
         private readonly IConfigurationRoot _config;
-        private readonly List<Action<IMessagingInfrastructure>> _subscribeChannelActions = new List<Action<IMessagingInfrastructure>>();
+        private readonly List<Action<IMessagingInfrastructure>> _subscribeChannelActions = new();
 
         private string _traceTestSequencesToPath;
         private TestSequenceTracer _currentTestSequenceTracer;

@@ -23,7 +23,7 @@ namespace SAF.Hosting.Cde
     {
         private readonly ServiceProvider _baseServiceProvider;
         private readonly ServiceProvider _applicationServiceProvider;
-        private readonly CancellationTokenSource _cancellationTokenSource = new CancellationTokenSource();
+        private readonly CancellationTokenSource _cancellationTokenSource = new();
 
         public ServiceHost(string searchPattern = null, string userBasePath = null)
             : this(null, searchPattern, userBasePath)

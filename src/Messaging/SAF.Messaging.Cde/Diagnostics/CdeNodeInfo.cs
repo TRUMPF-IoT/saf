@@ -13,7 +13,7 @@ namespace SAF.Messaging.Cde.Diagnostics
 {
     internal class CdeNodeInfo
     {
-        private IHostInfo _hostInfo;
+        private readonly IHostInfo _hostInfo;
 
         public CdeNodeInfo(IHostInfo hostInfo)
         {
@@ -21,8 +21,8 @@ namespace SAF.Messaging.Cde.Diagnostics
         }
 
         public string SafHostId => _hostInfo.Id;
-        public CdeServiceHostInfo ServiceHostInfo { get; } = new CdeServiceHostInfo();
-        public CdeVersionInfo CdeVersionInfo { get; } = new CdeVersionInfo();
+        public CdeServiceHostInfo ServiceHostInfo { get; } = new();
+        public CdeVersionInfo CdeVersionInfo { get; } = new();
 
         public IEnumerable<CdePluginInfo> CdePlugIns { get; } = ReadPluginInfos();
 
