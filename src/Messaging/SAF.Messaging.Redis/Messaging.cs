@@ -6,7 +6,6 @@ using System;
 using System.Collections.Concurrent;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
-using Newtonsoft.Json;
 using StackExchange.Redis;
 using SAF.Common;
 using JsonSerializer = SAF.Toolbox.Serialization.JsonSerializer;
@@ -158,7 +157,7 @@ namespace SAF.Messaging.Redis
                         if (string.IsNullOrEmpty(redisMessage.Version) && redisMessage.Message == null)
                             redisMessage = null;
                     }
-                    catch (JsonSerializationException)
+                    catch (Exception)
                     {
                         redisMessage = null;
                     }
