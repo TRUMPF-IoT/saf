@@ -25,7 +25,7 @@ namespace SAF.Services.SampleService1
         private Timer _timer;
         private long _pingId;
 
-        private readonly List<object> _subscriptions = new List<object>();
+        private readonly List<object> _subscriptions = new();
 
         public MySpecialService(ILogger log,
             MyInternalDependency internalDependency,
@@ -66,7 +66,11 @@ namespace SAF.Services.SampleService1
             {
                 var pingId = Interlocked.Increment(ref _pingId);
                 var payload = JsonSerializer.Serialize(new PingRequest { ReplyTo = "ping/response", Id = $"{pingId}" });
-                _messaging.Publish(new Message { Topic = "ping/request", Payload = payload });
+                _messaging.Publish(new Message { Topic = "ping/request", Payload = payload, CustomProperties = new List<MessageCustomProperty>
+                {
+                    new() {Name = "pingService", Value = nameof(MySpecialService)},
+                    new() {Name = "stringSetting", Value = _config.MyStringSetting}
+                }});
 
             }, null, TimeSpan.Zero, TimeSpan.FromSeconds(5));
         }

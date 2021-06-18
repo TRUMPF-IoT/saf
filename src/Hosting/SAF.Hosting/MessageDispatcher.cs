@@ -13,7 +13,7 @@ namespace SAF.Hosting
 {
     public class MessageDispatcher : IServiceMessageDispatcher
     {
-        private readonly Dictionary<string, Func<IMessageHandler>> _messageHandlerProviders = new Dictionary<string, Func<IMessageHandler>>();
+        private readonly Dictionary<string, Func<IMessageHandler>> _messageHandlerProviders = new();
         private readonly ILogger _log;
 
         public MessageDispatcher(ILogger<MessageDispatcher> log)

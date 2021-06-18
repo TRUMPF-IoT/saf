@@ -6,6 +6,7 @@
 using System;
 using System.Threading;
 using System.Threading.Tasks;
+using SAF.Common;
 using SAF.Communication.Cde;
 using SAF.Communication.PubSub.Interfaces;
 
@@ -49,32 +50,42 @@ namespace SAF.Communication.PubSub.Cde
 
         public void Publish(string channel, string message)
         {
-            Publish(channel, message, Guid.Empty);
+            Publish(new Message { Topic = channel, Payload = message});
         }
 
         public void Publish(string channel, string message, RoutingOptions routingOptions)
         {
-            Publish(channel, message, Guid.Empty, routingOptions);
+            Publish(new Message { Topic = channel, Payload = message }, Guid.Empty, routingOptions);
         }
 
-        public void Publish(string channel, string message, Guid userId)
+        public void Publish(Message message)
         {
-            Publish(channel, message, $"{userId}");
+            Publish(message, Guid.Empty);
         }
 
-        public void Publish(string channel, string message, Guid userId, RoutingOptions routingOptions)
+        public void Publish(Message message, RoutingOptions routingOptions)
         {
-            Publish(channel, message, $"{userId}", routingOptions);
+            Publish(message, Guid.Empty, routingOptions);
         }
 
-        public void Publish(string channel, string message, string userId)
+        public void Publish(Message message, Guid userId)
         {
-            Publish(channel, message, userId, RoutingOptions.All);
+            Publish(message, $"{userId}");
         }
 
-        public void Publish(string channel, string message, string userId, RoutingOptions routingOptions)
+        public void Publish(Message message, Guid userId, RoutingOptions routingOptions)
         {
-            var t = new Topic { Channel = channel, MsgId = Guid.NewGuid().ToString("N") };
+            Publish(message, $"{userId}", routingOptions);
+        }
+
+        public void Publish(Message message, string userId)
+        {
+            Publish(message, userId, RoutingOptions.All);
+        }
+
+        public void Publish(Message message, string userId, RoutingOptions routingOptions)
+        {
+            var t = new Topic { Channel = message.Topic, MsgId = Guid.NewGuid().ToString("N") };
             _subscriptionRegistry.Broadcast(t, message, userId, routingOptions);
         }
 

@@ -10,6 +10,7 @@ using System.Threading.Tasks;
 using nsCDEngine.BaseClasses;
 using nsCDEngine.Engines.ThingService;
 using nsCDEngine.ViewModels;
+using SAF.Common;
 using SAF.Communication.Cde;
 using SAF.Communication.Cde.Utils;
 using SAF.Communication.PubSub.Interfaces;
@@ -36,7 +37,7 @@ namespace SAF.Communication.PubSub.Cde
     {
         public const int AliveIntervalSeconds = 30;
 
-        private readonly ReaderWriterLockSlim _syncSubscribers = new ReaderWriterLockSlim(LockRecursionPolicy.SupportsRecursion);
+        private readonly ReaderWriterLockSlim _syncSubscribers = new(LockRecursionPolicy.SupportsRecursion);
         private readonly IDictionary<string, IRemoteSubscriber> _subscribers = new Dictionary<string, IRemoteSubscriber>();
 
         private readonly Logger _log;
@@ -71,21 +72,33 @@ namespace SAF.Communication.PubSub.Cde
                 TimeSpan.FromSeconds(0), TimeSpan.FromSeconds(AliveIntervalSeconds));
         }
 
-        public void Broadcast(Topic topic, string message, string userId, RoutingOptions routingOptions)
+        public void Broadcast(Topic topic, Message message, string userId, RoutingOptions routingOptions)
         {
             _syncSubscribers.EnterReadLock();
             try
             {
-                var messageTxt = $"{MessageToken.Publish}:{topic.ToTsmTxt()}";                
                 foreach (var subscriber in _subscribers.Values)
                 {
                     if(!subscriber.IsRoutingAllowed(routingOptions)) continue;
                     if (!subscriber.IsMatch(topic.Channel)) continue;
 
-                    var tsm = new TSM(subscriber.TargetEngine, messageTxt, message)
+                    TSM tsm;
+                    var messageTxt = $"{MessageToken.Publish}:{new Topic(topic.Channel, topic.MsgId, subscriber.Version).ToTsmTxt()}";
+                    if (subscriber.Version == PubSubVersion.V1)
                     {
-                        UID = userId
-                    };
+                        tsm = new TSM(subscriber.TargetEngine, messageTxt, message.Payload)
+                        {
+                            UID = userId
+                        };
+                    }
+                    else
+                    {
+                        tsm = new TSM(subscriber.TargetEngine, messageTxt, TheCommonUtils.SerializeObjectToJSONString(message))
+                        {
+                            UID = userId
+                        };
+                    }
+
                     _line.AnswerToSender(subscriber.Tsm, tsm);
                 }
             }
@@ -114,7 +127,7 @@ namespace SAF.Communication.PubSub.Cde
             {
                 if (!_subscribers.TryGetValue(message.ORG, out var subscriber))
                 {
-                    subscriber = new RemoteSubscriber(message, newPatterns, request.isRegistry);
+                    subscriber = new RemoteSubscriber(message, newPatterns, request);
                     _subscribers.Add(message.ORG, subscriber);
                 }
                 else
@@ -128,7 +141,8 @@ namespace SAF.Communication.PubSub.Cde
                     id = request.id,
                     instanceId = _instanceId,
                     isRegistry = request.isRegistry,
-                    topics = request.topics
+                    topics = request.topics,
+                    version = PubSubVersion.Latest
                 };
                 var tsm = new TSM(subscriber.TargetEngine, MessageToken.SubscribeResponse, TheCommonUtils.SerializeObjectToJSONString(response));
                 _line.AnswerToSender(subscriber.Tsm, tsm);
@@ -205,7 +219,12 @@ namespace SAF.Communication.PubSub.Cde
                 _log.LogWarning($"Detected invalid cde-pubsub topic format: '{topicTxt}' (ENG={message.ENG}) -> ignoring message");
                 return;
             }
-            Broadcast(topic, message.PLS, message.UID, RoutingOptions.All);
+
+            var msg = topic.Version == PubSubVersion.V1
+                ? new Message {Topic = topic.Channel, Payload = message.PLS}
+                : TheCommonUtils.DeserializeJSONStringToObject<Message>(message.PLS);
+
+            Broadcast(topic, msg, message.UID, RoutingOptions.All);
         }
 
         private void HandleDiscoveryRequest(TheProcessMessage message)

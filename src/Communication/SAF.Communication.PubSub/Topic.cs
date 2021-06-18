@@ -3,19 +3,33 @@
 // SPDX-License-Identifier: MPL-2.0
 
 
+using SAF.Communication.PubSub.Interfaces;
+
 namespace SAF.Communication.PubSub
 {
     public class Topic
     {
         public string Channel;
         public string MsgId;
+        public string Version;
+
+        public Topic()
+        {}
+
+        public Topic(string channel, string msgId, string version)
+        {
+            Channel = channel;
+            MsgId = msgId;
+            Version = version;
+        }
     }
 
     public static class TopicExtensions
     {
         public static string ToTsmTxt(this Topic topic)
         {
-            return $"{topic.Channel}|{topic.MsgId}";
+            var tsmTxt = $"{topic.Channel}|{topic.MsgId}";
+            return string.IsNullOrEmpty(topic.Version) ? tsmTxt : $"{tsmTxt}|{topic.Version}";
         }
     }
 
@@ -29,7 +43,8 @@ namespace SAF.Communication.PubSub
             return new Topic
             {
                 Channel = parts[0],
-                MsgId = parts[1]
+                MsgId = parts[1],
+                Version = parts.Length >= 3 ? parts[2] : PubSubVersion.V1
             };
         }
     }

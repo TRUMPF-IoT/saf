@@ -15,7 +15,7 @@ namespace SAF.DevToolbox.TestRunner
         private readonly string _testSequenceName;
         private readonly TestSequenceBase _testSequence;
         private readonly StreamWriter _writer;
-        private readonly Stopwatch _sw = new Stopwatch();
+        private readonly Stopwatch _sw = new();
 
         public TestSequenceTracer(string basePath, string testSequenceName, TestSequenceBase testSequence)
         {

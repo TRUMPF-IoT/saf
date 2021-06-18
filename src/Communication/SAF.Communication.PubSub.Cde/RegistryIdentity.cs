@@ -2,6 +2,8 @@
 //
 // SPDX-License-Identifier: MPL-2.0
 
+using SAF.Communication.PubSub.Interfaces;
+
 namespace SAF.Communication.PubSub.Cde
 {
     internal class RegistryIdentity
@@ -14,10 +16,12 @@ namespace SAF.Communication.PubSub.Cde
 
 #pragma warning disable IDE1006 // naming convention
 
+        // ReSharper disable once InconsistentNaming
         public string address;
+        // ReSharper disable once InconsistentNaming
         public string instanceId;
         // ReSharper disable once InconsistentNaming
-        public string version => "1.0.0";
+        public string version => PubSubVersion.Latest;
 
 #pragma warning restore IDE1006
     }

@@ -16,7 +16,7 @@ namespace SAF.Communication.Cde.ConnectionTypes
     {
         private readonly TheThing _thing;
         private readonly TheISBConnect _line;
-        private readonly List<string> _subscribedEngines = new List<string>();
+        private readonly List<string> _subscribedEngines = new();
         
         public bool IsConnected { get; private set; }
 

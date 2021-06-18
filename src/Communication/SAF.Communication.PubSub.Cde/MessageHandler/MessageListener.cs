@@ -30,9 +30,9 @@ namespace SAF.Communication.PubSub.Cde.MessageHandler
                 $"{AuthorizationService.BaseChannelName}/*"
             }) as ISubscriptionInternal;
 
-            subscription?.With(msg =>
+            subscription?.With((msgVersion, msg) =>
             {
-                messageHandler.Handle(msg);
+                messageHandler.Handle(msgVersion, msg);
             });
             return subscription;
         }

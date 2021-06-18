@@ -14,6 +14,7 @@ namespace SAF.Communication.PubSub.Cde
         bool IsAlive { get; }
         bool IsRegistry { get; }
         string TargetEngine { get; }
+        string Version { get; }
 
         void AddPatterns(IList<string> patterns);
         void RemovePatterns(IList<string> patterns);

@@ -14,16 +14,17 @@ namespace SAF.Communication.PubSub.Cde
 {
     internal class RemoteSubscriber : IRemoteSubscriber
     {
+        private readonly RegistrySubscriptionRequest _registryRequest;
         private readonly HashSet<string> _patterns;
         private DateTimeOffset _lastActivity = DateTimeOffset.UtcNow;
 
         public RemoteSubscriber(TSM tsm)
-            : this(tsm, new List<string>(), false)
+            : this(tsm, new List<string>(), new RegistrySubscriptionRequest())
         { }
-        public RemoteSubscriber(TSM tsm, IList<string> patterns, bool isRegistry)
+        public RemoteSubscriber(TSM tsm, IList<string> patterns, RegistrySubscriptionRequest request)
         {
             Tsm = tsm;
-            IsRegistry = isRegistry;
+            _registryRequest = request;
             _patterns = new HashSet<string>(patterns.Distinct());
             IsLocalHost = tsm.IsLocalHost();
         }
@@ -31,8 +32,12 @@ namespace SAF.Communication.PubSub.Cde
         public TSM Tsm { get; }
         public bool IsLocalHost { get; }
         public bool IsAlive => DateTimeOffset.UtcNow - _lastActivity <= TimeSpan.FromSeconds(Subscriber.AliveIntervalSeconds * 2);
-        public bool IsRegistry { get; }
+        public bool IsRegistry => _registryRequest.isRegistry;
         public string TargetEngine => IsRegistry ? Engines.PubSub : Engines.RemotePubSub;
+
+        public string Version => string.IsNullOrEmpty(_registryRequest.version)
+            ? PubSubVersion.V1
+            : _registryRequest.version;
 
         public void AddPatterns(IList<string> patterns)
         {

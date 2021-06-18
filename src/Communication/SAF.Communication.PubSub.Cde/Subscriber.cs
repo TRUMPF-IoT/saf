@@ -30,9 +30,9 @@ namespace SAF.Communication.PubSub.Cde
         private readonly CancellationTokenSource _tokenSource;
         private bool _disposed;
 
-        private readonly Dictionary<string, CountdownEvent> _subscriptions = new Dictionary<string, CountdownEvent>();
-        private readonly ConcurrentDictionary<Guid, ISubscription> _subscribers = new ConcurrentDictionary<Guid, ISubscription>();
-        private readonly ManualResetEventSlim _registryDiscoveredEvent = new ManualResetEventSlim(false);
+        private readonly Dictionary<string, CountdownEvent> _subscriptions = new();
+        private readonly ConcurrentDictionary<Guid, ISubscription> _subscribers = new();
+        private readonly ManualResetEventSlim _registryDiscoveredEvent = new(false);
 
         private Timer _aliveTimer;
         private int _sendingAlive;
@@ -40,7 +40,7 @@ namespace SAF.Communication.PubSub.Cde
         private RemoteRegistryLifetimeHandler _registryLifetimeHandler;
         private MessageListener _messageListener;
 
-        public event Action<string, TheProcessMessage> MessageEvent;
+        public event Action<string, string, TheProcessMessage> MessageEvent;
 
         public Subscriber(ComLine line, Publisher publisher)
             : this(line, publisher, new CancellationTokenSource())
@@ -185,11 +185,12 @@ namespace SAF.Communication.PubSub.Cde
 
         private RegistrySubscriptionRequest CreateSubscriptionRequest(Guid subId, string[] topics)
         {
-            return new RegistrySubscriptionRequest
+            return new()
             {
                 id = subId.ToString("N"),
                 topics = topics,
-                isRegistry = true
+                isRegistry = true,
+                version = PubSubVersion.Latest
             };
         }
 
@@ -217,10 +218,8 @@ namespace SAF.Communication.PubSub.Cde
             });
         }
 
-        private void OnMessageEvent(string topic, TheProcessMessage msg)
-        {
-            MessageEvent?.Invoke(topic, msg);
-        }
+        private void OnMessageEvent(string topic, string msgVersion, TheProcessMessage msg)
+            => MessageEvent?.Invoke(topic, msgVersion, msg);
 
         private void HandleMessage(ICDEThing sender, object pMsg)
         {
@@ -282,7 +281,7 @@ namespace SAF.Communication.PubSub.Cde
             var msgTopic = topicTxt.ToTopic();
             if (msgTopic == null) return;
 
-            OnMessageEvent(msgTopic.Channel, msg);
+            OnMessageEvent(msgTopic.Channel, msgTopic.Version, msg);
         }
 
         private void HandleError(TheProcessMessage msg)

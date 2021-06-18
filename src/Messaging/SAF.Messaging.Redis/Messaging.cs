@@ -6,11 +6,26 @@ using System;
 using System.Collections.Concurrent;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
+using Newtonsoft.Json;
 using StackExchange.Redis;
 using SAF.Common;
+using JsonSerializer = SAF.Toolbox.Serialization.JsonSerializer;
 
 namespace SAF.Messaging.Redis
 {
+    public static class RedisMessageVersion
+    {
+        public const string V1 = "1.0.0";
+        public const string V2 = "2.0.0";
+        public static readonly string Latest = V2;
+    }
+
+    internal class RedisMessage
+    {
+        public string Version { get; set; }
+        public Message Message { get; set; }
+    }
+
     internal class Messaging : IRedisMessagingInfrastructure, IDisposable
     {
         private readonly IConnectionMultiplexer _redis;
@@ -18,8 +33,7 @@ namespace SAF.Messaging.Redis
         private readonly Action<Message> _traceAction;
         private readonly ILogger _log;
 
-        private readonly ConcurrentDictionary<Guid, (string routeFilterPattern, Action<RedisChannel, RedisValue> handler)> _subscriptions
-            = new ConcurrentDictionary<Guid, (string routeFilterPattern, Action<RedisChannel, RedisValue> handler)>();
+        private readonly ConcurrentDictionary<Guid, (string routeFilterPattern, Action<RedisChannel, RedisValue> handler)> _subscriptions = new();
 
         public Messaging(ILogger<Messaging> log, IConnectionMultiplexer redis, IServiceMessageDispatcher serviceMessageDispatcher, Action<Message> traceAction)
         {
@@ -34,7 +48,8 @@ namespace SAF.Messaging.Redis
             _traceAction?.Invoke(message);
             try
             {
-                _redis.GetSubscriber()?.Publish(message.Topic, message.Payload, CommandFlags.FireAndForget);
+                var redisPayload = JsonSerializer.Serialize(new RedisMessage {Message = message, Version = RedisMessageVersion.Latest});
+                _redis.GetSubscriber()?.Publish(message.Topic, redisPayload, CommandFlags.FireAndForget);
             }
             catch (NullReferenceException nre)
             {
@@ -55,19 +70,15 @@ namespace SAF.Messaging.Redis
         {
             _log.LogDebug($"Subscribe \"{typeof(TMessageHandler).Name}\" for route \"{routeFilterPattern}\".");
 
-            void Handler(RedisChannel channel, RedisValue message)
+            void Handler(Message message)
             {
                 try
                 {
-                    _serviceMessageDispatcher.DispatchMessage<TMessageHandler>(new Message
-                    {
-                        Topic = channel.ToString(),
-                        Payload = message.ToString()
-                    });
+                    _serviceMessageDispatcher.DispatchMessage<TMessageHandler>(message);
                 }
                 catch (Exception e) // Exceptions in redis callbacks are omitted, when not explicitly caught and logged!
                 {
-                    _log.LogError(e, $"Exception while trying to dispatch message \"{channel}\" from redis callback!");
+                    _log.LogError(e, $"Exception while trying to dispatch message \"{message.Topic}\" from redis callback!");
                     throw;
                 }
             }
@@ -81,19 +92,15 @@ namespace SAF.Messaging.Redis
         {
             _log.LogDebug($"Subscribe \"lambda handler\" for route \"{routeFilterPattern}\".");
 
-            void Handler(RedisChannel channel, RedisValue message)
+            void Handler(Message message)
             {
                 try
                 {
-                    _serviceMessageDispatcher.DispatchMessage(handler, new Message
-                    {
-                        Topic = channel.ToString(),
-                        Payload = message.ToString()
-                    });
+                    _serviceMessageDispatcher.DispatchMessage(handler, message);
                 }
                 catch(Exception e) // Exceptions in redis callbacks are omitted, when not explicitly caught and logged!
                 {
-                    _log.LogError(e, $"Exception while trying to dispatch message \"{channel}\" from redis callback!");
+                    _log.LogError(e, $"Exception while trying to dispatch message \"{message.Topic}\" from redis callback!");
                     throw;
                 }
             }
@@ -103,17 +110,15 @@ namespace SAF.Messaging.Redis
 
         public void Unsubscribe(object subscription)
         {
-            var subscriptionGuid = subscription as Guid?;
-
-            if(!subscriptionGuid.HasValue)
+            if(subscription is not Guid subscriptionGuid)
             {
                 _log.LogWarning($"Unsubscribe failed. Invalid subscription object passed: \"{subscription}\".");
                 return;
             }
 
-            if(!_subscriptions.TryRemove(subscriptionGuid.Value, out var storedSubscription))
+            if(!_subscriptions.TryRemove(subscriptionGuid, out var storedSubscription))
             {
-                _log.LogWarning($"Unsubscribe failed. Subscription not active anymore: \"{subscriptionGuid.Value}\".");
+                _log.LogWarning($"Unsubscribe failed. Subscription not active anymore: \"{subscriptionGuid}\".");
                 return;
             }
 
@@ -132,7 +137,7 @@ namespace SAF.Messaging.Redis
                 _log.LogInformation(ode, $"Handled ObjectDisposedException while unsubscribing pattern {storedSubscription.routeFilterPattern}");
             }
 
-            _log.LogDebug($"Unsubscribed subscription \"{subscriptionGuid.Value}\" for channel \"{storedSubscription.routeFilterPattern}\"");
+            _log.LogDebug($"Unsubscribed subscription \"{subscriptionGuid}\" for channel \"{storedSubscription.routeFilterPattern}\"");
         }
 
         public void Dispose()
@@ -140,13 +145,34 @@ namespace SAF.Messaging.Redis
             _redis?.Dispose();
         }
 
-        private object SubscribeMessageHandler(string routeFilterPattern, Action<RedisChannel, RedisValue> handler)
+        private object SubscribeMessageHandler(string routeFilterPattern, Action<Message> handler)
         {
             try
             {
+                void InternalHandler(RedisChannel channel, RedisValue message)
+                {
+                    RedisMessage redisMessage;
+                    try
+                    {
+                        redisMessage = JsonSerializer.Deserialize<RedisMessage>(message.ToString());
+                        if (string.IsNullOrEmpty(redisMessage.Version) && redisMessage.Message == null)
+                            redisMessage = null;
+                    }
+                    catch (JsonSerializationException)
+                    {
+                        redisMessage = null;
+                    }
+
+                    handler(redisMessage?.Message ?? new Message
+                    {
+                        Topic = channel.ToString(),
+                        Payload = message.ToString()
+                    });
+                }
+
                 var subscriptionId = Guid.NewGuid();
-                _redis.GetSubscriber()?.Subscribe(routeFilterPattern, handler);
-                _subscriptions.TryAdd(subscriptionId, (routeFilterPattern, handler));
+                _redis.GetSubscriber()?.Subscribe(routeFilterPattern, InternalHandler);
+                _subscriptions.TryAdd(subscriptionId, (routeFilterPattern, InternalHandler));
                 return subscriptionId;
             }
             catch (NullReferenceException nre)

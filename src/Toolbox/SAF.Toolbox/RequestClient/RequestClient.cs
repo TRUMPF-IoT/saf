@@ -23,7 +23,7 @@ namespace SAF.Toolbox.RequestClient
         private readonly IHeartbeat _heartbeat;
         private readonly ILogger _log;
 
-        private readonly ConcurrentDictionary<string, OpenRequest> _openRequests = new ConcurrentDictionary<string, OpenRequest>();
+        private readonly ConcurrentDictionary<string, OpenRequest> _openRequests = new();
         
         private string _defaultPrefix = "private/reply";
         private readonly string _postfix = $"requestclient/{Guid.NewGuid()}";

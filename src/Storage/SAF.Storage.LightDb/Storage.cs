@@ -20,7 +20,7 @@ namespace SAF.Storage.LiteDb
         private const string ModifiedDateKey = "modifiedDate";
         private readonly ILiteDatabase _connection;
 
-        private readonly ReaderWriterLockSlim _syncDbAccess = new ReaderWriterLockSlim(LockRecursionPolicy.SupportsRecursion);
+        private readonly ReaderWriterLockSlim _syncDbAccess = new(LockRecursionPolicy.SupportsRecursion);
 
         public Storage(ILiteDatabase connection)
         {

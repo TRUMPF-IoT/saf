@@ -4,6 +4,7 @@
 
 
 using System;
+using SAF.Common;
 
 namespace SAF.Communication.PubSub.Interfaces
 {
@@ -15,7 +16,7 @@ namespace SAF.Communication.PubSub.Interfaces
 
         string[] Patterns { get; }
 
-        void With(Action<DateTimeOffset, string, string> callback);
+        void With(Action<DateTimeOffset, Message> callback);
 
         void Unsubscribe();
     }

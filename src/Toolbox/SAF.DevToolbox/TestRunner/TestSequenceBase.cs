@@ -12,14 +12,14 @@ namespace SAF.DevToolbox.TestRunner
     public abstract class TestSequenceBase : IMessageHandler
     {
         private readonly IMessagingInfrastructure _messaging;
-        private readonly Dictionary<string, Action<string>> _persistActions = new Dictionary<string, Action<string>>();
+        private readonly Dictionary<string, Action<string>> _persistActions = new();
 
         internal Action<string> TraceTitleAction { get; set; }
         internal Action<string, string> TraceDocumentationAction { get; set; }
         
         public bool CanHandle(Message message) => true;
 
-        public TestSequenceBase(IMessagingInfrastructure messaging)
+        protected TestSequenceBase(IMessagingInfrastructure messaging)
         {
             _messaging = messaging;
         }

@@ -48,7 +48,7 @@ namespace SAF.Messaging.InProcess.Tests
         {
             var dispatcher = new MessageDispatcher(NullLogger<MessageDispatcher>.Instance);
             var sut = new InProcessMessaging(NullLogger<InProcessMessaging>.Instance, dispatcher);
-            DateTimeOffset publishContinued, subscriptionHit = DateTimeOffset.MinValue;
+            var subscriptionHit = DateTimeOffset.MinValue;
 
             sut.Subscribe("a/test/channel/123", m => 
             {
@@ -57,7 +57,7 @@ namespace SAF.Messaging.InProcess.Tests
             });
 
             sut.Publish(new Message { Topic = "a/test/channel/123" });
-            publishContinued = DateTimeOffset.Now;
+            var publishContinued = DateTimeOffset.Now;
 
             await WaitUtils.WaitUntil(() => subscriptionHit > DateTimeOffset.MinValue);
             Assert.True(publishContinued < subscriptionHit);

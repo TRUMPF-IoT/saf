@@ -3,7 +3,9 @@
 // SPDX-License-Identifier: MPL-2.0
 
 using System;
+using nsCDEngine.BaseClasses;
 using nsCDEngine.ViewModels;
+using SAF.Common;
 using SAF.Communication.PubSub.Interfaces;
 
 namespace SAF.Communication.PubSub.Cde
@@ -11,7 +13,7 @@ namespace SAF.Communication.PubSub.Cde
     internal class SubscriptionInternal : AbstractSubscription, ISubscriptionInternal
     {
         private readonly Subscriber _subscriber;
-        private Action<TheProcessMessage> _rawCallback;
+        private Action<string, TheProcessMessage> _rawCallback;
 
         public SubscriptionInternal(Subscriber subscriber, params string[] patterns)
             : this(subscriber, RoutingOptions.All, patterns)
@@ -30,19 +32,23 @@ namespace SAF.Communication.PubSub.Cde
             _rawCallback = null;
         }
 
-        public void With(Action<TheProcessMessage> callback)
+        public void With(Action<string, TheProcessMessage> callback)
         {
             _rawCallback = callback;
         }
 
-        private void OnMessage(string topic, TheProcessMessage msg)
+        private void OnMessage(string topic, string msgVersion, TheProcessMessage msg)
         {
             if (Callback == null && _rawCallback == null) return;
             if (!msg.Message.IsRoutingAllowed(RoutingOptions)) return;
             if (!IsTopicMatch(topic)) return;
 
-            Callback?.Invoke(msg.Message.TIM, topic, msg.Message.PLS);
-            _rawCallback?.Invoke(msg);
+            var message = msgVersion == PubSubVersion.V1
+                ? new Message { Topic = topic, Payload = msg.Message.PLS }
+                : TheCommonUtils.DeserializeJSONStringToObject<Message>(msg.Message.PLS);
+
+            Callback?.Invoke(msg.Message.TIM, message);
+            _rawCallback?.Invoke(msgVersion, msg);
         }
     }
 }
