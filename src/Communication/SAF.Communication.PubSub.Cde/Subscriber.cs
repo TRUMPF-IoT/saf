@@ -13,12 +13,19 @@ using nsCDEngine.BaseClasses;
 using nsCDEngine.Engines.ThingService;
 using nsCDEngine.ViewModels;
 using SAF.Communication.Cde;
+using SAF.Communication.Cde.ConnectionTypes;
 using SAF.Communication.Cde.Utils;
 using SAF.Communication.PubSub.Cde.MessageHandler;
 using SAF.Communication.PubSub.Interfaces;
 
 namespace SAF.Communication.PubSub.Cde
 {
+    /// <summary>
+    /// Manages all subscribers (which are implemented as <see cref="SubscriptionInternal"/>) 
+    /// and the messages from the C-DEngine to them. Coordinates organizational event-driven
+    /// and scheduled calls to the C-DEngine via <see cref="DefaultComLine"/>.<br/>
+    /// Messages from SAF toward C-DEngine runs via <see cref="Publisher"/>.
+    /// </summary>
     public class Subscriber : ISubscriber, IDisposable
     {
         internal const int AliveIntervalSeconds = 30;
@@ -223,7 +230,7 @@ namespace SAF.Communication.PubSub.Cde
 
         private void HandleMessage(ICDEThing sender, object pMsg)
         {
-            if (!(pMsg is TheProcessMessage msg)) return;
+            if (pMsg is not TheProcessMessage msg) return;
             if (msg.Message.ENG != Engines.PubSub) return; //  accept only non remote-subscriber publications
 
             if (msg.Message.TXT.StartsWith(MessageToken.Publish))

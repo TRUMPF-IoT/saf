@@ -12,6 +12,9 @@ using SAF.Communication.PubSub.Interfaces;
 
 namespace SAF.Messaging.Cde
 {
+    /// <summary>
+    /// Coordinates the publishing and receiving of messages via the C-DEngine.
+    /// </summary>
     internal class Messaging : ICdeMessagingInfrastructure
     {
         private readonly ILogger _log;
@@ -109,10 +112,9 @@ namespace SAF.Messaging.Cde
 
         private string InternalSubscribe(string pattern, Action<Message> handler)
         {
-            var subscriptionId = Guid.NewGuid().ToString();
-
             var subscription = _subscriber.Subscribe(_config.RoutingOptions, pattern);
-            subscription.With((_, message) => handler(message));
+            var subscriptionId = subscription.Id.ToString();
+            subscription.SetHandler((_, message) => handler(message));
             if (!_subscriptions.TryAdd(subscriptionId, (pattern, subscription)))
                 throw new ArgumentException("An element with the same key already exists!");
 

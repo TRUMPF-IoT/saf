@@ -8,6 +8,9 @@ using SAF.Communication.PubSub.Cde.MessageHandler.Authorization;
 
 namespace SAF.Communication.PubSub.Cde.MessageHandler
 {
+    /// <summary>
+    /// Wird nur für pattern (bzw. Topic) "internal/auth" verwendet?
+    /// </summary>
     internal class MessageListener : IDisposable
     {
         private readonly AuthorizationService _authService;
@@ -30,7 +33,7 @@ namespace SAF.Communication.PubSub.Cde.MessageHandler
                 $"{AuthorizationService.BaseChannelName}/*"
             }) as ISubscriptionInternal;
 
-            subscription?.With((msgVersion, msg) =>
+            subscription?.SetRawHandler((msgVersion, msg) =>
             {
                 messageHandler.Handle(msgVersion, msg);
             });

@@ -33,6 +33,10 @@ namespace SAF.Communication.PubSub.Cde
 #pragma warning restore IDE1006 // Naming Styles
     }
 
+    /// <summary>
+    /// Used by the <see cref="Publisher"/> to send Messages to the C-DEngine and to get
+    /// Events for example discovery request or subscribe request.
+    /// </summary>
     internal class SubscriptionRegistry : IDisposable
     {
         public const int AliveIntervalSeconds = 30;
@@ -185,7 +189,7 @@ namespace SAF.Communication.PubSub.Cde
 
         private void HandleMessage(ICDEThing sender, object msg)
         {
-            if (!(msg is TheProcessMessage message)) return;
+            if (msg is not TheProcessMessage message) return;
 
             if (message.Message.TXT.StartsWith(MessageToken.Publish))
                 HandlePublication(message);
@@ -310,11 +314,6 @@ namespace SAF.Communication.PubSub.Cde
                 // send to other registries in the mesh
                 var tsm = new TSM(Engines.PubSub, MessageToken.RegistryAlive, _registryIdentity);
                 tsm.SetToServiceOnly(true);
-                _line.Broadcast(tsm);
-
-                // send to browser nodes
-                tsm = new TSM(Engines.RemotePubSub, MessageToken.RegistryAlive, _registryIdentity);
-                tsm.SetToNodesOnly(true);
                 _line.Broadcast(tsm);
             }
             finally

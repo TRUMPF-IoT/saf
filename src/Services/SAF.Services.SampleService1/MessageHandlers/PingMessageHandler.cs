@@ -33,9 +33,11 @@ namespace SAF.Services.SampleService1.MessageHandlers
         {
             var req = JsonSerializer.Deserialize<PingRequest>(message.Payload);
             var replyTo = req.ReplyTo;
-
-            _log.LogInformation($"Received ping/request ({req.Id}), answering to {replyTo}");
-            _messaging.Publish(new Message { Topic = replyTo, Payload = JsonSerializer.Serialize(new { req.Id }) });
+            _log.LogInformation($"Message ping/request ({req.Id})" + (replyTo == null ? "" : $", answering with {replyTo}"));
+            if (replyTo != null)
+            {
+                _messaging.Publish(new Message { Topic = replyTo, Payload = JsonSerializer.Serialize(new { req.Id }) });
+            }
         }
     }
 }

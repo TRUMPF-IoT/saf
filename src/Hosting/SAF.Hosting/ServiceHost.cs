@@ -15,6 +15,9 @@ using SAF.Common;
 
 namespace SAF.Hosting
 {
+    /// <summary>
+    /// Central entry point for initializing and starting the services used.
+    /// </summary>
     public class ServiceHost : IDisposable
     {
         private readonly IServiceProvider _runtimeApplicationServiceProvider;

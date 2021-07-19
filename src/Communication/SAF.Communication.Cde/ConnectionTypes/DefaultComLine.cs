@@ -12,6 +12,10 @@ using nsCDEngine.Engines.ThingService;
 
 namespace SAF.Communication.Cde.ConnectionTypes
 {
+    /// <summary>
+    /// Link class between the C-DEngine object <c>TheThing</c> and the SAF objects
+    /// <c>Subscriber</c> and <c>Publisher</c>. 
+    /// </summary>
     public class DefaultComLine : ComLine
     {
         private readonly TheThing _thing;
@@ -29,6 +33,10 @@ namespace SAF.Communication.Cde.ConnectionTypes
 
         public override event MessageReceivedHandler MessageReceived;
 
+        /// <summary>
+        /// Find the machine with the passed name 'topic' and assign to it an event with the target function <see cref="HandleMessage"/>.
+        /// </summary>
+        /// <param name="topic">Name of the underlying engine.</param>
         public override async Task Subscribe(string topic)
         {
             if(_subscriptions.Contains(topic)) return;

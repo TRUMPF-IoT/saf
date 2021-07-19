@@ -8,14 +8,20 @@ using System.Threading;
 using System.Threading.Tasks;
 using SAF.Common;
 using SAF.Communication.Cde;
+using SAF.Communication.Cde.ConnectionTypes;
 using SAF.Communication.PubSub.Interfaces;
 
 namespace SAF.Communication.PubSub.Cde
 {
+    /// <summary>
+    /// Publishes messages (using <see cref="SubscriptionRegistry"/>) towards C-DEngine via
+    /// <see cref="DefaultComLine"/>.<br/>
+    /// Messages from C-DEngine toward SAF runs via <see cref="Subscriber"/>.
+    /// </summary>
     public class Publisher : IPublisher, IDisposable
     {
         private bool _disposed;
-        private readonly ComLine _line;
+        private readonly ComLine _line; //Only needed temporarily to initialize the SubscriptionRegistry object.
         private readonly CancellationTokenSource _tokenSource;
         private SubscriptionRegistry _subscriptionRegistry;
 

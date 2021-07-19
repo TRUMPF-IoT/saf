@@ -10,10 +10,13 @@ using SAF.Communication.PubSub.Interfaces;
 
 namespace SAF.Communication.PubSub.Cde
 {
+    /// <summary>
+    /// Defines the pattern and the handler to be executed for a subscription. 
+    /// </summary>
     internal class SubscriptionInternal : AbstractSubscription, ISubscriptionInternal
     {
         private readonly Subscriber _subscriber;
-        private Action<string, TheProcessMessage> _rawCallback;
+        private Action<string, TheProcessMessage> _rawHandler;
 
         public SubscriptionInternal(Subscriber subscriber, params string[] patterns)
             : this(subscriber, RoutingOptions.All, patterns)
@@ -29,17 +32,17 @@ namespace SAF.Communication.PubSub.Cde
         {
             base.Unsubscribe();
             _subscriber.MessageEvent -= OnMessage;
-            _rawCallback = null;
+            _rawHandler = null;
         }
 
-        public void With(Action<string, TheProcessMessage> callback)
+        public void SetRawHandler(Action<string, TheProcessMessage> rawHandler)
         {
-            _rawCallback = callback;
+            _rawHandler = rawHandler;
         }
 
         private void OnMessage(string topic, string msgVersion, TheProcessMessage msg)
         {
-            if (Callback == null && _rawCallback == null) return;
+            if (Handler == null && _rawHandler == null) return;
             if (!msg.Message.IsRoutingAllowed(RoutingOptions)) return;
             if (!IsTopicMatch(topic)) return;
 
@@ -47,8 +50,8 @@ namespace SAF.Communication.PubSub.Cde
                 ? new Message { Topic = topic, Payload = msg.Message.PLS }
                 : TheCommonUtils.DeserializeJSONStringToObject<Message>(msg.Message.PLS);
 
-            Callback?.Invoke(msg.Message.TIM, message);
-            _rawCallback?.Invoke(msgVersion, msg);
+            Handler?.Invoke(msg.Message.TIM, message);
+            _rawHandler?.Invoke(msgVersion, msg);
         }
     }
 }
