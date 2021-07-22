@@ -14,7 +14,7 @@ using SAF.Communication.PubSub.Interfaces;
 namespace SAF.Communication.PubSub.Cde
 {
     /// <summary>
-    /// Publishes messages (using <see cref="SubscriptionRegistry"/>) towards C-DEngine via
+    /// Publishes messages (using <see cref="SubscriptionRegistry"/>) to all registered subscribers via
     /// <see cref="DefaultComLine"/>.<br/>
     /// Messages from C-DEngine toward SAF runs via <see cref="Subscriber"/>.
     /// </summary>

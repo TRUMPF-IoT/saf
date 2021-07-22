@@ -1,0 +1,34 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>netcoreapp3.1</TargetFramework>
+	<IsPackable>false</IsPackable>
+  </PropertyGroup>
+
+	<ItemGroup>
+		<None Remove="appsettings.json" />
+	</ItemGroup>
+
+	<ItemGroup>
+		<Content Include="appsettings.json">
+			<CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+		</Content>
+	</ItemGroup>
+
+	<ItemGroup>
+		<PackageReference Include="Microsoft.Extensions.Configuration.Json" Version="3.1.16" />
+		<PackageReference Include="Microsoft.Extensions.Logging.Configuration" Version="3.1.16" />
+		<PackageReference Include="Microsoft.Extensions.Logging.Console" Version="3.1.16" />
+	</ItemGroup>
+
+	<ItemGroup>
+		<ProjectReference Include="..\Hosting\SAF.Hosting\SAF.Hosting.csproj" />
+		<ProjectReference Include="..\Messaging\SAF.Messaging.Cde\SAF.Messaging.Cde.csproj" />
+		<ProjectReference Include="..\SAF.Common\SAF.Common.csproj" />
+		<ProjectReference Include="..\Services\SAF.Services.SampleService1\SAF.Services.SampleService1.csproj" />
+	</ItemGroup>
+
+	<ProjectExtensions><VisualStudio><UserProperties appsettings_1json__JsonSchema="" /></VisualStudio></ProjectExtensions>
+
+</Project>

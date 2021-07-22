@@ -17,6 +17,9 @@ using SAF.Communication.PubSub.Interfaces;
 
 namespace SAF.Communication.PubSub.Cde
 {
+    /// <summary>
+    /// Contains the data required for the registration of a subscriber.
+    /// </summary>
     internal class RegistrySubscriptionRequest : SubscriptionRequest
     {
         // ReSharper disable once InconsistentNaming
@@ -34,8 +37,10 @@ namespace SAF.Communication.PubSub.Cde
     }
 
     /// <summary>
-    /// Used by the <see cref="Publisher"/> to send Messages to the C-DEngine and to get
-    /// Events for example discovery request or subscribe request.
+    /// Manages the subscriptions of other nodes (each represented by <see cref="RemoteSubscriber"/>).
+    /// These will be registered by a subscription event. These subscriptions are used by the parent
+    /// <see cref="Publisher"/> to send Messages to all registered subscribers. This class also handle
+    /// Events for example discovery request or subsciber alive request.
     /// </summary>
     internal class SubscriptionRegistry : IDisposable
     {
@@ -112,6 +117,9 @@ namespace SAF.Communication.PubSub.Cde
             }
         }
 
+        /// <summary>
+        /// Register a RemoteSubscriber under his ID.
+        /// </summary>
         private void HandleSubscribe(TSM message)
         {
             var request = TheCommonUtils.DeserializeJSONStringToObject<RegistrySubscriptionRequest>(message.PLS);
@@ -129,15 +137,17 @@ namespace SAF.Communication.PubSub.Cde
             _syncSubscribers.EnterWriteLock();
             try
             {
-                if (!_subscribers.TryGetValue(message.ORG, out var subscriber))
+                 if (!_subscribers.TryGetValue(message.ORG, out var subscriber))
                 {
                     subscriber = new RemoteSubscriber(message, newPatterns, request);
                     _subscribers.Add(message.ORG, subscriber);
+                    _log.LogDebug($"HandleSubscribe: new {message.ORG}, topics {String.Join(",", topics)}");
                 }
                 else
                 {
                     subscriber.Touch();
                     subscriber.AddPatterns(newPatterns);
+                    _log.LogDebug($"HandleSubscribe: touch {message.ORG}, topics {String.Join(",", topics)}");
                 }
 
                 var response = new RegistrySubscriptionResponse
@@ -233,6 +243,7 @@ namespace SAF.Communication.PubSub.Cde
 
         private void HandleDiscoveryRequest(TheProcessMessage message)
         {
+            _log.LogDebug($"HandleDiscoveryRequest {message.Message.ORG}");
             var reply = new TSM(message.Message.ENG, MessageToken.DiscoveryResponse, _registryIdentity);
             _line.AnswerToSender(message.Message, reply);
         }
@@ -250,6 +261,10 @@ namespace SAF.Communication.PubSub.Cde
                     _line.AnswerToSender(message, tsm);
                     _log.LogWarning($"Unknown subscriber: triggered resubscribe for {message.ORG}");
                     return;
+                }
+                else
+                {
+                    _log.LogDebug($"Known subscriber: {message.ORG}");
                 }
 
                 _syncSubscribers.EnterWriteLock();

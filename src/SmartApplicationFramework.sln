@@ -92,9 +92,13 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "SAF.Storage.LiteDb", "Stora
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "SAF.Storage.LiteDb.Test", "Storage\SAF.Storage.LightDb.Test\SAF.Storage.LiteDb.Test.csproj", "{431E4F16-4506-4E9C-853C-5171422E2643}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SAF.Storage.SqLite", "Storage\SAF.Storage.SqLite\SAF.Storage.SqLite.csproj", "{CF45F30D-BEC9-4983-B94B-D8E0E02AFD39}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "SAF.Storage.SqLite", "Storage\SAF.Storage.SqLite\SAF.Storage.SqLite.csproj", "{CF45F30D-BEC9-4983-B94B-D8E0E02AFD39}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SAF.Storage.SqLite.Test", "Storage\SAF.Storage.SqLite.Test\SAF.Storage.SqLite.Test.csproj", "{01B5C502-CBBB-45E6-BF12-06346E3BD647}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "SAF.Storage.SqLite.Test", "Storage\SAF.Storage.SqLite.Test\SAF.Storage.SqLite.Test.csproj", "{01B5C502-CBBB-45E6-BF12-06346E3BD647}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "TestRunnerCdeService1", "TestRunnerCdeService1\TestRunnerCdeService1.csproj", "{8C6ABB7F-40DB-4D31-85E5-F5C3D8DE2249}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "TestRunnerCdeService2", "TestRunnerCdeService2\TestRunnerCdeService2.csproj", "{310CDFEE-64C9-4D83-8FD9-D13918D05F4B}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -254,6 +258,14 @@ Global
 		{01B5C502-CBBB-45E6-BF12-06346E3BD647}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{01B5C502-CBBB-45E6-BF12-06346E3BD647}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{01B5C502-CBBB-45E6-BF12-06346E3BD647}.Release|Any CPU.Build.0 = Release|Any CPU
+		{8C6ABB7F-40DB-4D31-85E5-F5C3D8DE2249}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{8C6ABB7F-40DB-4D31-85E5-F5C3D8DE2249}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{8C6ABB7F-40DB-4D31-85E5-F5C3D8DE2249}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{8C6ABB7F-40DB-4D31-85E5-F5C3D8DE2249}.Release|Any CPU.Build.0 = Release|Any CPU
+		{310CDFEE-64C9-4D83-8FD9-D13918D05F4B}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{310CDFEE-64C9-4D83-8FD9-D13918D05F4B}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{310CDFEE-64C9-4D83-8FD9-D13918D05F4B}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{310CDFEE-64C9-4D83-8FD9-D13918D05F4B}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

@@ -14,7 +14,7 @@ namespace SAF.Communication.Cde.ConnectionTypes
 {
     /// <summary>
     /// Link class between the C-DEngine object <c>TheThing</c> and the SAF objects
-    /// <c>Subscriber</c> and <c>Publisher</c>. 
+    /// <c>Subscriber</c> and <c>SubscriptionRegistry</c>. 
     /// </summary>
     public class DefaultComLine : ComLine
     {
@@ -25,8 +25,8 @@ namespace SAF.Communication.Cde.ConnectionTypes
         {
             _thing = thing;
 
-            _thing.RegisterEvent(eEngineEvents.IncomingMessage, HandleMessage); // messages sent to thing engine
-            _thing.RegisterEvent(eThingEvents.IncomingMessage, HandleMessage);  // messages sent to the thing itself
+            _thing.RegisterEvent(eEngineEvents.IncomingMessage, HandleMessage); // listen to messages sent to thing engine
+            _thing.RegisterEvent(eThingEvents.IncomingMessage, HandleMessage);  // listen to messages sent to the thing itself
         }
 
         public override string Address => $"{_thing.cdeN}:{_thing.cdeMID}";
@@ -34,21 +34,22 @@ namespace SAF.Communication.Cde.ConnectionTypes
         public override event MessageReceivedHandler MessageReceived;
 
         /// <summary>
-        /// Find the machine with the passed name 'topic' and assign to it an event with the target function <see cref="HandleMessage"/>.
+        /// Find the engine with the name passed by 'engineName' (in the C-DEngine environment always "ContentService",
+        /// which is runnig on every node) and assign to it an event with the target function <see cref="HandleMessage"/>.
         /// </summary>
-        /// <param name="topic">Name of the underlying engine.</param>
-        public override async Task Subscribe(string topic)
+        /// <param name="engineName">Name of the underlying engine.</param>
+        public override async Task Subscribe(string engineName)
         {
-            if(_subscriptions.Contains(topic)) return;
+            if(_subscriptions.Contains(engineName)) return;
 
-            _subscriptions.Add(topic);
+            _subscriptions.Add(engineName);
 
             var engines = TheThingRegistry.GetBaseEngines(false);
-            var myEngine = engines.FirstOrDefault(e => e.GetEngineName() == topic);
+            var myEngine = engines.FirstOrDefault(e => e.GetEngineName() == engineName);
 
             var baseEngine = myEngine?.GetBaseEngine();
             if(baseEngine == null)
-                throw new ArgumentException(topic);
+                throw new ArgumentException(engineName);
 
             while(!baseEngine.EngineState.IsStarted)
                 await Task.Delay(300);

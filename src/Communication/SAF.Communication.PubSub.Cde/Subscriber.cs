@@ -23,7 +23,9 @@ namespace SAF.Communication.PubSub.Cde
     /// <summary>
     /// Manages all subscribers (which are implemented as <see cref="SubscriptionInternal"/>) 
     /// and the messages from the C-DEngine to them. Coordinates organizational event-driven
-    /// and scheduled calls to the C-DEngine via <see cref="DefaultComLine"/>.<br/>
+    /// and scheduled calls to the C-DEngine via <see cref="DefaultComLine"/>. The referenced
+    /// <see cref="RemoteRegistryLifetimeHandler"/> is used to manage the lifetime of the other
+    /// subscribers in the mesh.<br/>
     /// Messages from SAF toward C-DEngine runs via <see cref="Publisher"/>.
     /// </summary>
     public class Subscriber : ISubscriber, IDisposable
@@ -37,7 +39,7 @@ namespace SAF.Communication.PubSub.Cde
         private readonly CancellationTokenSource _tokenSource;
         private bool _disposed;
 
-        private readonly Dictionary<string, CountdownEvent> _subscriptions = new();
+        private readonly Dictionary<string, CountdownEvent> _subscriptions = new(); // temporarly used to broadcast a subscribe request to all known registered nodes
         private readonly ConcurrentDictionary<Guid, ISubscription> _subscribers = new();
         private readonly ManualResetEventSlim _registryDiscoveredEvent = new(false);
 
@@ -107,11 +109,17 @@ namespace SAF.Communication.PubSub.Cde
 
         private void BroadcastDiscoveryRequest()
         {
+            _log.LogDebug("BroadcastDiscoveryRequest");
             var tsm = new TSM(Engines.PubSub, MessageToken.DiscoveryRequest, Engines.PubSub);
             tsm.SetToServiceOnly(true);
             _line.Broadcast(tsm);
         }
 
+        /// <summary>
+        /// Send a discovery request to all nodes in the mesh. The answer will be processed by 
+        /// the <see cref="RemoteRegistryLifetimeHandler"/>. As a side effect the list of the
+        /// known nodes will be filled.
+        /// </summary>
         private void BroadcastDiscoveryRequestAndAwaitFirstResponse()
         {
             const int loopTimeoutMs = 500;
@@ -124,9 +132,12 @@ namespace SAF.Communication.PubSub.Cde
             }
         }
 
+        /// <summary>
+        /// If the subscriber is no longer current in a registered node, then he must subscribe again.
+        /// </summary>
         private void OnRegistryUp(TSM registry, string reasonToken)
         {
-            _log.LogInformation($"Registry {registry.ORG} discovered, reason = {reasonToken}");
+            _log.LogInformation($"Registry {registry.ORG} updated, reason = {reasonToken}");
             _registryDiscoveredEvent.Set();
             if (reasonToken.StartsWith(MessageToken.SubscribeResponse)) return;
 
@@ -231,6 +242,7 @@ namespace SAF.Communication.PubSub.Cde
         private void HandleMessage(ICDEThing sender, object pMsg)
         {
             if (pMsg is not TheProcessMessage msg) return;
+            _log.LogDebug($"HandleMessage {msg.Message.TXT}: orig {msg.Message.ORG}, {msg.Message.PLS}");
             if (msg.Message.ENG != Engines.PubSub) return; //  accept only non remote-subscriber publications
 
             if (msg.Message.TXT.StartsWith(MessageToken.Publish))
@@ -259,6 +271,7 @@ namespace SAF.Communication.PubSub.Cde
         {
             var tsm = new TSM(Engines.PubSub, MessageToken.SubscribeRequest, TheCommonUtils.SerializeObjectToJSONString(request));
             tsm.SetToServiceOnly(true);
+            _log.LogDebug($"SendSubscribeRequest: {registryTsm.ORG}, topics {String.Join(",", request.topics)}");
             _line.AnswerToSender(registryTsm, tsm);
         }
 
@@ -305,6 +318,7 @@ namespace SAF.Communication.PubSub.Cde
             {
                 var tsm = new TSM(Engines.PubSub, MessageToken.SubscriberAlive);
                 tsm.SetToServiceOnly(true);
+                _log.LogDebug("OnAliveTimer broadcast");
                 _line.Broadcast(tsm);
             }
             finally
