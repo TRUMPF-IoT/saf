@@ -109,9 +109,9 @@ namespace SAF.Communication.PubSub.Cde
 
         private void BroadcastDiscoveryRequest()
         {
-            _log.LogDebug("BroadcastDiscoveryRequest");
             var tsm = new TSM(Engines.PubSub, MessageToken.DiscoveryRequest, Engines.PubSub);
             tsm.SetToServiceOnly(true);
+            _log.LogDebug($"Broadcast {MessageToken.DiscoveryRequest}, origin: {_line.Address}");
             _line.Broadcast(tsm);
         }
 
@@ -232,6 +232,7 @@ namespace SAF.Communication.PubSub.Cde
             {
                 var tsm = new TSM(Engines.PubSub, MessageToken.Unsubscribe, TheCommonUtils.SerializeObjectToJSONString(request));
                 tsm.SetToServiceOnly(true);
+                _log.LogDebug($"Send {MessageToken.Unsubscribe}, origin: {_line.Address}, target: {reg.ORG}");
                 _line.AnswerToSender(reg, tsm);
             });
         }
@@ -242,7 +243,7 @@ namespace SAF.Communication.PubSub.Cde
         private void HandleMessage(ICDEThing sender, object pMsg)
         {
             if (pMsg is not TheProcessMessage msg) return;
-            _log.LogDebug($"HandleMessage {msg.Message.TXT}: orig {msg.Message.ORG}, {msg.Message.PLS}");
+            _log.LogDebug($"HandleMessage {msg.Message.TXT}, origin: {msg.Message.ORG}, payload: {msg.Message.PLS}");
             if (msg.Message.ENG != Engines.PubSub) return; //  accept only non remote-subscriber publications
 
             if (msg.Message.TXT.StartsWith(MessageToken.Publish))
@@ -271,7 +272,7 @@ namespace SAF.Communication.PubSub.Cde
         {
             var tsm = new TSM(Engines.PubSub, MessageToken.SubscribeRequest, TheCommonUtils.SerializeObjectToJSONString(request));
             tsm.SetToServiceOnly(true);
-            _log.LogDebug($"SendSubscribeRequest: {registryTsm.ORG}, topics {String.Join(",", request.topics)}");
+            _log.LogDebug($"Send {MessageToken.SubscribeRequest}, origin: {_line.Address}, target: {registryTsm.ORG}, topics {String.Join(",", request.topics)}");
             _line.AnswerToSender(registryTsm, tsm);
         }
 
@@ -318,7 +319,7 @@ namespace SAF.Communication.PubSub.Cde
             {
                 var tsm = new TSM(Engines.PubSub, MessageToken.SubscriberAlive);
                 tsm.SetToServiceOnly(true);
-                _log.LogDebug("OnAliveTimer broadcast");
+                _log.LogDebug($"broadcast {MessageToken.SubscriberAlive}, origin: {_line.Address}");
                 _line.Broadcast(tsm);
             }
             finally
@@ -341,6 +342,7 @@ namespace SAF.Communication.PubSub.Cde
 
             var tsm = new TSM(Engines.PubSub, MessageToken.SubscriberShutdown);
             tsm.SetToServiceOnly(true);
+            _log.LogDebug($"Broadcast {MessageToken.SubscriberShutdown}, origin: {_line.Address}");
             _line.Broadcast(tsm);
 
             _tokenSource.Cancel();

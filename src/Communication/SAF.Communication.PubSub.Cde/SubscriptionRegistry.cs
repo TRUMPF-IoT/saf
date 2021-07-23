@@ -108,6 +108,7 @@ namespace SAF.Communication.PubSub.Cde
                         };
                     }
 
+                    _log.LogDebug($"Send {MessageToken.Publish} ({topic.Channel}), origin: {_line.Address}, target: {subscriber.Tsm.ORG}");
                     _line.AnswerToSender(subscriber.Tsm, tsm);
                 }
             }
@@ -159,6 +160,7 @@ namespace SAF.Communication.PubSub.Cde
                     version = PubSubVersion.Latest
                 };
                 var tsm = new TSM(subscriber.TargetEngine, MessageToken.SubscribeResponse, TheCommonUtils.SerializeObjectToJSONString(response));
+                _log.LogDebug($"Send {MessageToken.SubscribeResponse}, origin: {_line.Address}, target: {subscriber.Tsm.ORG}");
                 _line.AnswerToSender(subscriber.Tsm, tsm);
             }
             finally
@@ -245,6 +247,7 @@ namespace SAF.Communication.PubSub.Cde
         {
             _log.LogDebug($"HandleDiscoveryRequest {message.Message.ORG}");
             var reply = new TSM(message.Message.ENG, MessageToken.DiscoveryResponse, _registryIdentity);
+            _log.LogDebug($"Send {MessageToken.DiscoveryResponse}, origin: {_line.Address}, target: {message.Message.ORG}");
             _line.AnswerToSender(message.Message, reply);
         }
 
@@ -259,13 +262,10 @@ namespace SAF.Communication.PubSub.Cde
                     // we force the remote part to resend a subscribe request
                     var tsm = new TSM(message.ENG, MessageToken.SubscribeTrigger, _registryIdentity);
                     _line.AnswerToSender(message, tsm);
-                    _log.LogWarning($"Unknown subscriber: triggered resubscribe for {message.ORG}");
+                    _log.LogWarning($"Unknown subscriber: triggered resubscribe for origin {message.ORG}");
                     return;
                 }
-                else
-                {
-                    _log.LogDebug($"Known subscriber: {message.ORG}");
-                }
+                _log.LogDebug($"Touch known subscriber origin: {message.ORG}");
 
                 _syncSubscribers.EnterWriteLock();
                 try
@@ -329,6 +329,7 @@ namespace SAF.Communication.PubSub.Cde
                 // send to other registries in the mesh
                 var tsm = new TSM(Engines.PubSub, MessageToken.RegistryAlive, _registryIdentity);
                 tsm.SetToServiceOnly(true);
+                _log.LogDebug($"Broadcast {MessageToken.RegistryAlive}, origin: {_line.Address}");
                 _line.Broadcast(tsm);
             }
             finally
@@ -345,6 +346,7 @@ namespace SAF.Communication.PubSub.Cde
             // send to other registries in the mesh
             var tsm = new TSM(Engines.PubSub, MessageToken.RegistryShutdown, _registryIdentity);
             tsm.SetToServiceOnly(true);
+            _log.LogDebug($"Broadcast {MessageToken.RegistryShutdown}, origin: {_line.Address}");
             _line.Broadcast(tsm);
 
             // send to browser nodes
