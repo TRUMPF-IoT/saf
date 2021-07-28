@@ -47,13 +47,32 @@ namespace SAF.Messaging.Redis
                     var msgCfg = new RedisMessagingConfiguration(cfg);
                     var redisCfg = new RedisConfiguration { ConnectionString = msgCfg.ConnectionString };
                     return new Messaging(sp.GetRequiredService<ILogger<Messaging>>(),
-                        CreateRedisConnection(redisCfg),
+                        CreateRedisConnectionMultipleTimes(redisCfg, sp.GetRequiredService<ILogger<Messaging>>()),
                         sp.GetRequiredService<IServiceMessageDispatcher>(),
                         null);
                 }))
                 .AddTransient(sp => sp.GetRequiredService<Func<MessagingConfiguration, IRedisMessagingInfrastructure>>().Invoke(config));
 
             return serviceCollection;
+        }
+
+        /// <summary>
+        /// Try to connect several times and throw an error message if it fails.
+        /// </summary>
+        private static  IConnectionMultiplexer CreateRedisConnectionMultipleTimes(RedisConfiguration config, ILogger logger)
+        {
+            IConnectionMultiplexer con = CreateRedisConnection(config);
+            int testCount = 10;
+            while (!con.IsConnected)
+            {
+                testCount--;
+                logger.LogInformation($"Not yet connected, remaining tries: {testCount}");
+                if (testCount == 0) throw new ApplicationException("Redis is not available");
+                System.Threading.Thread.Sleep(500);
+                con = CreateRedisConnection(config);
+            }
+            logger.LogInformation("Successfully connected to redis");
+            return con;
         }
 
         private static IConnectionMultiplexer CreateRedisConnection(RedisConfiguration config)
@@ -80,7 +99,7 @@ namespace SAF.Messaging.Redis
         {
             return serviceCollection.AddTransient<IRedisMessagingInfrastructure>(r =>
                 new Messaging(r.GetRequiredService<ILogger<Messaging>>(),
-                    CreateRedisConnection(config),
+                    CreateRedisConnectionMultipleTimes(config, r.GetRequiredService<ILogger<Messaging>>()),
                     r.GetRequiredService<IServiceMessageDispatcher>(),
                     traceAction));
         }
@@ -88,7 +107,7 @@ namespace SAF.Messaging.Redis
         private static IServiceCollection AddRedisStorageInfrastructure(this IServiceCollection serviceCollection, RedisConfiguration config)
         {
             return serviceCollection.AddTransient<IStorageInfrastructure>(r =>
-                new Storage(CreateRedisConnection(config)));
+                new Storage(CreateRedisConnectionMultipleTimes(config, r.GetRequiredService<ILogger<Storage>>())));
         }
     }
 }

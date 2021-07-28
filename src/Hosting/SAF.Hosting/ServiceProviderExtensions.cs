@@ -14,17 +14,6 @@ namespace SAF.Hosting
     {
         public static IServiceProvider UseServiceHost(this IServiceProvider serviceProvider)
         {
-            ILogger logger = serviceProvider.GetService<ILogger<ServiceHost>>();
-            int testCount = 10;
-            while (!serviceProvider.IsConnected())
-            {
-                testCount--;
-                logger.LogInformation($"Not yet connected, remaining tries: {testCount}");
-                if (testCount == 0) throw new ApplicationException("Redis is not available");
-                System.Threading.Thread.Sleep(500);
-            }
-            logger.LogInformation("connected to storage");
-
             var serviceHost = serviceProvider.GetService<ServiceHost>();
             serviceHost.StartServices();
 
