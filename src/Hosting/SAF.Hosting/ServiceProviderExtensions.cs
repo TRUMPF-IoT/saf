@@ -20,21 +20,6 @@ namespace SAF.Hosting
             return serviceProvider;
         }
 
-        private static bool IsConnected(this IServiceProvider sp)
-        {
-            try
-            {
-                const string storageKey = "saf/hostid";
-                var storage = sp.GetService<IStorageInfrastructure>();
-                storage?.GetString(storageKey);
-                return true;
-            }
-            catch
-            {
-                return false;
-            }
-        }
-
         public static IServiceProvider UseServiceHostDiagnostics(this IServiceProvider serviceProvider)
         {
             var serviceHost = serviceProvider.GetRequiredService<ServiceHostDiagnostics>();
