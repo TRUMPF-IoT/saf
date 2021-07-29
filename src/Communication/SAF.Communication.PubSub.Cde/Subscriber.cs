@@ -243,9 +243,9 @@ namespace SAF.Communication.PubSub.Cde
         private void HandleMessage(ICDEThing sender, object pMsg)
         {
             if (pMsg is not TheProcessMessage msg) return;
-            _log.LogDebug($"HandleMessage {msg.Message.TXT}, origin: {msg.Message.ORG}, payload: {msg.Message.PLS}");
             if (msg.Message.ENG != Engines.PubSub) return; //  accept only non remote-subscriber publications
 
+            _log.LogDebug($"Recived message: {msg.Message.TXT}, origin: {msg.Message.ORG}, payload: {msg.Message.PLS}");
             if (msg.Message.TXT.StartsWith(MessageToken.Publish))
             {
                 HandlePublication(msg);
@@ -263,6 +263,7 @@ namespace SAF.Communication.PubSub.Cde
                 HandleError(msg);
             }
             _registryLifetimeHandler?.HandleMessage(msg);
+            _log.LogDebug($"Handle finished: {msg.Message.TXT}, origin: {msg.Message.ORG}, payload: {msg.Message.PLS}");
         }
 
         private void SendSubscribeRequest(TSM registryTsm, string[] topics)
