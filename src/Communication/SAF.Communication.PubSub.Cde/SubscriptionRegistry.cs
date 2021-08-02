@@ -211,7 +211,7 @@ namespace SAF.Communication.PubSub.Cde
                 HandleSubscriberAlive(message.Message);
             else if (message.Message.TXT.StartsWith(MessageToken.SubscriberShutdown))
                 HandleSubscriberShutdown(message.Message);
-            _log.LogDebug($"Handle finished: {message.Message.TXT}, origin: {message.Message.ORG}, payload: {message.Message.PLS}");
+            _log.LogDebug($"Finished message: {message.Message.TXT}, origin: {message.Message.ORG}, payload: {message.Message.PLS}");
         }
 
         private void HandlePublication(TheProcessMessage message)
@@ -273,10 +273,13 @@ namespace SAF.Communication.PubSub.Cde
                 {
                     _syncSubscribers.ExitWriteLock();
                 }
-                var tsmAlive = new TSM(Engines.PubSub, MessageToken.RegistryAlive, _registryIdentity);
-                tsmAlive.SetToServiceOnly(true);
-                _log.LogDebug($"Send {MessageToken.RegistryAlive}, origin: {_line.Address}");
-                _line.AnswerToSender(message, tsmAlive);
+                if (String.IsNullOrWhiteSpace(message.PLS))
+                {
+                    var tsmAlive = new TSM(Engines.PubSub, MessageToken.RegistryAlive, _registryIdentity);
+                    tsmAlive.SetToServiceOnly(true);
+                    _log.LogDebug($"Send {MessageToken.RegistryAlive}, origin: {_line.Address}");
+                    _line.AnswerToSender(message, tsmAlive);
+                }
             }
             finally
             {
