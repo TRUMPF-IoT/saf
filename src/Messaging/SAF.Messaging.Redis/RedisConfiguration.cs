@@ -8,5 +8,6 @@ namespace SAF.Messaging.Redis
     public class RedisConfiguration
     {
         public string ConnectionString { get; set; }
+        public string Timeout { get; set; }
     }
 }

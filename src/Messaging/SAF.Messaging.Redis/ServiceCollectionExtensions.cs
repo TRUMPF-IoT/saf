@@ -4,6 +4,7 @@
 
 using System;
 using System.Threading;
+using System.Threading.Tasks;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using StackExchange.Redis;
@@ -47,7 +48,7 @@ namespace SAF.Messaging.Redis
                     var msgCfg = new RedisMessagingConfiguration(cfg);
                     var redisCfg = new RedisConfiguration { ConnectionString = msgCfg.ConnectionString };
                     return new Messaging(sp.GetRequiredService<ILogger<Messaging>>(),
-                        CreateRedisConnectionMultipleTimes(redisCfg, sp.GetRequiredService<ILogger<Messaging>>()),
+                        CreateRedisConnection(redisCfg, sp.GetRequiredService<ILogger<Messaging>>()),
                         sp.GetRequiredService<IServiceMessageDispatcher>(),
                         null);
                 }))
@@ -56,29 +57,12 @@ namespace SAF.Messaging.Redis
             return serviceCollection;
         }
 
-        /// <summary>
-        /// Try to connect several times and throw an error message if it fails.
-        /// </summary>
-        private static  IConnectionMultiplexer CreateRedisConnectionMultipleTimes(RedisConfiguration config, ILogger logger)
+        private static IConnectionMultiplexer CreateRedisConnection(RedisConfiguration config, ILogger logger)
         {
-            IConnectionMultiplexer con = CreateRedisConnection(config);
-            int testCount = 10;
-            while (!con.IsConnected)
-            {
-                testCount--;
-                logger.LogInformation($"Not yet connected, remaining tries: {testCount}");
-                if (testCount == 0) throw new ApplicationException("Redis is not available");
-                System.Threading.Thread.Sleep(500);
-                con = CreateRedisConnection(config);
-            }
-            logger.LogInformation("Successfully connected to redis");
-            return con;
-        }
+            int timeoutInMs = 40000;
+            int.TryParse(config.Timeout, out timeoutInMs);
 
-        private static IConnectionMultiplexer CreateRedisConnection(RedisConfiguration config)
-        {
             var options = ConfigurationOptions.Parse(config.ConnectionString);
-
             // auto reconnect
             options.AbortOnConnectFail = false;
 
@@ -92,14 +76,52 @@ namespace SAF.Messaging.Redis
             ThreadPool.GetMaxThreads(out var maxWorker, out var maxCompletionPort);
             ThreadPool.SetMinThreads(Math.Min(maxWorker, Math.Max(50, minWorker)), Math.Min(maxCompletionPort, Math.Max(50, minCompletionPort)));
 
-            return ConnectionMultiplexer.Connect(options);
+            TaskCompletionSource<ConnectionMultiplexer> tcs = new(TaskCreationOptions.AttachedToParent);
+            EventHandler<ConnectionFailedEventArgs> connectionRestoredAction = (sender, args) =>
+            {
+                if (((ConnectionMultiplexer)sender).IsConnected)
+                {
+                    tcs.TrySetResult((ConnectionMultiplexer)sender);
+                }
+            };
+            using (var ct = new CancellationTokenSource(timeoutInMs))
+            {
+                using (ct.Token.Register(() =>
+                {
+                    tcs.TrySetException(new TimeoutException($"Configured timeout of {timeoutInMs} ms exceeded"));
+                }))
+                {
+                    var conn = ConnectionMultiplexer.Connect(options);
+                    if (!conn.IsConnected)
+                    {
+                        logger.LogInformation($"Not yet connected, wait");
+                        conn.ConnectionRestored += connectionRestoredAction;
+                    }
+                    else
+                    {
+                        tcs.SetResult(conn);
+                        logger.LogInformation($"connected");
+                    }
+                    var connResult = tcs.Task.Result;
+                    connResult.ConnectionRestored -= connectionRestoredAction;
+                    connResult.ConnectionFailed += (sender, args) =>
+                    {
+                        logger.LogCritical("Connection lost");
+                    };
+                    connResult.ConnectionRestored += (sender, args) =>
+                    {
+                        logger.LogCritical("Connection established");
+                    };
+                    return connResult;
+                }
+            }
         }
 
         private static IServiceCollection AddRedisMessagingInfrastructure(this IServiceCollection serviceCollection, RedisConfiguration config, Action<Message> traceAction)
         {
             return serviceCollection.AddTransient<IRedisMessagingInfrastructure>(r =>
                 new Messaging(r.GetRequiredService<ILogger<Messaging>>(),
-                    CreateRedisConnectionMultipleTimes(config, r.GetRequiredService<ILogger<Messaging>>()),
+                    CreateRedisConnection(config, r.GetRequiredService<ILogger<Messaging>>()),
                     r.GetRequiredService<IServiceMessageDispatcher>(),
                     traceAction));
         }
@@ -107,7 +129,7 @@ namespace SAF.Messaging.Redis
         private static IServiceCollection AddRedisStorageInfrastructure(this IServiceCollection serviceCollection, RedisConfiguration config)
         {
             return serviceCollection.AddTransient<IStorageInfrastructure>(r =>
-                new Storage(CreateRedisConnectionMultipleTimes(config, r.GetRequiredService<ILogger<Storage>>())));
+                new Storage(CreateRedisConnection(config, r.GetRequiredService<ILogger<Storage>>())));
         }
     }
 }
