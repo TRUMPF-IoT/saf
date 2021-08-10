@@ -23,7 +23,7 @@ namespace SAF.Communication.PubSub.Cde
         private bool _disposed;
         private readonly ComLine _line; //Only needed temporarily to initialize the SubscriptionRegistry object.
         private readonly CancellationTokenSource _tokenSource;
-        private SubscriptionRegistry _subscriptionRegistry;
+        internal ISubscriptionRegistry _subscriptionRegistry;
 
         public Publisher(ComLine line)
             : this(line, new CancellationTokenSource())
