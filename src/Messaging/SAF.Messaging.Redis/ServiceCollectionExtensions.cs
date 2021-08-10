@@ -59,8 +59,7 @@ namespace SAF.Messaging.Redis
 
         private static IConnectionMultiplexer CreateRedisConnection(RedisConfiguration config, ILogger logger)
         {
-            int timeoutInMs = 40000;
-            int.TryParse(config.Timeout, out timeoutInMs);
+            int timeoutInMs = config.Timeout > 0 ? config.Timeout : 40000;
 
             var options = ConfigurationOptions.Parse(config.ConnectionString);
             // auto reconnect
