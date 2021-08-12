@@ -13,7 +13,6 @@ using nsCDEngine.BaseClasses;
 using nsCDEngine.Engines.ThingService;
 using nsCDEngine.ViewModels;
 using SAF.Communication.Cde;
-using SAF.Communication.Cde.ConnectionTypes;
 using SAF.Communication.Cde.Utils;
 using SAF.Communication.PubSub.Cde.MessageHandler;
 using SAF.Communication.PubSub.Interfaces;

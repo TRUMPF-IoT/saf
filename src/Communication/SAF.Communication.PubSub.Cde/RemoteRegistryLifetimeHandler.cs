@@ -4,7 +4,6 @@
 
 using nsCDEngine.BaseClasses;
 using nsCDEngine.ViewModels;
-using SAF.Communication.Cde.Utils;
 using SAF.Communication.PubSub.Interfaces;
 
 namespace SAF.Communication.PubSub.Cde

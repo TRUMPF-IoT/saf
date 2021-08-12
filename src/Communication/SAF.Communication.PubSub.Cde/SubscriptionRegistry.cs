@@ -138,7 +138,7 @@ namespace SAF.Communication.PubSub.Cde
             _syncSubscribers.EnterWriteLock();
             try
             {
-                 if (!_subscribers.TryGetValue(message.ORG, out var subscriber))
+                if (!_subscribers.TryGetValue(message.ORG, out var subscriber))
                 {
                     subscriber = new RemoteSubscriber(message, newPatterns, request);
                     _subscribers.Add(message.ORG, subscriber);

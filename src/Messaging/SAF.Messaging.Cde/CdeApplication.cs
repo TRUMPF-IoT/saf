@@ -137,15 +137,16 @@ namespace SAF.Messaging.Cde
 
         private static eDEBUG_LEVELS GetDebugLevel(string debugLevel, eDEBUG_LEVELS defaultValue)
         {
-            if (debugLevel != null)
-            {
-                if (debugLevel.ToLower().Equals("none")) return eDEBUG_LEVELS.OFF;
-                if (debugLevel.ToLower().Equals("error")) return eDEBUG_LEVELS.ESSENTIALS;
-                if (debugLevel.ToLower().Equals("warning")) return eDEBUG_LEVELS.ESSENTIALS;
-                if (debugLevel.ToLower().Equals("information")) return eDEBUG_LEVELS.VERBOSE;
-                if (debugLevel.ToLower().Equals("debug")) return eDEBUG_LEVELS.FULLVERBOSE;
-                if (debugLevel.ToLower().Equals("trace")) return eDEBUG_LEVELS.EVERYTHING;
-            }
+            if (string.IsNullOrWhiteSpace(debugLevel))
+                return defaultValue;
+
+            if (debugLevel.ToLower().Equals("none")) return eDEBUG_LEVELS.OFF;
+            if (debugLevel.ToLower().Equals("error")) return eDEBUG_LEVELS.ESSENTIALS;
+            if (debugLevel.ToLower().Equals("warning")) return eDEBUG_LEVELS.ESSENTIALS;
+            if (debugLevel.ToLower().Equals("information")) return eDEBUG_LEVELS.VERBOSE;
+            if (debugLevel.ToLower().Equals("debug")) return eDEBUG_LEVELS.FULLVERBOSE;
+            if (debugLevel.ToLower().Equals("trace")) return eDEBUG_LEVELS.EVERYTHING;
+
             var level = (eDEBUG_LEVELS)Enum.Parse(typeof(eDEBUG_LEVELS), debugLevel);
             return Enum.IsDefined(typeof(eDEBUG_LEVELS), level)
                 ? level

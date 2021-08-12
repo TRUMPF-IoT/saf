@@ -8,7 +8,6 @@ using System.Threading;
 using System.Threading.Tasks;
 using SAF.Common;
 using SAF.Communication.Cde;
-using SAF.Communication.Cde.ConnectionTypes;
 using SAF.Communication.PubSub.Interfaces;
 
 namespace SAF.Communication.PubSub.Cde

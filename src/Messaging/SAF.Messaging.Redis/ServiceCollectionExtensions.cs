@@ -59,7 +59,7 @@ namespace SAF.Messaging.Redis
 
         private static IConnectionMultiplexer CreateRedisConnection(RedisConfiguration config, ILogger logger)
         {
-            int timeoutInMs = config.Timeout > 0 ? config.Timeout : 40000;
+            var timeoutInMs = config.Timeout > 0 ? config.Timeout : 40000;
 
             var options = ConfigurationOptions.Parse(config.ConnectionString);
             // auto reconnect
@@ -76,43 +76,43 @@ namespace SAF.Messaging.Redis
             ThreadPool.SetMinThreads(Math.Min(maxWorker, Math.Max(50, minWorker)), Math.Min(maxCompletionPort, Math.Max(50, minCompletionPort)));
 
             TaskCompletionSource<ConnectionMultiplexer> tcs = new(TaskCreationOptions.AttachedToParent);
-            EventHandler<ConnectionFailedEventArgs> connectionRestoredAction = (sender, args) =>
+
+            void ConnectionRestoredAction(object sender, ConnectionFailedEventArgs args)
             {
-                if (((ConnectionMultiplexer)sender).IsConnected)
+                if (((ConnectionMultiplexer) sender).IsConnected)
                 {
-                    tcs.TrySetResult((ConnectionMultiplexer)sender);
+                    tcs.TrySetResult((ConnectionMultiplexer) sender);
                 }
-            };
-            using (var ct = new CancellationTokenSource(timeoutInMs))
+            }
+
+            using var ct = new CancellationTokenSource(timeoutInMs);
+            using (ct.Token.Register(() =>
             {
-                using (ct.Token.Register(() =>
+                tcs.TrySetException(new TimeoutException($"Redis: Configured connect timeout of {timeoutInMs} ms exceeded"));
+            }))
+            {
+                var conn = ConnectionMultiplexer.Connect(options);
+                if (!conn.IsConnected)
                 {
-                    tcs.TrySetException(new TimeoutException($"Configured timeout of {timeoutInMs} ms exceeded"));
-                }))
-                {
-                    var conn = ConnectionMultiplexer.Connect(options);
-                    if (!conn.IsConnected)
-                    {
-                        logger.LogInformation($"Not yet connected, wait");
-                        conn.ConnectionRestored += connectionRestoredAction;
-                    }
-                    else
-                    {
-                        tcs.SetResult(conn);
-                        logger.LogInformation($"connected");
-                    }
-                    var connResult = tcs.Task.Result;
-                    connResult.ConnectionRestored -= connectionRestoredAction;
-                    connResult.ConnectionFailed += (sender, args) =>
-                    {
-                        logger.LogCritical("Connection lost");
-                    };
-                    connResult.ConnectionRestored += (sender, args) =>
-                    {
-                        logger.LogCritical("Connection established");
-                    };
-                    return connResult;
+                    logger.LogInformation("Not yet connected to redis, wait");
+                    conn.ConnectionRestored += ConnectionRestoredAction;
                 }
+                else
+                {
+                    tcs.SetResult(conn);
+                    logger.LogInformation("Successfully connected to redis");
+                }
+                var connResult = tcs.Task.Result;
+                connResult.ConnectionRestored -= ConnectionRestoredAction;
+                connResult.ConnectionFailed += (_, _) =>
+                {
+                    logger.LogCritical("Connection to redis lost");
+                };
+                connResult.ConnectionRestored += (_, _) =>
+                {
+                    logger.LogCritical("Connection to redis established");
+                };
+                return connResult;
             }
         }
 
