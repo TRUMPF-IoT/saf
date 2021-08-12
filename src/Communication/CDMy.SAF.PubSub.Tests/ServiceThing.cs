@@ -79,9 +79,9 @@ namespace CDMy.SAF.PubSub.Tests
 
             _subscriber = new Subscriber(comLine, publisher, _cancellationTokenSource.Token);
             _subscriber.Subscribe("*")
-                .With((time, message) => SetProperty("Messages", $"[{time}] {message.Topic}: {message.Payload}"));
+                .SetHandler((time, message) => SetProperty("Messages", $"[{time}] {message.Topic}: {message.Payload}"));
             _subscriber.Subscribe("public/pubsub/test/number")
-                .With((_, message) =>
+                .SetHandler((_, message) =>
                 {
                     if (int.TryParse(message.Payload, out var value))
                         SetProperty("SampleProperty", value);
@@ -153,7 +153,7 @@ namespace CDMy.SAF.PubSub.Tests
 
         public void HandleMessage(ICDEThing sender, object pMsg)
         {
-            if(!(pMsg is TheProcessMessage msg)) return;
+            if(pMsg is not TheProcessMessage msg) return;
 
             if(msg.Message.TXT == "REFRESH")
                 _publisher.Publish("public/pubsub/test/number", msg.Message.PLS);

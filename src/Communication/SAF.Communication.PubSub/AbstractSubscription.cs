@@ -14,7 +14,7 @@ namespace SAF.Communication.PubSub
     {
         protected ISubscriber Subscriber { get; }
 
-        protected Action<DateTimeOffset, Message> Callback { get; private set; }
+        protected Action<DateTimeOffset, Message> Handler { get; private set; }
 
         public Guid Id { get; } = Guid.NewGuid();
 
@@ -33,15 +33,15 @@ namespace SAF.Communication.PubSub
             Patterns = patterns;
         }
 
-        public void With(Action<DateTimeOffset, Message> callback)
+        public void SetHandler(Action<DateTimeOffset, Message> handler)
         {
-            Callback = callback;
+            Handler = handler;
         }
 
         public virtual void Unsubscribe()
         {
             Subscriber.Unsubscribe(this);
-            Callback = null;
+            Handler = null;
         }
 
         protected bool IsTopicMatch(string topic) 

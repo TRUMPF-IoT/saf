@@ -8,6 +8,10 @@ using SAF.Communication.PubSub.Interfaces;
 
 namespace SAF.Communication.PubSub.Cde
 {
+    /// <summary>
+    /// Manages the nodes where the parent subscriber is known. Most functionality
+    /// is implemented in the super class <see cref="RegistryLifetimeHandlerBase{TMessage}"/>.
+    /// </summary>
     internal class RemoteRegistryLifetimeHandler : RegistryLifetimeHandlerBase<TSM>
     {
         public RemoteRegistryLifetimeHandler() : base(SubscriptionRegistry.AliveIntervalSeconds)

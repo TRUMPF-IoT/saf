@@ -19,6 +19,14 @@ using SAF.Communication.PubSub.Interfaces;
 
 namespace SAF.Communication.PubSub.Cde
 {
+    /// <summary>
+    /// Manages all subscribers (which are implemented as <see cref="SubscriptionInternal"/>) 
+    /// and the messages from the C-DEngine to them. Coordinates organizational event-driven
+    /// and scheduled calls to the C-DEngine via <see cref="ComLine"/>. The referenced
+    /// <see cref="RemoteRegistryLifetimeHandler"/> is used to manage the lifetime of the other
+    /// subscribers in the mesh.<br/>
+    /// Messages from SAF toward C-DEngine runs via <see cref="Publisher"/>.
+    /// </summary>
     public class Subscriber : ISubscriber, IDisposable
     {
         internal const int AliveIntervalSeconds = 30;
@@ -30,7 +38,7 @@ namespace SAF.Communication.PubSub.Cde
         private readonly CancellationTokenSource _tokenSource;
         private bool _disposed;
 
-        private readonly Dictionary<string, CountdownEvent> _subscriptions = new();
+        private readonly Dictionary<string, CountdownEvent> _subscriptions = new(); // temporarly used to broadcast a subscribe request to all known registered nodes
         private readonly ConcurrentDictionary<Guid, ISubscription> _subscribers = new();
         private readonly ManualResetEventSlim _registryDiscoveredEvent = new(false);
 
@@ -102,9 +110,15 @@ namespace SAF.Communication.PubSub.Cde
         {
             var tsm = new TSM(Engines.PubSub, MessageToken.DiscoveryRequest, Engines.PubSub);
             tsm.SetToServiceOnly(true);
+            _log.LogDebug($"Broadcast {MessageToken.DiscoveryRequest}, origin: {_line.Address}");
             _line.Broadcast(tsm);
         }
 
+        /// <summary>
+        /// Send a discovery request to all nodes in the mesh. The answer will be processed by 
+        /// the <see cref="RemoteRegistryLifetimeHandler"/>. As a side effect the list of the
+        /// known nodes will be filled.
+        /// </summary>
         private void BroadcastDiscoveryRequestAndAwaitFirstResponse()
         {
             const int loopTimeoutMs = 500;
@@ -117,9 +131,12 @@ namespace SAF.Communication.PubSub.Cde
             }
         }
 
+        /// <summary>
+        /// If the subscriber is no longer current in a registered node, then he must subscribe again.
+        /// </summary>
         private void OnRegistryUp(TSM registry, string reasonToken)
         {
-            _log.LogInformation($"Registry {registry.ORG} discovered, reason = {reasonToken}");
+            _log.LogInformation($"Registry {registry.ORG} updated, reason = {reasonToken}");
             _registryDiscoveredEvent.Set();
             if (reasonToken.StartsWith(MessageToken.SubscribeResponse)) return;
 
@@ -214,6 +231,7 @@ namespace SAF.Communication.PubSub.Cde
             {
                 var tsm = new TSM(Engines.PubSub, MessageToken.Unsubscribe, TheCommonUtils.SerializeObjectToJSONString(request));
                 tsm.SetToServiceOnly(true);
+                _log.LogDebug($"Send {MessageToken.Unsubscribe}, origin: {_line.Address}, target: {reg.ORG}");
                 _line.AnswerToSender(reg, tsm);
             });
         }
@@ -223,7 +241,8 @@ namespace SAF.Communication.PubSub.Cde
 
         private void HandleMessage(ICDEThing sender, object pMsg)
         {
-            if (!(pMsg is TheProcessMessage msg)) return;
+            if (pMsg is not TheProcessMessage msg) return;
+            _log.LogDebug($"HandleMessage {msg.Message.TXT}, origin: {msg.Message.ORG}, payload: {msg.Message.PLS}");
             if (msg.Message.ENG != Engines.PubSub) return; //  accept only non remote-subscriber publications
 
             if (msg.Message.TXT.StartsWith(MessageToken.Publish))
@@ -252,6 +271,7 @@ namespace SAF.Communication.PubSub.Cde
         {
             var tsm = new TSM(Engines.PubSub, MessageToken.SubscribeRequest, TheCommonUtils.SerializeObjectToJSONString(request));
             tsm.SetToServiceOnly(true);
+            _log.LogDebug($"Send {MessageToken.SubscribeRequest}, origin: {_line.Address}, target: {registryTsm.ORG}, topics {String.Join(",", request.topics)}");
             _line.AnswerToSender(registryTsm, tsm);
         }
 
@@ -298,6 +318,7 @@ namespace SAF.Communication.PubSub.Cde
             {
                 var tsm = new TSM(Engines.PubSub, MessageToken.SubscriberAlive);
                 tsm.SetToServiceOnly(true);
+                _log.LogDebug($"broadcast {MessageToken.SubscriberAlive}, origin: {_line.Address}");
                 _line.Broadcast(tsm);
             }
             finally
@@ -320,6 +341,7 @@ namespace SAF.Communication.PubSub.Cde
 
             var tsm = new TSM(Engines.PubSub, MessageToken.SubscriberShutdown);
             tsm.SetToServiceOnly(true);
+            _log.LogDebug($"Broadcast {MessageToken.SubscriberShutdown}, origin: {_line.Address}");
             _line.Broadcast(tsm);
 
             _tokenSource.Cancel();

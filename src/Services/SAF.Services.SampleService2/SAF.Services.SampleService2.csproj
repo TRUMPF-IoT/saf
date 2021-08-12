@@ -13,6 +13,7 @@ SPDX-License-Identifier: MPL-2.0
 
   <ItemGroup>
     <ProjectReference Include="..\..\SAF.Common\SAF.Common.csproj" />
+    <ProjectReference Include="..\..\Toolbox\SAF.Toolbox\SAF.Toolbox.csproj" />
   </ItemGroup>
 
   <!-- Copy Package PDBs to output dir:

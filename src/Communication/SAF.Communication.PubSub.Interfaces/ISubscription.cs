@@ -16,7 +16,7 @@ namespace SAF.Communication.PubSub.Interfaces
 
         string[] Patterns { get; }
 
-        void With(Action<DateTimeOffset, Message> callback);
+        void SetHandler(Action<DateTimeOffset, Message> handler);
 
         void Unsubscribe();
     }

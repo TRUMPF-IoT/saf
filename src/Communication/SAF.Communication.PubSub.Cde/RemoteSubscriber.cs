@@ -12,6 +12,10 @@ using SAF.Communication.PubSub.Interfaces;
 
 namespace SAF.Communication.PubSub.Cde
 {
+    /// <summary>
+    /// Contains the information about a subscriber running on another node.
+    /// These remote subscibers are manged by <see cref="SubscriptionRegistry"/>.
+    /// </summary>
     internal class RemoteSubscriber : IRemoteSubscriber
     {
         private readonly RegistrySubscriptionRequest _registryRequest;

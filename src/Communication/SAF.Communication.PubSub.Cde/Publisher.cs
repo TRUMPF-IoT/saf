@@ -12,10 +12,15 @@ using SAF.Communication.PubSub.Interfaces;
 
 namespace SAF.Communication.PubSub.Cde
 {
+    /// <summary>
+    /// Publishes messages (using <see cref="SubscriptionRegistry"/>) to all registered subscribers via
+    /// <see cref="ComLine"/>.<br/>
+    /// Messages from C-DEngine toward SAF runs via <see cref="Subscriber"/>.
+    /// </summary>
     public class Publisher : IPublisher, IDisposable
     {
         private bool _disposed;
-        private readonly ComLine _line;
+        private readonly ComLine _line; //Only needed temporarily to initialize the SubscriptionRegistry object.
         private readonly CancellationTokenSource _tokenSource;
         private SubscriptionRegistry _subscriptionRegistry;
 

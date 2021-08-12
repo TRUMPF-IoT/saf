@@ -29,6 +29,9 @@ namespace SAF.Communication.PubSub
         public event Action<TMessage, string> RegistryUp;
         public event Action<TMessage> RegistryDown;
 
+        /// <summary>
+        /// List with all nodes (each represented by a TSM) where the associated subscriber is registered.
+        /// </summary>
         public IList<TMessage> Registries => _knownRegistries.Values.Select(r => r.Tsm).ToList();
 
         protected RegistryLifetimeHandlerBase(int aliveIntervalSeconds)

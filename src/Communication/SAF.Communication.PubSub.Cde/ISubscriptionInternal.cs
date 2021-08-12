@@ -10,6 +10,6 @@ namespace SAF.Communication.PubSub.Cde
 {
     internal interface ISubscriptionInternal : ISubscription
     {
-        void With(Action<string, TheProcessMessage> callback);
+        void SetRawHandler(Action<string, TheProcessMessage> callback);
     }
 }
