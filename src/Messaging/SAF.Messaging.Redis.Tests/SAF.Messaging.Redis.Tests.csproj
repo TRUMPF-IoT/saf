@@ -1,4 +1,4 @@
-﻿<!--
+<!--
 SPDX-FileCopyrightText: 2017-2021 TRUMPF Laser GmbH
 
 SPDX-License-Identifier: MPL-2.0
@@ -27,7 +27,7 @@ SPDX-License-Identifier: MPL-2.0
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\SAF.Communication.PubSub\SAF.Communication.PubSub.csproj" />
+    <ProjectReference Include="..\SAF.Messaging.Redis\SAF.Messaging.Redis.csproj" />
   </ItemGroup>
 
 </Project>

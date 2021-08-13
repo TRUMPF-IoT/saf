@@ -108,6 +108,8 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "SAF.Communication.PubSub.Te
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "SAF.Communication.PubSub.Cde.Tests", "Communication\SAF.Communication.PubSub.Cde.Tests\SAF.Communication.PubSub.Cde.Tests.csproj", "{6963B94E-EA8B-4E7B-B781-148E7D9FE637}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SAF.Messaging.Redis.Tests", "Messaging\SAF.Messaging.Redis.Tests\SAF.Messaging.Redis.Tests.csproj", "{DEC01382-8D03-4F37-8794-8CCDC3368358}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -286,6 +288,10 @@ Global
 		{6963B94E-EA8B-4E7B-B781-148E7D9FE637}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{6963B94E-EA8B-4E7B-B781-148E7D9FE637}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{6963B94E-EA8B-4E7B-B781-148E7D9FE637}.Release|Any CPU.Build.0 = Release|Any CPU
+		{DEC01382-8D03-4F37-8794-8CCDC3368358}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{DEC01382-8D03-4F37-8794-8CCDC3368358}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{DEC01382-8D03-4F37-8794-8CCDC3368358}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{DEC01382-8D03-4F37-8794-8CCDC3368358}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
@@ -324,6 +330,7 @@ Global
 		{1C38533A-98B1-4751-BF71-505A8EA91E94} = {3B45A0A0-AD43-40C2-9F23-A827CD286AA5}
 		{5DDDD0F5-D135-4F42-879E-A26750C1181C} = {65800A90-1808-42B2-89C1-662576050A3A}
 		{6963B94E-EA8B-4E7B-B781-148E7D9FE637} = {65800A90-1808-42B2-89C1-662576050A3A}
+		{DEC01382-8D03-4F37-8794-8CCDC3368358} = {42D58619-E495-4AD4-AAA9-11E8285FCCDE}
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
 		SolutionGuid = {C501EF73-01B0-4E09-BF66-A897FF94F0CE}

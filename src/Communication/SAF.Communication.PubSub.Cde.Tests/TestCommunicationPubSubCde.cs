@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: 2017-2021 TRUMPF Laser GmbH
+//
+// SPDX-License-Identifier: MPL-2.0
+
 using System;
 using System.Collections.Generic;
 using System.Threading;
@@ -183,7 +187,7 @@ namespace SAF.Communication.PubSub.Cde.Tests
         public async void RunSubscriptionRegistryWithSubstitute()
         {
             var comLineSubscriptionRegistry = Substitute.For<ComLine>();
-            comLineSubscriptionRegistry.Address.Returns<string>("NOT RUNNING");
+            comLineSubscriptionRegistry.Address.Returns("NOT RUNNING");
             SubscriptionRegistry subscriptionRegistry = new(comLineSubscriptionRegistry);
             await subscriptionRegistry.ConnectAsync(new CancellationTokenSource().Token);
 

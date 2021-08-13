@@ -2,7 +2,6 @@
 //
 // SPDX-License-Identifier: MPL-2.0
 
-
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
@@ -27,11 +26,11 @@ namespace SAF.Messaging.Routing
     internal class Messaging : IRoutingMessagingInfrastructure
     {
         private readonly ILogger<Messaging> _log;
-        private readonly MessageRouting[] _messageRoutings;
+        private readonly IMessageRouting[] _messageRoutings;
 
         private readonly ConcurrentDictionary<Guid, (string pattern, IDisposable disposable)> _subscriptions = new();
 
-        public Messaging(ILogger<Messaging> log, MessageRouting[] messageRoutings)
+        public Messaging(ILogger<Messaging> log, IMessageRouting[] messageRoutings)
         {
             _log = log ?? NullLogger<Messaging>.Instance;
             _messageRoutings = messageRoutings;

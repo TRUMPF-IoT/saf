@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: 2017-2021 TRUMPF Laser GmbH
+//
+// SPDX-License-Identifier: MPL-2.0
+
 using System;
 using System.Threading;
 using NSubstitute;
@@ -80,7 +84,7 @@ namespace SAF.Communication.PubSub.Tests
             Assert.Equal(1, lifetimeHandler.Registries.Count);
             Thread.Sleep(500);
             Assert.Equal(1, lifetimeHandler.Registries.Count);
-            Thread.Sleep(2500);
+            Thread.Sleep(4000);
             Assert.False(lifetimeHandler.UpdateEventFired);
             Assert.True(lifetimeHandler.DownEventFired);
             Assert.Equal(0, lifetimeHandler.Registries.Count);

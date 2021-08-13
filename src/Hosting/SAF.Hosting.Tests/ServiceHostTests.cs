@@ -2,7 +2,6 @@
 //
 // SPDX-License-Identifier: MPL-2.0
 
-
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -89,6 +88,14 @@ namespace SAF.Hosting.Tests
                 Assert.Equal(1, callCounters.CanHandleCalled);
                 Assert.Equal(1, callCounters.HandleCalled);
             }
+        }
+
+        [Fact]
+        public void SearchingServiceAssembliesWithWrongParameters()
+        {
+            Assert.Throws<ArgumentNullException>(() => ServiceCollectionExtensions.SearchServiceAssemblies(null, "**/*.txt", ".*"));
+            Assert.Throws<ArgumentNullException>(() => ServiceCollectionExtensions.SearchServiceAssemblies(System.IO.Path.Combine(TestDataPath, "FilePatterns1"), null, ".*"));
+            Assert.Throws<ArgumentNullException>(() => ServiceCollectionExtensions.SearchServiceAssemblies(System.IO.Path.Combine(TestDataPath, "FilePatterns1"), "**/*.txt", null));
         }
 
         [Fact]
