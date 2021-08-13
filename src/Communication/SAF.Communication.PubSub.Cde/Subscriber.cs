@@ -13,7 +13,6 @@ using nsCDEngine.BaseClasses;
 using nsCDEngine.Engines.ThingService;
 using nsCDEngine.ViewModels;
 using SAF.Communication.Cde;
-using SAF.Communication.Cde.ConnectionTypes;
 using SAF.Communication.Cde.Utils;
 using SAF.Communication.PubSub.Cde.MessageHandler;
 using SAF.Communication.PubSub.Interfaces;
@@ -23,7 +22,7 @@ namespace SAF.Communication.PubSub.Cde
     /// <summary>
     /// Manages all subscribers (which are implemented as <see cref="SubscriptionInternal"/>) 
     /// and the messages from the C-DEngine to them. Coordinates organizational event-driven
-    /// and scheduled calls to the C-DEngine via <see cref="DefaultComLine"/>. The referenced
+    /// and scheduled calls to the C-DEngine via <see cref="ComLine"/>. The referenced
     /// <see cref="RemoteRegistryLifetimeHandler"/> is used to manage the lifetime of the other
     /// subscribers in the mesh.<br/>
     /// Messages from SAF toward C-DEngine runs via <see cref="Publisher"/>.

@@ -7,7 +7,6 @@ using System.Threading;
 using System.Threading.Tasks;
 using SAF.Common;
 using SAF.Communication.Cde;
-using SAF.Communication.Cde.ConnectionTypes;
 using SAF.Communication.PubSub.Interfaces;
 
 using System.Runtime.CompilerServices;
@@ -19,7 +18,7 @@ namespace SAF.Communication.PubSub.Cde
 {
     /// <summary>
     /// Publishes messages (using <see cref="SubscriptionRegistry"/>) to all registered subscribers via
-    /// <see cref="DefaultComLine"/>.<br/>
+    /// <see cref="ComLine"/>.<br/>
     /// Messages from C-DEngine toward SAF runs via <see cref="Subscriber"/>.
     /// </summary>
     public class Publisher : IPublisher, IDisposable
