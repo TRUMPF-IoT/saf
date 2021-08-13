@@ -8,6 +8,10 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using StackExchange.Redis;
 using SAF.Common;
+using System.Runtime.CompilerServices;
+
+[assembly: InternalsVisibleTo("SAF.Messaging.Redis.Tests")]
+[assembly: InternalsVisibleTo("DynamicProxyGenAssembly2")]
 
 namespace SAF.Messaging.Redis
 {
