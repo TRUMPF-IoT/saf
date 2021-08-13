@@ -16,6 +16,8 @@ using Microsoft.Extensions.Logging;
 using SAF.Common;
 
 [assembly: InternalsVisibleTo("SAF.Messaging.Routing.Tests")]
+[assembly: InternalsVisibleTo("DynamicProxyGenAssembly2")]
+
 namespace SAF.Messaging.Routing
 {
     /// <summary>

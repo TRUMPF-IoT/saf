@@ -9,6 +9,7 @@ using Microsoft.Extensions.Logging;
 using SAF.Common;
 
 [assembly: InternalsVisibleTo("SAF.Messaging.InProcess.Tests")]
+[assembly: InternalsVisibleTo("DynamicProxyGenAssembly2")]
 
 namespace SAF.Messaging.InProcess
 {
