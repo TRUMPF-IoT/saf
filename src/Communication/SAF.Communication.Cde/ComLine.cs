@@ -10,6 +10,12 @@ namespace SAF.Communication.Cde
 {
     public delegate void MessageReceivedHandler(ICDEThing sender, object msg);
 
+    /// <summary>
+    /// <para>Abstract link class between the C-DEngine object <c>TheThing</c> and the SAF objects
+    /// <c>Subscriber</c> and <c>SubscriptionRegistry</c>.</para>For the concret implementations see
+    /// <see cref="ConnectionTypes.DefaultComLine">DefaultComLine</see> and 
+    /// <see cref="ConnectionTypes.AdvancedComLine">AdvancedComLine</see>
+    /// </summary>
     public abstract class ComLine
     {
         public abstract string Address { get; }
