@@ -277,7 +277,7 @@ namespace SAF.Communication.PubSub.Cde
         {
             var tsm = new TSM(Engines.PubSub, MessageToken.SubscribeRequest, TheCommonUtils.SerializeObjectToJSONString(request));
             tsm.SetToServiceOnly(true);
-            _log.LogDebug($"Send {MessageToken.SubscribeRequest}, origin: {_line.Address}, target: {registryTsm.ORG}, topics {String.Join(",", request.topics)}");
+            _log.LogDebug($"Send {MessageToken.SubscribeRequest}, origin: {_line.Address}, target: {registryTsm.ORG}, topics {string.Join(",", request.topics)}");
             _line.AnswerToSender(registryTsm, tsm);
         }
 
