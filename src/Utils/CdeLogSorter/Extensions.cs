@@ -9,7 +9,7 @@ namespace CdeLogSorter
 {
     public static class Extensions
     {
-        public static int SnNumber(this String theString)
+        public static int SnNumber(this string theString)
         {
             if (theString.Contains(" SN:"))
             {
@@ -21,7 +21,7 @@ namespace CdeLogSorter
             return -1;
         }
 
-        public static DateTime Time(this String theString)
+        public static DateTime Time(this string theString)
         {
             if (theString.Contains(" : "))
             {

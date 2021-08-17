@@ -137,13 +137,13 @@ namespace SAF.Communication.PubSub.Cde
                 {
                     subscriber = new RemoteSubscriber(message, newPatterns, request);
                     _subscribers.Add(message.ORG, subscriber);
-                    _log.LogDebug($"HandleSubscribe: new {message.ORG}, topics {String.Join(",", topics)}");
+                    _log.LogDebug($"HandleSubscribe: new {message.ORG}, topics {string.Join(",", topics)}");
                 }
                 else
                 {
                     subscriber.Touch();
                     subscriber.AddPatterns(newPatterns);
-                    _log.LogDebug($"HandleSubscribe: touch {message.ORG}, topics {String.Join(",", topics)}");
+                    _log.LogDebug($"HandleSubscribe: touch {message.ORG}, topics {string.Join(",", topics)}");
                 }
 
                 var response = new RegistrySubscriptionResponse
@@ -273,10 +273,9 @@ namespace SAF.Communication.PubSub.Cde
                 {
                     _syncSubscribers.ExitWriteLock();
                 }
-                if (String.IsNullOrWhiteSpace(message.PLS))
+                if (string.IsNullOrWhiteSpace(message.PLS))
                 {
-                    var tsmAlive = new TSM(Engines.PubSub, MessageToken.RegistryAlive, _registryIdentity);
-                    tsmAlive.SetToServiceOnly(true);
+                    var tsmAlive = new TSM(message.ENG, MessageToken.RegistryAlive, _registryIdentity);
                     _log.LogDebug($"Send {MessageToken.RegistryAlive}, origin: {_line.Address}");
                     _line.AnswerToSender(message, tsmAlive);
                 }
