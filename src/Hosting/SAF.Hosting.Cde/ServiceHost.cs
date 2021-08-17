@@ -16,6 +16,7 @@ using SAF.Messaging.Cde;
 using SAF.Messaging.Cde.Diagnostics;
 
 [assembly: InternalsVisibleTo("SAF.Hosting.Cde.Tests")]
+[assembly: InternalsVisibleTo("DynamicProxyGenAssembly2")]
 
 namespace SAF.Hosting.Cde
 {

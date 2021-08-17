@@ -42,7 +42,7 @@ namespace SAF.Communication.PubSub.Cde
     /// <see cref="Publisher"/> to send Messages to all registered subscribers. This class also handles
     /// events for example discovery request or subsciber alive request.
     /// </summary>
-    internal class SubscriptionRegistry : IDisposable
+    internal class SubscriptionRegistry : ISubscriptionRegistry
     {
         public const int AliveIntervalSeconds = 30;
 

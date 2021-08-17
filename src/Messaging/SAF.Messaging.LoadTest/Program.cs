@@ -45,7 +45,8 @@ namespace SAF.Messaging.LoadTest
 
         static void TestInProcess(IServiceCollection sc, int n, int msWait)
         {
-            sc.AddInProcessMessagingInfrastructure();
+            sc.AddInProcessMessagingInfrastructure()
+                .AddSingleton<IMessagingInfrastructure>(sp => sp.GetRequiredService<IInProcessMessagingInfrastructure>());
             using (var sp = sc.BuildServiceProvider())
             {
                 RunMessagingLoadTest(sp, n, msWait);

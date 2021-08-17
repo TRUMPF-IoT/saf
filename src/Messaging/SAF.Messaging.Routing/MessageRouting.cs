@@ -2,7 +2,6 @@
 //
 // SPDX-License-Identifier: MPL-2.0
 
-
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -13,7 +12,7 @@ namespace SAF.Messaging.Routing
     /// <summary>
     /// Describes a Pub/Sub message route for use with IServiceCollection.AddRoutingMessagingInfrastructure.
     /// </summary>
-    public class MessageRouting
+    internal class MessageRouting : IMessageRouting
     {
         /// <summary>
         /// The patterns of message topics to publish to the Messaging infrastructure of this instance.
@@ -43,7 +42,7 @@ namespace SAF.Messaging.Routing
         /// its topic matches any PublishPatterns.
         /// </summary>
         /// <param name="message">The message to publish.</param>
-        internal void Publish(Message message)
+        public void Publish(Message message)
         {
             if (!MessageNeedsPublication(message.Topic)) return;
             Messaging?.Publish(message);
@@ -55,7 +54,7 @@ namespace SAF.Messaging.Routing
         /// </summary>
         /// <param name="routeFilterPattern">The message topic pattern used for subscription.</param>
         /// <returns>A subscriptionId as object or null in case no subscription where done.</returns>
-        internal MessageRoutingSubscription Subscribe<TMessageHandler>(string routeFilterPattern) where TMessageHandler : IMessageHandler
+        public MessageRoutingSubscription Subscribe<TMessageHandler>(string routeFilterPattern) where TMessageHandler : IMessageHandler
         {
             var patterns = DetermineSubscriptionPatterns(routeFilterPattern).ToArray();
             if (patterns.Length == 0) return null;
@@ -72,7 +71,7 @@ namespace SAF.Messaging.Routing
         /// <param name="routeFilterPattern">The message topic pattern used for subscription.</param>
         /// <param name="handler">Action being called in case a message with matching topic arrives.</param>
         /// <returns>A subscriptionId as object or null in case no subscription where done.</returns>
-        internal MessageRoutingSubscription Subscribe(string routeFilterPattern, Action<Message> handler)
+        public MessageRoutingSubscription Subscribe(string routeFilterPattern, Action<Message> handler)
         {
             var patterns = DetermineSubscriptionPatterns(routeFilterPattern).ToArray();
             if (patterns.Length == 0) return null;

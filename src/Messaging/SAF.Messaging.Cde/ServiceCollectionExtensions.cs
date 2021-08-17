@@ -15,6 +15,7 @@ using SAF.Communication.PubSub.Cde;
 using SAF.Communication.PubSub.Interfaces;
 
 [assembly: InternalsVisibleTo("SAF.Messaging.Cde.Tests")]
+[assembly: InternalsVisibleTo("DynamicProxyGenAssembly2")]
 
 namespace SAF.Messaging.Cde
 {

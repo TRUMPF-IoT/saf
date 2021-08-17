@@ -3,6 +3,7 @@
 // SPDX-License-Identifier: MPL-2.0
 
 using System;
+using System.Threading;
 using NSubstitute;
 using SAF.Common;
 using Xunit;
@@ -11,6 +12,38 @@ namespace SAF.Messaging.Routing.Tests
 {
     public class MessageRoutingTest
     {
+        [Fact]
+        public void RunMessaging()
+        {
+            IMessageRouting messageRouting = Substitute.For<IMessageRouting>();
+            Messaging messaging = new(null, new IMessageRouting[] { messageRouting });
+
+            IMessageHandler messageHandler = Substitute.For<IMessageHandler>();
+            messageHandler.CanHandle(Arg.Any<Message>()).Returns(true);
+
+            Guid id = (Guid)messaging.Subscribe<IMessageHandler>();
+            messageRouting.Received().Subscribe<IMessageHandler>(Arg.Any<string>());
+            messageRouting.ClearReceivedCalls();
+
+            Action<Message> handler = m =>
+            {
+                string req = m.Payload;
+                Thread.Sleep(4);
+            };
+            Guid id2 = (Guid)messaging.Subscribe(handler);
+            messageRouting.Received().Subscribe(Arg.Any<string>(), handler);
+            messageRouting.ClearReceivedCalls();
+
+            Message msg = new();
+            msg.Topic = "Top";
+            msg.Payload = "Payxx";
+            messaging.Publish(msg);
+            messageRouting.Received().Publish(Arg.Is<Message>(msg));
+            messageRouting.ClearReceivedCalls();
+
+            messaging.Unsubscribe(id);
+        }
+
         [Theory]
         [InlineData("test/this/topic")]
         [InlineData("test/any/*/topic")]
