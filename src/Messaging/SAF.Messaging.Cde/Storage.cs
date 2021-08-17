@@ -4,10 +4,13 @@
 
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Text;
 using System.Threading;
+using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
+using nsCDEngine.BaseClasses;
 using nsCDEngine.Engines.StorageService;
 using nsCDEngine.ViewModels;
 using SAF.Common;
@@ -134,7 +137,7 @@ namespace SAF.Messaging.Cde
             }
             finally
             {
-                _syncStorageAccess.ExitWriteLock();
+                _syncStorageAccess.ExitUpgradeableReadLock();
             }
 
             return this;
@@ -142,7 +145,21 @@ namespace SAF.Messaging.Cde
 
         public IStorageInfrastructure RemoveArea(string area)
         {
-            // TODO: how-to do this for CDE?
+            area = area.ToLowerInvariant();
+            if (area == GlobalArea)
+                throw new NotSupportedException("It is not allowed to delete the global storage area.");
+
+            _syncStorageAccess.EnterWriteLock();
+            try
+            {
+                var storage = CreateOrGetStorageArea(area);
+                storage.RemoveStore(false);
+            }
+            finally
+            {
+                _syncStorageAccess.ExitWriteLock();
+            }
+
             return this;
         }
 

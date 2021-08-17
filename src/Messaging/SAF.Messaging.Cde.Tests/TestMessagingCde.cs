@@ -74,7 +74,7 @@ namespace SAF.Messaging.Cde.Tests
         [Fact]
         public void RunServices()
         {
-            TestConfigurationProdvider cp = new();
+            TestConfigurationProvider cp = new();
             cp.Set("Cde:ScopeId", "321123");
             cp.Set("Logging:Console:IncludeScopes", "false");
             cp.Set("Logging:Console:LogLevel:Default", "Debug");
@@ -111,9 +111,9 @@ namespace SAF.Messaging.Cde.Tests
             applicationServices.AddCdeInfrastructure(cr.GetSection("Cde").Bind);
         }
 
-        internal class TestConfigurationProdvider : ConfigurationProvider
+        internal class TestConfigurationProvider : ConfigurationProvider
         {
-            public TestConfigurationProdvider() : base()
+            public TestConfigurationProvider() : base()
             { }
         }
     }
