@@ -275,8 +275,7 @@ namespace SAF.Communication.PubSub.Cde
                 }
                 if (string.IsNullOrWhiteSpace(message.PLS))
                 {
-                    var tsmAlive = new TSM(Engines.PubSub, MessageToken.RegistryAlive, _registryIdentity);
-                    tsmAlive.SetToServiceOnly(true);
+                    var tsmAlive = new TSM(message.ENG, MessageToken.RegistryAlive, _registryIdentity);
                     _log.LogDebug($"Send {MessageToken.RegistryAlive}, origin: {_line.Address}");
                     _line.AnswerToSender(message, tsmAlive);
                 }
