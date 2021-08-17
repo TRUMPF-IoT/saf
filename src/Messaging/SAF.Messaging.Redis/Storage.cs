@@ -3,6 +3,7 @@
 // SPDX-License-Identifier: MPL-2.0
 
 using System;
+using System.Linq;
 using StackExchange.Redis;
 using SAF.Common;
 
@@ -13,11 +14,14 @@ namespace SAF.Messaging.Redis
         private const string GobalStorageArea = "global";
         private readonly IConnectionMultiplexer _connection;
         private readonly IDatabase _database;
+        private readonly IServer _server;
 
-        public Storage(IConnectionMultiplexer connection)
+        public Storage(IConnectionMultiplexer connection, ConfigurationOptions options)
         {
             _connection = connection;
+
             _database = connection.GetDatabase();
+            _server = connection.GetServer(options.EndPoints.FirstOrDefault());
         }
 
         public IStorageInfrastructure Set(string key, string value)
@@ -62,7 +66,25 @@ namespace SAF.Messaging.Redis
             return _database.StringGet(BuildRedisDbKey(area, key));
         }
 
-        private static string BuildRedisDbKey(string area, string key) => $"{area.ToLowerInvariant()}:{key.ToLowerInvariant()}";
+        public IStorageInfrastructure RemoveKey(string key)
+            => RemoveKey(GobalStorageArea, key);
+
+        public IStorageInfrastructure RemoveKey(string area, string key)
+        {
+            _database.KeyDelete(BuildRedisDbKey(area, key));
+            return this;
+        }
+
+        public IStorageInfrastructure RemoveArea(string area)
+        {
+            var keys = _server.Keys(-1, $"{area.ToLowerInvariant()}:*");
+            _database.KeyDelete(keys.ToArray());
+
+            return this;
+        }
+
+        private static string BuildRedisDbKey(string area, string key)
+            => $"{area.ToLowerInvariant()}:{key.ToLowerInvariant()}";
 
         public void Dispose()
         {

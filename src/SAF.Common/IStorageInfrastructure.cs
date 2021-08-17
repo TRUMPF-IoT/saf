@@ -14,7 +14,7 @@ namespace SAF.Common
         /// </summary>
         /// <param name="key">The key</param>
         /// <param name="value">The value</param>
-        /// <returns> The storage infrastrucure to provide a fluid workflow.</returns>
+        /// <returns>The storage infrastructure to provide a fluid workflow.</returns>
         IStorageInfrastructure Set(string key, string value);
 
         /// <summary>
@@ -23,7 +23,7 @@ namespace SAF.Common
         /// <param name="area">The area</param>
         /// <param name="key">The key</param>
         /// <param name="value">The value</param>
-        /// <returns> The storage infrastrucure to provide a fluid workflow.</returns>
+        /// <returns>The storage infrastructure to provide a fluid workflow.</returns>
         IStorageInfrastructure Set(string area, string key, string value);
 
         /// <summary>
@@ -31,7 +31,7 @@ namespace SAF.Common
         /// </summary>
         /// <param name="key">The key</param>
         /// <param name="value">The value</param>
-        /// <returns> The storage infrastrucure to provide a fluid workflow.</returns>
+        /// <returns>The storage infrastructure to provide a fluid workflow.</returns>
         IStorageInfrastructure Set(string key, byte[] value);
 
         /// <summary>
@@ -40,7 +40,7 @@ namespace SAF.Common
         /// <param name="area">The area</param>
         /// <param name="key">The key</param>
         /// <param name="value">The value</param>
-        /// <returns> The storage infrastrucure to provide a fluid workflow.</returns>
+        /// <returns>The storage infrastructure to provide a fluid workflow.</returns>
         IStorageInfrastructure Set(string area, string key, byte[] value);
 
         /// <summary>
@@ -72,5 +72,27 @@ namespace SAF.Common
         /// <param name="key">The Key</param>
         /// <returns>The value as a byte array saved under the key. Null if not found.</returns>
         byte[] GetBytes(string area, string key);
+
+        /// <summary>
+        /// Removes the key with its value from the global area. 
+        /// </summary>
+        /// <param name="key">The key</param>
+        /// <returns> The storage infrastructure to provide a fluid workflow.</returns>
+        IStorageInfrastructure RemoveKey(string key);
+
+        /// <summary>
+        /// Removes the key with its value from a specific area. 
+        /// </summary>
+        /// <param name="area">The area</param>
+        /// <param name="key">The key</param>
+        /// <returns>The storage infrastructure to provide a fluid workflow.</returns>
+        IStorageInfrastructure RemoveKey(string area, string key);
+
+        /// <summary>
+        /// Removes a specific area and all key value pairs contained in that area. 
+        /// </summary>
+        /// <param name="area">The area</param>
+        /// <returns>The storage infrastructure to provide a fluid workflow.</returns>
+        IStorageInfrastructure RemoveArea(string area);
     }
 }

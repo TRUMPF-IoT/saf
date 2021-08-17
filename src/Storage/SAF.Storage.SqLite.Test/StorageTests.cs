@@ -142,5 +142,91 @@ namespace SAF.Storage.SqLite.Test
             });
         }
 
+        [Fact]
+        public void RemoveKeyOk()
+        {
+            using var storage = new Storage(_connection);
+
+            const string keyToDelete = "keyToDelete";
+            const string keyToStay = "keyToStay";
+            storage.Set(keyToDelete, new byte[] { 9, 9, 9 });
+            storage.Set(keyToStay, nameof(keyToStay));
+
+            storage.RemoveKey(keyToDelete);
+
+            Assert.Null(storage.GetBytes(keyToDelete));
+            Assert.Equal(nameof(keyToStay), storage.GetString(keyToStay));
+        }
+
+        [Fact]
+        public void RemoveKeyFromAreaOk()
+        {
+            using var storage = new Storage(_connection);
+
+            const string areaToDeleteFrom = "areaToDeleteFrom";
+            const string areaToNotTouch = "areaToNotTouch";
+            const string keyToDelete = "keyToDelete";
+            const string keyToStay = "keyToStay";
+            storage.Set(areaToDeleteFrom, keyToDelete, new byte[] { 9, 9, 9 });
+            storage.Set(areaToDeleteFrom, keyToStay, nameof(keyToStay));
+
+            storage.Set(areaToNotTouch, keyToStay, nameof(keyToStay));
+
+            storage.RemoveKey(areaToDeleteFrom, keyToDelete);
+
+            Assert.Null(storage.GetBytes(areaToDeleteFrom, keyToDelete));
+            Assert.Equal(nameof(keyToStay), storage.GetString(areaToDeleteFrom, keyToStay));
+            Assert.Equal(nameof(keyToStay), storage.GetString(areaToNotTouch, keyToStay));
+        }
+
+        [Fact]
+        public void RemoveAreaOk()
+        {
+            using var storage = new Storage(_connection);
+
+            const string areaToDelete = "areaToDelete";
+            const string areaToStay = "areaToStay";
+            const string keyToStay = "keyToStay";
+
+            storage.Set(areaToDelete, "bytesKeyToDelete", new byte[] { 9, 9, 9 });
+            storage.Set(areaToDelete, "stringKeyToDelete", nameof(keyToStay));
+
+            storage.Set(areaToStay, keyToStay, nameof(keyToStay));
+
+            storage.RemoveArea(areaToDelete);
+
+            Assert.Null(storage.GetBytes(areaToDelete, "bytesKeyToDelete"));
+            Assert.Null(storage.GetString(areaToDelete, "stringKeyToDelete"));
+
+            Assert.Equal(nameof(keyToStay), storage.GetString(areaToStay, keyToStay));
+        }
+
+        [Fact]
+        public void RemoveUnknownKeyOk()
+        {
+            using var storage = new Storage(_connection);
+
+            const string keyToDelete = "keyToDelete";
+            const string keyToStay = "keyToStay";
+            storage.Set(keyToStay, nameof(keyToStay));
+
+            storage.RemoveKey(keyToDelete);
+
+            Assert.Equal(nameof(keyToStay), storage.GetString(keyToStay));
+        }
+
+        [Fact]
+        public void RemoveUnknownAreaOk()
+        {
+            using var storage = new Storage(_connection);
+
+            const string keyToStay = "keyToStay";
+            const string testArea = nameof(testArea);
+            storage.Set(testArea, keyToStay, nameof(keyToStay));
+
+            storage.RemoveArea("areaDoesNotExist");
+
+            Assert.Equal(nameof(keyToStay), storage.GetString(testArea, keyToStay));
+        }
     }
 }
