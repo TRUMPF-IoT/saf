@@ -24,8 +24,8 @@ namespace SAF.Messaging.LoadTest
             sc.AddLogging(l => l.AddConsole());
             sc.AddSingleton<IServiceMessageDispatcher, MessageDispatcher>();
 
-            int n = 500;
-            int msWait = 100;
+            var n = 500;
+            var msWait = 100;
 
             //TestRedis(sc, n, msWait);
             TestInProcess(sc, n, msWait);
@@ -60,7 +60,7 @@ namespace SAF.Messaging.LoadTest
             var log = sp.GetService<ILogger<Program>>();
 
             var sync = new object();
-            int open = 0;
+            var open = 0;
 
             // REDIS
             // Parallel creation (MaxDegreeOfParallelism unlimited) used around 99 threads and > 13 seconds.

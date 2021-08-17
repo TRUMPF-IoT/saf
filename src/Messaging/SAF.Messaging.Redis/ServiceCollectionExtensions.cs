@@ -3,6 +3,7 @@
 // SPDX-License-Identifier: MPL-2.0
 
 using System;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Extensions.DependencyInjection;
@@ -66,6 +67,8 @@ namespace SAF.Messaging.Redis
             var timeoutInMs = config.Timeout > 0 ? config.Timeout : 40000;
 
             var options = ConfigurationOptions.Parse(config.ConnectionString);
+            options.SetDefaultPorts();
+
             // auto reconnect
             options.AbortOnConnectFail = false;
 
@@ -103,7 +106,7 @@ namespace SAF.Messaging.Redis
                 }
                 else
                 {
-                    tcs.SetResult(conn);
+                    tcs.TrySetResult(conn);
                     logger.LogInformation("Successfully connected to redis");
                 }
                 var connResult = tcs.Task.Result;

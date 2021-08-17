@@ -7,6 +7,9 @@ using SAF.Common;
 using StackExchange.Redis;
 using System;
 using System.Collections.Generic;
+using System.Net;
+using System.Security.Authentication.ExtendedProtection;
+using System.Threading;
 using Xunit;
 
 namespace SAF.Messaging.Redis.Tests
@@ -16,9 +19,9 @@ namespace SAF.Messaging.Redis.Tests
         [Fact]
         public void RunMessaging()
         {
-            IServiceMessageDispatcher smd = Substitute.For<IServiceMessageDispatcher>();
-            IConnectionMultiplexer connectionMultiplexer = Substitute.For<IConnectionMultiplexer>();
-            ISubscriber subscriber = Substitute.For<ISubscriber>();
+            var smd = Substitute.For<IServiceMessageDispatcher>();
+            var connectionMultiplexer = Substitute.For<IConnectionMultiplexer>();
+            var subscriber = Substitute.For<ISubscriber>();
             connectionMultiplexer.GetSubscriber().Returns(subscriber);
 
             Messaging messaging = new(null, connectionMultiplexer, smd, null);
@@ -29,9 +32,9 @@ namespace SAF.Messaging.Redis.Tests
             messaging.Unsubscribe(Guid.NewGuid());
             subscriber.DidNotReceive().Unsubscribe(Arg.Any<RedisChannel>(), Arg.Any<Action<RedisChannel, RedisValue>>(), Arg.Any<CommandFlags>());
 
-            IMessageHandler messageHandler = Substitute.For<IMessageHandler>();
+            var messageHandler = Substitute.For<IMessageHandler>();
             messageHandler.CanHandle(Arg.Any<Message>()).Returns(true);
-            Guid id = (Guid)messaging.Subscribe<IMessageHandler>();
+            var id = (Guid)messaging.Subscribe<IMessageHandler>();
             subscriber.Received().Subscribe(Arg.Any<RedisChannel>(), Arg.Any<Action<RedisChannel, RedisValue>>(), Arg.Any<CommandFlags>());
             subscriber.ClearReceivedCalls();
 
@@ -63,12 +66,14 @@ namespace SAF.Messaging.Redis.Tests
         [Fact]
         public void RunStorage()
         {
-            IDatabase database = Substitute.For<IDatabase>();
-            IConnectionMultiplexer connectionMultiplexer = Substitute.For<IConnectionMultiplexer>();
+            var database = Substitute.For<IDatabase>();
+            var server = Substitute.For<IServer>();
+            var connectionMultiplexer = Substitute.For<IConnectionMultiplexer>();
             connectionMultiplexer.GetDatabase().Returns(database);
+            connectionMultiplexer.GetServer(Arg.Any<EndPoint>(), Arg.Any<object>()).Returns(server);
 
-            byte[] byteArray = new byte[2] { 37, 241 };
-            Storage storage = new(connectionMultiplexer);
+            byte[] byteArray = { 37, 241 };
+            Storage storage = new(connectionMultiplexer, new ConfigurationOptions());
             Assert.Throws<Exception>(() => storage.Set("area", "key", "value"));
             Assert.Throws<Exception>(() => storage.Set("area", "keyByte", byteArray));
             database.StringSet(Arg.Any<RedisKey>(), Arg.Any<RedisValue>()).Returns(true);
@@ -86,6 +91,20 @@ namespace SAF.Messaging.Redis.Tests
             database.Received().StringGet(Arg.Is<RedisKey>("area:keybyte"));
             database.ClearReceivedCalls();
 
+            storage.RemoveKey("area", "key");
+            database.Received().KeyDelete(Arg.Is<RedisKey>("area:key"));
+            database.ClearReceivedCalls();
+            storage.RemoveKey("key");
+            database.Received().KeyDelete(Arg.Is<RedisKey>("global:key"));
+            database.ClearReceivedCalls();
+
+            storage.RemoveArea("area");
+            server.Received().Keys(Arg.Is(-1), Arg.Is<RedisValue>("area:*"));
+            database.Received().KeyDelete(Arg.Any<RedisKey[]>());
+            server.ClearReceivedCalls();
+            database.ClearReceivedCalls();
+
+            Assert.Throws<NotSupportedException>(() => storage.RemoveArea("global"));
         }
     }
 }

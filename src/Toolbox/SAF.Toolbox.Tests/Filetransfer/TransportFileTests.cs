@@ -21,8 +21,8 @@ namespace SAF.Toolbox.Tests.FileTransfer
         [InlineData(81925)] // more then one buffer - not dividable by 3
         public void EncodeDecodeLengthsMatchForDifferentLengths(int numberOfBytes)
         {
-            string fileName = "Test";
-            string mimeType = "application/zip";
+            var fileName = "Test";
+            var mimeType = "application/zip";
 
             var transFile = new TransportFile(fileName, mimeType);
             var srcData = new byte[numberOfBytes];
@@ -47,8 +47,8 @@ namespace SAF.Toolbox.Tests.FileTransfer
         [Fact]
         public void TransportFileWithoutKnownLengthShouldBeDecodable()
         {
-            string fileName = "Test";
-            string mimeType = "application/zip";
+            var fileName = "Test";
+            var mimeType = "application/zip";
 
             var transFile = new TransportFile(fileName, mimeType);
             var srcData = new byte[81924]; // has to be dividable by 3 without known length

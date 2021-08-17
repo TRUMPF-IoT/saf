@@ -323,6 +323,18 @@ namespace SAF.Storage.LiteDb.Test
         }
 
         [Fact]
+        public void RemoveGlobalAreaThrowsExceptionOk()
+        {
+            using var db = new LiteDatabase(new ConnectionString(DBName)
+            {
+                Connection = ConnectionType.Shared
+            });
+            var storage = new Storage(db);
+
+            Assert.Throws<NotSupportedException>(() => storage.RemoveArea("global"));
+        }
+
+        [Fact]
         public void RemoveUnknownKeyOk()
         {
             using var db = new LiteDatabase(new ConnectionString(DBName)

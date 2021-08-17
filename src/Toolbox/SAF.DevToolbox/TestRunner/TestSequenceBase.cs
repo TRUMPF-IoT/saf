@@ -34,7 +34,7 @@ namespace SAF.DevToolbox.TestRunner
 
         protected void WaitForValueSet(ref string value, int timeoutSeconds)
         {
-            int c = 0;
+            var c = 0;
             while (value == null && ++c < (timeoutSeconds * 5))
                 Thread.Sleep(200);
 

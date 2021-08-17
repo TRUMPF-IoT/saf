@@ -31,7 +31,7 @@ namespace TestSequenceRunner
 
             _log.LogInformation("Publish \"ping\" message.");
 
-            string pingReturnTopic = $"ping/{_myServiceId}/response";
+            var pingReturnTopic = $"ping/{_myServiceId}/response";
             string pingReturnValue = null;
             PayloadToVariable<TestSequence>(pingReturnTopic, payload => pingReturnValue = payload);
 

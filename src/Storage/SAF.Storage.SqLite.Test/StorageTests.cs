@@ -2,6 +2,7 @@
 //
 // SPDX-License-Identifier: MPL-2.0
 
+using System;
 using System.Data.SQLite;
 using System.Threading.Tasks;
 using Xunit;
@@ -14,7 +15,7 @@ namespace SAF.Storage.SqLite.Test
 
         public StorageTests()
         {
-            string cs = "Data Source=:memory:";
+            var cs = "Data Source=:memory:";
             _connection = new SQLiteConnection(cs);
         }
 
@@ -199,6 +200,14 @@ namespace SAF.Storage.SqLite.Test
             Assert.Null(storage.GetString(areaToDelete, "stringKeyToDelete"));
 
             Assert.Equal(nameof(keyToStay), storage.GetString(areaToStay, keyToStay));
+        }
+
+        [Fact]
+        public void RemoveGlobalAreaThrowsExceptionOk()
+        {
+            using var storage = new Storage(_connection);
+
+            Assert.Throws<NotSupportedException>(() => storage.RemoveArea("globals"));
         }
 
         [Fact]
