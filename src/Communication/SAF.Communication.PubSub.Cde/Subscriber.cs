@@ -47,6 +47,7 @@ namespace SAF.Communication.PubSub.Cde
 
         private RemoteRegistryLifetimeHandler _registryLifetimeHandler;
         private MessageListener _messageListener;
+        private string _registryIdentity;
 
         public event Action<string, string, TheProcessMessage> MessageEvent;
 
@@ -242,12 +243,16 @@ namespace SAF.Communication.PubSub.Cde
         private void HandleMessage(ICDEThing sender, object pMsg)
         {
             if (pMsg is not TheProcessMessage msg) return;
-            _log.LogDebug($"HandleMessage {msg.Message.TXT}, origin: {msg.Message.ORG}, payload: {msg.Message.PLS}");
             if (msg.Message.ENG != Engines.PubSub) return; //  accept only non remote-subscriber publications
 
+            _log.LogDebug($"Recived message: {msg.Message.TXT}, origin: {msg.Message.ORG}, payload: {msg.Message.PLS}");
             if (msg.Message.TXT.StartsWith(MessageToken.Publish))
             {
                 HandlePublication(msg);
+            }
+            else if (msg.Message.TXT.StartsWith(MessageToken.DiscoveryResponse))
+            {
+                HandleDiscoveryResponse(msg);
             }
             else if (msg.Message.TXT.StartsWith(MessageToken.SubscribeResponse))
             {
@@ -262,6 +267,7 @@ namespace SAF.Communication.PubSub.Cde
                 HandleError(msg);
             }
             _registryLifetimeHandler?.HandleMessage(msg);
+            _log.LogDebug($"Finished message: {msg.Message.TXT}, origin: {msg.Message.ORG}, payload: {msg.Message.PLS}");
         }
 
         private void SendSubscribeRequest(TSM registryTsm, string[] topics)
@@ -271,8 +277,20 @@ namespace SAF.Communication.PubSub.Cde
         {
             var tsm = new TSM(Engines.PubSub, MessageToken.SubscribeRequest, TheCommonUtils.SerializeObjectToJSONString(request));
             tsm.SetToServiceOnly(true);
-            _log.LogDebug($"Send {MessageToken.SubscribeRequest}, origin: {_line.Address}, target: {registryTsm.ORG}, topics {String.Join(",", request.topics)}");
+            _log.LogDebug($"Send {MessageToken.SubscribeRequest}, origin: {_line.Address}, target: {registryTsm.ORG}, topics {string.Join(",", request.topics)}");
             _line.AnswerToSender(registryTsm, tsm);
+        }
+
+        private void HandleDiscoveryResponse(TheProcessMessage msg)
+        {
+            lock (_subscriptions)
+            {
+                if (_registryIdentity == null && msg.Message.ORG.Equals(_line.Address))
+                {
+                    _registryIdentity = msg.Message.PLS;
+                    _log.LogDebug($"_registryIdentity set to: {_registryIdentity}");
+                }
+            }
         }
 
         private void HandleSubscriptionResponse(TheProcessMessage msg)
@@ -316,9 +334,9 @@ namespace SAF.Communication.PubSub.Cde
 
             try
             {
-                var tsm = new TSM(Engines.PubSub, MessageToken.SubscriberAlive);
+                var tsm = new TSM(Engines.PubSub, MessageToken.SubscriberAlive, _registryIdentity);
                 tsm.SetToServiceOnly(true);
-                _log.LogDebug($"broadcast {MessageToken.SubscriberAlive}, origin: {_line.Address}");
+                _log.LogDebug($"broadcast {MessageToken.SubscriberAlive}, origin: {_line.Address}, Ident: {_registryIdentity}");
                 _line.Broadcast(tsm);
             }
             finally

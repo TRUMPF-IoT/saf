@@ -20,7 +20,8 @@ namespace SAF.Communication.PubSub.Cde
 
         public void HandleMessage(TheProcessMessage msg)
         {
-            if(msg.Message.TXT.StartsWith(MessageToken.RegistryAlive) ||
+            if (msg.Message.TXT.StartsWith(MessageToken.RegistryAlive) || // For the backward compatibility
+                msg.Message.TXT.StartsWith(MessageToken.SubscriberAlive) && !string.IsNullOrWhiteSpace(msg.Message.PLS) ||
                 msg.Message.TXT.StartsWith(MessageToken.DiscoveryResponse) ||
                 msg.Message.TXT.StartsWith(MessageToken.SubscribeTrigger))
             {

@@ -28,7 +28,7 @@ namespace CdeLogSorter
             List<string> lines = new(File.ReadAllLines(_filename));
             for (int i = 0; i < lines.Count; i++)
             {
-                String line = lines[i];
+                string line = lines[i];
                 int snNum = line.SnNumber();
                 if (snNum > 0)
                 {
@@ -67,7 +67,7 @@ namespace CdeLogSorter
                     int indexSn = lines[i].IndexOf(" SN:");
                     if (indexSn < 8)
                     {
-                        lines[i] = lines[i].Replace("ID:", "ID:" + new String(' ', 8 - indexSn));
+                        lines[i] = lines[i].Replace("ID:", "ID:" + new string(' ', 8 - indexSn));
                     }
                 }
             }

@@ -50,6 +50,7 @@ namespace SAF.Communication.PubSub
         protected void HandleMessage(string registry, string registryInstanceId, string messageToken, TMessage tsm)
         {
             if (messageToken.StartsWith(MessageToken.RegistryAlive) ||
+                messageToken.StartsWith(MessageToken.SubscriberAlive) && !string.IsNullOrWhiteSpace(registryInstanceId) ||
                 messageToken.StartsWith(MessageToken.DiscoveryResponse) ||
                 messageToken.StartsWith(MessageToken.SubscribeResponse) ||
                 messageToken.StartsWith(MessageToken.SubscribeTrigger))

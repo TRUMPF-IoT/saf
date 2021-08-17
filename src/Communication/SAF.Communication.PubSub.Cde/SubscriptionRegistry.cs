@@ -55,8 +55,6 @@ namespace SAF.Communication.PubSub.Cde
         private Timer _subscriberLifetimeTimer;
         private int _checkingLifeTimes;
 
-        private Timer _registryAliveTimer;
-        private int _sendingAlive;
         private readonly string _instanceId = Guid.NewGuid().ToString("N");
 
         private readonly string _registryIdentity;
@@ -76,9 +74,6 @@ namespace SAF.Communication.PubSub.Cde
             _subscriberLifetimeTimer = new Timer(OnSubscriberLifetimeTimer, null,
                 TimeSpan.FromSeconds(Subscriber.AliveIntervalSeconds * 2),
                 TimeSpan.FromSeconds(Subscriber.AliveIntervalSeconds * 2));
-
-            _registryAliveTimer = new Timer(OnRegistryAliveTimer, null,
-                TimeSpan.FromSeconds(0), TimeSpan.FromSeconds(AliveIntervalSeconds));
         }
 
         public void Broadcast(Topic topic, Message message, string userId, RoutingOptions routingOptions)
@@ -142,13 +137,13 @@ namespace SAF.Communication.PubSub.Cde
                 {
                     subscriber = new RemoteSubscriber(message, newPatterns, request);
                     _subscribers.Add(message.ORG, subscriber);
-                    _log.LogDebug($"HandleSubscribe: new {message.ORG}, topics {String.Join(",", topics)}");
+                    _log.LogDebug($"HandleSubscribe: new {message.ORG}, topics {string.Join(",", topics)}");
                 }
                 else
                 {
                     subscriber.Touch();
                     subscriber.AddPatterns(newPatterns);
-                    _log.LogDebug($"HandleSubscribe: touch {message.ORG}, topics {String.Join(",", topics)}");
+                    _log.LogDebug($"HandleSubscribe: touch {message.ORG}, topics {string.Join(",", topics)}");
                 }
 
                 var response = new RegistrySubscriptionResponse
@@ -203,6 +198,7 @@ namespace SAF.Communication.PubSub.Cde
         {
             if (msg is not TheProcessMessage message) return;
 
+            _log.LogDebug($"Recived message: {message.Message.TXT}, origin: {message.Message.ORG}, payload: {message.Message.PLS}");
             if (message.Message.TXT.StartsWith(MessageToken.Publish))
                 HandlePublication(message);
             else if (message.Message.TXT.StartsWith(MessageToken.DiscoveryRequest))
@@ -215,6 +211,7 @@ namespace SAF.Communication.PubSub.Cde
                 HandleSubscriberAlive(message.Message);
             else if (message.Message.TXT.StartsWith(MessageToken.SubscriberShutdown))
                 HandleSubscriberShutdown(message.Message);
+            _log.LogDebug($"Finished message: {message.Message.TXT}, origin: {message.Message.ORG}, payload: {message.Message.PLS}");
         }
 
         private void HandlePublication(TheProcessMessage message)
@@ -265,8 +262,8 @@ namespace SAF.Communication.PubSub.Cde
                     _log.LogWarning($"Unknown subscriber: triggered resubscribe for origin {message.ORG}");
                     return;
                 }
-                _log.LogDebug($"Touch known subscriber origin: {message.ORG}");
 
+                _log.LogDebug($"Touch known subscriber origin: {message.ORG}");
                 _syncSubscribers.EnterWriteLock();
                 try
                 {
@@ -275,6 +272,12 @@ namespace SAF.Communication.PubSub.Cde
                 finally
                 {
                     _syncSubscribers.ExitWriteLock();
+                }
+                if (string.IsNullOrWhiteSpace(message.PLS))
+                {
+                    var tsmAlive = new TSM(message.ENG, MessageToken.RegistryAlive, _registryIdentity);
+                    _log.LogDebug($"Send {MessageToken.RegistryAlive}, origin: {_line.Address}");
+                    _line.AnswerToSender(message, tsmAlive);
                 }
             }
             finally
@@ -303,6 +306,7 @@ namespace SAF.Communication.PubSub.Cde
             _syncSubscribers.EnterWriteLock();
             try
             {
+                _log.LogInformation("Check subscriber lifetime.");
                 // remove stale subscribers (no alive telegram since last run)
                 foreach (var subscriber in _subscribers.Values.Where(s => !s.IsAlive).ToArray())
                 {
@@ -320,27 +324,8 @@ namespace SAF.Communication.PubSub.Cde
             }
         }
 
-        private void OnRegistryAliveTimer(object state)
-        {
-            if (Interlocked.Exchange(ref _sendingAlive, 1) == 1) return;
-
-            try
-            {
-                // send to other registries in the mesh
-                var tsm = new TSM(Engines.PubSub, MessageToken.RegistryAlive, _registryIdentity);
-                tsm.SetToServiceOnly(true);
-                _log.LogDebug($"Broadcast {MessageToken.RegistryAlive}, origin: {_line.Address}");
-                _line.Broadcast(tsm);
-            }
-            finally
-            {
-                Interlocked.Exchange(ref _sendingAlive, 0);
-            }
-        }
-
         public void Dispose()
         {
-            _registryAliveTimer?.Dispose();
             _subscriberLifetimeTimer?.Dispose();
 
             // send to other registries in the mesh
