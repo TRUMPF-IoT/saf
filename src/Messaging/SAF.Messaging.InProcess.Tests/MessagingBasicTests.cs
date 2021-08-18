@@ -20,7 +20,7 @@ namespace SAF.Messaging.InProcess.Tests
         {
             var dispatcher = new MessageDispatcher(NullLogger<MessageDispatcher>.Instance);
             var sut = new InProcessMessaging(NullLogger<InProcessMessaging>.Instance, dispatcher);
-            bool hit = false;
+            var hit = false;
 
             sut.Subscribe("a/test/channel/123", m => hit = true);
             sut.Publish(new Message { Topic = "a/test/channel/123" });
@@ -34,7 +34,7 @@ namespace SAF.Messaging.InProcess.Tests
         {
             var dispatcher = new MessageDispatcher(NullLogger<MessageDispatcher>.Instance);
             var sut = new InProcessMessaging(NullLogger<InProcessMessaging>.Instance, dispatcher);
-            bool hit = false;
+            var hit = false;
 
             sut.Subscribe(m => hit = true);
             sut.Publish(new Message { Topic = "something/completly/different" });

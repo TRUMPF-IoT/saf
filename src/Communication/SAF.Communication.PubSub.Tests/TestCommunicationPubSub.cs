@@ -21,7 +21,7 @@ namespace SAF.Communication.PubSub.Tests
             Assert.Equal("msgId", topi.MsgId);
             Assert.Equal("version", topi.Version);
             Assert.Equal("channel|msgId|version", topi.ToTsmTxt());
-            Topic topi2 = "channel|msgId|version".ToTopic();
+            var topi2 = "channel|msgId|version".ToTopic();
             Assert.Equal("channel", topi2.Channel);
             Assert.Equal("msgId", topi2.MsgId);
             Assert.Equal("version", topi2.Version);

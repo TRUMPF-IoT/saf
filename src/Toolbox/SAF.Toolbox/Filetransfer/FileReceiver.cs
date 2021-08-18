@@ -114,7 +114,7 @@ namespace SAF.Toolbox.FileTransfer
             properties.TryGetValue("Content", out var content);
             properties.TryGetValue("OriginalLength", out var originalLengthAsString);
 
-            long originalLength = 0L;
+            var originalLength = 0L;
             if (!string.IsNullOrEmpty(originalLengthAsString))
                 long.TryParse(originalLengthAsString, out originalLength);
 

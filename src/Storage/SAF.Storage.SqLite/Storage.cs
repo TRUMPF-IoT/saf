@@ -5,12 +5,16 @@
 using SAF.Common;
 using System;
 using System.Data.SQLite;
+using System.Threading;
 
 namespace SAF.Storage.SqLite
 {
     public class Storage : IStorageInfrastructure, IDisposable
     {
         private readonly SQLiteConnection _connection;
+        private readonly ReaderWriterLockSlim _syncDbAccess = new(LockRecursionPolicy.SupportsRecursion);
+
+        private const string GlobalStorageArea = "globals";
         private const string BytesValue = "bytesValue";
         private const string StringValue = "stringValue";
 
@@ -37,7 +41,7 @@ namespace SAF.Storage.SqLite
 
         public byte[] GetBytes(string key)
         {
-            return GetValue("globals", key, BytesValue) as byte[];
+            return GetValue(GlobalStorageArea, key, BytesValue) as byte[];
         }
 
 
@@ -46,9 +50,60 @@ namespace SAF.Storage.SqLite
             return GetValue(area, key, BytesValue) as byte[];
         }
 
+        public IStorageInfrastructure RemoveKey(string key)
+            => RemoveKey(GlobalStorageArea, key);
+
+        public IStorageInfrastructure RemoveKey(string area, string key)
+        {
+            _syncDbAccess.EnterUpgradeableReadLock();
+            try
+            {
+                area = CorrectLegacyAreas(area);
+                if (!DoesTableExist(area)) return this;
+
+                _syncDbAccess.EnterWriteLock();
+                try
+                {
+                    using var command = new SQLiteCommand($"DELETE FROM {area} WHERE id=@id", _connection);
+                    command.Parameters.AddWithValue("@id", key);
+                    command.ExecuteNonQuery();
+                }
+                finally
+                {
+                    _syncDbAccess.ExitWriteLock();
+                }
+            }
+            finally
+            {
+                _syncDbAccess.ExitUpgradeableReadLock();
+            }
+
+            return this;
+        }
+
+        public IStorageInfrastructure RemoveArea(string area)
+        {
+            area = CorrectLegacyAreas(area);
+            if (area == GlobalStorageArea)
+                throw new NotSupportedException("It is not allowed to delete the global storage area.");
+
+            _syncDbAccess.EnterWriteLock();
+            try
+            {
+                using var command = new SQLiteCommand($"DROP TABLE IF EXISTS {area}", _connection);
+                command.ExecuteNonQuery();
+            }
+            finally
+            {
+                _syncDbAccess.ExitWriteLock();
+            }
+
+            return this;
+        }
+
         public string GetString(string key)
         {
-            return GetValue("globals", key, StringValue) as string;
+            return GetValue(GlobalStorageArea, key, StringValue) as string;
         }
 
         public string GetString(string area, string key)
@@ -58,12 +113,20 @@ namespace SAF.Storage.SqLite
 
         private object GetValue(string area, string key, string valueType)
         {
-            area = CorrectLegacyAreas(area);
-            if (!DoesTableExist(area)) return null;
+            _syncDbAccess.EnterReadLock();
+            try
+            {
+                area = CorrectLegacyAreas(area);
+                if (!DoesTableExist(area)) return null;
 
-            using var command = new SQLiteCommand($"SELECT {valueType} FROM {area} WHERE id=@id", _connection);
-            command.Parameters.AddWithValue("@id", key);
-            return command.ExecuteScalar();
+                using var command = new SQLiteCommand($"SELECT {valueType} FROM {area} WHERE id=@id", _connection);
+                command.Parameters.AddWithValue("@id", key);
+                return command.ExecuteScalar();
+            }
+            finally
+            {
+                _syncDbAccess.ExitReadLock();
+            }
         }
 
         private bool DoesTableExist(string area)
@@ -75,7 +138,7 @@ namespace SAF.Storage.SqLite
 
         public IStorageInfrastructure Set(string key, string value)
         {
-            SaveValue("globals", key, value, StringValue);
+            SaveValue(GlobalStorageArea, key, value, StringValue);
             return this;
         }
 
@@ -87,7 +150,7 @@ namespace SAF.Storage.SqLite
 
         public IStorageInfrastructure Set(string key, byte[] value)
         {
-            SaveValue("globals", key, value, BytesValue);
+            SaveValue(GlobalStorageArea, key, value, BytesValue);
             return this;
         }
 
@@ -99,13 +162,21 @@ namespace SAF.Storage.SqLite
 
         private void SaveValue(string area, string key, object value, string rowType)
         {
-            area = CorrectLegacyAreas(area);
-            CreateTable(area);
+            _syncDbAccess.EnterWriteLock();
+            try
+            {
+                area = CorrectLegacyAreas(area);
+                CreateTable(area);
 
-            using var cmd = new SQLiteCommand($"REPLACE INTO {area}(id, {rowType}) VALUES(@id, @value)", _connection);
-            cmd.Parameters.AddWithValue("@id", key);
-            cmd.Parameters.AddWithValue("@value", value);
-            cmd.ExecuteNonQuery();
+                using var cmd = new SQLiteCommand($"REPLACE INTO {area}(id, {rowType}) VALUES(@id, @value)", _connection);
+                cmd.Parameters.AddWithValue("@id", key);
+                cmd.Parameters.AddWithValue("@value", value);
+                cmd.ExecuteNonQuery();
+            }
+            finally
+            {
+                _syncDbAccess.ExitWriteLock();
+            }
         }
 
         private void CreateTable(string tableName)
@@ -116,8 +187,6 @@ namespace SAF.Storage.SqLite
         }
 
         private string CorrectLegacyAreas(string area)
-        {
-            return area.Replace(".", "_").Replace("/", "_");
-        }
+            => area.Replace(".", "_").Replace("/", "_");
     }
 }

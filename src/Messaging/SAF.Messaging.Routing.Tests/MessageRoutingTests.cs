@@ -15,22 +15,22 @@ namespace SAF.Messaging.Routing.Tests
         [Fact]
         public void RunMessaging()
         {
-            IMessageRouting messageRouting = Substitute.For<IMessageRouting>();
+            var messageRouting = Substitute.For<IMessageRouting>();
             Messaging messaging = new(null, new IMessageRouting[] { messageRouting });
 
-            IMessageHandler messageHandler = Substitute.For<IMessageHandler>();
+            var messageHandler = Substitute.For<IMessageHandler>();
             messageHandler.CanHandle(Arg.Any<Message>()).Returns(true);
 
-            Guid id = (Guid)messaging.Subscribe<IMessageHandler>();
+            var id = (Guid)messaging.Subscribe<IMessageHandler>();
             messageRouting.Received().Subscribe<IMessageHandler>(Arg.Any<string>());
             messageRouting.ClearReceivedCalls();
 
             Action<Message> handler = m =>
             {
-                string req = m.Payload;
+                var req = m.Payload;
                 Thread.Sleep(4);
             };
-            Guid id2 = (Guid)messaging.Subscribe(handler);
+            var id2 = (Guid)messaging.Subscribe(handler);
             messageRouting.Received().Subscribe(Arg.Any<string>(), handler);
             messageRouting.ClearReceivedCalls();
 

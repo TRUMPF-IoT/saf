@@ -24,7 +24,7 @@ namespace SAF.Hosting.Cde.Tests
             //TheBaseAssets.MySYSLOG = Substitute.For<TheSystemMessageLog>();
 
             LoggerProvider lp = new ();
-            Logger logger = (Logger)lp.CreateLogger("Test");
+            var logger = (Logger)lp.CreateLogger("Test");
             Assert.NotNull(logger);
 
             Assert.True(logger.IsEnabled(LogLevel.Critical));

@@ -113,6 +113,10 @@ namespace SAF.Hosting.Tests
 
             public byte[] GetBytes(string key) => Array.Empty<byte>();
             public byte[] GetBytes(string area, string key) => Array.Empty<byte>();
+
+            public IStorageInfrastructure RemoveKey(string key) => this;
+            public IStorageInfrastructure RemoveKey(string area, string key) => this;
+            public IStorageInfrastructure RemoveArea(string area) => this;
         }
 
         public class DummyServiceManifest : IServiceAssemblyManifest

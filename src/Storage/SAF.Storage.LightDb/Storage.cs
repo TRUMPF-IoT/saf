@@ -50,6 +50,42 @@ namespace SAF.Storage.LiteDb
             return Get(area, key)?.AsBinary;
         }
 
+        public IStorageInfrastructure RemoveKey(string key)
+            => RemoveKey(GlobalStorageArea, key);
+
+        public IStorageInfrastructure RemoveKey(string area, string key)
+        {
+            _syncDbAccess.EnterWriteLock();
+            try
+            {
+                GetCollection(area).Delete(key);
+            }
+            finally
+            {
+                _syncDbAccess.ExitWriteLock();
+            }
+
+            return this;
+        }
+
+        public IStorageInfrastructure RemoveArea(string area)
+        {
+            if (area == GlobalStorageArea)
+                throw new NotSupportedException("It is not allowed to delete the global storage area.");
+
+            _syncDbAccess.EnterWriteLock();
+            try
+            {
+                _connection.DropCollection(ConvertAreaToCollectionName(area));
+            }
+            finally
+            {
+                _syncDbAccess.ExitWriteLock();
+            }
+
+            return this;
+        }
+
         public string GetString(string key)
         {
             return Get(GlobalStorageArea, key)?.AsString;
@@ -66,7 +102,6 @@ namespace SAF.Storage.LiteDb
             try
             {
                 var item = GetCollection(area).FindOne(Query.EQ(IdKey, key));
-
                 if (item == null) return null;
 
                 item.TryGetValue(ValueKey, out var value);
@@ -97,6 +132,7 @@ namespace SAF.Storage.LiteDb
         {
             return Set(area, key, (BsonValue)value);
         }
+
         private IStorageInfrastructure Set(string area, string key, BsonValue value)
         {
             _syncDbAccess.EnterWriteLock();
@@ -119,10 +155,13 @@ namespace SAF.Storage.LiteDb
         }
 
         private ILiteCollection<BsonDocument> GetCollection(string areaName)
+            => _connection.GetCollection(ConvertAreaToCollectionName(areaName));
+
+        private static string ConvertAreaToCollectionName(string areaName)
         {
             // To ensure that LiteDb works just like RedisStorageInfrastructure and CDEStorageInfrastructure, replace '.' and '/' with an '_'. 
-            //LiteDb collection names are only allowed to be [a-Z$_].
-            return _connection.GetCollection(areaName.Replace(".", "_").Replace("/", "_"));
+            // LiteDb collection names are only allowed to be [a-Z$_].
+            return areaName.Replace(".", "_").Replace("/", "_");
         }
     }
 }

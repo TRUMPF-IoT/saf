@@ -13,6 +13,13 @@ namespace SAF.Storage.LiteDb.Test
     public class StorageTests : IDisposable
     {
         private string DBName = "Filename=LocalLightDb.db;Connection=direct";
+
+        public StorageTests()
+        {
+            if(File.Exists("LocalLightDb.db"))
+                File.Delete("LocalLightDb.db");
+        }
+
         [Fact]
         public void WriteStringOk()
         {
@@ -217,6 +224,150 @@ namespace SAF.Storage.LiteDb.Test
                 Assert.Equal(expectedValue, savedValue.Value);
                 Assert.Equal(expectedValue, storage.GetString(uniqueArea, key));
             }
+        }
+
+        [Fact]
+        public void RemoveKeyOk()
+        {
+            using var db = new LiteDatabase(new ConnectionString(DBName)
+            {
+                Connection = ConnectionType.Shared
+            });
+            var storage = new Storage(db);
+
+            const string keyToDelete = "keyToDelete";
+            const string keyToStay = "keyToStay";
+            storage.Set(keyToDelete, new byte[] { 9, 9, 9 });
+            storage.Set(keyToStay, nameof(keyToStay));
+
+            var col = db.GetCollection<ByteEntry>("global");
+            Assert.Equal(2, col.Count());
+
+            storage.RemoveKey(keyToDelete);
+
+            var deletedValue = col.FindOne(d => d.Key == keyToDelete);
+            Assert.Null(deletedValue);
+
+            Assert.Null(storage.GetBytes(keyToDelete));
+            Assert.Equal(nameof(keyToStay), storage.GetString(keyToStay));
+        }
+
+        [Fact]
+        public void RemoveKeyFromAreaOk()
+        {
+            using var db = new LiteDatabase(new ConnectionString(DBName)
+            {
+                Connection = ConnectionType.Shared
+            });
+            var storage = new Storage(db);
+
+            const string areaToDeleteFrom = "areaToDeleteFrom";
+            const string areaToNotTouch = "areaToNotTouch";
+            const string keyToDelete = "keyToDelete";
+            const string keyToStay = "keyToStay";
+            storage.Set(areaToDeleteFrom, keyToDelete, new byte[] { 9, 9, 9 });
+            storage.Set(areaToDeleteFrom, keyToStay, nameof(keyToStay));
+
+            storage.Set(areaToNotTouch, keyToStay, nameof(keyToStay));
+
+            var colToDeleteFrom = db.GetCollection<ByteEntry>(areaToDeleteFrom);
+            Assert.Equal(2, colToDeleteFrom.Count());
+
+            var colToNotTouch = db.GetCollection<ByteEntry>(areaToNotTouch);
+            Assert.Equal(1, colToNotTouch.Count());
+
+            storage.RemoveKey(areaToDeleteFrom, keyToDelete);
+
+            var deletedValue = colToDeleteFrom.FindOne(d => d.Key == keyToDelete);
+            Assert.Null(deletedValue);
+
+            Assert.Null(storage.GetBytes(areaToDeleteFrom, keyToDelete));
+            Assert.Equal(nameof(keyToStay), storage.GetString(areaToDeleteFrom, keyToStay));
+            Assert.Equal(nameof(keyToStay), storage.GetString(areaToNotTouch, keyToStay));
+        }
+
+        [Fact]
+        public void RemoveAreaOk()
+        {
+            using var db = new LiteDatabase(new ConnectionString(DBName)
+            {
+                Connection = ConnectionType.Shared
+            });
+            var storage = new Storage(db);
+
+            const string areaToDelete = "areaToDelete";
+            const string areaToStay = "areaToStay";
+            const string keyToStay = "keyToStay";
+
+            storage.Set(areaToDelete, "bytesKeyToDelete", new byte[] { 9, 9, 9 });
+            storage.Set(areaToDelete, "stringKeyToDelete", nameof(keyToStay));
+
+            storage.Set(areaToStay, keyToStay, nameof(keyToStay));
+
+            var colToDelete = db.GetCollection<ByteEntry>(areaToDelete);
+            Assert.Equal(2, colToDelete.Count());
+
+            var colToStay = db.GetCollection<ByteEntry>(areaToStay);
+            Assert.Equal(1, colToStay.Count());
+
+            storage.RemoveArea(areaToDelete);
+
+            Assert.False(db.CollectionExists(areaToDelete));
+
+            Assert.Null(storage.GetBytes(areaToDelete, "bytesKeyToDelete"));
+            Assert.Null(storage.GetString(areaToDelete, "stringKeyToDelete"));
+
+            Assert.False(db.CollectionExists(areaToDelete));
+
+            Assert.Equal(nameof(keyToStay), storage.GetString(areaToStay, keyToStay));
+        }
+
+        [Fact]
+        public void RemoveGlobalAreaThrowsExceptionOk()
+        {
+            using var db = new LiteDatabase(new ConnectionString(DBName)
+            {
+                Connection = ConnectionType.Shared
+            });
+            var storage = new Storage(db);
+
+            Assert.Throws<NotSupportedException>(() => storage.RemoveArea("global"));
+        }
+
+        [Fact]
+        public void RemoveUnknownKeyOk()
+        {
+            using var db = new LiteDatabase(new ConnectionString(DBName)
+            {
+                Connection = ConnectionType.Shared
+            });
+            var storage = new Storage(db);
+
+            const string keyToDelete = "keyToDelete";
+            const string keyToStay = "keyToStay";
+            storage.Set(keyToStay, nameof(keyToStay));
+
+            storage.RemoveKey(keyToDelete);
+
+            Assert.Equal(nameof(keyToStay), storage.GetString(keyToStay));
+        }
+
+        [Fact]
+        public void RemoveUnknownAreaOk()
+        {
+            using var db = new LiteDatabase(new ConnectionString(DBName)
+            {
+                Connection = ConnectionType.Shared
+            });
+            var storage = new Storage(db);
+
+            const string keyToStay = "keyToStay";
+            const string testArea = nameof(testArea);
+            storage.Set(testArea, keyToStay, nameof(keyToStay));
+
+            storage.RemoveArea("areaDoesNotExist");
+
+            Assert.Equal(nameof(keyToStay), storage.GetString(testArea, keyToStay));
         }
 
         public void Dispose()

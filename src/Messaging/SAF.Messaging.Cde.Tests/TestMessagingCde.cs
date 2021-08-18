@@ -34,10 +34,10 @@ namespace SAF.Messaging.Cde.Tests
         [Fact]
         public void RunMessaging()
         {
-            IServiceMessageDispatcher smd = Substitute.For<IServiceMessageDispatcher>();
-            IPublisher publisher = Substitute.For<IPublisher>();
+            var smd = Substitute.For<IServiceMessageDispatcher>();
+            var publisher = Substitute.For<IPublisher>();
             var comLineSubscriber = Substitute.For<ComLine>();
-            ISubscriber subscriber = Substitute.For<ISubscriber>();
+            var subscriber = Substitute.For<ISubscriber>();
             var test = Substitute.For<AbstractSubscription>(subscriber, RoutingOptions.All, new string[] { "*" });
             subscriber.Subscribe(Arg.Any<RoutingOptions>(), Arg.Any<string>()).Returns(test);
 
@@ -49,9 +49,9 @@ namespace SAF.Messaging.Cde.Tests
             messaging.Unsubscribe(test.Id);
             test.DidNotReceive().Unsubscribe();
 
-            IMessageHandler messageHandler = Substitute.For<IMessageHandler>();
+            var messageHandler = Substitute.For<IMessageHandler>();
             messageHandler.CanHandle(Arg.Any<Message>()).Returns(true);
-            string id = messaging.Subscribe<IMessageHandler>().ToString();
+            var id = messaging.Subscribe<IMessageHandler>().ToString();
             Assert.Equal(test.Id.ToString(), id);
             Assert.Throws<ArgumentException>(() => messaging.Subscribe<IMessageHandler>("*"));
             messaging.Unsubscribe(null);
@@ -74,7 +74,7 @@ namespace SAF.Messaging.Cde.Tests
         [Fact]
         public void RunServices()
         {
-            TestConfigurationProdvider cp = new();
+            TestConfigurationProvider cp = new();
             cp.Set("Cde:ScopeId", "321123");
             cp.Set("Logging:Console:IncludeScopes", "false");
             cp.Set("Logging:Console:LogLevel:Default", "Debug");
@@ -111,9 +111,9 @@ namespace SAF.Messaging.Cde.Tests
             applicationServices.AddCdeInfrastructure(cr.GetSection("Cde").Bind);
         }
 
-        internal class TestConfigurationProdvider : ConfigurationProvider
+        internal class TestConfigurationProvider : ConfigurationProvider
         {
-            public TestConfigurationProdvider() : base()
+            public TestConfigurationProvider() : base()
             { }
         }
     }

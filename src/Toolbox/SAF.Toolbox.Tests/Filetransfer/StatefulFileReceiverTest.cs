@@ -37,10 +37,10 @@ namespace SAF.Toolbox.Tests.FileTransfer
         [InlineData(1024 * 1024 * 3, 5678)]  // 3 MByte, with transfer id
         public void TestReceiveChunksOk(int fileSize, long? transferId)
         {
-            string fileName = $"test-{fileSize}.file";
-            string mimeType = "application/octet-stream";
-            string channelName = "statefulReceiverTest";
-            string directoryName = DirectoryName;
+            var fileName = $"test-{fileSize}.file";
+            var mimeType = "application/octet-stream";
+            var channelName = "statefulReceiverTest";
+            var directoryName = DirectoryName;
             var targetFile = Path.Combine(directoryName, fileName);
 
             var uniqueTransferId = transferId ?? 0;

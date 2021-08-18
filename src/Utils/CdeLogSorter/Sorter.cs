@@ -26,10 +26,10 @@ namespace CdeLogSorter
         {
             // Prepare the lines before sorting.
             List<string> lines = new(File.ReadAllLines(_filename));
-            for (int i = 0; i < lines.Count; i++)
+            for (var i = 0; i < lines.Count; i++)
             {
-                string line = lines[i];
-                int snNum = line.SnNumber();
+                var line = lines[i];
+                var snNum = line.SnNumber();
                 if (snNum > 0)
                 {
                     if (!line.StartsWith("ID:"))
@@ -38,18 +38,18 @@ namespace CdeLogSorter
                         lines.SeparatePraefix(i);
                     }
                     // Search all lines that occured at almost the same time.
-                    DateTime time = line.Time();
-                    int j = i + 1;
+                    var time = line.Time();
+                    var j = i + 1;
                     while (j < lines.Count && (lines[j].SnNumber() < 0 || Math.Abs(lines[j].Time().Subtract(time).TotalMilliseconds) < 10))
                     {
                         j++;
                     }
                     // Search all SN-Numbers which are less than the current and put these lines after the current line.
                     // So they will still be considered in the main loop.
-                    int diff = j - (i + 1);
-                    for (int k = 1; k < diff; k++)
+                    var diff = j - (i + 1);
+                    for (var k = 1; k < diff; k++)
                     {
-                        int index = i + 1 + k;
+                        var index = i + 1 + k;
                         if (lines[index].SnNumber() > 0 && lines[index].SnNumber() < snNum)
                         {
                             if (!lines[index].StartsWith("ID:"))
@@ -57,14 +57,14 @@ namespace CdeLogSorter
                                 // Two overlapping logging issues must be separated.
                                 lines.SeparatePraefix(index);
                             }
-                            string move = lines[index];
+                            var move = lines[index];
                             lines.RemoveAt(index);
                             lines.Insert(i + 1, move);
                         }
                     }
  
                     // Format the ID
-                    int indexSn = lines[i].IndexOf(" SN:");
+                    var indexSn = lines[i].IndexOf(" SN:");
                     if (indexSn < 8)
                     {
                         lines[i] = lines[i].Replace("ID:", "ID:" + new string(' ', 8 - indexSn));
@@ -74,7 +74,7 @@ namespace CdeLogSorter
 
             // Sort the lines
             List<string> result = new();
-            int takenOverUntil = 0;
+            var takenOverUntil = 0;
             while(takenOverUntil < lines.Count - 1)
             {
                 takenOverUntil = this.SortStep1(lines.ToArray(), takenOverUntil, result);
@@ -88,8 +88,8 @@ namespace CdeLogSorter
         /// </summary>
         private int SortStep1(string[] lines, int start, List<string> result)
         {
-            int takenOverUntil = start;
-            for (int i = start; i < lines.Length; i++)
+            var takenOverUntil = start;
+            for (var i = start; i < lines.Length; i++)
             {
                 takenOverUntil = i;
                 if (!lines[i].Contains(" SN:"))
@@ -109,13 +109,13 @@ namespace CdeLogSorter
         /// </summary>
         private int SortStep2(string[] lines, int start, List<string> result)
         {
-            int takenOverUntil = start;
+            var takenOverUntil = start;
             Dictionary<int, string> dicLines = new();
-            for (int i = start; i < lines.Length; i++)
+            for (var i = start; i < lines.Length; i++)
             {
                 takenOverUntil = i;
-                string line = lines[i];
-                int snNumber = line.SnNumber();
+                var line = lines[i];
+                var snNumber = line.SnNumber();
                 if (snNumber > 0)
                 {
                     dicLines.Add(snNumber, line);
@@ -127,7 +127,7 @@ namespace CdeLogSorter
             }
             List<int> lstKeys = new(dicLines.Keys);
             lstKeys.Sort();
-            foreach(int i in lstKeys)
+            foreach(var i in lstKeys)
             {
                 result.Add(dicLines[i]);
             }

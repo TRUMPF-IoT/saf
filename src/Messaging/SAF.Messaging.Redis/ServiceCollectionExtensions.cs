@@ -3,6 +3,7 @@
 // SPDX-License-Identifier: MPL-2.0
 
 using System;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Extensions.DependencyInjection;
@@ -52,7 +53,7 @@ namespace SAF.Messaging.Redis
                     var msgCfg = new RedisMessagingConfiguration(cfg);
                     var redisCfg = new RedisConfiguration { ConnectionString = msgCfg.ConnectionString };
                     return new Messaging(sp.GetRequiredService<ILogger<Messaging>>(),
-                        CreateRedisConnection(redisCfg, sp.GetRequiredService<ILogger<Messaging>>()),
+                        CreateRedisConnection(redisCfg, sp.GetRequiredService<ILogger<Messaging>>()).multiplexer,
                         sp.GetRequiredService<IServiceMessageDispatcher>(),
                         null);
                 }))
@@ -61,11 +62,13 @@ namespace SAF.Messaging.Redis
             return serviceCollection;
         }
 
-        private static IConnectionMultiplexer CreateRedisConnection(RedisConfiguration config, ILogger logger)
+        private static (IConnectionMultiplexer multiplexer, ConfigurationOptions options) CreateRedisConnection(RedisConfiguration config, ILogger logger)
         {
             var timeoutInMs = config.Timeout > 0 ? config.Timeout : 40000;
 
             var options = ConfigurationOptions.Parse(config.ConnectionString);
+            options.SetDefaultPorts();
+
             // auto reconnect
             options.AbortOnConnectFail = false;
 
@@ -103,7 +106,7 @@ namespace SAF.Messaging.Redis
                 }
                 else
                 {
-                    tcs.SetResult(conn);
+                    tcs.TrySetResult(conn);
                     logger.LogInformation("Successfully connected to redis");
                 }
                 var connResult = tcs.Task.Result;
@@ -116,7 +119,8 @@ namespace SAF.Messaging.Redis
                 {
                     logger.LogCritical("Connection to redis established");
                 };
-                return connResult;
+
+                return (connResult, options);
             }
         }
 
@@ -124,7 +128,7 @@ namespace SAF.Messaging.Redis
         {
             return serviceCollection.AddTransient<IRedisMessagingInfrastructure>(r =>
                 new Messaging(r.GetRequiredService<ILogger<Messaging>>(),
-                    CreateRedisConnection(config, r.GetRequiredService<ILogger<Messaging>>()),
+                    CreateRedisConnection(config, r.GetRequiredService<ILogger<Messaging>>()).multiplexer,
                     r.GetRequiredService<IServiceMessageDispatcher>(),
                     traceAction));
         }
@@ -132,7 +136,10 @@ namespace SAF.Messaging.Redis
         private static IServiceCollection AddRedisStorageInfrastructure(this IServiceCollection serviceCollection, RedisConfiguration config)
         {
             return serviceCollection.AddTransient<IStorageInfrastructure>(r =>
-                new Storage(CreateRedisConnection(config, r.GetRequiredService<ILogger<Storage>>())));
+            {
+                var (muxer, options) = CreateRedisConnection(config, r.GetRequiredService<ILogger<Storage>>());
+                return new Storage(muxer, options);
+            });
         }
     }
 }

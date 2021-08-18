@@ -4,9 +4,13 @@
 
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Text;
+using System.Threading;
+using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
+using nsCDEngine.BaseClasses;
 using nsCDEngine.Engines.StorageService;
 using nsCDEngine.ViewModels;
 using SAF.Common;
@@ -23,6 +27,8 @@ namespace SAF.Messaging.Cde
     {
         private readonly ILogger<Storage> _log;
         private const string GlobalArea = "global";
+
+        private readonly ReaderWriterLockSlim _syncStorageAccess = new(LockRecursionPolicy.SupportsRecursion);
         private readonly Dictionary<string, TheStorageMirror<StorageEntry>> _openStorageAreas = new();
 
         private const int SaveStorageAreaIntervalSeconds = 5;
@@ -39,18 +45,26 @@ namespace SAF.Messaging.Cde
 
         public IStorageInfrastructure Set(string area, string key, string value)
         {
-            var storage = CreateOrGetStorageArea(area);
+            _syncStorageAccess.EnterWriteLock();
+            try
+            {
+                var storage = CreateOrGetStorageArea(area);
 
-            key = key.ToLowerInvariant();
-            var entry = storage.MyMirrorCache.GetEntryByFunc(e => string.Equals(e.Key, key, StringComparison.InvariantCultureIgnoreCase));
-            if (entry == null)
-            {
-                storage.AddAnItem(new StorageEntry {Key = key, Value = value});
+                key = key.ToLowerInvariant();
+                var entry = storage.MyMirrorCache.GetEntryByFunc(e => string.Equals(e.Key, key, StringComparison.InvariantCultureIgnoreCase));
+                if (entry == null)
+                {
+                    storage.AddAnItem(new StorageEntry { Key = key, Value = value });
+                }
+                else
+                {
+                    entry.Value = value;
+                    storage.UpdateItem(entry);
+                }
             }
-            else
+            finally
             {
-                entry.Value = value;
-                storage.UpdateItem(entry);
+                _syncStorageAccess.ExitWriteLock();
             }
 
             return this;
@@ -73,10 +87,18 @@ namespace SAF.Messaging.Cde
 
         public string GetString(string area, string key)
         {
-            var storage = CreateOrGetStorageArea(area);
-            key = key.ToLowerInvariant();
-            var entry = storage.MyMirrorCache.GetEntryByFunc(e => string.Equals(e.Key, key, StringComparison.InvariantCultureIgnoreCase));
-            return entry?.Value;
+            _syncStorageAccess.EnterReadLock();
+            try
+            {
+                var storage = CreateOrGetStorageArea(area);
+                key = key.ToLowerInvariant();
+                var entry = storage.MyMirrorCache.GetEntryByFunc(e => string.Equals(e.Key, key, StringComparison.InvariantCultureIgnoreCase));
+                return entry?.Value;
+            }
+            finally
+            {
+                _syncStorageAccess.ExitReadLock();
+            }
         }
 
         public byte[] GetBytes(string key)
@@ -87,6 +109,58 @@ namespace SAF.Messaging.Cde
         public byte[] GetBytes(string area, string key)
         {
             return StringToByteArray(GetString(area, key));
+        }
+
+        public IStorageInfrastructure RemoveKey(string key)
+            => RemoveKey(GlobalArea, key);
+
+        public IStorageInfrastructure RemoveKey(string area, string key)
+        {
+            _syncStorageAccess.EnterUpgradeableReadLock();
+            try
+            {
+                var storage = CreateOrGetStorageArea(area);
+
+                key = key.ToLowerInvariant();
+                var entry = storage.MyMirrorCache.GetEntryByFunc(e => string.Equals(e.Key, key, StringComparison.InvariantCultureIgnoreCase));
+                if (entry == null) return this;
+
+                _syncStorageAccess.EnterWriteLock();
+                try
+                {
+                    storage.RemoveAnItem(entry, _ => { });
+                }
+                finally
+                {
+                    _syncStorageAccess.ExitWriteLock();
+                }
+            }
+            finally
+            {
+                _syncStorageAccess.ExitUpgradeableReadLock();
+            }
+
+            return this;
+        }
+
+        public IStorageInfrastructure RemoveArea(string area)
+        {
+            area = area.ToLowerInvariant();
+            if (area == GlobalArea)
+                throw new NotSupportedException("It is not allowed to delete the global storage area.");
+
+            _syncStorageAccess.EnterWriteLock();
+            try
+            {
+                var storage = CreateOrGetStorageArea(area);
+                storage.RemoveStore(false);
+            }
+            finally
+            {
+                _syncStorageAccess.ExitWriteLock();
+            }
+
+            return this;
         }
 
         public void Dispose()

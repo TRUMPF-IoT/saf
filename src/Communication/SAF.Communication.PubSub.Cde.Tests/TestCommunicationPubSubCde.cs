@@ -135,7 +135,7 @@ namespace SAF.Communication.PubSub.Cde.Tests
             publisher.Publish(msg, RoutingOptions.Local);
             CheckBroadcast(subscriptionRegistry, RoutingOptions.Local);
 
-            Guid guid = Guid.NewGuid();
+            var guid = Guid.NewGuid();
             publisher.Publish(msg, guid);
             CheckBroadcast(subscriptionRegistry, guidString: guid.ToString());
             publisher.Publish(msg, guid, RoutingOptions.Local);
@@ -176,7 +176,7 @@ namespace SAF.Communication.PubSub.Cde.Tests
             comLineSubscriber.MessageReceived += (MessageReceivedHandler)Raise.Event<MessageReceivedHandler>(null, tpm);
             // The count of registered nodes will be checked by the follofwing subscribe request.
 
-            ISubscription subsciptionInternal = subscriber.Subscribe("pattern");
+            var subsciptionInternal = subscriber.Subscribe("pattern");
             comLineSubscriber.Received().AnswerToSender(Arg.Any<TSM>(), Arg.Is<TSM>(t => t.ENG.Equals(Engines.PubSub) && t.TXT.Equals(MessageToken.SubscribeRequest)));
 
             subscriber.Unsubscribe(subsciptionInternal);
@@ -191,7 +191,7 @@ namespace SAF.Communication.PubSub.Cde.Tests
             SubscriptionRegistry subscriptionRegistry = new(comLineSubscriptionRegistry);
             await subscriptionRegistry.ConnectAsync(new CancellationTokenSource().Token);
 
-            string registryIdent = string.Empty;
+            var registryIdent = string.Empty;
             TSM tsmResult = null;
             comLineSubscriptionRegistry.AnswerToSender(Arg.Any<TSM>(), Arg.Do<TSM>(t => tsmResult = t));
 
@@ -211,7 +211,7 @@ namespace SAF.Communication.PubSub.Cde.Tests
                 Arg.Is<TSM>(t => t.TXT == MessageToken.SubscribeTrigger && t.PLS.Equals(registryIdent)));
             comLineSubscriptionRegistry.ClearReceivedCalls();
 
-            TheProcessMessage tpmRegistry = this.CheckSubscribe(comLineSubscriptionRegistry);
+            var tpmRegistry = this.CheckSubscribe(comLineSubscriptionRegistry);
 
             // Send a subcribe alive request with registryIdentity and receive no registry alive request.
             tsm = new(Engines.PubSub, MessageToken.SubscriberAlive, registryIdent);
@@ -228,7 +228,7 @@ namespace SAF.Communication.PubSub.Cde.Tests
                 Arg.Is<TSM>(t => t.TXT == MessageToken.RegistryAlive && t.PLS.Equals(registryIdent)));
             comLineSubscriptionRegistry.ClearReceivedCalls();
 
-            TheProcessMessage tpmPublish = CheckPublish(comLineSubscriptionRegistry);            
+            var tpmPublish = CheckPublish(comLineSubscriptionRegistry);            
 
             // Sende an unsubscribe request and receive no response.
             tsm = new(Engines.PubSub, MessageToken.Unsubscribe, tpmRegistry.Message.PLS);
@@ -259,7 +259,7 @@ namespace SAF.Communication.PubSub.Cde.Tests
         {
             // Send a subscribe request and receive a subscribe response with the given GUID
             // and the latest version (use this subscription in the next step to publish a message).
-            Guid guid = Guid.NewGuid();
+            var guid = Guid.NewGuid();
             RegistrySubscriptionRequest rsr = new()
             {
                 id = guid.ToString("N"),

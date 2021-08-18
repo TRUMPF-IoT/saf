@@ -8,7 +8,7 @@ namespace CdeLogSorter
     {
         static void Main(string[] args)
         {
-            foreach (string v in args)
+            foreach (var v in args)
             {
                 Sorter sorter = new(v);
                 sorter.Sort();
