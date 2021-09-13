@@ -207,7 +207,7 @@ namespace SAF.Storage.SqLite.Test
         {
             using var storage = new Storage(_connection);
 
-            Assert.Throws<NotSupportedException>(() => storage.RemoveArea("globals"));
+            Assert.Throws<NotSupportedException>(() => storage.RemoveArea("global"));
         }
 
         [Fact]
