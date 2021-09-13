@@ -14,7 +14,7 @@ namespace SAF.Storage.SqLite
         private readonly SQLiteConnection _connection;
         private readonly ReaderWriterLockSlim _syncDbAccess = new(LockRecursionPolicy.SupportsRecursion);
 
-        private const string GlobalStorageArea = "globals";
+        private const string GlobalStorageArea = "global";
         private const string BytesValue = "bytesValue";
         private const string StringValue = "stringValue";
 
