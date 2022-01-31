@@ -16,6 +16,10 @@ SPDX-License-Identifier: MPL-2.0
     <ProjectReference Include="..\..\Toolbox\SAF.Toolbox\SAF.Toolbox.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <PackageReference Update="Microsoft.SourceLink.GitHub" Version="1.1.1" />
+  </ItemGroup>
+
   <!-- Copy Package PDBs to output dir:
        https://github.com/dotnet/sdk/issues/1458 -->
   <Target Name="_ResolveCopyLocalNuGetPackagePdbs" Condition="$(CopyLocalLockFileAssemblies) == true" AfterTargets="ResolveReferences">

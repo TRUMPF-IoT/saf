@@ -1,4 +1,4 @@
-<!--
+﻿<!--
 SPDX-FileCopyrightText: 2017-2020 TRUMPF Laser GmbH
 
 SPDX-License-Identifier: MPL-2.0
@@ -17,6 +17,10 @@ SPDX-License-Identifier: MPL-2.0
 
   <ItemGroup>
     <ProjectReference Include="..\..\SAF.Common\SAF.Common.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Update="Microsoft.SourceLink.GitHub" Version="1.1.1" />
   </ItemGroup>
 
 </Project>

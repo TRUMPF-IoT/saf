@@ -20,16 +20,20 @@ SPDX-License-Identifier: MPL-2.0
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="C-DEngine" Version="5.123.1" />
-    <PackageReference Include="Microsoft.Extensions.Configuration.Json" Version="3.1.18" />
-    <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="3.1.18" />
-    <PackageReference Include="Microsoft.Extensions.Logging" Version="3.1.18" />
+    <PackageReference Include="C-DEngine" Version="5.141.0" />
+    <PackageReference Include="Microsoft.Extensions.Configuration.Json" Version="6.0.0" />
+    <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="6.0.0" />
+    <PackageReference Include="Microsoft.Extensions.Logging" Version="6.0.0" />
   </ItemGroup>
 
   <ItemGroup>
     <ProjectReference Include="..\..\Messaging\SAF.Messaging.Cde\SAF.Messaging.Cde.csproj" />
     <ProjectReference Include="..\..\SAF.Common\SAF.Common.csproj" />
     <ProjectReference Include="..\SAF.Hosting\SAF.Hosting.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Update="Microsoft.SourceLink.GitHub" Version="1.1.1" />
   </ItemGroup>
 
   <!-- Copy Package PDBs to output dir: https://github.com/dotnet/sdk/issues/1458 -->

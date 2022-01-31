@@ -12,10 +12,14 @@ SPDX-License-Identifier: MPL-2.0
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="C-DEngine" Version="5.123.1" />
+    <PackageReference Include="C-DEngine" Version="5.141.0" />
   </ItemGroup>
 
   <ItemGroup>
     <ProjectReference Include="..\SAF.Communication.PubSub.Cde\SAF.Communication.PubSub.Cde.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Update="Microsoft.SourceLink.GitHub" Version="1.1.1" />
   </ItemGroup>
 </Project>

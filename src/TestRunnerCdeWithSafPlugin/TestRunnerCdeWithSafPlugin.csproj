@@ -28,15 +28,19 @@ SPDX-License-Identifier: MPL-2.0
   </ItemGroup>
 
   <ItemGroup>
-    <PackageReference Include="C-DEngine" Version="5.123.1" />
-    <PackageReference Include="CDMyNMIHtml5RT" Version="5.123.0" />
-    <PackageReference Include="System.Configuration.ConfigurationManager" Version="4.7.0" />
+    <PackageReference Include="C-DEngine" Version="5.141.0" />
+    <PackageReference Include="CDMyNMIHtml5RT" Version="5.141.0" />
+    <PackageReference Include="System.Configuration.ConfigurationManager" Version="6.0.0" />
   </ItemGroup>
 
   <ItemGroup>
     <ProjectReference Include="..\Hosting\CDMy.SmartApplicationFramework\CDMy.SmartApplicationFramework.csproj" />
     <ProjectReference Include="..\Services\SAF.Services.SampleService1\SAF.Services.SampleService1.csproj" />
     <ProjectReference Include="..\Services\SAF.Services.SampleService2\SAF.Services.SampleService2.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Update="Microsoft.SourceLink.GitHub" Version="1.1.1" />
   </ItemGroup>
 
 </Project>

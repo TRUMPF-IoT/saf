@@ -20,7 +20,7 @@ SPDX-License-Identifier: MPL-2.0
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="C-DEngine" Version="5.123.1" />
+    <PackageReference Include="C-DEngine" Version="5.141.0" />
    </ItemGroup>
 
   <ItemGroup>
@@ -31,6 +31,10 @@ SPDX-License-Identifier: MPL-2.0
     <ProjectReference Include="..\..\Messaging\SAF.Messaging.Routing\SAF.Messaging.Routing.csproj" />
     <ProjectReference Include="..\..\SAF.Common\SAF.Common.csproj" />
     <ProjectReference Include="..\SAF.Hosting.Cde\SAF.Hosting.Cde.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Update="Microsoft.SourceLink.GitHub" Version="1.1.1" />
   </ItemGroup>
 
   <!-- Copy Package PDBs to output dir: https://github.com/dotnet/sdk/issues/1458 -->
