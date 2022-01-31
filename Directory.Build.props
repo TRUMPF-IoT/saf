@@ -1,5 +1,5 @@
 <!--
-SPDX-FileCopyrightText: 2017-2021 TRUMPF Laser GmbH
+SPDX-FileCopyrightText: 2017-2022 TRUMPF Laser GmbH
 
 SPDX-License-Identifier: MPL-2.0
 -->
@@ -7,7 +7,7 @@ SPDX-License-Identifier: MPL-2.0
 <Project>
 
   <PropertyGroup>
-    <Copyright>Copyright 2017-2021 (c) TRUMPF Laser GmbH</Copyright>
+    <Copyright>Copyright 2017-2022 (c) TRUMPF Laser GmbH</Copyright>
     <Product>Smart Application Framework</Product>
     <Authors>TRUMPF Laser GmbH</Authors>
     <PackageLicenseExpression>MPL-2.0</PackageLicenseExpression>
