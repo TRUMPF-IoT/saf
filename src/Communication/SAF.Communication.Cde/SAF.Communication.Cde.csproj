@@ -20,6 +20,6 @@ SPDX-License-Identifier: MPL-2.0
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="C-DEngine" Version="5.123.1" />
+    <PackageReference Include="C-DEngine" Version="5.141.0" />
   </ItemGroup>
 </Project>
