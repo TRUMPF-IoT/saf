@@ -1,6 +1,6 @@
 Microsoft Visual Studio Solution File, Format Version 12.00
-# Visual Studio Version 16
-VisualStudioVersion = 16.0.28922.388
+# Visual Studio Version 17
+VisualStudioVersion = 17.0.32112.339
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "SAF.Common", "SAF.Common\SAF.Common.csproj", "{3D81AC05-15DC-4944-8A47-F5D2B4EC9995}"
 EndProject
@@ -48,8 +48,6 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "SAF.Hosting.Cde.Tests", "Ho
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Communication", "Communication", "{65800A90-1808-42B2-89C1-662576050A3A}"
 EndProject
-Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "CDMy.SAF.PubSub.Tests", "Communication\CDMy.SAF.PubSub.Tests\CDMy.SAF.PubSub.Tests.csproj", "{DB215F31-E4F8-4AAB-B6EC-95828EA0B6A6}"
-EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "SAF.Communication.Cde", "Communication\SAF.Communication.Cde\SAF.Communication.Cde.csproj", "{EA15FAB2-B023-4480-B865-BBEB158D69FE}"
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "SAF.Communication.PubSub.Cde", "Communication\SAF.Communication.PubSub.Cde\SAF.Communication.PubSub.Cde.csproj", "{27554663-CDEB-4C9D-8B1F-34A72AD4E55E}"
@@ -59,8 +57,6 @@ EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "SAF.Communication.PubSub", "Communication\SAF.Communication.PubSub\SAF.Communication.PubSub.csproj", "{F6050F5B-7736-42D9-9CDE-02AC3BCCF1AF}"
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "SAF.Communication.Cde.TestHost", "Communication\SAF.Communication.Cde.TestHost\SAF.Communication.Cde.TestHost.csproj", "{C5017DCC-99EC-48C2-9785-DD92751FB792}"
-EndProject
-Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "CDMy.SmartApplicationFramework", "Hosting\CDMy.SmartApplicationFramework\CDMy.SmartApplicationFramework.csproj", "{59F0B8A4-EB08-440A-BA71-BEAE43B084C9}"
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "SAF.Messaging.Routing.Tests", "Messaging\SAF.Messaging.Routing.Tests\SAF.Messaging.Routing.Tests.csproj", "{C40393CF-BA36-474F-8260-D18E153B53CA}"
 EndProject
@@ -81,8 +77,6 @@ EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "SAF.Messaging.InProcess", "Messaging\SAF.Messaging.InProcess\SAF.Messaging.InProcess.csproj", "{A9D8D424-0245-441D-B4FF-2F27EFB3E7EC}"
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "SAF.Messaging.InProcess.Tests", "Messaging\SAF.Messaging.InProcess.Tests\SAF.Messaging.InProcess.Tests.csproj", "{2CF928FB-229D-4327-BF68-CA5B7DA110F6}"
-EndProject
-Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "TestRunnerCdeWithSafPlugin", "TestRunnerCdeWithSafPlugin\TestRunnerCdeWithSafPlugin.csproj", "{AFEA07EB-5A56-4600-B764-FBD17E88A0D1}"
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "TestRunnerMessageRouting", "TestRunnerMessageRouting\TestRunnerMessageRouting.csproj", "{D4092AAB-ADF4-45C2-A55F-0B18624C758F}"
 EndProject
@@ -108,7 +102,7 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "SAF.Communication.PubSub.Te
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "SAF.Communication.PubSub.Cde.Tests", "Communication\SAF.Communication.PubSub.Cde.Tests\SAF.Communication.PubSub.Cde.Tests.csproj", "{6963B94E-EA8B-4E7B-B781-148E7D9FE637}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SAF.Messaging.Redis.Tests", "Messaging\SAF.Messaging.Redis.Tests\SAF.Messaging.Redis.Tests.csproj", "{DEC01382-8D03-4F37-8794-8CCDC3368358}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "SAF.Messaging.Redis.Tests", "Messaging\SAF.Messaging.Redis.Tests\SAF.Messaging.Redis.Tests.csproj", "{DEC01382-8D03-4F37-8794-8CCDC3368358}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -188,10 +182,6 @@ Global
 		{84F2E52E-ECD8-4924-8FBB-DC01FED154B0}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{84F2E52E-ECD8-4924-8FBB-DC01FED154B0}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{84F2E52E-ECD8-4924-8FBB-DC01FED154B0}.Release|Any CPU.Build.0 = Release|Any CPU
-		{DB215F31-E4F8-4AAB-B6EC-95828EA0B6A6}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{DB215F31-E4F8-4AAB-B6EC-95828EA0B6A6}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{DB215F31-E4F8-4AAB-B6EC-95828EA0B6A6}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{DB215F31-E4F8-4AAB-B6EC-95828EA0B6A6}.Release|Any CPU.Build.0 = Release|Any CPU
 		{EA15FAB2-B023-4480-B865-BBEB158D69FE}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
 		{EA15FAB2-B023-4480-B865-BBEB158D69FE}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{EA15FAB2-B023-4480-B865-BBEB158D69FE}.Release|Any CPU.ActiveCfg = Release|Any CPU
@@ -212,10 +202,6 @@ Global
 		{C5017DCC-99EC-48C2-9785-DD92751FB792}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{C5017DCC-99EC-48C2-9785-DD92751FB792}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{C5017DCC-99EC-48C2-9785-DD92751FB792}.Release|Any CPU.Build.0 = Release|Any CPU
-		{59F0B8A4-EB08-440A-BA71-BEAE43B084C9}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{59F0B8A4-EB08-440A-BA71-BEAE43B084C9}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{59F0B8A4-EB08-440A-BA71-BEAE43B084C9}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{59F0B8A4-EB08-440A-BA71-BEAE43B084C9}.Release|Any CPU.Build.0 = Release|Any CPU
 		{C40393CF-BA36-474F-8260-D18E153B53CA}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
 		{C40393CF-BA36-474F-8260-D18E153B53CA}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{C40393CF-BA36-474F-8260-D18E153B53CA}.Release|Any CPU.ActiveCfg = Release|Any CPU
@@ -244,10 +230,6 @@ Global
 		{2CF928FB-229D-4327-BF68-CA5B7DA110F6}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{2CF928FB-229D-4327-BF68-CA5B7DA110F6}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{2CF928FB-229D-4327-BF68-CA5B7DA110F6}.Release|Any CPU.Build.0 = Release|Any CPU
-		{AFEA07EB-5A56-4600-B764-FBD17E88A0D1}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{AFEA07EB-5A56-4600-B764-FBD17E88A0D1}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{AFEA07EB-5A56-4600-B764-FBD17E88A0D1}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{AFEA07EB-5A56-4600-B764-FBD17E88A0D1}.Release|Any CPU.Build.0 = Release|Any CPU
 		{D4092AAB-ADF4-45C2-A55F-0B18624C758F}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
 		{D4092AAB-ADF4-45C2-A55F-0B18624C758F}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{D4092AAB-ADF4-45C2-A55F-0B18624C758F}.Release|Any CPU.ActiveCfg = Release|Any CPU
@@ -310,13 +292,11 @@ Global
 		{48C98B22-0DB4-4F86-A6D5-413CE68AD23D} = {42D58619-E495-4AD4-AAA9-11E8285FCCDE}
 		{AFCF57F5-4141-49E5-9FB5-EF8CACB2BACD} = {E53CC9A7-AB65-46C0-8AEE-980CFBFCFF31}
 		{84F2E52E-ECD8-4924-8FBB-DC01FED154B0} = {E53CC9A7-AB65-46C0-8AEE-980CFBFCFF31}
-		{DB215F31-E4F8-4AAB-B6EC-95828EA0B6A6} = {65800A90-1808-42B2-89C1-662576050A3A}
 		{EA15FAB2-B023-4480-B865-BBEB158D69FE} = {65800A90-1808-42B2-89C1-662576050A3A}
 		{27554663-CDEB-4C9D-8B1F-34A72AD4E55E} = {65800A90-1808-42B2-89C1-662576050A3A}
 		{023C8024-BDF0-4C86-83C3-7DC2968722A9} = {65800A90-1808-42B2-89C1-662576050A3A}
 		{F6050F5B-7736-42D9-9CDE-02AC3BCCF1AF} = {65800A90-1808-42B2-89C1-662576050A3A}
 		{C5017DCC-99EC-48C2-9785-DD92751FB792} = {65800A90-1808-42B2-89C1-662576050A3A}
-		{59F0B8A4-EB08-440A-BA71-BEAE43B084C9} = {E53CC9A7-AB65-46C0-8AEE-980CFBFCFF31}
 		{C40393CF-BA36-474F-8260-D18E153B53CA} = {42D58619-E495-4AD4-AAA9-11E8285FCCDE}
 		{10D8D3DF-CEBA-4A74-8567-D5E1C479C20E} = {42D58619-E495-4AD4-AAA9-11E8285FCCDE}
 		{8D1F4B0F-4A36-44EB-834C-8D34A5CB73EA} = {42D58619-E495-4AD4-AAA9-11E8285FCCDE}

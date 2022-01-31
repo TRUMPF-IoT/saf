@@ -19,10 +19,6 @@ SPDX-License-Identifier: MPL-2.0
     <PackageReference Include="System.Configuration.ConfigurationManager" Version="4.7.0" />
   </ItemGroup>
 
-  <ItemGroup>
-    <ProjectReference Include="..\CDMy.SAF.PubSub.Tests\CDMy.SAF.PubSub.Tests.csproj" />
-  </ItemGroup>
-
   <!-- Copy Package PDBs to output dir: https://github.com/dotnet/sdk/issues/1458 -->
   <Target Name="_ResolveCopyLocalNuGetPackagePdbs" Condition="$(CopyLocalLockFileAssemblies) == true" AfterTargets="ResolveReferences">
     <ItemGroup>
