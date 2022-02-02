@@ -91,12 +91,6 @@ namespace SAF.Messaging.Cde
                 if (!app.StartBaseApplication(null, arguments))
                     throw new InvalidOperationException("Failed to start CDE base application!");
 
-                if (config.UseRandomScopeId && string.IsNullOrEmpty(TheScopeManager.GetScrambledScopeID()))
-                {
-                    if (!TheScopeManager.SetScopeIDFromEasyID(TheScopeManager.GenerateNewScopeID()))
-                        throw new InvalidOperationException("Failed to apply random scope!");
-                }
-
                 _log.LogDebug("Started CDE Base application after {milliseconds} ms", DateTimeOffset.UtcNow.Subtract(startTime).TotalMilliseconds);
                 startTime = DateTimeOffset.UtcNow;
 

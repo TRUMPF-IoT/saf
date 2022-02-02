@@ -12,8 +12,5 @@ namespace SAF.Toolbox.FileTransfer
         event Action<string> StreamReceived;
 
         void WriteFile(string folderPath, TransportFileDelivery delivery, bool overwrite);
-
-        [Obsolete("WriteFile(string, TransportFileDelivery) is deprecated, please use WriteFile(string, TransportFileDelivery, bool) instead.")]
-        void WriteFile(string folderPath, TransportFileDelivery delivery);
     }
 }
