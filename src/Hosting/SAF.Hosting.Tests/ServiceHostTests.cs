@@ -15,7 +15,7 @@ namespace SAF.Hosting.Tests
 {
     public class ServiceHostTests
     {
-        private string TestAssemblyPath => Path.GetDirectoryName(new Uri(Assembly.GetExecutingAssembly().CodeBase).LocalPath);
+        private string TestAssemblyPath => Path.GetDirectoryName(new Uri(Assembly.GetExecutingAssembly().Location).LocalPath);
 
         private string TestDataPath => System.IO.Path.Combine(TestAssemblyPath, "TestData");
 

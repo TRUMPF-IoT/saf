@@ -49,34 +49,6 @@ namespace SAF.Toolbox.FileTransfer
                 WriteFullFile(directory, delivery, overwrite);
         }
 
-        /// <summary>
-        /// Saves a TransportFileDelivery to disk.
-        /// Saving Mechanism is inconsistent. Writing full file or a fileStream overwrites/appends the file,
-        /// while chunks create a new version of the file. 
-        /// </summary>
-        /// <param name="folderPath">The path to save the file to.</param>
-        /// <param name="delivery">The delivery package.</param>
-        [Obsolete("WriteFile(string, TransportFileDelivery) is deprecated, please use WriteFile(string, TransportFileDelivery, bool) instead.")]
-        public void WriteFile(string folderPath, TransportFileDelivery delivery)
-        {
-            var tf = delivery.TransportFile;
-
-            if(!tf.Verify()) return; // Do not write corrupted files
-
-            var directory = !Directory.Exists(folderPath)
-                ? Directory.CreateDirectory(folderPath)
-                : new DirectoryInfo(folderPath);
-
-            var props = tf.Properties.FromDictionary();
-
-            if (props.IsChunked)
-                WriteChunkedFile(directory, delivery, props, false);
-            else if (props.IsFileStream)
-                WriteFileStream(directory, delivery, false);
-            else
-                WriteFullFile(directory, delivery, true);
-        }
-
         private static void DeleteExistingFile(TransportFileDelivery delivery, FileSystemInfo directory)
         {
             var fileName = delivery.TransportFile.Name;

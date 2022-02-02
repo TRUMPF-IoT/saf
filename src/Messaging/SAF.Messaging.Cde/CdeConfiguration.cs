@@ -17,8 +17,6 @@ namespace SAF.Messaging.Cde
 
     public class CdeConfiguration
     {
-        [Obsolete("UseRandomScopeId will be removed in a future release.")]
-        public bool UseRandomScopeId { get; set; }
         public string ScopeId { get; set; }
         public string ApplicationId { get; set; }
         public string StorageId { get; set; }
@@ -40,8 +38,6 @@ namespace SAF.Messaging.Cde
         public string LogIgnore { get; set; }
         public int PreShutdownDelay { get; set; }
 
-        [Obsolete("CrypoLibConfig will be removed in a future release. Please use CryptoLibConfig instead.")]
-        public CdeCryptoLibConfig CrypoLibConfig { get => CryptoLibConfig; set => CryptoLibConfig = value; }
         public CdeCryptoLibConfig CryptoLibConfig { get; set; }
 
         public IDictionary<string, string> AdditionalArguments { get; set; } = new Dictionary<string, string>();
