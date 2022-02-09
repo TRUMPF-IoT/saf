@@ -1,7 +1,7 @@
 {
   "version": 1,
   "dependencies": {
-    ".NETStandard,Version=v2.0": {
+    ".NETStandard,Version=v2.1": {
       "C-DEngine": {
         "type": "Direct",
         "requested": "[5.142.0, )",
@@ -27,23 +27,6 @@
         "resolved": "2.5.0",
         "contentHash": "+vgY+COxnu93nZEVYScloRuboNRIYkElokxTdtKLt6isr/f6GllPt0oLfrHj7fzxgj7SC5xMZg5c2qvd6qyHDQ=="
       },
-      "NETStandard.Library": {
-        "type": "Direct",
-        "requested": "[2.0.3, )",
-        "resolved": "2.0.3",
-        "contentHash": "st47PosZSHrjECdjeIzZQbzivYBJFv6P2nv4cj2ypdI204DO+vZ7l5raGMiX4eXMJ53RfOIg+/s4DHVZ54Nu2A==",
-        "dependencies": {
-          "Microsoft.NETCore.Platforms": "1.1.0"
-        }
-      },
-      "Microsoft.Bcl.AsyncInterfaces": {
-        "type": "Transitive",
-        "resolved": "6.0.0",
-        "contentHash": "UcSjPsst+DfAdJGVDsu346FX0ci0ah+lw3WRtn18NUwEqRt70HaOQ7lI72vy3+1LxtqI3T5GWwV39rQSrCzAeg==",
-        "dependencies": {
-          "System.Threading.Tasks.Extensions": "4.5.4"
-        }
-      },
       "Microsoft.Build.Tasks.Git": {
         "type": "Transitive",
         "resolved": "1.1.1",
@@ -65,11 +48,7 @@
       "Microsoft.Extensions.DependencyInjection.Abstractions": {
         "type": "Transitive",
         "resolved": "6.0.0",
-        "contentHash": "xlzi2IYREJH3/m6+lUrQlujzX8wDitm4QGnUu6kUXTQAWPuZY8i+ticFJbzfqaetLA6KR/rO6Ew/HuYD+bxifg==",
-        "dependencies": {
-          "Microsoft.Bcl.AsyncInterfaces": "6.0.0",
-          "System.Threading.Tasks.Extensions": "4.5.4"
-        }
+        "contentHash": "xlzi2IYREJH3/m6+lUrQlujzX8wDitm4QGnUu6kUXTQAWPuZY8i+ticFJbzfqaetLA6KR/rO6Ew/HuYD+bxifg=="
       },
       "Microsoft.Extensions.Logging.Abstractions": {
         "type": "Transitive",
@@ -88,11 +67,6 @@
           "System.Memory": "4.5.4",
           "System.Runtime.CompilerServices.Unsafe": "6.0.0"
         }
-      },
-      "Microsoft.NETCore.Platforms": {
-        "type": "Transitive",
-        "resolved": "1.1.0",
-        "contentHash": "kz0PEW2lhqygehI/d6XsPCQzD7ff7gUJaVGPVETX611eadGsA3A877GdSlU0LRVMCTH/+P3o2iDTak+S08V2+A=="
       },
       "Microsoft.SourceLink.Common": {
         "type": "Transitive",
@@ -123,14 +97,6 @@
         "type": "Transitive",
         "resolved": "6.0.0",
         "contentHash": "/iUeP3tq1S0XdNNoMz5C9twLSrM/TH+qElHkXWaPvuNOt+99G75NrV0OS2EqHx5wMN7popYjpc8oTjC1y16DLg=="
-      },
-      "System.Threading.Tasks.Extensions": {
-        "type": "Transitive",
-        "resolved": "4.5.4",
-        "contentHash": "zteT+G8xuGu6mS+mzDzYXbzS7rd3K6Fjb9RiZlYlJPam2/hU7JCBZBVEcywNuR+oZ1ncTvc/cq0faRr3P01OVg==",
-        "dependencies": {
-          "System.Runtime.CompilerServices.Unsafe": "4.5.3"
-        }
       },
       "saf.common": {
         "type": "Project",
