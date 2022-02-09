@@ -8,8 +8,6 @@ using StackExchange.Redis;
 using System;
 using System.Collections.Generic;
 using System.Net;
-using System.Security.Authentication.ExtendedProtection;
-using System.Threading;
 using Xunit;
 
 namespace SAF.Messaging.Redis.Tests

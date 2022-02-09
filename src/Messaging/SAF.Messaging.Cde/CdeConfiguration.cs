@@ -2,7 +2,6 @@
 //
 // SPDX-License-Identifier: MPL-2.0
 
-using System;
 using System.Collections.Generic;
 
 namespace SAF.Messaging.Cde
@@ -10,6 +9,7 @@ namespace SAF.Messaging.Cde
     public class CdeCryptoLibConfig
     {
         public string DllName { get; set; }
+        public string AppCertAssemblyPath { get; set; }
         public bool DontVerifyTrust { get; set; }
         public bool DontVerifyIntegrity { get; set; }
         public bool VerifyTrustPath { get; set; } = true;

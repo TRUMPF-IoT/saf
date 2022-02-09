@@ -5,7 +5,6 @@
 using System;
 using System.Threading;
 using NSubstitute;
-using SAF.Communication.PubSub;
 using SAF.Communication.PubSub.Interfaces;
 using Xunit;
 

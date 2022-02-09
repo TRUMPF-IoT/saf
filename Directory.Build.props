@@ -7,7 +7,8 @@ SPDX-License-Identifier: MPL-2.0
 <Project>
 
   <PropertyGroup>
-    <Copyright>Copyright 2017-2022 (c) TRUMPF Laser GmbH</Copyright>
+    <CurrentYear>$([System.DateTime]::Now.Year)</CurrentYear>
+    <Copyright>Copyright ©2017-$(CurrentYear) TRUMPF Laser GmbH</Copyright>
     <Product>Smart Application Framework</Product>
     <Authors>TRUMPF Laser GmbH</Authors>
     <PackageLicenseExpression>MPL-2.0</PackageLicenseExpression>
@@ -16,7 +17,9 @@ SPDX-License-Identifier: MPL-2.0
     <EmbedUntrackedSources>true</EmbedUntrackedSources>
     <IncludeSymbols>true</IncludeSymbols>
     <SymbolPackageFormat>snupkg</SymbolPackageFormat>
-    <LangVersion>9</LangVersion>
+    <RestorePackagesWithLockFile>true</RestorePackagesWithLockFile>
+    <DisableImplicitNuGetFallbackFolder>true</DisableImplicitNuGetFallbackFolder>
+    <LangVersion>latest</LangVersion>
   </PropertyGroup>
 
   <ItemGroup>

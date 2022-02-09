@@ -116,8 +116,8 @@ namespace SAF.Messaging.Cde
         {
             if (string.IsNullOrWhiteSpace(cryptoLibConfig?.DllName)) return;
 
-            var error = TheBaseAssets.LoadCrypto(cryptoLibConfig.DllName, null, cryptoLibConfig.DontVerifyTrust, null,
-                cryptoLibConfig.VerifyTrustPath, cryptoLibConfig.DontVerifyIntegrity);
+            var error = TheBaseAssets.LoadCrypto(cryptoLibConfig.DllName, null, cryptoLibConfig.DontVerifyTrust,
+                cryptoLibConfig.AppCertAssemblyPath, cryptoLibConfig.VerifyTrustPath, cryptoLibConfig.DontVerifyIntegrity);
             if (!string.IsNullOrWhiteSpace(error))
                 throw new InvalidOperationException($"Failed loading configured crypto DLL: '{error}'");
         }
