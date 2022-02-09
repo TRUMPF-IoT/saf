@@ -45,7 +45,7 @@ jobs:
         dotnet-version: '6.0.x'
       
     - name: Install dependencies
-      run: dotnet restore './src/SmartApplicationFramework.sln'
+      run: dotnet restore './src/SmartApplicationFramework.sln' --locked-mode
       
     - name: Build
       run: |
