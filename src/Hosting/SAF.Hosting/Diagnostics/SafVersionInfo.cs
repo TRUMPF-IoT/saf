@@ -17,7 +17,7 @@ namespace SAF.Hosting.Diagnostics
             BuildNumber = assembly.GetName().Version.ToString();
             if(!string.IsNullOrEmpty(assembly.Location))
             {
-                Version = FileVersionInfo.GetVersionInfo(assembly.Location).FileVersion;
+                Version = FileVersionInfo.GetVersionInfo(assembly.Location).ProductVersion;
                 BuildDate = File.GetLastWriteTimeUtc(assembly.Location);
             }
         }
