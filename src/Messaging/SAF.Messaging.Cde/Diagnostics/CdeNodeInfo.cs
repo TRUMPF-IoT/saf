@@ -40,7 +40,7 @@ namespace SAF.Messaging.Cde.Diagnostics
             var info = new CdePluginInfo
             {
                 Name = plugInKey,
-                Version = fvi.FileVersion,
+                Version = fvi.ProductVersion,
                 BuildNumber = plugInType.Assembly.GetName().Version.ToString(),
                 BuildDate = System.IO.File.GetLastWriteTimeUtc(plugInType.Assembly.Location)
             };

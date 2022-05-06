@@ -29,7 +29,7 @@ namespace SAF.Hosting.Diagnostics
 
             Name = type.AssemblyQualifiedName;
             FriendlyName = assembly.FriendlyName;
-            Version = fvi.FileVersion;
+            Version = fvi.ProductVersion;
             BuildNumber = type.Assembly.GetName().Version.ToString();
             BuildDate = System.IO.File.GetLastWriteTimeUtc(type.Assembly.Location);
         }

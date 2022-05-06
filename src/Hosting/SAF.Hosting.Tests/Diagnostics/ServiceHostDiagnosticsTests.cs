@@ -19,7 +19,7 @@ namespace SAF.Hosting.Tests.Diagnostics
         {
             var vi = new SafVersionInfo();
             var assembly = Assembly.GetExecutingAssembly();
-            var version = FileVersionInfo.GetVersionInfo(assembly.Location).FileVersion;
+            var version = FileVersionInfo.GetVersionInfo(assembly.Location).ProductVersion;
             var buildNr = assembly.GetName().Version.ToString();
             Assert.Equal(version, vi.Version);
             Assert.Equal(buildNr, vi.BuildNumber);
