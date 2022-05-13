@@ -14,6 +14,7 @@ namespace SAF.Toolbox.FileTransfer
 	public class StatefulFileReceiver : IStatefulFileReceiver
     {
         private readonly ILogger<StatefulFileReceiver> _log;
+        private readonly object _syncFileAccess = new();
 
         public StatefulFileReceiver(ILogger<StatefulFileReceiver> log)
         {
@@ -72,7 +73,10 @@ namespace SAF.Toolbox.FileTransfer
             try
             {
                 long maxChunks;
-                if (props.LastChunk) maxChunks = props.ChunkNumber + 1;
+                if (props.LastChunk)
+                {
+                    maxChunks = props.ChunkNumber + 1;
+                }
                 else
                 {
                     maxChunks = props.FileSize / props.ChunkSize;
@@ -82,7 +86,7 @@ namespace SAF.Toolbox.FileTransfer
 
                 // Wait here to write to file
                 var log = _log; // needed to make static code analysis happy (avoid using variable in and outside synchronization blocks warning)
-                lock (string.Intern(tmpName))
+                lock (_syncFileAccess)
                 {
                     var tmpFileSize = headerSizeInBytes + props.FileSize;
                     CheckTempFileConsistency(tmpName, uniqueTransferId, tmpFileSize);
