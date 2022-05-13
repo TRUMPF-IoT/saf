@@ -610,8 +610,8 @@
       },
       "System.IO.Abstractions": {
         "type": "Transitive",
-        "resolved": "16.1.10",
-        "contentHash": "8gkCyek6AArbiaX9c+pzRzSFgsagLIbXEmja5b1sRkIEMLqubxoYDpIxrHRAbC1KFZyF2dl/wyQfSurN6X/LWg=="
+        "resolved": "17.0.10",
+        "contentHash": "pXhKp+rE17muzrBy1MfL2Y4gPskkmiHN0VHy67gcdH3xxa8dbbiVIQkpHGh6dbtcmh7C0FsnHjww4N+Y29yNJg=="
       },
       "System.IO.Compression": {
         "type": "Transitive",
@@ -1274,7 +1274,7 @@
           "Microsoft.Extensions.Options.ConfigurationExtensions": "6.0.0",
           "Newtonsoft.Json": "13.0.1",
           "SAF.Common": "1.0.0",
-          "System.IO.Abstractions": "16.1.10"
+          "System.IO.Abstractions": "17.0.10"
         }
       }
     }
