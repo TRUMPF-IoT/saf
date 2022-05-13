@@ -14,8 +14,8 @@ SPDX-License-Identifier: MPL-2.0
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="C-DEngine" Version="5.142.0" />
-    <PackageReference Include="CDMyNMIHtml5RT" Version="5.142.0" />
+    <PackageReference Include="C-DEngine" Version="5.144.0" />
+    <PackageReference Include="CDMyNMIHtml5RT" Version="5.144.0" />
     <PackageReference Include="System.Configuration.ConfigurationManager" Version="6.0.0" />
   </ItemGroup>
 
