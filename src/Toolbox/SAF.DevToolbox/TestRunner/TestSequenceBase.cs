@@ -61,7 +61,7 @@ public abstract class TestSequenceBase : IMessageHandler
 
     public abstract void Run();
 
-    private class DisposableMessagingSubscription : IDisposable
+    private sealed class DisposableMessagingSubscription : IDisposable
     {
         private readonly IMessagingInfrastructure _messaging;
         private readonly object _subscriptionId;
