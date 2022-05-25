@@ -35,7 +35,7 @@ public abstract class TestSequenceBase : IMessageHandler
     protected void WaitForValueSet(ref string value, int timeoutSeconds)
     {
         var c = 0;
-        while (value == null && ++c < timeoutSeconds * 5)
+        while (value == null && ++c <= timeoutSeconds * 5)
             Thread.Sleep(200);
 
         if (value == null)
@@ -44,7 +44,7 @@ public abstract class TestSequenceBase : IMessageHandler
 
     protected IDisposable PayloadToVariable<T>(string topic, Action<string> persistAction) where T : IMessageHandler
     {
-        _persistActions.AddOrUpdate(topic, persistAction, (key, _) => persistAction);
+        _persistActions.AddOrUpdate(topic, persistAction, (_, _) => persistAction);
         var subscribeId = _messaging.Subscribe<T>(topic);
         return new DisposableMessagingSubscription(_messaging, subscribeId);
     }
