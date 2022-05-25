@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: 2017-2022 TRUMPF Laser GmbH
+//
+// SPDX-License-Identifier: MPL-2.0
+
 using NSubstitute;
 using SAF.Common;
 using SAF.DevToolbox.TestRunner;
