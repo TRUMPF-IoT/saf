@@ -80,8 +80,7 @@ public class TestSequenceBaseTests
 
         var subscribeId = "1234";
         var messagingMock = Substitute.For<IMessagingInfrastructure>();
-        messagingMock.Subscribe<IMessageHandler>(Arg.Is(topic))
-            .Returns(ci => subscribeId);
+        messagingMock.Subscribe<IMessageHandler>(Arg.Is(topic)).Returns(subscribeId);
 
         var instance = new TestSequenceBaseTestInstance(messagingMock);
 
@@ -120,8 +119,6 @@ public class TestSequenceBaseTests
     [Fact]
     public void WaitForValueThrowsTimeoutExceptionAfterNoValueSet()
     {
-        const string payload = "testPayload";
-
         var messagingMock = Substitute.For<IMessagingInfrastructure>();
         var instance = new TestSequenceBaseTestInstance(messagingMock);
 
@@ -129,5 +126,29 @@ public class TestSequenceBaseTests
         Assert.Throws<TimeoutException>(() => instance.WaitForPayload(ref variableToWaitFor, 1));
 
         Assert.Null(variableToWaitFor);
+    }
+
+    [Fact]
+    public void HandleWithUnknownTopicDoesNothing()
+    {
+        const string topic = "testTopic";
+        const string payload = "testPayload";
+
+        var subscribeId = "1234";
+        var messagingMock = Substitute.For<IMessagingInfrastructure>();
+        messagingMock.Subscribe<IMessageHandler>(Arg.Is(topic)).Returns(subscribeId);
+
+        var instance = new TestSequenceBaseTestInstance(messagingMock);
+
+        string? receivedPayload = null;
+        using (var _ = instance.SubscribeAction<IMessageHandler>(topic, pl => receivedPayload = pl))
+        {
+            instance.Handle(new Message { Topic = "unknownTopic", Payload = payload });
+
+            Assert.Null(receivedPayload);
+        }
+
+        messagingMock.Received(1).Subscribe<IMessageHandler>(Arg.Is(topic));
+        messagingMock.DidNotReceive().Unsubscribe(Arg.Is<object>(subscribeId));
     }
 }
