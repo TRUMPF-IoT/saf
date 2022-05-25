@@ -149,6 +149,6 @@ public class TestSequenceBaseTests
         }
 
         messagingMock.Received(1).Subscribe<IMessageHandler>(Arg.Is(topic));
-        messagingMock.DidNotReceive().Unsubscribe(Arg.Is<object>(subscribeId));
+        messagingMock.Received(1).Unsubscribe(Arg.Is<object>(subscribeId));
     }
 }
