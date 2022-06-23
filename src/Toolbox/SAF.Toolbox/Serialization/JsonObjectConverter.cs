@@ -3,8 +3,9 @@
 // SPDX-License-Identifier: MPL-2.0
 
 using System;
-using Newtonsoft.Json;
-using Newtonsoft.Json.Linq;
+using System.Text.Json;
+using System.Text.Json.Nodes;
+using JsonConverter = System.Text.Json.Serialization.JsonConverter<object>;
 
 namespace SAF.Toolbox.Serialization
 {
@@ -17,19 +18,19 @@ namespace SAF.Toolbox.Serialization
             _converter = converter ?? throw new ArgumentNullException(nameof(converter));
         }
 
-        public override bool CanWrite => _converter.CanWrite;
-        public override bool CanRead => _converter.CanRead;
+        public bool CanWrite => _converter.CanWrite;
+        public bool CanRead => _converter.CanRead;
 
-        public override void WriteJson(JsonWriter writer, object value, Newtonsoft.Json.JsonSerializer serializer)
+        public override void Write(Utf8JsonWriter writer, object value, JsonSerializerOptions options)
         {
             var jsonObject = _converter.SerializeObject(value);
             writer.WriteRawValue(jsonObject);
         }
 
-        public override object ReadJson(JsonReader reader, Type objectType, object existingValue, Newtonsoft.Json.JsonSerializer serializer)
+        public override object Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
         {
-            var jsonObject = JToken.ReadFrom(reader).ToString();
-            return _converter.DeserializeObject(objectType, jsonObject);
+            var jsonObject = JsonNode.Parse(ref reader).ToString();
+            return _converter.DeserializeObject(typeToConvert, jsonObject);
         }
 
         public override bool CanConvert(Type objectType)

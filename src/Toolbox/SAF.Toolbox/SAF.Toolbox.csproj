@@ -15,8 +15,8 @@ SPDX-License-Identifier: MPL-2.0
     <PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions" Version="6.0.0" />
     <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" Version="6.0.0" />
     <PackageReference Include="Microsoft.Extensions.Options.ConfigurationExtensions" Version="6.0.0" />
-    <PackageReference Include="Newtonsoft.Json" Version="13.0.1" />
     <PackageReference Include="System.IO.Abstractions" Version="16.1.10" />
+    <PackageReference Include="System.Text.Json" Version="6.0.5" />
   </ItemGroup>
 
   <ItemGroup>

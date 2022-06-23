@@ -2,51 +2,54 @@
 //
 // SPDX-License-Identifier: MPL-2.0
 
-using Newtonsoft.Json;
-using Newtonsoft.Json.Serialization;
+using System;
 using System.Linq;
+using System.Text.Json;
+using System.Text.Unicode;
+using JsonTransformer = System.Text.Json.JsonSerializer;
+using JsonConverter = System.Text.Json.Serialization.JsonConverter<object>;
 
 namespace SAF.Toolbox.Serialization
 {
     public static class JsonSerializer
     {
-        private static readonly JsonSerializerSettings CamelCaseDefaultSettings = new()
+        private static readonly JsonSerializerOptions CamelCaseDefaultSettings = new()
         {
-            ContractResolver = new CamelCasePropertyNamesContractResolver
-            {
-                NamingStrategy = new CamelCaseNamingStrategy(processDictionaryKeys: false, overrideSpecifiedNames: false)
-            },
-            DateParseHandling = DateParseHandling.DateTimeOffset
+            PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
+            PropertyNameCaseInsensitive = true,
+            IncludeFields = true,
+            Encoder = System.Text.Encodings.Web.JavaScriptEncoder.Create(UnicodeRanges.BasicLatin, UnicodeRanges.Latin1Supplement, UnicodeRanges.CurrencySymbols),
+            ReadCommentHandling = JsonCommentHandling.Skip,
+            AllowTrailingCommas = true,
+            WriteIndented = false
         };
 
         public static string Serialize(object obj)
-            => JsonConvert.SerializeObject(obj, CamelCaseDefaultSettings);
+            => JsonTransformer.Serialize(obj, CamelCaseDefaultSettings);
 
-        public static string Serialize(object obj, params IJsonObjectConverter[] converters) 
-            => JsonConvert.SerializeObject(obj, DefaultSettingsWithConverters(converters));
+        public static string Serialize(object obj, params IJsonObjectConverter[] converters)
+            => JsonTransformer.Serialize(obj, DefaultSettingsWithConverters(converters));
 
         public static T Deserialize<T>(string json)
-            => JsonConvert.DeserializeObject<T>(json, CamelCaseDefaultSettings);
+            => JsonTransformer.Deserialize<T>(json, CamelCaseDefaultSettings);
 
-        public static object Deserialize(string json, System.Type type)
-            => JsonConvert.DeserializeObject(json, type, CamelCaseDefaultSettings);
+        public static object Deserialize(string json, Type type)
+            => JsonTransformer.Deserialize(json, type, CamelCaseDefaultSettings);
 
-        public static T Deserialize<T>(string json, params IJsonObjectConverter[] converters) 
-            => JsonConvert.DeserializeObject<T>(json, DefaultSettingsWithConverters(converters));
+        public static T Deserialize<T>(string json, params IJsonObjectConverter[] converters)
+            => JsonTransformer.Deserialize<T>(json, DefaultSettingsWithConverters(converters));
 
-        public static object Deserialize(string json, System.Type type, params IJsonObjectConverter[] converters)
-            => JsonConvert.DeserializeObject(json, type, DefaultSettingsWithConverters(converters));
+        public static object Deserialize(string json, Type type, params IJsonObjectConverter[] converters)
+            => JsonTransformer.Deserialize(json, type, DefaultSettingsWithConverters(converters));
 
-        private static JsonSerializerSettings DefaultSettingsWithConverters(IJsonObjectConverter[] converters)
+        private static JsonSerializerOptions DefaultSettingsWithConverters(IJsonObjectConverter[] converters)
         {
-            var jsonConverters = converters.Select(c => new JsonObjectConverter(c) as JsonConverter).ToArray();
-
-            return new JsonSerializerSettings
+            var settings = new JsonSerializerOptions(CamelCaseDefaultSettings);
+            foreach (var c in converters.Select(c => new JsonObjectConverter(c) as JsonConverter))
             {
-                Converters = jsonConverters,
-                ContractResolver = CamelCaseDefaultSettings.ContractResolver,
-                DateParseHandling = CamelCaseDefaultSettings.DateParseHandling
-            };
+                settings.Converters.Add(c);
+            }
+            return settings;
         }
     }
 }

@@ -38,7 +38,7 @@ namespace SAF.Toolbox.Tests
         }
 
         [Fact]
-        public void UsingDefaultNewtonsoftIsNotCamelCased()
+        public void UsingDefaultJsonIsNotCamelCased()
         {
             const int expectedInt = 123;
             const int expectedLong = 1234;
@@ -52,7 +52,7 @@ namespace SAF.Toolbox.Tests
             };
 
             var jsonWithToolboxConverter = JsonSerializer.Serialize(objectToSerialize);
-            var jsonWithDefaultConverter = Newtonsoft.Json.JsonConvert.SerializeObject(objectToSerialize);
+            var jsonWithDefaultConverter = System.Text.Json.JsonSerializer.Serialize(objectToSerialize);
 
             //Test Serializer
             Assert.Equal($"{{\"aProperty\":{expectedInt},\"isCamelcasedInSaf\":{expectedLong},\"butPascalCasedInQds\":\"{expectedString}\"}}", jsonWithToolboxConverter, StringComparer.Ordinal);
@@ -62,7 +62,7 @@ namespace SAF.Toolbox.Tests
             foreach (var serializedString in new[] { jsonWithToolboxConverter, jsonWithDefaultConverter })
             {
                 var safClass = JsonSerializer.Deserialize<TestCaseOrdererAttribute>(serializedString);
-                var defaultClass = Newtonsoft.Json.JsonConvert.DeserializeObject<TestCaseOrdererAttribute>(serializedString);
+                var defaultClass = System.Text.Json.JsonSerializer.Deserialize<TestCaseOrdererAttribute>(serializedString, new System.Text.Json.JsonSerializerOptions { PropertyNameCaseInsensitive = true});
 
                 Assert.NotNull(safClass);
                 Assert.NotNull(defaultClass);
@@ -74,12 +74,30 @@ namespace SAF.Toolbox.Tests
                 Assert.Equal(expectedString, safClass.ButPascalCasedInQds);
             }
         }
+
         private class TestCaseOrdererAttribute
         {
             public int AProperty { get; set; }
             public int IsCamelcasedInSaf { get; set; }
             public string ButPascalCasedInQds { get; set; }
         }
-    }
 
+        [Fact]
+        public void TestCaseFieldsCompare()
+        {
+            var testobjekt = new TestCaseFields { AnInteger = 1, aString = "Wert" };
+            var jsonWithToolboxConverter = JsonSerializer.Serialize(testobjekt);
+            Assert.Equal(@"{""anInteger"":1,""aString"":""Wert""}", jsonWithToolboxConverter);
+            var objectDeserialized = JsonSerializer.Deserialize<TestCaseFields>(jsonWithToolboxConverter);
+            Assert.Equal(testobjekt.AnInteger, objectDeserialized.AnInteger);
+            Assert.Equal(testobjekt.aString, objectDeserialized.aString);
+        }
+
+        private class TestCaseFields
+        {
+            public int AnInteger;
+            public string aString;
+        }
+
+    }
 }
