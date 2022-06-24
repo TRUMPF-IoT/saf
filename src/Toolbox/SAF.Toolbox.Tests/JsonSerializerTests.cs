@@ -99,5 +99,23 @@ namespace SAF.Toolbox.Tests
             public string aString;
         }
 
+        [Fact]
+        public void Comments()
+        {
+            var jsonWithComment = "{ \r\n//With comment\r\n\"anInteger\":1, /* second comment */\"aString\":\"Wert\"\r\n}";
+            var obj = JsonSerializer.Deserialize<TestCaseFields>(jsonWithComment);
+            Assert.NotNull(obj);
+        }
+
+        [Fact]
+        public void TrailingComma()
+        {
+            var jsonWithTrailingComma = "{ \"anInteger\":1, \"aString\":\"Wert\",}";
+            var obj = JsonSerializer.Deserialize<TestCaseFields>(jsonWithTrailingComma);
+            Assert.NotNull(obj);
+
+            jsonWithTrailingComma = "{ \"anInteger\":1, \"aString\":\"Wert\",,}";
+            Assert.ThrowsAny<System.Text.Json.JsonException>(() => JsonSerializer.Deserialize<TestCaseFields>(jsonWithTrailingComma));
+        }
     }
 }

@@ -23,14 +23,14 @@ namespace SAF.Toolbox.Serialization
 
         public override void Write(Utf8JsonWriter writer, object value, JsonSerializerOptions options)
         {
-            var jsonObject = _converter.SerializeObject(value);
+            var jsonObject = CanWrite ? _converter.SerializeObject(value) : JsonSerializer.Serialize(value);
             writer.WriteRawValue(jsonObject);
         }
 
         public override object Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
         {
             var jsonObject = JsonNode.Parse(ref reader).ToString();
-            return _converter.DeserializeObject(typeToConvert, jsonObject);
+            return CanRead ? _converter.DeserializeObject(typeToConvert, jsonObject) : JsonSerializer.Deserialize(jsonObject, typeToConvert);
         }
 
         public override bool CanConvert(Type objectType)
