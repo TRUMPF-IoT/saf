@@ -2,9 +2,9 @@
 //
 // SPDX-License-Identifier: MPL-2.0
 
-using SAF.Toolbox.Serialization;
 using System;
 using System.Collections.Generic;
+using SAF.Toolbox.Serialization;
 using Xunit;
 
 namespace SAF.Toolbox.Tests
@@ -73,6 +73,74 @@ namespace SAF.Toolbox.Tests
                 Assert.Equal(expectedLong, safClass.IsCamelcasedInSaf);
                 Assert.Equal(expectedString, safClass.ButPascalCasedInQds);
             }
+        }
+
+        [Fact]
+        public void SerializeEmptyConverterList()
+        {
+            const int expectedInt = 123;
+            const int expectedLong = 123456789;
+            const string expectedString = "hello";
+
+            var objectToSerialize = new TestCaseOrdererAttribute
+            {
+                AProperty = expectedInt,
+                IsCamelcasedInSaf = expectedLong,
+                ButPascalCasedInQds = expectedString
+            };
+
+            var jsonWithToolboxConverter = JsonSerializer.Serialize(objectToSerialize, converters: new List<IJsonObjectConverter>().ToArray());
+
+            //Test Serializer
+            Assert.Equal($"{{\"aProperty\":{expectedInt},\"isCamelcasedInSaf\":{expectedLong},\"butPascalCasedInQds\":\"{expectedString}\"}}", jsonWithToolboxConverter, StringComparer.Ordinal);
+        }
+
+        [Fact]
+        public void DeserializeWithType()
+        {
+            const int expectedInt = 123;
+            const int expectedLong = 1234;
+            const string expectedString = "hello";
+
+            var jsonWithToolboxConverter = (TestCaseOrdererAttribute)JsonSerializer.Deserialize("{\"aProperty\":" + expectedInt + ",\"isCamelcasedInSaf\":" + expectedLong + ",\"butPascalCasedInQds\":\"" + expectedString + "\"}", typeof(TestCaseOrdererAttribute));
+
+            //Test Serializer
+            Assert.Equal(expectedInt, jsonWithToolboxConverter.AProperty);
+            Assert.Equal(expectedLong, jsonWithToolboxConverter.IsCamelcasedInSaf);
+            Assert.Equal(expectedString, jsonWithToolboxConverter.ButPascalCasedInQds);
+        }
+
+        [Fact]
+        public void DeserializeWithTypeEmptyConverterList()
+        {
+            const int expectedInt = 123;
+            const int expectedLong = 1234;
+            const string expectedString = "hello";
+
+            var jsonWithToolboxConverter = (TestCaseOrdererAttribute)JsonSerializer.Deserialize("{\"aProperty\":" + expectedInt + ",\"isCamelcasedInSaf\":" + expectedLong + ",\"butPascalCasedInQds\":\"" + expectedString + "\"}",
+                typeof(TestCaseOrdererAttribute),
+                new List<IJsonObjectConverter>().ToArray());
+
+            //Test Serializer
+            Assert.Equal(expectedInt, jsonWithToolboxConverter.AProperty);
+            Assert.Equal(expectedLong, jsonWithToolboxConverter.IsCamelcasedInSaf);
+            Assert.Equal(expectedString, jsonWithToolboxConverter.ButPascalCasedInQds);
+        }
+
+        [Fact]
+        public void DeserializeWithEmptyConverterList()
+        {
+            const int expectedInt = 123;
+            const int expectedLong = 1234;
+            const string expectedString = "hello";
+
+            var jsonWithToolboxConverter = JsonSerializer.Deserialize<TestCaseOrdererAttribute>("{\"aProperty\":" + expectedInt + ",\"isCamelcasedInSaf\":" + expectedLong + ",\"butPascalCasedInQds\":\"" + expectedString + "\"}",
+                new List<IJsonObjectConverter>().ToArray());
+
+            //Test Serializer
+            Assert.Equal(expectedInt, jsonWithToolboxConverter.AProperty);
+            Assert.Equal(expectedLong, jsonWithToolboxConverter.IsCamelcasedInSaf);
+            Assert.Equal(expectedString, jsonWithToolboxConverter.ButPascalCasedInQds);
         }
 
         private class TestCaseOrdererAttribute
