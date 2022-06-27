@@ -1,6 +1,8 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Buffers;
+﻿// SPDX-FileCopyrightText: 2017-2022 TRUMPF Laser GmbH
+//
+// SPDX-License-Identifier: MPL-2.0
+
+using System;
 using System.Text.Json;
 using SAF.Toolbox.Serialization;
 using NSubstitute;
