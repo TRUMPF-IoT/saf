@@ -5,7 +5,6 @@
 using System;
 using System.Linq;
 using System.Text.Json;
-using System.Text.Unicode;
 using JsonTransformer = System.Text.Json.JsonSerializer;
 using JsonConverter = System.Text.Json.Serialization.JsonConverter<object>;
 
@@ -18,7 +17,7 @@ namespace SAF.Toolbox.Serialization
             PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
             PropertyNameCaseInsensitive = true,
             IncludeFields = true,
-            Encoder = System.Text.Encodings.Web.JavaScriptEncoder.Create(UnicodeRanges.BasicLatin, UnicodeRanges.Latin1Supplement, UnicodeRanges.CurrencySymbols),
+            Encoder = System.Text.Encodings.Web.JavaScriptEncoder.UnsafeRelaxedJsonEscaping,
             ReadCommentHandling = JsonCommentHandling.Skip,
             AllowTrailingCommas = true,
             WriteIndented = false
