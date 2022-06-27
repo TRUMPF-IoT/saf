@@ -33,9 +33,9 @@ namespace SAF.Toolbox.Serialization
             return CanRead ? _converter.DeserializeObject(typeToConvert, jsonObject) : JsonSerializer.Deserialize(jsonObject, typeToConvert);
         }
 
-        public override bool CanConvert(Type objectType)
+        public override bool CanConvert(Type typeToConvert)
         {
-            return _converter.CanConvert(objectType);
+            return _converter.CanConvert(typeToConvert);
         }
     }
 }
