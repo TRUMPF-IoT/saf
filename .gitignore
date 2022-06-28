@@ -81,3 +81,6 @@ _ReSharper*/
 artifacts/
 minver/
 signtool/
+
+.tools/
+coverage.xml

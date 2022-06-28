@@ -59,20 +59,21 @@ jobs:
         key: ${{ runner.os }}-sonar
         restore-keys: ${{ runner.os }}-sonar
 
-    - name: Cache SonarCloud scanner
-      id: cache-sonar-scanner
+    - name: Cache dotnet tools
+      id: cache-dotnet-tools
       uses: actions/cache@v1
       with:
-        path: .\.sonar\scanner
-        key: ${{ runner.os }}-sonar-scanner
-        restore-keys: ${{ runner.os }}-sonar-scanner
+        path: .\.tools
+        key: ${{ runner.os }}-dotnet-tools
+        restore-keys: ${{ runner.os }}-dotnet-tools
 
-    - name: Install SonarCloud scanner
-      if: steps.cache-sonar-scanner.outputs.cache-hit != 'true'
+    - name: Install dotnet tools
+      if: steps.cache-dotnet-tools.outputs.cache-hit != 'true'
       shell: powershell
       run: |
-        New-Item -Path .\.sonar\scanner -ItemType Directory
-        dotnet tool update dotnet-sonarscanner --tool-path .\.sonar\scanner
+        New-Item -Path .\.tools -ItemType Directory
+        dotnet tool update dotnet-coverage --tool-path .\.tools\coverage
+        dotnet tool update dotnet-sonarscanner --tool-path .\.tools\sonarscanner
         
     - name: Build, test and analyze
       env:
@@ -80,10 +81,10 @@ jobs:
         SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
       shell: powershell
       run: |
-        .\.sonar\scanner\dotnet-sonarscanner begin /k:"TRUMPF-IoT_saf" /o:"trumpf-iot" /d:sonar.login="${{ secrets.SONAR_TOKEN }}" /d:sonar.host.url="https://sonarcloud.io" /d:sonar.cs.vstest.reportsPaths=TestResults/*.trx /d:sonar.cs.opencover.reportsPaths=TestResults/**/coverage.opencover.xml
+        .\.tools\sonarscanner\dotnet-sonarscanner begin /k:"TRUMPF-IoT_saf" /o:"trumpf-iot" /d:sonar.login="${{ secrets.SONAR_TOKEN }}" /d:sonar.host.url="https://sonarcloud.io" /d:sonar.dotnet.excludeTestProjects=true /d:sonar.cs.vstest.reportsPaths=coverage.xml
         dotnet build './src/SmartApplicationFramework.sln' --configuration Release --no-restore
-        dotnet test './src/SmartApplicationFramework.sln' --configuration Release --no-build --no-restore --verbosity normal --collect:"XPlat Code Coverage" --results-directory TestResults/  -- DataCollectionRunSettings.DataColults/ --logger "trx;LogFileName=unittests.trx" -- DataCollectionRunSettings.DataCollectors.DataCollector.Configuration.Format=opencover  
-        .\.sonar\scanner\dotnet-sonarscanner end /d:sonar.login="${{ secrets.SONAR_TOKEN }}"
+        .\.tools\coverage\dotnet-coverage -f xml -o coverage.xml 'dotnet test ./src/SmartApplicationFramework.sln --configuration Release --no-build --no-restore --verbosity normal'
+        .\.tools\sonarscanner\dotnet-sonarscanner end /d:sonar.login="${{ secrets.SONAR_TOKEN }}"
       
     - name: Pack
       run: |
