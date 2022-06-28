@@ -83,7 +83,7 @@ jobs:
       run: |
         .\.tools\sonarscanner\dotnet-sonarscanner begin /k:"TRUMPF-IoT_saf" /o:"trumpf-iot" /d:sonar.login="${{ secrets.SONAR_TOKEN }}" /d:sonar.host.url="https://sonarcloud.io" /d:sonar.dotnet.excludeTestProjects=true /d:sonar.cs.vstest.reportsPaths=coverage.xml
         dotnet build './src/SmartApplicationFramework.sln' --configuration Release --no-restore
-        .\.tools\coverage\dotnet-coverage -f xml -o coverage.xml 'dotnet test ./src/SmartApplicationFramework.sln --configuration Release --no-build --no-restore --verbosity normal'
+        .\.tools\coverage\dotnet-coverage collect -f xml -o coverage.xml 'dotnet test ./src/SmartApplicationFramework.sln --configuration Release --no-build --no-restore --verbosity normal'
         .\.tools\sonarscanner\dotnet-sonarscanner end /d:sonar.login="${{ secrets.SONAR_TOKEN }}"
       
     - name: Pack
