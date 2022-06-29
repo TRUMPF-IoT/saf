@@ -57,14 +57,14 @@
       },
       "MinVer": {
         "type": "Direct",
-        "requested": "[2.5.0, )",
-        "resolved": "2.5.0",
-        "contentHash": "+vgY+COxnu93nZEVYScloRuboNRIYkElokxTdtKLt6isr/f6GllPt0oLfrHj7fzxgj7SC5xMZg5c2qvd6qyHDQ=="
+        "requested": "[3.1.0, )",
+        "resolved": "3.1.0",
+        "contentHash": "a7e2zj145UlybI6NAt9cyTjqKJpvbQzX/Th7bAdD8yTPhvzHfuAaFBe+ZBA7Cb0hVXCyyeeJikhKPB8pAbIAzA=="
       },
       "C-DEngine": {
         "type": "Transitive",
-        "resolved": "5.142.0",
-        "contentHash": "fqpoU9zSNX3D3upWHJ59JoHYPMOfLl+2FXAjIHanMog6bQZRiWTB3cW8pd0YVStd9bRHdJArsYSUiE3ilPJ8jQ==",
+        "resolved": "5.144.0",
+        "contentHash": "0chojsci87l+mzo9MEWKwF/G86l3l+UJMtyBthpyMmEIj8ZD3ljbeiXYZV1h1hGS7rfePkXxdQ9Y6FF+4LIEcQ==",
         "dependencies": {
           "Microsoft.CSharp": "4.5.0"
         }
@@ -167,8 +167,8 @@
       },
       "Microsoft.Extensions.Logging.Abstractions": {
         "type": "Transitive",
-        "resolved": "6.0.0",
-        "contentHash": "/HggWBbTwy8TgebGSX5DBZ24ndhzi93sHUBDvP1IxbZD7FDokYzdAr6+vbWGjw2XAfR2EJ1sfKUotpjHnFWPxA=="
+        "resolved": "6.0.1",
+        "contentHash": "dzB2Cgg+JmrouhjkcQGzSFjjvpwlq353i8oBQO2GWNjCXSzhbtBRUf28HSauWe7eib3wYOdb3tItdjRwAdwCSg=="
       },
       "Microsoft.Extensions.Options": {
         "type": "Transitive",
@@ -214,8 +214,8 @@
       },
       "System.IO.Abstractions": {
         "type": "Transitive",
-        "resolved": "16.1.10",
-        "contentHash": "8gkCyek6AArbiaX9c+pzRzSFgsagLIbXEmja5b1sRkIEMLqubxoYDpIxrHRAbC1KFZyF2dl/wyQfSurN6X/LWg=="
+        "resolved": "17.0.10",
+        "contentHash": "pXhKp+rE17muzrBy1MfL2Y4gPskkmiHN0VHy67gcdH3xxa8dbbiVIQkpHGh6dbtcmh7C0FsnHjww4N+Y29yNJg=="
       },
       "System.Runtime.CompilerServices.Unsafe": {
         "type": "Transitive",
@@ -244,13 +244,13 @@
         "dependencies": {
           "Microsoft.Extensions.Configuration.Abstractions": "6.0.0",
           "Microsoft.Extensions.DependencyInjection.Abstractions": "6.0.0",
-          "Microsoft.Extensions.Logging.Abstractions": "6.0.0"
+          "Microsoft.Extensions.Logging.Abstractions": "6.0.1"
         }
       },
       "saf.communication.cde": {
         "type": "Project",
         "dependencies": {
-          "C-DEngine": "5.142.0"
+          "C-DEngine": "5.144.0"
         }
       },
       "saf.communication.pubsub": {
@@ -262,7 +262,7 @@
       "saf.communication.pubsub.cde": {
         "type": "Project",
         "dependencies": {
-          "C-DEngine": "5.142.0",
+          "C-DEngine": "5.144.0",
           "SAF.Communication.Cde": "1.0.0",
           "SAF.Communication.PubSub": "1.0.0",
           "SAF.Communication.PubSub.Interfaces": "1.0.0"
@@ -294,7 +294,7 @@
       "saf.services.sampleservice1": {
         "type": "Project",
         "dependencies": {
-          "Microsoft.Extensions.Logging.Abstractions": "6.0.0",
+          "Microsoft.Extensions.Logging.Abstractions": "6.0.1",
           "SAF.Common": "1.0.0",
           "SAF.Toolbox": "1.0.0"
         }
@@ -303,10 +303,10 @@
         "type": "Project",
         "dependencies": {
           "Microsoft.Extensions.DependencyInjection.Abstractions": "6.0.0",
-          "Microsoft.Extensions.Logging.Abstractions": "6.0.0",
+          "Microsoft.Extensions.Logging.Abstractions": "6.0.1",
           "Microsoft.Extensions.Options.ConfigurationExtensions": "6.0.0",
           "SAF.Common": "1.0.0",
-          "System.IO.Abstractions": "16.1.10",
+          "System.IO.Abstractions": "17.0.10",
           "System.Text.Json": "6.0.5"
         }
       }
