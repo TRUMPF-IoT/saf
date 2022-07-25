@@ -4,20 +4,20 @@
     "net6.0": {
       "C-DEngine": {
         "type": "Direct",
-        "requested": "[5.144.0, )",
-        "resolved": "5.144.0",
-        "contentHash": "0chojsci87l+mzo9MEWKwF/G86l3l+UJMtyBthpyMmEIj8ZD3ljbeiXYZV1h1hGS7rfePkXxdQ9Y6FF+4LIEcQ==",
+        "requested": "[5.147.0, )",
+        "resolved": "5.147.0",
+        "contentHash": "eVeRTW/jzmeWDTPWWVNADEAqLy4tdPmD4HYgaBd8JKQNZcBRRk/8m0/z+22seuP1MUpassO2KH72IpUpu4RTfg==",
         "dependencies": {
           "Microsoft.CSharp": "4.5.0"
         }
       },
       "CDMyNMIHtml5RT": {
         "type": "Direct",
-        "requested": "[5.144.0, )",
-        "resolved": "5.144.0",
-        "contentHash": "Ilt5RlpWmF94N+qegE0q8CJzKvdWcihTE0jiz5P+D2P1NwQ0KE4hrcRTluRYLwKqvOgee8F2Mlkagpv8yrYeIQ==",
+        "requested": "[5.147.0, )",
+        "resolved": "5.147.0",
+        "contentHash": "Cuk52CW2LuL2IzazIAU8zDb+Lf3xbP9irGdpsA/xDcSJdjMr6XhtLS4S5WTxftKXzLwqJCOn5KPmpiCi6XQInw==",
         "dependencies": {
-          "C-DEngine": "5.144.0"
+          "C-DEngine": "5.147.0"
         }
       },
       "Microsoft.SourceLink.GitHub": {
