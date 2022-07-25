@@ -53,8 +53,8 @@
       },
       "LiteDB": {
         "type": "Transitive",
-        "resolved": "5.0.11",
-        "contentHash": "6cL4bOmVCUB0gIK+6qIr68HeqjjHZicPDGQjvJ87mIOvkFsEsJWkIps3yoKNeLpHhJQur++yoQ9Q8gxsdos0xQ=="
+        "resolved": "5.0.12",
+        "contentHash": "HaOjSIGS9BRm7dw42qcHd5NGYl5wdjsFB31pImt3QQNLKUNEmRAr7ADos5VsujwBc9c4otJgb+G6NA4MlzKyAw=="
       },
       "Microsoft.Build.Tasks.Git": {
         "type": "Transitive",
@@ -1167,7 +1167,7 @@
       "saf.storage.litedb": {
         "type": "Project",
         "dependencies": {
-          "LiteDB": "5.0.11",
+          "LiteDB": "5.0.12",
           "SAF.Common": "1.0.0"
         }
       }
