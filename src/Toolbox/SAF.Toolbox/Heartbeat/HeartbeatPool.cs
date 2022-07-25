@@ -7,7 +7,7 @@ using System.Linq;
 
 namespace SAF.Toolbox.Heartbeat
 {
-    internal class HeartbeatPool : IHeartbeatPool
+    internal sealed class HeartbeatPool : IHeartbeatPool
     {
         private readonly ConcurrentDictionary<int, Heartbeat> _heartbeatsPerCycle = new();
 

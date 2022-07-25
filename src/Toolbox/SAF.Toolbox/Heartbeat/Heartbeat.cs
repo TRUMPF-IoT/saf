@@ -7,7 +7,7 @@ using System.Threading;
 
 namespace SAF.Toolbox.Heartbeat
 {
-    internal class Heartbeat : IHeartbeat, IDisposable
+    internal sealed class Heartbeat : IHeartbeat, IDisposable
     {
         public event EventHandler<HeartbeatEventArgs> Beat;
         public int BeatCycleTimeMillis { get; }
