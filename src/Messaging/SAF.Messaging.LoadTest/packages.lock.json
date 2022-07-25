@@ -186,8 +186,8 @@
       },
       "StackExchange.Redis": {
         "type": "Transitive",
-        "resolved": "2.5.61",
-        "contentHash": "h1Gz4itrHL/PQ0GBLTEiPK8bBkOp5SFO6iaRFSSn/x1qltBWENsz/NUxPid6WHX9yf2Tiyzn9D3R7mtnksODxg==",
+        "resolved": "2.6.48",
+        "contentHash": "T0rLGogyT6Zny+IMrDx1Z8r4nA3B0C7EVo5SHNjzT4ndOn9aGKe5K7KTVx0y41WaWmfSWpaX7HrPl0tfZ4zuUw==",
         "dependencies": {
           "Pipelines.Sockets.Unofficial": "2.2.2",
           "System.Diagnostics.PerformanceCounter": "5.0.0"
@@ -329,7 +329,7 @@
           "Microsoft.Extensions.DependencyInjection.Abstractions": "6.0.0",
           "SAF.Common": "1.0.0",
           "SAF.Toolbox": "1.0.0",
-          "StackExchange.Redis": "2.5.61"
+          "StackExchange.Redis": "2.6.48"
         }
       },
       "saf.toolbox": {
