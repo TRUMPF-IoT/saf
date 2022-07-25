@@ -347,8 +347,8 @@
       },
       "Stub.System.Data.SQLite.Core.NetStandard": {
         "type": "Transitive",
-        "resolved": "1.0.115.5",
-        "contentHash": "WfrqQg6WL+r4H1sVKTenNj6ERLXUukUxqcjH1rqPqXadeIWccTVpydESieD7cZ/NWQVSKLYIHuoBX5du+BFhIQ=="
+        "resolved": "1.0.116",
+        "contentHash": "VEe/vzvn2ECKovtyb+nf8fsnNQ4EYOUms7gnp9729NN7FSR/0v/uVoBDO7DETzV7YCquRVwRnSnYuoOwAoTEKA=="
       },
       "System.AppContext": {
         "type": "Transitive",
@@ -411,10 +411,10 @@
       },
       "System.Data.SQLite.Core": {
         "type": "Transitive",
-        "resolved": "1.0.115.5",
-        "contentHash": "vADIqqgpxaC5xR6qOV8/KMZkQeSDCfmmWpVOtQx0oEr3Yjq2XdTxX7+jfE4+oO2xPovAbYiz6Q5cLRbSsDkq6Q==",
+        "resolved": "1.0.116",
+        "contentHash": "djwmo97syWCpUPJbDS0e2qUFUa8cDLeIfMotVkaRkAC5gpfBSZLMzvoLkLp1prY8waAuH1jEC3wcB2ymVVQWtA==",
         "dependencies": {
-          "Stub.System.Data.SQLite.Core.NetStandard": "[1.0.115.5]"
+          "Stub.System.Data.SQLite.Core.NetStandard": "[1.0.116]"
         }
       },
       "System.Diagnostics.Debug": {
@@ -1176,7 +1176,7 @@
         "type": "Project",
         "dependencies": {
           "SAF.Common": "1.0.0",
-          "System.Data.SQLite.Core": "1.0.115.5"
+          "System.Data.SQLite.Core": "1.0.116"
         }
       }
     }
