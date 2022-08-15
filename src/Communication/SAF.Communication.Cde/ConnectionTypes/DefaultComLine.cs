@@ -35,21 +35,22 @@ namespace SAF.Communication.Cde.ConnectionTypes
 
         /// <summary>
         /// Find the engine with the name passed by 'engineName' (in the C-DEngine environment always "ContentService",
-        /// which is runnig on every node) and assign to it an event with the target function <see cref="HandleMessage"/>.
+        /// which is running on every node) and assign to it an event with the target function <see cref="HandleMessage"/>.
         /// </summary>
-        /// <param name="engineName">Name of the underlying engine.</param>
-        public override async Task Subscribe(string engineName)
+        /// <param name="topic">Name of the underlying CDE engine.</param>
+        public override async Task Subscribe(string topic)
         {
-            if(_subscriptions.Contains(engineName)) return;
+            if(_subscriptions.Contains(topic))
+                return;
 
-            _subscriptions.Add(engineName);
+            _subscriptions.Add(topic);
 
             var engines = TheThingRegistry.GetBaseEngines(false);
-            var myEngine = engines.FirstOrDefault(e => e.GetEngineName() == engineName);
+            var myEngine = engines.FirstOrDefault(e => e.GetEngineName() == topic);
 
             var baseEngine = myEngine?.GetBaseEngine();
             if(baseEngine == null)
-                throw new ArgumentException(engineName);
+                throw new ArgumentException(topic);
 
             while(!baseEngine.EngineState.IsStarted)
                 await Task.Delay(300);

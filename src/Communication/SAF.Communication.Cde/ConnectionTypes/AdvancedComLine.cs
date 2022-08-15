@@ -39,12 +39,13 @@ namespace SAF.Communication.Cde.ConnectionTypes
 
         public override Task Subscribe(string topic)
         {
-            if(_subscribedEngines.Contains(topic)) return Task.FromResult(false);
+            if(_subscribedEngines.Contains(topic))
+                return Task.CompletedTask;
 
             _subscribedEngines.Add(topic);
             _line.Subscribe(topic);
 
-            return Task.FromResult(true); // TODO: as soon as no .Net FW v4.5 must be supported anymore, replace by Task.CompletedTask, which is cached
+            return Task.CompletedTask;
         }
 
         public override void Broadcast(TSM message)
