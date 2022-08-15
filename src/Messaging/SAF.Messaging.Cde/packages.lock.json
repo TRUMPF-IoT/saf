@@ -20,8 +20,8 @@
       },
       "C-DEngine": {
         "type": "Transitive",
-        "resolved": "5.147.0",
-        "contentHash": "eVeRTW/jzmeWDTPWWVNADEAqLy4tdPmD4HYgaBd8JKQNZcBRRk/8m0/z+22seuP1MUpassO2KH72IpUpu4RTfg==",
+        "resolved": "5.148.0",
+        "contentHash": "WF7qgVwxqtzBNbms6gMGAznvphYOXx4ded8TVi+19kolmqgoa32RMP/PgeJzjDfuvw9dWvv8EVzUGMce3yD0qQ==",
         "dependencies": {
           "Microsoft.CSharp": "4.5.0"
         }
@@ -100,36 +100,36 @@
       "saf.common": {
         "type": "Project",
         "dependencies": {
-          "Microsoft.Extensions.Configuration.Abstractions": "6.0.0",
-          "Microsoft.Extensions.DependencyInjection.Abstractions": "6.0.0",
-          "Microsoft.Extensions.Logging.Abstractions": "6.0.1"
+          "Microsoft.Extensions.Configuration.Abstractions": "[6.0.0, )",
+          "Microsoft.Extensions.DependencyInjection.Abstractions": "[6.0.0, )",
+          "Microsoft.Extensions.Logging.Abstractions": "[6.0.1, )"
         }
       },
       "saf.communication.cde": {
         "type": "Project",
         "dependencies": {
-          "C-DEngine": "5.147.0"
+          "C-DEngine": "[5.148.0, )"
         }
       },
       "saf.communication.pubsub": {
         "type": "Project",
         "dependencies": {
-          "SAF.Communication.PubSub.Interfaces": "1.0.0"
+          "SAF.Communication.PubSub.Interfaces": "[1.0.0, )"
         }
       },
       "saf.communication.pubsub.cde": {
         "type": "Project",
         "dependencies": {
-          "C-DEngine": "5.147.0",
-          "SAF.Communication.Cde": "1.0.0",
-          "SAF.Communication.PubSub": "1.0.0",
-          "SAF.Communication.PubSub.Interfaces": "1.0.0"
+          "C-DEngine": "[5.148.0, )",
+          "SAF.Communication.Cde": "[1.0.0, )",
+          "SAF.Communication.PubSub": "[1.0.0, )",
+          "SAF.Communication.PubSub.Interfaces": "[1.0.0, )"
         }
       },
       "saf.communication.pubsub.interfaces": {
         "type": "Project",
         "dependencies": {
-          "SAF.Common": "1.0.0"
+          "SAF.Common": "[1.0.0, )"
         }
       }
     }

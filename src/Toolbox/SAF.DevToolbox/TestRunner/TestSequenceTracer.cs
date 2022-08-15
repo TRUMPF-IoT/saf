@@ -5,7 +5,7 @@
 using System;
 using System.Diagnostics;
 using System.IO;
-using Newtonsoft.Json;
+using System.Text.Json;
 using SAF.Common;
 
 namespace SAF.DevToolbox.TestRunner
@@ -130,8 +130,8 @@ namespace SAF.DevToolbox.TestRunner
         private static string PrettyPrintJson(string json)
         {
             // wastes some time, but it's just for testing.
-            dynamic parsedJson = JsonConvert.DeserializeObject(json);
-            return JsonConvert.SerializeObject(parsedJson, Formatting.Indented);
+            dynamic parsedJson = JsonSerializer.Deserialize<object>(json);
+            return JsonSerializer.Serialize(parsedJson, new JsonSerializerOptions{WriteIndented = true});
         }
     }
 }
