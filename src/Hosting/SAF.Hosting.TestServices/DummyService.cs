@@ -10,14 +10,17 @@ namespace SAF.Hosting.TestServices
     {
         public void Start()
         {
+            // DummyService used for hosting tests only
         }
 
         public void Stop()
         {
+            // DummyService used for hosting tests only
         }
 
         public void Kill()
         {
+            // DummyService used for hosting tests only
         }
     }
 }
