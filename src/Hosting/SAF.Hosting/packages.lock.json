@@ -138,8 +138,8 @@
       },
       "System.IO.Abstractions": {
         "type": "Transitive",
-        "resolved": "17.0.24",
-        "contentHash": "hA7bacntMiZv1Yf9xtjwl/GP3GT1mG84QxhAk7ijAUD0pJhJaVVwXScE13vMpXnNtlaRDW6SeyZdWg2j2qrh4w==",
+        "resolved": "17.1.1",
+        "contentHash": "LWOM12Bd0kp/gaH4g1o/O2/6JDcHF/fuctF1IqDZt0aAqU2BwGiMihi9Cdcm5jJz8La1wFWbRPuRui8WeX6m8w==",
         "dependencies": {
           "System.IO.FileSystem.AccessControl": "5.0.0"
         }
@@ -235,7 +235,7 @@
           "Microsoft.Extensions.Logging.Abstractions": "[6.0.1, )",
           "Microsoft.Extensions.Options.ConfigurationExtensions": "[6.0.0, )",
           "SAF.Common": "[1.0.0, )",
-          "System.IO.Abstractions": "[17.0.24, )",
+          "System.IO.Abstractions": "[17.1.1, )",
           "System.Text.Json": "[6.0.5, )"
         }
       }
