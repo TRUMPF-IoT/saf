@@ -1,5 +1,5 @@
 ﻿<!--
-SPDX-FileCopyrightText: 2017-2020 TRUMPF Laser GmbH
+SPDX-FileCopyrightText: 2017-2022 TRUMPF Laser GmbH
 
 SPDX-License-Identifier: MPL-2.0
 -->
@@ -9,6 +9,8 @@ SPDX-License-Identifier: MPL-2.0
   <PropertyGroup>
     <TargetFramework>netstandard2.1</TargetFramework>
     <Description>Common interface and type definitions for the Smart Application Framework (SAF).</Description>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
   </PropertyGroup>
 
   <ItemGroup>
