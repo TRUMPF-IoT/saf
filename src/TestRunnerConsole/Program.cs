@@ -1,64 +1,31 @@
-// SPDX-FileCopyrightText: 2017-2020 TRUMPF Laser GmbH
+// SPDX-FileCopyrightText: 2017-2022 TRUMPF Laser GmbH
 //
 // SPDX-License-Identifier: MPL-2.0
 
-using System;
-using System.IO;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using SAF.Common;
 using SAF.Hosting;
 using SAF.Messaging.InProcess;
 
-namespace TestRunnerConsole
-{
-    public class Program
+var host = Host.CreateDefaultBuilder(args)
+    .ConfigureServices((context, services) =>
     {
-        public static void Main(string[] args)
-        {
-            var environment = GetEnvironment();
+        var loggingServices = new ServiceCollection();
+        loggingServices.AddLogging(l => l.AddConfiguration(context.Configuration.GetSection("Logging")).AddConsole());
+        using var loggingServiceProvider = loggingServices.BuildServiceProvider();
+        var mainLogger = loggingServiceProvider.GetService<ILogger<Program>>();
 
-            Console.Title = "SAF Test Host" + (environment == "production" ? "" : $" ({environment})");
+        services.AddHost(context.Configuration.GetSection("ServiceHost").Bind, mainLogger);
+        services.AddHostDiagnostics();
+        services.AddInProcessMessagingInfrastructure()
+            .AddSingleton<IMessagingInfrastructure>(sp => sp.GetRequiredService<IInProcessMessagingInfrastructure>());
+    })
+    .Build();
 
-            var config = new ConfigurationBuilder()
-                .SetBasePath(Directory.GetCurrentDirectory())
-                .AddJsonFile("appsettings.json", optional: true, reloadOnChange: false)
-                .AddJsonFile($"appsettings.{environment}.json", optional: true, reloadOnChange: false)
-                .Build();
+host.Services
+    .UseServiceHostDiagnostics();
 
-            var applicationServices = new ServiceCollection();
-            applicationServices.AddLogging(l => l.AddConfiguration(config.GetSection("Logging")).AddConsole());
-
-            var baseServiceProvider = applicationServices.BuildServiceProvider();
-            var mainLogger = baseServiceProvider.GetService<ILogger<Program>>();
-            mainLogger.LogInformation("Starting test runner console app...");
-
-            applicationServices.AddConfiguration(config);
-            applicationServices.AddHost(config.GetSection("ServiceHost").Bind, mainLogger);
-            applicationServices.AddHostDiagnostics();
-            applicationServices.AddInProcessMessagingInfrastructure()
-                .AddSingleton<IMessagingInfrastructure>(sp => sp.GetRequiredService<IInProcessMessagingInfrastructure>());
-
-            using(var applicationServiceProvider = applicationServices.BuildServiceProvider())
-            {
-                applicationServiceProvider.UseServiceHost();
-                applicationServiceProvider.UseServiceHostDiagnostics();
-
-                Console.ReadLine();
-            }
-        }
-
-        private static string GetEnvironment()
-        {
-            var environment = "production";
-
-            var envVarEnvironment = Environment.GetEnvironmentVariable("NETCORE_ENVIRONMENT");
-
-            if(!string.IsNullOrEmpty(envVarEnvironment))
-                environment = envVarEnvironment;
-
-            return environment;
-        }
-    }
-}
+await host.RunAsync();

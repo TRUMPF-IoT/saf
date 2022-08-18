@@ -72,7 +72,6 @@ namespace SAF.Hosting
 
             logger.LogInformation($"Loaded {loaded} assemblies.");
 
-            services.AddSingleton<ServiceHost>();
             services.AddSingleton<IServiceMessageDispatcher, MessageDispatcher>();
 
             services.AddSingleton<IHostInfo>(sp =>
@@ -82,6 +81,9 @@ namespace SAF.Hosting
                 hi.Id = string.IsNullOrWhiteSpace(hi.Id) ? GetOrInitializeStoredHostId(sp) : hi.Id;
                 return hi;
             });
+
+            services.AddSingleton<ServiceHost>();
+            services.AddHostedService(sp => sp.GetRequiredService<ServiceHost>());
 
             return services;
         }

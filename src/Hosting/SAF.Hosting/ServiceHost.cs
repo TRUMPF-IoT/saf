@@ -7,6 +7,8 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
 using System.Reflection;
+using System.Threading;
+using System.Threading.Tasks;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
@@ -18,7 +20,7 @@ namespace SAF.Hosting;
 /// <summary>
 /// Central entry point for initializing and starting the services used.
 /// </summary>
-public class ServiceHost : IDisposable
+public sealed class ServiceHost : Microsoft.Extensions.Hosting.IHostedService, IDisposable
 {
     private readonly IServiceProvider _runtimeApplicationServiceProvider;
     private readonly ILogger _log;
@@ -30,6 +32,7 @@ public class ServiceHost : IDisposable
     private readonly IServiceHostContext _context;
 
     private readonly List<IHostedService> _services = new();
+    private readonly List<IHostedServiceAsync> _asyncServices = new();
 
     public ServiceHost(
         IServiceProvider runtimeApplicationServiceProvider,
@@ -50,50 +53,138 @@ public class ServiceHost : IDisposable
         AddRuntimeMessageHandlersToDispatcher();
     }
 
-    public void StartServices()
+    public async Task StartAsync(CancellationToken cancellationToken)
     {
-        var stopWatch = new Stopwatch();
-        stopWatch.Start();
-
-        foreach (var service in _services)
+        var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+        try
         {
-            _log.LogDebug($"Starting service: {service.GetType().Name}");
+            var stopWatch = new Stopwatch();
+            stopWatch.Start();
 
-            var serviceStopWatch = new Stopwatch();
-            serviceStopWatch.Start();
+            await StartServicesAsync(_services, (service, token) => Task.Run(service.Start, token), linkedCts.Token);
+            await StartServicesAsync(_asyncServices, (service, token) => service.StartAsync(token), linkedCts.Token);
 
-            service.Start();
-
-            serviceStopWatch.Stop();
-
-            _log.LogInformation($"Started service: {service.GetType().Name}, start-up took {serviceStopWatch.Elapsed.TotalMilliseconds * 1000000:N0} ns");
+            stopWatch.Stop();
+            _log.LogInformation($"Starting all services took {stopWatch.Elapsed.TotalMilliseconds * 1000000:N0} ns");
         }
+        catch (TaskCanceledException)
+        {
+            // intentionally ignored
+        }
+        catch (OperationCanceledException)
+        {
+            // intentionally ignored
+        }
+        finally
+        {
+            linkedCts.Dispose();
+        }
+    }
 
-        stopWatch.Stop();
-        _log.LogInformation($"Starting all services took {stopWatch.Elapsed.TotalMilliseconds * 1000000:N0} ns");
+    public async Task StopAsync(CancellationToken cancellationToken)
+    {
+        if (_services.Count == 0 && _asyncServices.Count == 0)
+            return;
+
+        var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+        try
+        {
+            var stopWatch = new Stopwatch();
+            stopWatch.Start();
+
+            await StopServicesAsync(_asyncServices, (service, token) => service.StopAsync(token), linkedCts.Token);
+            await StopServicesAsync(_services, (service, token) => Task.Run(service.Stop, token), linkedCts.Token);
+
+            stopWatch.Stop();
+            _log.LogInformation($"Stopping all services took {stopWatch.Elapsed.TotalMilliseconds * 1000000:N0} ns");
+
+            _asyncServices.Clear();
+            _services.Clear();
+        }
+        catch (TaskCanceledException)
+        {
+            // intentionally ignored
+        }
+        catch (OperationCanceledException)
+        {
+            // intentionally ignored
+        }
+        finally
+        {
+            linkedCts.Dispose();
+        }
     }
 
     public void Dispose()
     {
-        var stopWatch = new Stopwatch();
-        stopWatch.Start();
+        StopAsync(CancellationToken.None).Wait();
+    }
 
-        foreach (var service in _services)
+    private async Task StartServicesAsync<TService>(IEnumerable<TService> services, Func<TService, CancellationToken, Task> startAction, CancellationToken cancelToken)
+    {
+        var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(cancelToken);
+        try
         {
-            _log.LogDebug($"Stopping service: {service.GetType().Name}");
+            foreach (var service in services.TakeWhile(_ => !linkedCts.Token.IsCancellationRequested))
+            {
+                _log.LogDebug($"Starting service: {service.GetType().Name}");
 
-            var serviceStopWatch = new Stopwatch();
-            serviceStopWatch.Start();
+                var serviceStopWatch = new Stopwatch();
+                serviceStopWatch.Start();
 
-            service.Stop();
+                await startAction(service, linkedCts.Token);
 
-            serviceStopWatch.Stop();
+                serviceStopWatch.Stop();
 
-            _log.LogInformation($"Stopped service: {service.GetType().Name}, shutdown took {serviceStopWatch.Elapsed.TotalMilliseconds * 1000000:N0} ns");
+                _log.LogInformation(
+                    $"Started service: {service.GetType().Name}, start-up took {serviceStopWatch.Elapsed.TotalMilliseconds * 1000000:N0} ns");
+            }
         }
+        catch (TaskCanceledException)
+        {
+            // intentionally ignored
+        }
+        catch (OperationCanceledException)
+        {
+            // intentionally ignored
+        }
+        finally
+        {
+            linkedCts.Dispose();
+        }
+    }
 
-        stopWatch.Stop();
-        _log.LogInformation($"Stopping all services took {stopWatch.Elapsed.TotalMilliseconds * 1000000:N0} ns");
+    private async Task StopServicesAsync<TService>(IEnumerable<TService> services, Func<TService, CancellationToken, Task> stopAction, CancellationToken cancelToken)
+    {
+        var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(cancelToken);
+        try
+        {
+            foreach (var service in services.TakeWhile(_ => !cancelToken.IsCancellationRequested))
+            {
+                _log.LogDebug($"Stopping service: {service.GetType().Name}");
+
+                var serviceStopWatch = new Stopwatch();
+                serviceStopWatch.Start();
+
+                await stopAction(service, cancelToken);
+
+                serviceStopWatch.Stop();
+
+                _log.LogInformation($"Stopped service: {service.GetType().Name}, shutdown took {serviceStopWatch.Elapsed.TotalMilliseconds * 1000000:N0} ns");
+            }
+        }
+        catch (TaskCanceledException)
+        {
+            // intentionally ignored
+        }
+        catch (OperationCanceledException)
+        {
+            // intentionally ignored
+        }
+        finally
+        {
+            linkedCts.Dispose();
+        }
     }
 
     private ServiceHostEnvironment BuildServiceHostEnvironment()
@@ -130,6 +221,8 @@ public class ServiceHost : IDisposable
 
             var servicesToAdd = assemblyServiceProvider.GetServices<IHostedService>();
             _services.AddRange(servicesToAdd);
+            var asyncServicesToAdd = assemblyServiceProvider.GetServices<IHostedServiceAsync>();
+            _asyncServices.AddRange(asyncServicesToAdd);
 
             var messageHandlerType = typeof(IMessageHandler);
             foreach(var messageHandlerRegistration in assemblyServiceCollection.Where(s => messageHandlerType.IsAssignableFrom(s.ServiceType)))

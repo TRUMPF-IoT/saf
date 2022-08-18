@@ -5,22 +5,22 @@
 namespace SAF.Common;
 
 /// <summary>
-///     Represents a hosted "microservice" within the SAF infrastructure.
+/// Represents a hosted "microservice" within the SAF infrastructure.
 /// </summary>
 public interface IHostedService
 {
     /// <summary>
-    ///     Starts the service.
+    /// Starts the service.
     /// </summary>
     void Start();
 
     /// <summary>
-    ///     Stops the service.
+    /// Stops the service.
     /// </summary>
     void Stop();
 
     /// <summary>
-    ///     Kills the service.
+    /// Kills the service.
     /// </summary>
     void Kill();
 }

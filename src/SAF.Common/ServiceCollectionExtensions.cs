@@ -13,7 +13,7 @@ namespace SAF.Common;
 public static class ServiceCollectionExtensions
 {
     /// <summary>
-    ///     Adds a hosted service to the container.
+    /// Adds a hosted service to the container.
     /// </summary>
     /// <typeparam name="TService">The type of the service.</typeparam>
     /// <param name="serviceCollection">The service collection to add the service.</param>
@@ -21,4 +21,14 @@ public static class ServiceCollectionExtensions
     public static IServiceCollection AddHosted<TService>(this IServiceCollection serviceCollection)
         where TService : IHostedService
         => serviceCollection.AddSingleton(typeof(IHostedService), typeof(TService));
+
+    /// <summary>
+    /// Adds a hosted service to the container.
+    /// </summary>
+    /// <typeparam name="TService">The type of the service.</typeparam>
+    /// <param name="serviceCollection">The service collection to add the service.</param>
+    /// <returns>The serviceCollection for chaining.</returns>
+    public static IServiceCollection AddAsyncHosted<TService>(this IServiceCollection serviceCollection)
+        where TService : IHostedServiceAsync
+        => serviceCollection.AddSingleton(typeof(IHostedServiceAsync), typeof(TService));
 }

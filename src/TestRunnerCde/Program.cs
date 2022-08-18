@@ -48,7 +48,8 @@ namespace TestRunnerCde
 
             using var applicationServiceProvider = applicationServices.BuildServiceProvider();
             
-            applicationServiceProvider.UseCde()
+            applicationServiceProvider
+                .UseCde()
                 .UseServiceHost()
                 .UseServiceHostDiagnostics()
                 .UseCdeServiceHostDiagnostics();
