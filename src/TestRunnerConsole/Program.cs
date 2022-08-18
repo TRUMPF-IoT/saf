@@ -10,6 +10,8 @@ using SAF.Common;
 using SAF.Hosting;
 using SAF.Messaging.InProcess;
 
+Console.Title = "SAF InProcess Test Host";
+
 var host = Host.CreateDefaultBuilder(args)
     .ConfigureServices((context, services) =>
     {

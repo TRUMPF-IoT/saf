@@ -1,72 +1,39 @@
-// SPDX-FileCopyrightText: 2017-2020 TRUMPF Laser GmbH
+// SPDX-FileCopyrightText: 2017-2022 TRUMPF Laser GmbH
 //
 // SPDX-License-Identifier: MPL-2.0
 
-using System;
-using System.IO;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using SAF.Common;
 using SAF.Hosting;
+using System;
 using SAF.Messaging.Cde;
 using SAF.Messaging.Cde.Diagnostics;
 
-namespace TestRunnerCde
-{
-    internal class Program
+Console.Title = "SAF CDE Test Host";
+
+var host = Host.CreateDefaultBuilder(args)
+    .ConfigureServices((context, services) =>
     {
-        private static void Main(string[] args)
-        {
-            var environment = GetEnvironment();
+        var loggingServices = new ServiceCollection();
+        loggingServices.AddLogging(l => l.AddConfiguration(context.Configuration.GetSection("Logging")).AddConsole());
+        using var loggingServiceProvider = loggingServices.BuildServiceProvider();
+        var mainLogger = loggingServiceProvider.GetService<ILogger<Program>>();
 
-            Console.Title = "SAF CDE Test Host";
+        services.AddHost(context.Configuration.GetSection("ServiceHost").Bind, mainLogger);
+        services.AddHostDiagnostics();
+        
+        services.AddCdeDiagnostics();
+        services.AddCdeInfrastructure(context.Configuration.GetSection("Cde").Bind);
+        services.AddSingleton<IMessagingInfrastructure>(sp => sp.GetRequiredService<ICdeMessagingInfrastructure>());
+    })
+    .Build();
 
-            var config = new ConfigurationBuilder()
-                .SetBasePath(Directory.GetCurrentDirectory())
-                .AddJsonFile("appsettings.json", optional: true, reloadOnChange: true)
-                .AddJsonFile($"appsettings.{environment}.json", optional: true, reloadOnChange: true)
-                .Build();
+host.Services
+    .UseCde()
+    .UseServiceHostDiagnostics()
+    .UseCdeServiceHostDiagnostics();
 
-            var applicationServices = new ServiceCollection();
-            applicationServices.AddLogging(l => l.AddConfiguration(config.GetSection("Logging")).AddConsole());
-
-            using var baseServiceProvider = applicationServices.BuildServiceProvider();
-            var mainLogger = baseServiceProvider.GetService<ILogger<Program>>();
-            mainLogger.LogInformation("Starting test runner console app...");
-
-            applicationServices.AddConfiguration(config);
-            applicationServices.AddHost(config.GetSection("ServiceHost").Bind, hi =>
-                {
-                    hi.ServiceHostType = "SAF Test Host";
-                    hi.FileSystemUserBasePath = Path.Combine(Directory.GetCurrentDirectory(), "saf");
-                }, mainLogger);
-            applicationServices.AddHostDiagnostics();
-            applicationServices.AddCdeDiagnostics();
-            applicationServices.AddCdeInfrastructure(config.GetSection("Cde").Bind);
-            applicationServices.AddSingleton<IMessagingInfrastructure>(sp => sp.GetRequiredService<ICdeMessagingInfrastructure>());
-
-            using var applicationServiceProvider = applicationServices.BuildServiceProvider();
-            
-            applicationServiceProvider
-                .UseCde()
-                .UseServiceHost()
-                .UseServiceHostDiagnostics()
-                .UseCdeServiceHostDiagnostics();
-            
-            Console.ReadLine();
-        }
-
-        private static string GetEnvironment()
-        {
-            var environment = "production";
-
-            var envVarEnvironment = Environment.GetEnvironmentVariable("NETCORE_ENVIRONMENT");
-
-            if(!string.IsNullOrEmpty(envVarEnvironment))
-                environment = envVarEnvironment;
-
-            return environment;
-        }
-    }
-}
+await host.RunAsync();
