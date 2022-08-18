@@ -4,9 +4,9 @@
     ".NETStandard,Version=v2.1": {
       "LiteDB": {
         "type": "Direct",
-        "requested": "[5.0.11, )",
-        "resolved": "5.0.11",
-        "contentHash": "6cL4bOmVCUB0gIK+6qIr68HeqjjHZicPDGQjvJ87mIOvkFsEsJWkIps3yoKNeLpHhJQur++yoQ9Q8gxsdos0xQ=="
+        "requested": "[5.0.12, )",
+        "resolved": "5.0.12",
+        "contentHash": "HaOjSIGS9BRm7dw42qcHd5NGYl5wdjsFB31pImt3QQNLKUNEmRAr7ADos5VsujwBc9c4otJgb+G6NA4MlzKyAw=="
       },
       "Microsoft.SourceLink.GitHub": {
         "type": "Direct",
@@ -20,9 +20,9 @@
       },
       "MinVer": {
         "type": "Direct",
-        "requested": "[3.1.0, )",
-        "resolved": "3.1.0",
-        "contentHash": "a7e2zj145UlybI6NAt9cyTjqKJpvbQzX/Th7bAdD8yTPhvzHfuAaFBe+ZBA7Cb0hVXCyyeeJikhKPB8pAbIAzA=="
+        "requested": "[4.1.0, )",
+        "resolved": "4.1.0",
+        "contentHash": "xUhfTmN6ytNfV0Q70IbfIeOKb8WK3oegJkNvUoxXasi5ALew/dO5vEbNpS1+BYQUIodb8BobdtLaqfx8113dGg=="
       },
       "Microsoft.Build.Tasks.Git": {
         "type": "Transitive",

@@ -15,7 +15,7 @@ using SAF.Toolbox.Serialization;
 
 namespace SAF.Toolbox.RequestClient
 {
-    internal class RequestClient : IRequestClient, IDisposable
+    internal sealed class RequestClient : IRequestClient, IDisposable
     {
         private const double DefaultMillisecondsTimeoutTarget = 5000d;
 
@@ -147,7 +147,7 @@ namespace SAF.Toolbox.RequestClient
             }
         }
 
-        private class OpenRequest
+        private sealed class OpenRequest
         {
             public long ExpiresOnHeartbeat { get; set; }
             public Action<string> RequestHandlerAction { get; set; }

@@ -38,8 +38,8 @@ public class StatefulFileReceiverTest
     [InlineData(FileSender.MaxChunkSize * 3 - 1, null)] // multiple of chunk size - 1
     [InlineData(FileSender.MaxChunkSize * 3, null)] // multiple of chunk size
     [InlineData(FileSender.MaxChunkSize * 3 + 1, null)] // multiple of chunk size + 1
-    [InlineData(FileSender.MaxChunkSize * 3 - 1, 1234)] // multiple of chunk size - 1, with transfer id
-    [InlineData(1024 * 1024 * 3, 5678)]  // 3 MByte, with transfer id
+    [InlineData(FileSender.MaxChunkSize * 3 - 1, 1234L)] // multiple of chunk size - 1, with transfer id
+    [InlineData(1024 * 1024 * 3, 5678L)]  // 3 MByte, with transfer id
     public async Task TestReceiveChunksOk(int fileSize, long? transferId)
     {
         var fileName = $"test-{fileSize}.file";

@@ -89,9 +89,9 @@
       },
       "MinVer": {
         "type": "Direct",
-        "requested": "[3.1.0, )",
-        "resolved": "3.1.0",
-        "contentHash": "a7e2zj145UlybI6NAt9cyTjqKJpvbQzX/Th7bAdD8yTPhvzHfuAaFBe+ZBA7Cb0hVXCyyeeJikhKPB8pAbIAzA=="
+        "requested": "[4.1.0, )",
+        "resolved": "4.1.0",
+        "contentHash": "xUhfTmN6ytNfV0Q70IbfIeOKb8WK3oegJkNvUoxXasi5ALew/dO5vEbNpS1+BYQUIodb8BobdtLaqfx8113dGg=="
       },
       "Microsoft.Build.Tasks.Git": {
         "type": "Transitive",
@@ -226,8 +226,8 @@
       },
       "StackExchange.Redis": {
         "type": "Transitive",
-        "resolved": "2.5.61",
-        "contentHash": "h1Gz4itrHL/PQ0GBLTEiPK8bBkOp5SFO6iaRFSSn/x1qltBWENsz/NUxPid6WHX9yf2Tiyzn9D3R7mtnksODxg==",
+        "resolved": "2.6.48",
+        "contentHash": "T0rLGogyT6Zny+IMrDx1Z8r4nA3B0C7EVo5SHNjzT4ndOn9aGKe5K7KTVx0y41WaWmfSWpaX7HrPl0tfZ4zuUw==",
         "dependencies": {
           "Pipelines.Sockets.Unofficial": "2.2.2",
           "System.Diagnostics.PerformanceCounter": "5.0.0"
@@ -271,8 +271,8 @@
       },
       "System.IO.Abstractions": {
         "type": "Transitive",
-        "resolved": "17.0.10",
-        "contentHash": "pXhKp+rE17muzrBy1MfL2Y4gPskkmiHN0VHy67gcdH3xxa8dbbiVIQkpHGh6dbtcmh7C0FsnHjww4N+Y29yNJg=="
+        "resolved": "17.1.1",
+        "contentHash": "LWOM12Bd0kp/gaH4g1o/O2/6JDcHF/fuctF1IqDZt0aAqU2BwGiMihi9Cdcm5jJz8La1wFWbRPuRui8WeX6m8w=="
       },
       "System.IO.Pipelines": {
         "type": "Transitive",
@@ -340,54 +340,54 @@
       "saf.common": {
         "type": "Project",
         "dependencies": {
-          "Microsoft.Extensions.Configuration.Abstractions": "6.0.0",
-          "Microsoft.Extensions.DependencyInjection.Abstractions": "6.0.0",
-          "Microsoft.Extensions.Logging.Abstractions": "6.0.1"
+          "Microsoft.Extensions.Configuration.Abstractions": "[6.0.0, )",
+          "Microsoft.Extensions.DependencyInjection.Abstractions": "[6.0.0, )",
+          "Microsoft.Extensions.Logging.Abstractions": "[6.0.1, )"
         }
       },
       "saf.hosting": {
         "type": "Project",
         "dependencies": {
-          "Microsoft.Extensions.DependencyInjection": "6.0.0",
-          "Microsoft.Extensions.FileSystemGlobbing": "6.0.0",
-          "Microsoft.Extensions.Logging": "6.0.0",
-          "SAF.Common": "1.0.0",
-          "SAF.Toolbox": "1.0.0"
+          "Microsoft.Extensions.DependencyInjection": "[6.0.0, )",
+          "Microsoft.Extensions.FileSystemGlobbing": "[6.0.0, )",
+          "Microsoft.Extensions.Logging": "[6.0.0, )",
+          "SAF.Common": "[1.0.0, )",
+          "SAF.Toolbox": "[1.0.0, )"
         }
       },
       "saf.messaging.redis": {
         "type": "Project",
         "dependencies": {
-          "Microsoft.Extensions.DependencyInjection.Abstractions": "6.0.0",
-          "SAF.Common": "1.0.0",
-          "SAF.Toolbox": "1.0.0",
-          "StackExchange.Redis": "2.5.61"
+          "Microsoft.Extensions.DependencyInjection.Abstractions": "[6.0.0, )",
+          "SAF.Common": "[1.0.0, )",
+          "SAF.Toolbox": "[1.0.0, )",
+          "StackExchange.Redis": "[2.6.48, )"
         }
       },
       "saf.services.sampleservice1": {
         "type": "Project",
         "dependencies": {
-          "Microsoft.Extensions.Logging.Abstractions": "6.0.1",
-          "SAF.Common": "1.0.0",
-          "SAF.Toolbox": "1.0.0"
+          "Microsoft.Extensions.Logging.Abstractions": "[6.0.1, )",
+          "SAF.Common": "[1.0.0, )",
+          "SAF.Toolbox": "[1.0.0, )"
         }
       },
       "saf.services.sampleservice2": {
         "type": "Project",
         "dependencies": {
-          "SAF.Common": "1.0.0",
-          "SAF.Toolbox": "1.0.0"
+          "SAF.Common": "[1.0.0, )",
+          "SAF.Toolbox": "[1.0.0, )"
         }
       },
       "saf.toolbox": {
         "type": "Project",
         "dependencies": {
-          "Microsoft.Extensions.DependencyInjection.Abstractions": "6.0.0",
-          "Microsoft.Extensions.Logging.Abstractions": "6.0.1",
-          "Microsoft.Extensions.Options.ConfigurationExtensions": "6.0.0",
-          "SAF.Common": "1.0.0",
-          "System.IO.Abstractions": "17.0.10",
-          "System.Text.Json": "6.0.5"
+          "Microsoft.Extensions.DependencyInjection.Abstractions": "[6.0.0, )",
+          "Microsoft.Extensions.Logging.Abstractions": "[6.0.1, )",
+          "Microsoft.Extensions.Options.ConfigurationExtensions": "[6.0.0, )",
+          "SAF.Common": "[1.0.0, )",
+          "System.IO.Abstractions": "[17.1.1, )",
+          "System.Text.Json": "[6.0.5, )"
         }
       }
     }

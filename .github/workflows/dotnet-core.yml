@@ -48,6 +48,14 @@ jobs:
       uses: actions/setup-dotnet@v1
       with:
         dotnet-version: '6.0.x'
+
+    - name: Cache nuget Packages
+      uses: actions/cache@v1
+      with:
+        path: ~/.nuget/packages
+        key: ${{ runner.os }}-nuget-${{ hashFiles('**/packages.lock.json') }}
+        restore-keys: |
+          ${{ runner.os }}-nuget-
       
     - name: Install dependencies
       run: dotnet restore './src/SmartApplicationFramework.sln' --locked-mode
