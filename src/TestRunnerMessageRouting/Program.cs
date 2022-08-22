@@ -21,16 +21,16 @@ var host = Host.CreateDefaultBuilder(args)
         using var loggingServiceProvider = loggingServices.BuildServiceProvider();
         var mainLogger = loggingServiceProvider.GetService<ILogger<Program>>();
 
-        services.AddHost(context.Configuration.GetSection("ServiceHost").Bind, mainLogger);
-        services.AddHostDiagnostics();
         services.AddCde(context.Configuration.GetSection("Cde").Bind)
             .AddRoutingMessagingInfrastructure(context.Configuration.GetSection("MessageRouting").Bind)
             .AddRedisStorageInfrastructure(context.Configuration.GetSection("Redis").Bind);
+
+        services.AddHost(context.Configuration.GetSection("ServiceHost").Bind, mainLogger);
+        services.AddHostDiagnostics();
     })
     .Build();
 
 host.Services
-    .UseCde()
     .UseServiceHostDiagnostics();
 
 await host.RunAsync();

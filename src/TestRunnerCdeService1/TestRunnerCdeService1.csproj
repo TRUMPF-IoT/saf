@@ -1,5 +1,5 @@
 <!--
-SPDX-FileCopyrightText: 2017-2021 TRUMPF Laser GmbH
+SPDX-FileCopyrightText: 2017-2022 TRUMPF Laser GmbH
 
 SPDX-License-Identifier: MPL-2.0
 -->
@@ -9,7 +9,9 @@ SPDX-License-Identifier: MPL-2.0
   <PropertyGroup>
     <OutputType>Exe</OutputType>
     <TargetFramework>net6.0</TargetFramework>
-	<IsPackable>false</IsPackable>
+	  <IsPackable>false</IsPackable>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
   </PropertyGroup>
 
 	<ItemGroup>
@@ -34,7 +36,5 @@ SPDX-License-Identifier: MPL-2.0
 		<ProjectReference Include="..\SAF.Common\SAF.Common.csproj" />
 		<ProjectReference Include="..\Services\SAF.Services.SampleService1\SAF.Services.SampleService1.csproj" />
 	</ItemGroup>
-
-	<ProjectExtensions><VisualStudio><UserProperties appsettings_1json__JsonSchema="" /></VisualStudio></ProjectExtensions>
 
 </Project>

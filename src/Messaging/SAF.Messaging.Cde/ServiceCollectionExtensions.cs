@@ -4,7 +4,6 @@
 
 using System;
 using System.Linq;
-using System.Runtime.CompilerServices;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using nsCDEngine.Engines;
@@ -13,9 +12,6 @@ using SAF.Common;
 using SAF.Communication.Cde;
 using SAF.Communication.PubSub.Cde;
 using SAF.Communication.PubSub.Interfaces;
-
-[assembly: InternalsVisibleTo("SAF.Messaging.Cde.Tests")]
-[assembly: InternalsVisibleTo("DynamicProxyGenAssembly2")]
 
 namespace SAF.Messaging.Cde
 {
@@ -49,7 +45,7 @@ namespace SAF.Messaging.Cde
         public static IServiceCollection AddCdeStorageInfrastructure(this IServiceCollection collection)
             => collection.AddSingleton<IStorageInfrastructure, Storage>(sp =>
             {
-                sp.UseCde();
+                _ = sp.GetRequiredService<CdeApplication>();
                 return new Storage(sp.GetService<ILogger<Storage>>());
             });
 
@@ -80,7 +76,8 @@ namespace SAF.Messaging.Cde
         {
             collection.AddSingleton(sp =>
             {
-                sp.UseCde();
+                _ = sp.GetRequiredService<CdeApplication>();
+
                 var engines = TheThingRegistry.GetBaseEngines(false);
                 var engine = engines.FirstOrDefault(e => e.GetEngineName() == InfrastructureEngine);
                 if (engine != null) return engine.GetBaseThing();

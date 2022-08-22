@@ -68,11 +68,13 @@ namespace SAF.Services.SampleService2
 
         public void Stop()
         {
+            _timer?.Dispose();
             _log.LogInformation("My service stopped.");
         }
 
         public void Kill()
         {
+            _timer?.Dispose();
             _log.LogInformation("My service killed!");
         }
     }
