@@ -34,9 +34,9 @@
       },
       "MinVer": {
         "type": "Direct",
-        "requested": "[4.1.0, )",
-        "resolved": "4.1.0",
-        "contentHash": "xUhfTmN6ytNfV0Q70IbfIeOKb8WK3oegJkNvUoxXasi5ALew/dO5vEbNpS1+BYQUIodb8BobdtLaqfx8113dGg=="
+        "requested": "[4.2.0, )",
+        "resolved": "4.2.0",
+        "contentHash": "Po4tv+sri1jsaebQ8F6+yD5ru9Gas5mR111F6HR2ULqwflvjjZXMstpeOc1GHMJeQa3g4E3b8MX8K2cShkuUAg=="
       },
       "NSubstitute": {
         "type": "Direct",

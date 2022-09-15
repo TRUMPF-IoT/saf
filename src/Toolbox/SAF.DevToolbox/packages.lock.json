@@ -91,14 +91,14 @@
       },
       "MinVer": {
         "type": "Direct",
-        "requested": "[4.1.0, )",
-        "resolved": "4.1.0",
-        "contentHash": "xUhfTmN6ytNfV0Q70IbfIeOKb8WK3oegJkNvUoxXasi5ALew/dO5vEbNpS1+BYQUIodb8BobdtLaqfx8113dGg=="
+        "requested": "[4.2.0, )",
+        "resolved": "4.2.0",
+        "contentHash": "Po4tv+sri1jsaebQ8F6+yD5ru9Gas5mR111F6HR2ULqwflvjjZXMstpeOc1GHMJeQa3g4E3b8MX8K2cShkuUAg=="
       },
       "C-DEngine": {
         "type": "Transitive",
-        "resolved": "5.148.0",
-        "contentHash": "WF7qgVwxqtzBNbms6gMGAznvphYOXx4ded8TVi+19kolmqgoa32RMP/PgeJzjDfuvw9dWvv8EVzUGMce3yD0qQ==",
+        "resolved": "5.148.1",
+        "contentHash": "IkmJqmM2cUpXz/ZeKgJoxup4kKJ1Z0Zpl2meUWNeQ2U3ju9yIT7ElNeYKzwxQz4o87qA8byP+dfUdCBQ62bFhw==",
         "dependencies": {
           "Microsoft.CSharp": "4.5.0"
         }
@@ -480,7 +480,7 @@
       "saf.communication.cde": {
         "type": "Project",
         "dependencies": {
-          "C-DEngine": "[5.148.0, )"
+          "C-DEngine": "[5.148.1, )"
         }
       },
       "saf.communication.pubsub": {
@@ -492,7 +492,7 @@
       "saf.communication.pubsub.cde": {
         "type": "Project",
         "dependencies": {
-          "C-DEngine": "[5.148.0, )",
+          "C-DEngine": "[5.148.1, )",
           "SAF.Communication.Cde": "[1.0.0, )",
           "SAF.Communication.PubSub": "[1.0.0, )",
           "SAF.Communication.PubSub.Interfaces": "[1.0.0, )"

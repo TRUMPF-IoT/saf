@@ -17,7 +17,7 @@ SPDX-License-Identifier: MPL-2.0
   </ItemGroup>
 
   <ItemGroup>
-    <PackageReference Include="C-DEngine" Version="5.148.0" />
+    <PackageReference Include="C-DEngine" Version="5.148.1" />
     <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="6.0.0" />
     <PackageReference Include="Microsoft.Extensions.Logging" Version="6.0.0" />
     <PackageReference Include="Microsoft.Extensions.Logging.Configuration" Version="6.0.0" />
