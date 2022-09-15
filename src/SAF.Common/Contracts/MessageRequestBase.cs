@@ -12,5 +12,5 @@ public abstract class MessageRequestBase
     /// <summary>
     /// Gets or sets the channel name for the reply message.
     /// </summary>
-    public string ReplyTo { get; set; }
+    public string? ReplyTo { get; set; }
 }

@@ -13,7 +13,7 @@ namespace SAF.Services.SampleService2
 
         public void RegisterDependencies(IServiceCollection services, IServiceHostContext context)
         {
-            services.AddHosted<MyService>();
+            services.AddHostedAsync<MyService>();
         }
     }
 }

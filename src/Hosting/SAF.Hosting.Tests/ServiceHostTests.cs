@@ -200,7 +200,7 @@ namespace SAF.Hosting.Tests
                 if(!_registerAsAsyncService)
                     services.AddHosted<SyncCountingTestService>();
                 else
-                    services.AddAsyncHosted<AsyncCountingTestService>();
+                    services.AddHostedAsync<AsyncCountingTestService>();
 
                 services.AddSingleton(typeof(CallCounters), r => _counters);
 
@@ -222,14 +222,18 @@ namespace SAF.Hosting.Tests
         {
             private readonly CallCounters _counters;
             public AsyncCountingTestService(CallCounters counters) => _counters = counters ?? new CallCounters();
+
+            public void Start() => _counters.StartCalled++;
+            public void Stop() => _counters.StopCalled++;
+
             public Task StartAsync(CancellationToken _)
             {
-                _counters.StartCalled++;
+                Start();
                 return Task.CompletedTask;
             }
             public Task StopAsync(CancellationToken _)
             {
-                _counters.StopCalled++;
+                Stop();
                 return Task.CompletedTask;
             }
         }

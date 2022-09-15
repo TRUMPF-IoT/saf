@@ -36,7 +36,7 @@ namespace SAF.Hosting
 
         public static IServiceCollection AddHost(this IServiceCollection services, Action<Configuration> configure, Action<HostInfo> configureHostInfo = null, ILogger logger = null)
         {
-            logger = logger ?? NullLogger.Instance;
+            logger ??= NullLogger.Instance;
 
             var config = new Configuration
             {

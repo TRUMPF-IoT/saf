@@ -7,7 +7,7 @@ namespace SAF.Common;
 /// <summary>
 /// Represents a hosted "microservice" within the SAF infrastructure that can be started and stopped asynchronously.
 /// </summary>
-public interface IHostedServiceAsync
+public interface IHostedServiceAsync : IHostedServiceBase
 {
     /// <summary>
     /// Starts the service.

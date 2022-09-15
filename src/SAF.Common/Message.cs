@@ -12,7 +12,7 @@ public class Message
     /// <summary>
     /// Gets or sets the topic where the message is published.
     /// </summary>
-    public string Topic { get; set; }
+    public string Topic { get; set; } = default!;
 
     /// <summary>
     /// Gets or sets the payload of the message (usually JSON).
@@ -28,6 +28,6 @@ public class Message
 
 public class MessageCustomProperty
 {
-    public string Name { get; set; } = string.Empty;
+    public string Name { get; set; } = default!;
     public string? Value { get; set; }
 }

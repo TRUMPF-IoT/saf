@@ -31,8 +31,7 @@ public sealed class ServiceHost : Microsoft.Extensions.Hosting.IHostedService, I
     private readonly ServiceHostEnvironment _environment;
     private readonly IServiceHostContext _context;
 
-    private readonly List<IHostedService> _services = new();
-    private readonly List<IHostedServiceAsync> _asyncServices = new();
+    private readonly List<IHostedServiceBase> _services = new();
 
     public ServiceHost(
         IServiceProvider runtimeApplicationServiceProvider,
@@ -61,8 +60,7 @@ public sealed class ServiceHost : Microsoft.Extensions.Hosting.IHostedService, I
             var stopWatch = new Stopwatch();
             stopWatch.Start();
 
-            await StartServicesAsync(_services, (service, token) => Task.Run(service.Start, token), linkedCts.Token);
-            await StartServicesAsync(_asyncServices, (service, token) => service.StartAsync(token), linkedCts.Token);
+            await StartServicesAsync(_services, linkedCts.Token);
 
             stopWatch.Stop();
             _log.LogInformation($"Starting all services took {stopWatch.Elapsed.TotalMilliseconds * 1000000:N0} ns");
@@ -83,7 +81,7 @@ public sealed class ServiceHost : Microsoft.Extensions.Hosting.IHostedService, I
 
     public async Task StopAsync(CancellationToken cancellationToken)
     {
-        if (_services.Count == 0 && _asyncServices.Count == 0)
+        if (_services.Count == 0)
             return;
 
         var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
@@ -92,13 +90,11 @@ public sealed class ServiceHost : Microsoft.Extensions.Hosting.IHostedService, I
             var stopWatch = new Stopwatch();
             stopWatch.Start();
 
-            await StopServicesAsync(_asyncServices, (service, token) => service.StopAsync(token), linkedCts.Token);
-            await StopServicesAsync(_services, (service, token) => Task.Run(service.Stop, token), linkedCts.Token);
+            await StopServicesAsync(_services, linkedCts.Token);
 
             stopWatch.Stop();
             _log.LogInformation($"Stopping all services took {stopWatch.Elapsed.TotalMilliseconds * 1000000:N0} ns");
 
-            _asyncServices.Clear();
             _services.Clear();
         }
         catch (TaskCanceledException)
@@ -120,7 +116,7 @@ public sealed class ServiceHost : Microsoft.Extensions.Hosting.IHostedService, I
         StopAsync(CancellationToken.None).Wait();
     }
 
-    private async Task StartServicesAsync<TService>(IEnumerable<TService> services, Func<TService, CancellationToken, Task> startAction, CancellationToken cancelToken)
+    private async Task StartServicesAsync(IEnumerable<IHostedServiceBase> services, CancellationToken cancelToken)
     {
         var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(cancelToken);
         try
@@ -132,7 +128,15 @@ public sealed class ServiceHost : Microsoft.Extensions.Hosting.IHostedService, I
                 var serviceStopWatch = new Stopwatch();
                 serviceStopWatch.Start();
 
-                await startAction(service, linkedCts.Token);
+                switch (service)
+                {
+                    case IHostedServiceAsync asyncService:
+                        await asyncService.StartAsync(linkedCts.Token);
+                        break;
+                    case IHostedService syncService:
+                        syncService.Start();
+                        break;
+                }
 
                 serviceStopWatch.Stop();
 
@@ -154,7 +158,7 @@ public sealed class ServiceHost : Microsoft.Extensions.Hosting.IHostedService, I
         }
     }
 
-    private async Task StopServicesAsync<TService>(IEnumerable<TService> services, Func<TService, CancellationToken, Task> stopAction, CancellationToken cancelToken)
+    private async Task StopServicesAsync(IEnumerable<IHostedServiceBase> services, CancellationToken cancelToken)
     {
         var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(cancelToken);
         try
@@ -166,7 +170,15 @@ public sealed class ServiceHost : Microsoft.Extensions.Hosting.IHostedService, I
                 var serviceStopWatch = new Stopwatch();
                 serviceStopWatch.Start();
 
-                await stopAction(service, cancelToken);
+                switch (service)
+                {
+                    case IHostedServiceAsync asyncService:
+                        await asyncService.StopAsync(linkedCts.Token);
+                        break;
+                    case IHostedService syncService:
+                        syncService.Stop();
+                        break;
+                }
 
                 serviceStopWatch.Stop();
 
@@ -219,10 +231,8 @@ public sealed class ServiceHost : Microsoft.Extensions.Hosting.IHostedService, I
             manifest.RegisterDependencies(assemblyServiceCollection, _context);
             var assemblyServiceProvider = assemblyServiceCollection.BuildServiceProvider();
 
-            var servicesToAdd = assemblyServiceProvider.GetServices<IHostedService>();
+            var servicesToAdd = assemblyServiceProvider.GetServices<IHostedServiceBase>();
             _services.AddRange(servicesToAdd);
-            var asyncServicesToAdd = assemblyServiceProvider.GetServices<IHostedServiceAsync>();
-            _asyncServices.AddRange(asyncServicesToAdd);
 
             var messageHandlerType = typeof(IMessageHandler);
             foreach(var messageHandlerRegistration in assemblyServiceCollection.Where(s => messageHandlerType.IsAssignableFrom(s.ServiceType)))

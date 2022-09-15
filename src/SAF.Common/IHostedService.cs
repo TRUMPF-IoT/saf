@@ -7,7 +7,7 @@ namespace SAF.Common;
 /// <summary>
 /// Represents a hosted "microservice" within the SAF infrastructure.
 /// </summary>
-public interface IHostedService
+public interface IHostedService : IHostedServiceBase
 {
     /// <summary>
     /// Starts the service.
