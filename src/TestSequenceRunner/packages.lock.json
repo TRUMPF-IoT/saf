@@ -337,8 +337,8 @@
       },
       "StackExchange.Redis": {
         "type": "Transitive",
-        "resolved": "2.6.48",
-        "contentHash": "T0rLGogyT6Zny+IMrDx1Z8r4nA3B0C7EVo5SHNjzT4ndOn9aGKe5K7KTVx0y41WaWmfSWpaX7HrPl0tfZ4zuUw==",
+        "resolved": "2.6.66",
+        "contentHash": "owEqq2PG1TFU1qUh3UH35BqlMjrR/AB2rlR26tGbUWW9LIeu99ArGg2iCgDj/aCSE+juClFJQhwg8i1pONlVDw==",
         "dependencies": {
           "Pipelines.Sockets.Unofficial": "2.2.2",
           "System.Diagnostics.PerformanceCounter": "5.0.0"
@@ -536,7 +536,7 @@
           "Microsoft.Extensions.DependencyInjection.Abstractions": "[6.0.0, )",
           "SAF.Common": "[1.0.0, )",
           "SAF.Toolbox": "[1.0.0, )",
-          "StackExchange.Redis": "[2.6.48, )"
+          "StackExchange.Redis": "[2.6.66, )"
         }
       },
       "saf.services.sampleservice1": {
