@@ -44,10 +44,10 @@ jobs:
       id: minver
       uses: thefringeninja/action-minver@2.0.0-preview1
         
-    - name: Setup .NET 6.0
+    - name: Setup .NET 7.0
       uses: actions/setup-dotnet@v1
       with:
-        dotnet-version: '6.0.x'
+        dotnet-version: '7.0.x'
 
     - name: Cache nuget Packages
       uses: actions/cache@v1
