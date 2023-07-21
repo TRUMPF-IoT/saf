@@ -1,4 +1,4 @@
-﻿<!--
+<!--
 SPDX-FileCopyrightText: 2017-2020 TRUMPF Laser GmbH
 
 SPDX-License-Identifier: MPL-2.0
@@ -13,14 +13,14 @@ SPDX-License-Identifier: MPL-2.0
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.6.3" />
-    <PackageReference Include="NSubstitute" Version="5.0.0" />
-    <PackageReference Include="xunit" Version="2.5.0" />
-    <PackageReference Include="xunit.runner.visualstudio" Version="2.5.0">
+    <PackageReference Include="Microsoft.NET.Test.Sdk" />
+    <PackageReference Include="NSubstitute" />
+    <PackageReference Include="xunit" />
+    <PackageReference Include="xunit.runner.visualstudio">
       <PrivateAssets>all</PrivateAssets>
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
     </PackageReference>
-    <PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions" Version="7.0.0" />
+    <PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions" />
     <DotNetCliToolReference Include="dotnet-xunit" Version="2.3.1" />
   </ItemGroup>
 
@@ -29,18 +29,11 @@ SPDX-License-Identifier: MPL-2.0
     <ProjectReference Include="..\SAF.Services.SampleService1\SAF.Services.SampleService1.csproj" />
   </ItemGroup>
 
-  <ItemGroup>
-    <PackageReference Update="MinVer" Version="4.3.0">
-      <PrivateAssets>all</PrivateAssets>
-      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
-    </PackageReference>
-  </ItemGroup>
-
   <!-- Copy Package PDBs to output dir:
        https://github.com/dotnet/sdk/issues/1458 -->
   <Target Name="_ResolveCopyLocalNuGetPackagePdbs" Condition="$(CopyLocalLockFileAssemblies) == true" AfterTargets="ResolveReferences">
     <ItemGroup>
-      <ReferenceCopyLocalPaths Include="@(ReferenceCopyLocalPaths->'%(RootDir)%(Directory)%(Filename).pdb')" Condition="'%(ReferenceCopyLocalPaths.NuGetPackageId)' != '' and Exists('%(RootDir)%(Directory)%(Filename).pdb')" />
+      <ReferenceCopyLocalPaths Include="@(ReferenceCopyLocalPaths-&gt;'%(RootDir)%(Directory)%(Filename).pdb')" Condition="'%(ReferenceCopyLocalPaths.NuGetPackageId)' != '' and Exists('%(RootDir)%(Directory)%(Filename).pdb')" />
     </ItemGroup>
   </Target>
 

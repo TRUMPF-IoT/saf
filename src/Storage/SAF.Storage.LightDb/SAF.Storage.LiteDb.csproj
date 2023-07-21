@@ -1,4 +1,4 @@
-﻿<!--
+<!--
 SPDX-FileCopyrightText: 2017-2020 TRUMPF Laser GmbH
 
 SPDX-License-Identifier: MPL-2.0
@@ -12,18 +12,11 @@ SPDX-License-Identifier: MPL-2.0
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="LiteDB" Version="5.0.17" />
+    <PackageReference Include="LiteDB" />
   </ItemGroup>
 
   <ItemGroup>
     <ProjectReference Include="..\..\SAF.Common\SAF.Common.csproj" />
-  </ItemGroup>
-
-  <ItemGroup>
-    <PackageReference Update="MinVer" Version="4.3.0">
-      <PrivateAssets>all</PrivateAssets>
-      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
-    </PackageReference>
   </ItemGroup>
 
 </Project>
