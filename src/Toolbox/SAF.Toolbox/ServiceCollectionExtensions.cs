@@ -43,7 +43,7 @@ namespace SAF.Toolbox
                 {
                     var hi = sp.GetRequiredService<IHostInfo>();
                     var fs = sp.GetRequiredService<IFileSystem>();
-                    var di = fs.DirectoryInfo.FromDirectoryName(hi.FileSystemUserBasePath);
+                    var di = fs.DirectoryInfo.New(hi.FileSystemUserBasePath);
                     if(!di.Exists) di.Create();
                     return di;
                 });

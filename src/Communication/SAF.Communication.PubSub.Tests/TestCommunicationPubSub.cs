@@ -62,16 +62,16 @@ namespace SAF.Communication.PubSub.Tests
         {
             Topic topi = new("channel", "msgId", "version");
             TestRegistryLifetimeHandlerBase lifetimeHandler = new();
-            Assert.Equal(0, lifetimeHandler.Registries.Count);
+            Assert.Empty(lifetimeHandler.Registries);
             Assert.False(lifetimeHandler.UpdateEventFired);
             lifetimeHandler.HandleMessageDiscoveryResponse(topi);
-            Assert.Equal(1, lifetimeHandler.Registries.Count);
+            Assert.Single(lifetimeHandler.Registries);
             Assert.True(lifetimeHandler.UpdateEventFired);
             Assert.False(lifetimeHandler.DownEventFired);
 
             lifetimeHandler.UpdateEventFired = false;
             lifetimeHandler.HandleMessageUnsubscribe(topi);
-            Assert.Equal(0, lifetimeHandler.Registries.Count);
+            Assert.Empty(lifetimeHandler.Registries);
             Assert.False(lifetimeHandler.UpdateEventFired);
             Assert.True(lifetimeHandler.DownEventFired);
 
@@ -80,13 +80,13 @@ namespace SAF.Communication.PubSub.Tests
             Assert.True(lifetimeHandler.UpdateEventFired);
             Assert.False(lifetimeHandler.DownEventFired);
             lifetimeHandler.UpdateEventFired = false;
-            Assert.Equal(1, lifetimeHandler.Registries.Count);
+            Assert.Single(lifetimeHandler.Registries);
             Thread.Sleep(500);
-            Assert.Equal(1, lifetimeHandler.Registries.Count);
+            Assert.Single(lifetimeHandler.Registries);
             Thread.Sleep(4000);
             Assert.False(lifetimeHandler.UpdateEventFired);
             Assert.True(lifetimeHandler.DownEventFired);
-            Assert.Equal(0, lifetimeHandler.Registries.Count);
+            Assert.Empty(lifetimeHandler.Registries);
         }
 
         [Fact]

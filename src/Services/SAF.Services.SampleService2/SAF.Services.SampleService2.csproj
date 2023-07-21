@@ -16,6 +16,13 @@ SPDX-License-Identifier: MPL-2.0
     <ProjectReference Include="..\..\Toolbox\SAF.Toolbox\SAF.Toolbox.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <PackageReference Update="MinVer" Version="4.3.0">
+      <PrivateAssets>all</PrivateAssets>
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+    </PackageReference>
+  </ItemGroup>
+
   <!-- Copy Package PDBs to output dir:
        https://github.com/dotnet/sdk/issues/1458 -->
   <Target Name="_ResolveCopyLocalNuGetPackagePdbs" Condition="$(CopyLocalLockFileAssemblies) == true" AfterTargets="ResolveReferences">

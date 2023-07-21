@@ -4,9 +4,9 @@
     ".NETStandard,Version=v2.1": {
       "C-DEngine": {
         "type": "Direct",
-        "requested": "[5.148.1, )",
-        "resolved": "5.148.1",
-        "contentHash": "IkmJqmM2cUpXz/ZeKgJoxup4kKJ1Z0Zpl2meUWNeQ2U3ju9yIT7ElNeYKzwxQz4o87qA8byP+dfUdCBQ62bFhw==",
+        "requested": "[5.167.1, )",
+        "resolved": "5.167.1",
+        "contentHash": "ncF3tJsk6R+tTOWTBLNdFYP5dC7ysn2Uh9BUG30FKhMu2ei0X4qF82sFe7oUQT//thAwmBbep9W21n+VBr4Y9w==",
         "dependencies": {
           "Microsoft.CSharp": "4.5.0"
         }
@@ -23,9 +23,9 @@
       },
       "MinVer": {
         "type": "Direct",
-        "requested": "[4.2.0, )",
-        "resolved": "4.2.0",
-        "contentHash": "Po4tv+sri1jsaebQ8F6+yD5ru9Gas5mR111F6HR2ULqwflvjjZXMstpeOc1GHMJeQa3g4E3b8MX8K2cShkuUAg=="
+        "requested": "[4.3.0, )",
+        "resolved": "4.3.0",
+        "contentHash": "YNVAW3loCFW4kTwensApaZUl+7xREK75QQNOFSbsbXx2sCSm9/IHBjUHsJGn3u0UA5r/sAqrdYBNUlOFfLhUrA=="
       },
       "Microsoft.Build.Tasks.Git": {
         "type": "Transitive",

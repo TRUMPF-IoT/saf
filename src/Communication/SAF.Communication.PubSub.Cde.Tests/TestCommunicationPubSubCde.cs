@@ -29,7 +29,7 @@ namespace SAF.Communication.PubSub.Cde.Tests
         public void RunRemoteRegistryLifetimeHandler()
         {
             RemoteRegistryLifetimeHandler rrlh = new();
-            Assert.Equal(0, rrlh.Registries.Count);
+            Assert.Empty(rrlh.Registries);
 
             CheckRegistry(rrlh, MessageToken.RegistryAlive);
             CheckRegistryShutdown(rrlh);
@@ -49,7 +49,7 @@ namespace SAF.Communication.PubSub.Cde.Tests
             TSM tsm = new(Engines.PubSub, MessageToken.SubscribeResponse, TheCommonUtils.SerializeObjectToJSONString<RegistrySubscriptionResponse>(rsr));
             TheProcessMessage tpm = new(tsm);
             rrlh.HandleMessage(tpm);
-            Assert.Equal(1, rrlh.Registries.Count);
+            Assert.Single(rrlh.Registries);
             Assert.Equal(tsm, rrlh.Registries[0]);
             CheckRegistryShutdown(rrlh);
 
@@ -66,7 +66,7 @@ namespace SAF.Communication.PubSub.Cde.Tests
             TSM tsm = new(Engines.PubSub, messageToken, "{\"address\":\"\",\"instanceId\":\"fee034c582a34e18afc248b82932034d\",\"version\":\"3.0.0\"}");
             TheProcessMessage tpm = new(tsm);
             rrlh.HandleMessage(tpm);
-            Assert.Equal(1, rrlh.Registries.Count);
+            Assert.Single(rrlh.Registries);
             Assert.Equal(tsm, rrlh.Registries[0]);
         }
 
@@ -75,7 +75,7 @@ namespace SAF.Communication.PubSub.Cde.Tests
             TSM tsm = new(Engines.PubSub, messageToken);
             TheProcessMessage tpm = new(tsm);
             rrlh.HandleMessage(tpm);
-            Assert.Equal(0, rrlh.Registries.Count);
+            Assert.Empty(rrlh.Registries);
         }
 
         private void CheckRegistryShutdown(RemoteRegistryLifetimeHandler rrlh)
@@ -83,7 +83,7 @@ namespace SAF.Communication.PubSub.Cde.Tests
             TSM tsm = new(Engines.PubSub, MessageToken.RegistryShutdown);
             TheProcessMessage tpm = new(tsm);
             rrlh.HandleMessage(tpm);
-            Assert.Equal(0, rrlh.Registries.Count);
+            Assert.Empty(rrlh.Registries);
 
         }
 
