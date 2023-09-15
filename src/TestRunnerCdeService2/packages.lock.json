@@ -210,15 +210,15 @@
       },
       "TestableIO.System.IO.Abstractions": {
         "type": "Transitive",
-        "resolved": "19.2.29",
-        "contentHash": "sqZAF3+li6MCKr1jWEonv6wVvhZfVGgwWWsKx8dfxlARWQNw543ZJDlU0Yn7ce8UBeOOzWLwBNl2TAPPuQqAqQ=="
+        "resolved": "19.2.69",
+        "contentHash": "BHZ9uqMAPG7TId4dwJPEuofR6NjIu8AycwH8qSWTSLYUKpQzJKFMIgo7Igp37BW3oURRdIs5Dx4+W86BqvEXrg=="
       },
       "TestableIO.System.IO.Abstractions.Wrappers": {
         "type": "Transitive",
-        "resolved": "19.2.29",
-        "contentHash": "oO00myIO1cjVYgDj46AXY2Oeba3pz89HhsQ1uuFRSP9bwn2cUB1Y93EsGL4nSPMms2Wgikv8i58AVwQLGDEU7w==",
+        "resolved": "19.2.69",
+        "contentHash": "yHPZKCrsaVoA/LuZRqarYhecFJ+hUnQFXXfTvFfFaGdfKhCUYN7oo1CPgtMcr2TqLA2usGpSPZ2R7ybDWotY/g==",
         "dependencies": {
-          "TestableIO.System.IO.Abstractions": "19.2.29"
+          "TestableIO.System.IO.Abstractions": "19.2.69"
         }
       },
       "saf.common": {
@@ -232,7 +232,7 @@
       "saf.communication.cde": {
         "type": "Project",
         "dependencies": {
-          "C-DEngine": "[5.167.1, )"
+          "C-DEngine": "[5.168.0, )"
         }
       },
       "saf.communication.pubsub": {
@@ -244,7 +244,7 @@
       "saf.communication.pubsub.cde": {
         "type": "Project",
         "dependencies": {
-          "C-DEngine": "[5.167.1, )",
+          "C-DEngine": "[5.168.0, )",
           "SAF.Communication.Cde": "[1.0.0, )",
           "SAF.Communication.PubSub": "[1.0.0, )",
           "SAF.Communication.PubSub.Interfaces": "[1.0.0, )"
@@ -289,15 +289,15 @@
           "Microsoft.Extensions.Logging.Abstractions": "[7.0.1, )",
           "Microsoft.Extensions.Options.ConfigurationExtensions": "[7.0.0, )",
           "SAF.Common": "[1.0.0, )",
-          "System.IO.Abstractions": "[19.2.29, )",
+          "System.IO.Abstractions": "[19.2.69, )",
           "System.Text.Json": "[7.0.3, )"
         }
       },
       "C-DEngine": {
         "type": "CentralTransitive",
-        "requested": "[5.167.1, )",
-        "resolved": "5.167.1",
-        "contentHash": "ncF3tJsk6R+tTOWTBLNdFYP5dC7ysn2Uh9BUG30FKhMu2ei0X4qF82sFe7oUQT//thAwmBbep9W21n+VBr4Y9w==",
+        "requested": "[5.168.0, )",
+        "resolved": "5.168.0",
+        "contentHash": "huR8gQuS2SkWJlgF5MpBYbSk1Dbcw0qH1I8/cCQNBOFIxzL2kmcdOg+RCWvFRZweZuyRgYiJ4e0taCgLhdpR1g==",
         "dependencies": {
           "Microsoft.CSharp": "4.5.0"
         }
@@ -415,12 +415,12 @@
       },
       "System.IO.Abstractions": {
         "type": "CentralTransitive",
-        "requested": "[19.2.29, )",
-        "resolved": "19.2.29",
-        "contentHash": "G6Cv4Uf3aAE5Idcec1GUHMhqaKmzdrYfAZsxnRE+aW8yIrDs/qTC7yxG2FUDxuIMOYOuhaWJWaUfxpTjCenWZA==",
+        "requested": "[19.2.69, )",
+        "resolved": "19.2.69",
+        "contentHash": "VNc0GMVJ7df9IOupFyUrsLVwOvnba6W+lKJPeR/sDx+agPkd6LmdZkXbcURWNN1ue//uLTwP6145agO61c9gNg==",
         "dependencies": {
-          "TestableIO.System.IO.Abstractions": "19.2.29",
-          "TestableIO.System.IO.Abstractions.Wrappers": "19.2.29"
+          "TestableIO.System.IO.Abstractions": "19.2.69",
+          "TestableIO.System.IO.Abstractions.Wrappers": "19.2.69"
         }
       },
       "System.Text.Json": {

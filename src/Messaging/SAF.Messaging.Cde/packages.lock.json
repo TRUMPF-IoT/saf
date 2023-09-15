@@ -97,7 +97,7 @@
       "saf.communication.cde": {
         "type": "Project",
         "dependencies": {
-          "C-DEngine": "[5.167.1, )"
+          "C-DEngine": "[5.168.0, )"
         }
       },
       "saf.communication.pubsub": {
@@ -109,7 +109,7 @@
       "saf.communication.pubsub.cde": {
         "type": "Project",
         "dependencies": {
-          "C-DEngine": "[5.167.1, )",
+          "C-DEngine": "[5.168.0, )",
           "SAF.Communication.Cde": "[1.0.0, )",
           "SAF.Communication.PubSub": "[1.0.0, )",
           "SAF.Communication.PubSub.Interfaces": "[1.0.0, )"
@@ -123,9 +123,9 @@
       },
       "C-DEngine": {
         "type": "CentralTransitive",
-        "requested": "[5.167.1, )",
-        "resolved": "5.167.1",
-        "contentHash": "ncF3tJsk6R+tTOWTBLNdFYP5dC7ysn2Uh9BUG30FKhMu2ei0X4qF82sFe7oUQT//thAwmBbep9W21n+VBr4Y9w==",
+        "requested": "[5.168.0, )",
+        "resolved": "5.168.0",
+        "contentHash": "huR8gQuS2SkWJlgF5MpBYbSk1Dbcw0qH1I8/cCQNBOFIxzL2kmcdOg+RCWvFRZweZuyRgYiJ4e0taCgLhdpR1g==",
         "dependencies": {
           "Microsoft.CSharp": "4.5.0"
         }
