@@ -34,8 +34,4 @@ var host = Host.CreateDefaultBuilder(args)
     })
     .Build();
 
-host.Services
-    .UseServiceHostDiagnostics()
-    .UseCdeServiceHostDiagnostics();
-
 await host.RunAsync();

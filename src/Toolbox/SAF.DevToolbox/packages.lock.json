@@ -177,16 +177,6 @@
           "Microsoft.Extensions.Primitives": "7.0.0"
         }
       },
-      "Microsoft.Extensions.Hosting.Abstractions": {
-        "type": "Transitive",
-        "resolved": "7.0.0",
-        "contentHash": "43n9Je09z0p/7ViPxfRqs5BUItRLNVh5b6JH40F2Agkh2NBsY/jpNYTtbCcxrHCsA3oRmbR6RJBzUutB4VZvNQ==",
-        "dependencies": {
-          "Microsoft.Extensions.Configuration.Abstractions": "7.0.0",
-          "Microsoft.Extensions.DependencyInjection.Abstractions": "7.0.0",
-          "Microsoft.Extensions.FileProviders.Abstractions": "7.0.0"
-        }
-      },
       "Microsoft.Extensions.Logging.Debug": {
         "type": "Transitive",
         "resolved": "7.0.0",
@@ -418,6 +408,7 @@
       "saf.messaging.cde": {
         "type": "Project",
         "dependencies": {
+          "Microsoft.Extensions.Hosting.Abstractions": "[7.0.0, )",
           "SAF.Common": "[1.0.0, )",
           "SAF.Communication.PubSub.Cde": "[1.0.0, )"
         }
@@ -508,6 +499,17 @@
           "Microsoft.Extensions.Logging.EventSource": "7.0.0",
           "Microsoft.Extensions.Options": "7.0.1",
           "System.Diagnostics.DiagnosticSource": "7.0.1"
+        }
+      },
+      "Microsoft.Extensions.Hosting.Abstractions": {
+        "type": "CentralTransitive",
+        "requested": "[7.0.0, )",
+        "resolved": "7.0.0",
+        "contentHash": "43n9Je09z0p/7ViPxfRqs5BUItRLNVh5b6JH40F2Agkh2NBsY/jpNYTtbCcxrHCsA3oRmbR6RJBzUutB4VZvNQ==",
+        "dependencies": {
+          "Microsoft.Extensions.Configuration.Abstractions": "7.0.0",
+          "Microsoft.Extensions.DependencyInjection.Abstractions": "7.0.0",
+          "Microsoft.Extensions.FileProviders.Abstractions": "7.0.0"
         }
       },
       "Microsoft.Extensions.Logging.Abstractions": {

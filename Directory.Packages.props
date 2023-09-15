@@ -3,7 +3,6 @@ SPDX-FileCopyrightText: 2017-2023 TRUMPF Laser GmbH
 
 SPDX-License-Identifier: MPL-2.0
 -->
-
 <Project>
   <PropertyGroup>
     <ManagePackageVersionsCentrally>true</ManagePackageVersionsCentrally>
@@ -20,6 +19,7 @@ SPDX-License-Identifier: MPL-2.0
     <PackageVersion Include="Microsoft.Extensions.DependencyInjection.Abstractions" Version="7.0.0" />
     <PackageVersion Include="Microsoft.Extensions.FileSystemGlobbing" Version="7.0.0" />
     <PackageVersion Include="Microsoft.Extensions.Hosting" Version="7.0.1" />
+    <PackageVersion Include="Microsoft.Extensions.Hosting.Abstractions" Version="7.0.0" />
     <PackageVersion Include="Microsoft.Extensions.Logging" Version="7.0.0" />
     <PackageVersion Include="Microsoft.Extensions.Logging.Abstractions" Version="7.0.1" />
     <PackageVersion Include="Microsoft.Extensions.Logging.Configuration" Version="7.0.0" />

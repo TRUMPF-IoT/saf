@@ -85,7 +85,7 @@ namespace SAF.Hosting.Tests
             // Arrange
             var serviceProvider = new ServiceCollection().BuildServiceProvider();
             var serviceAssemblies = new List<IServiceAssemblyManifest> { new CountingTestAssemblyManifest(null, asyncService, true) };
-            var dispatcher = new MessageDispatcher(null);
+            var dispatcher = new ServiceMessageDispatcher(null);
 
             // Act
             using var _ = new ServiceHost(serviceProvider, null, dispatcher, serviceAssemblies);
@@ -104,7 +104,7 @@ namespace SAF.Hosting.Tests
             var callCounters = new CallCounters();
             var serviceProvider = new ServiceCollection().BuildServiceProvider();
             var serviceAssemblies = new List<IServiceAssemblyManifest> { new CountingTestAssemblyManifest(callCounters, asyncService, true) };
-            var dispatcher = new MessageDispatcher(null);
+            var dispatcher = new ServiceMessageDispatcher(null);
 
             using var _ = new ServiceHost(serviceProvider, null, dispatcher, serviceAssemblies);
             

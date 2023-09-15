@@ -79,8 +79,8 @@ namespace SAF.Messaging.Cde
                 _ = sp.GetRequiredService<CdeApplication>();
 
                 var engines = TheThingRegistry.GetBaseEngines(false);
-                var engine = engines.FirstOrDefault(e => e.GetEngineName() == InfrastructureEngine);
-                if (engine != null) return engine.GetBaseThing();
+                var engine = engines.Find(e => e.GetEngineName() == InfrastructureEngine);
+                if (engine != default(IBaseEngine)) return engine.GetBaseThing();
 
                 if(!TheCDEngines.RegisterNewMiniRelay(InfrastructureEngine))
                     throw new InvalidOperationException("Failed to register CDE infrastructure engine");

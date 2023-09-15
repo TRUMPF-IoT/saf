@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: 2017-2020 TRUMPF Laser GmbH
+// SPDX-FileCopyrightText: 2017-2023 TRUMPF Laser GmbH
 //
 // SPDX-License-Identifier: MPL-2.0
 
@@ -9,44 +9,51 @@ using SAF.Toolbox.Serialization;
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Threading;
+using System.Threading.Tasks;
+using IHostedService = Microsoft.Extensions.Hosting.IHostedService;
 
-namespace SAF.Hosting.Diagnostics
+namespace SAF.Hosting.Diagnostics;
+
+internal class ServiceHostDiagnostics : IHostedService
 {
-    internal class ServiceHostDiagnostics
+    private readonly ILogger<ServiceHostDiagnostics> _log;
+    private readonly IEnumerable<IServiceAssemblyManifest> _serviceAssemblies;
+    private readonly IHostInfo _hostInfo;
+
+    public ServiceHostDiagnostics(ILogger<ServiceHostDiagnostics> log,
+        IEnumerable<IServiceAssemblyManifest> serviceAssemblies,
+        IHostInfo hostInfo)
     {
-        private readonly ILogger<ServiceHostDiagnostics> _log;
-        private readonly IEnumerable<IServiceAssemblyManifest> _serviceAssemblies;
-        private readonly IHostInfo _hostInfo;
+        _log = log ?? NullLogger<ServiceHostDiagnostics>.Instance;
+        _serviceAssemblies = serviceAssemblies;
+        _hostInfo = hostInfo;
+    }
 
-        public ServiceHostDiagnostics(ILogger<ServiceHostDiagnostics> log,
-            IEnumerable<IServiceAssemblyManifest> serviceAssemblies,
-            IHostInfo hostInfo)
+    public Task StartAsync(CancellationToken cancellationToken)
+        => Task.Run(CollectAndSaveDiagnostics, cancellationToken);
+
+    public Task StopAsync(CancellationToken cancellationToken) => Task.CompletedTask;
+
+    private void CollectAndSaveDiagnostics()
+    {
+        try
         {
-            _log = log ?? NullLogger<ServiceHostDiagnostics>.Instance;
-            _serviceAssemblies = serviceAssemblies;
-            _hostInfo = hostInfo;
+            var nodeInfo = new SafNodeInfo(_hostInfo, _serviceAssemblies);
+
+            var targetDir = Path.Combine(_hostInfo.FileSystemUserBasePath, "diagnostics");
+            if (!Directory.Exists(targetDir)) Directory.CreateDirectory(targetDir);
+
+            var file = $"SafServiceHost_{_hostInfo.Id}.json";
+            var targetFile = Path.Combine(targetDir, file);
+            if (File.Exists(targetFile)) File.Delete(targetFile);
+
+            var serializedInfo = JsonSerializer.Serialize(nodeInfo);
+            File.WriteAllText(targetFile, serializedInfo);
         }
-
-        internal void StartDiagnostic()
+        catch (Exception ex)
         {
-            try
-            {
-                var nodeInfo = new SafNodeInfo(_hostInfo, _serviceAssemblies);
-
-                var targetDir = Path.Combine(_hostInfo.FileSystemUserBasePath, "diagnostics");
-                if(!Directory.Exists(targetDir)) Directory.CreateDirectory(targetDir);
-
-                var file = $"SafServiceHost_{_hostInfo.Id}.json";
-                var targetFile = Path.Combine(targetDir, file);
-                if(File.Exists(targetFile)) File.Delete(targetFile);
-
-                var serializedInfo = JsonSerializer.Serialize(nodeInfo);
-                File.WriteAllText(targetFile, serializedInfo);
-            }
-            catch(Exception ex)
-            {
-                _log.LogError(ex, $"Failed to collect and save service host diagnostic information!");
-            }
+            _log.LogError(ex, "Failed to collect and save service host diagnostic information!");
         }
     }
 }

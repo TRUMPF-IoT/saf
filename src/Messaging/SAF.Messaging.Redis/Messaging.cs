@@ -48,16 +48,16 @@ namespace SAF.Messaging.Redis
             try
             {
                 var redisPayload = JsonSerializer.Serialize(new RedisMessage {Message = message, Version = RedisMessageVersion.Latest});
-                _redis.GetSubscriber()?.Publish(message.Topic, redisPayload, CommandFlags.FireAndForget);
+                _redis.GetSubscriber().Publish(message.Topic, redisPayload, CommandFlags.FireAndForget);
             }
             catch (NullReferenceException nre)
             {
-                // catched in case the DI container disposed ConnectionMultiplexer in parallel
+                // catch in case the DI container disposed ConnectionMultiplexer in parallel
                 _log.LogWarning(nre, $"Handled NullReferenceException while publishing message {message.Topic}");
             }
             catch (ObjectDisposedException ode)
             {
-                // catched in case the DI container disposed ConnectionMultiplexer already
+                // catch in case the DI container disposed ConnectionMultiplexer already
                 _log.LogInformation(ode, $"Handled ObjectDisposedException while publishing message {message.Topic}");
             }
         }

@@ -30,7 +30,4 @@ var host = Host.CreateDefaultBuilder(args)
     })
     .Build();
 
-host.Services
-    .UseServiceHostDiagnostics();
-
 await host.RunAsync();

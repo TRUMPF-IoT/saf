@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: 2017-2020 TRUMPF Laser GmbH
+// SPDX-FileCopyrightText: 2017-2023 TRUMPF Laser GmbH
 //
 // SPDX-License-Identifier: MPL-2.0
 
@@ -11,12 +11,12 @@ using SAF.Common;
 
 namespace SAF.Hosting
 {
-    public class MessageDispatcher : IServiceMessageDispatcher
+    public class ServiceMessageDispatcher : IServiceMessageDispatcher
     {
         private readonly Dictionary<string, Func<IMessageHandler>> _messageHandlerProviders = new();
         private readonly ILogger _log;
 
-        public MessageDispatcher(ILogger<MessageDispatcher> log)
+        public ServiceMessageDispatcher(ILogger<ServiceMessageDispatcher> log)
         {
             _log = log as ILogger ?? NullLogger.Instance;
         }

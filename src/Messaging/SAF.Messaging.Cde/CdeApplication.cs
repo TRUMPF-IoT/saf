@@ -16,7 +16,7 @@ using System.Threading.Tasks;
 
 namespace SAF.Messaging.Cde
 {
-    internal class CdeApplication : IDisposable
+    internal sealed class CdeApplication : IDisposable
     {
         private readonly ILogger<CdeApplication> _log;
         private readonly CdeConfiguration _config;

@@ -47,36 +47,43 @@ public sealed class ServiceHost : Microsoft.Extensions.Hosting.IHostedService, I
         _configuration = _runtimeApplicationServiceProvider.GetService<IConfiguration>();
         _environment = BuildServiceHostEnvironment();
         _context = BuildServiceHostContext();
+    }
+
+    public Task StartAsync(CancellationToken cancellationToken)
+        => Task.Run(async () =>
+        {
+            var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+            try
+            {
+                await StartInternalAsync(cancellationToken);
+            }
+            catch (TaskCanceledException)
+            {
+                // intentionally ignored
+            }
+            catch (OperationCanceledException)
+            {
+                // intentionally ignored
+            }
+            finally
+            {
+                linkedCts.Dispose();
+            }
+        }, cancellationToken);
+
+    private async Task StartInternalAsync(CancellationToken token)
+    {
+        var stopWatch = new Stopwatch();
+        stopWatch.Start();
 
         InitializeServices();
         AddRuntimeMessageHandlersToDispatcher();
-    }
 
-    public async Task StartAsync(CancellationToken cancellationToken)
-    {
-        var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
-        try
-        {
-            var stopWatch = new Stopwatch();
-            stopWatch.Start();
+        await StartServicesAsync(_services, token);
 
-            await StartServicesAsync(_services, linkedCts.Token);
+        stopWatch.Stop();
 
-            stopWatch.Stop();
-            _log.LogInformation($"Starting all services took {stopWatch.Elapsed.TotalMilliseconds * 1000000:N0} ns");
-        }
-        catch (TaskCanceledException)
-        {
-            // intentionally ignored
-        }
-        catch (OperationCanceledException)
-        {
-            // intentionally ignored
-        }
-        finally
-        {
-            linkedCts.Dispose();
-        }
+        _log.LogInformation($"Starting all services took {stopWatch.Elapsed.TotalMilliseconds * 1000000:N0} ns");
     }
 
     public async Task StopAsync(CancellationToken cancellationToken)

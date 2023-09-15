@@ -18,7 +18,7 @@ namespace SAF.Messaging.InProcess.Tests
         [Fact]
         public async Task ExactMatchHits()
         {
-            var dispatcher = new MessageDispatcher(NullLogger<MessageDispatcher>.Instance);
+            var dispatcher = new ServiceMessageDispatcher(NullLogger<ServiceMessageDispatcher>.Instance);
             var sut = new InProcessMessaging(NullLogger<InProcessMessaging>.Instance, dispatcher);
             var hit = false;
 
@@ -32,7 +32,7 @@ namespace SAF.Messaging.InProcess.Tests
         [Fact]
         public async Task WildcardMatchHits()
         {
-            var dispatcher = new MessageDispatcher(NullLogger<MessageDispatcher>.Instance);
+            var dispatcher = new ServiceMessageDispatcher(NullLogger<ServiceMessageDispatcher>.Instance);
             var sut = new InProcessMessaging(NullLogger<InProcessMessaging>.Instance, dispatcher);
             var hit = false;
 
@@ -46,7 +46,7 @@ namespace SAF.Messaging.InProcess.Tests
         [Fact]
         public async Task PublishDoesntBlock()
         {
-            var dispatcher = new MessageDispatcher(NullLogger<MessageDispatcher>.Instance);
+            var dispatcher = new ServiceMessageDispatcher(NullLogger<ServiceMessageDispatcher>.Instance);
             var sut = new InProcessMessaging(NullLogger<InProcessMessaging>.Instance, dispatcher);
             var subscriptionHit = DateTimeOffset.MinValue;
 
