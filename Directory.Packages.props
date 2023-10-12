@@ -33,7 +33,7 @@ SPDX-License-Identifier: MPL-2.0
     <PackageVersion Include="System.Data.SQLite.Core" Version="1.0.118" />
     <PackageVersion Include="System.IO.Abstractions" Version="19.2.69" />
     <PackageVersion Include="System.Text.Json" Version="7.0.3" />
-    <PackageVersion Include="xunit" Version="2.5.0" />
-    <PackageVersion Include="xunit.runner.visualstudio" Version="2.5.0" />
+    <PackageVersion Include="xunit" Version="2.5.1" />
+    <PackageVersion Include="xunit.runner.visualstudio" Version="2.5.1" />
   </ItemGroup>
 </Project>

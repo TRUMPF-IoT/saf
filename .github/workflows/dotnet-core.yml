@@ -53,12 +53,12 @@ jobs:
       uses: actions/cache@v1
       with:
         path: ~/.nuget/packages
-        key: ${{ runner.os }}-nuget-${{ hashFiles('**/packages.lock.json') }}
+        key: ${{ runner.os }}-nuget-${{ hashFiles('Directory.Packages.props') }}
         restore-keys: |
           ${{ runner.os }}-nuget-
       
     - name: Install dependencies
-      run: dotnet restore './src/SmartApplicationFramework.sln' --locked-mode
+      run: dotnet restore './src/SmartApplicationFramework.sln'
       
     - name: Cache SonarCloud packages
       uses: actions/cache@v1
