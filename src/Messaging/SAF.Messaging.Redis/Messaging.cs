@@ -25,7 +25,7 @@ namespace SAF.Messaging.Redis
         public Message Message { get; set; }
     }
 
-    internal class Messaging : IRedisMessagingInfrastructure, IDisposable
+    internal sealed class Messaging : IRedisMessagingInfrastructure, IDisposable
     {
         private readonly IConnectionMultiplexer _redis;
         private readonly IServiceMessageDispatcher _serviceMessageDispatcher;
@@ -48,7 +48,7 @@ namespace SAF.Messaging.Redis
             try
             {
                 var redisPayload = JsonSerializer.Serialize(new RedisMessage {Message = message, Version = RedisMessageVersion.Latest});
-                _redis.GetSubscriber().Publish(message.Topic, redisPayload, CommandFlags.FireAndForget);
+                _redis.GetSubscriber().Publish(RedisChannel.Literal(message.Topic), redisPayload, CommandFlags.FireAndForget);
             }
             catch (NullReferenceException nre)
             {
@@ -123,16 +123,16 @@ namespace SAF.Messaging.Redis
 
             try
             {
-                _redis.GetSubscriber()?.Unsubscribe(storedSubscription.routeFilterPattern, storedSubscription.handler);
+                _redis.GetSubscriber().Unsubscribe(RedisChannel.Pattern(storedSubscription.routeFilterPattern), storedSubscription.handler);
             }
             catch (NullReferenceException nre)
             {
-                // catched in case the DI container disposed ConnectionMultiplexer in parallel
+                // catch in case the DI container disposed ConnectionMultiplexer in parallel
                 _log.LogWarning(nre, $"Handled NullReferenceException while unsubscribing pattern {storedSubscription.routeFilterPattern}");
             }
             catch (ObjectDisposedException ode)
             {
-                // catched in case the DI container disposed ConnectionMultiplexer already
+                // catch in case the DI container disposed ConnectionMultiplexer already
                 _log.LogInformation(ode, $"Handled ObjectDisposedException while unsubscribing pattern {storedSubscription.routeFilterPattern}");
             }
 
@@ -170,18 +170,18 @@ namespace SAF.Messaging.Redis
                 }
 
                 var subscriptionId = Guid.NewGuid();
-                _redis.GetSubscriber()?.Subscribe(routeFilterPattern, InternalHandler);
+                _redis.GetSubscriber().Subscribe(RedisChannel.Pattern(routeFilterPattern), InternalHandler);
                 _subscriptions.TryAdd(subscriptionId, (routeFilterPattern, InternalHandler));
                 return subscriptionId;
             }
             catch (NullReferenceException nre)
             {
-                // catched in case the DI container disposed ConnectionMultiplexer in parallel
+                // catch in case the DI container disposed ConnectionMultiplexer in parallel
                 _log.LogWarning(nre, $"Handled NullReferenceException while subscribing pattern {routeFilterPattern}");
             }
             catch (ObjectDisposedException ode)
             {
-                // catched in case the DI container disposed ConnectionMultiplexer already
+                // catch in case the DI container disposed ConnectionMultiplexer already
                 _log.LogInformation(ode, $"Handled ObjectDisposedException while subscribing pattern {routeFilterPattern}");
             }
 
