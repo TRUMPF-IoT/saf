@@ -46,7 +46,7 @@ namespace SAF.Communication.Cde.ConnectionTypes
             _subscriptions.Add(topic);
 
             var engines = TheThingRegistry.GetBaseEngines(false);
-            var myEngine = engines.FirstOrDefault(e => e.GetEngineName() == topic);
+            var myEngine = engines.Find(e => e.GetEngineName() == topic);
 
             var baseEngine = myEngine?.GetBaseEngine();
             if(baseEngine == null)

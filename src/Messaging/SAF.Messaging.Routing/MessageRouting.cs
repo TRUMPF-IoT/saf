@@ -83,7 +83,7 @@ namespace SAF.Messaging.Routing
 
         private bool MessageNeedsPublication(string messageTopic)
         {
-            return PublishPatterns == null || PublishPatterns.Length == 0 || PublishPatterns.Any(messageTopic.IsMatch);
+            return PublishPatterns == null || PublishPatterns.Length == 0 || Array.Exists(PublishPatterns, messageTopic.IsMatch);
         }
 
         private IEnumerable<string> DetermineSubscriptionPatterns(string routeFilterPattern)

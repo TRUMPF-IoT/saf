@@ -23,7 +23,7 @@ namespace SAF.Messaging.Routing
         }
     }
 
-    internal class Messaging : IRoutingMessagingInfrastructure
+    internal sealed class Messaging : IRoutingMessagingInfrastructure
     {
         private readonly ILogger<Messaging> _log;
         private readonly IMessageRouting[] _messageRoutings;

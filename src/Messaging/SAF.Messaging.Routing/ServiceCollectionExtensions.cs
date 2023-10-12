@@ -109,12 +109,12 @@ namespace SAF.Messaging.Routing
             var serviceMatcher = new Matcher();
             foreach (var pattern in searchPath.Split(';'))
             {
-                if (pattern.StartsWith("|")) serviceMatcher.AddExclude(pattern.Substring(1));
+                if (pattern.StartsWith('|')) serviceMatcher.AddExclude(pattern[1..]);
                 else serviceMatcher.AddInclude(pattern);
             }
             IList<string> results = serviceMatcher.GetResultsInFullPath(basePath).ToList();
 
-            var serviceAssemblyNameRegEx = new Regex(fileNameFilterRegEx, RegexOptions.IgnoreCase);
+            var serviceAssemblyNameRegEx = new Regex(fileNameFilterRegEx, RegexOptions.IgnoreCase, TimeSpan.FromSeconds(30));
             results = results.Where(r => serviceAssemblyNameRegEx.IsMatch(Path.GetFileName(r))).ToList();
 
             return results;
