@@ -94,7 +94,7 @@ namespace SAF.Messaging.Routing
             }
             else
             {
-                if (SubscriptionPatterns.Any(routeFilterPattern.IsMatch))
+                if (Array.Exists(SubscriptionPatterns, routeFilterPattern.IsMatch))
                     yield return routeFilterPattern;
 
                 // in case routeFilterPattern starts with '*', probably all SubscriptionPatterns ending with '*' may match

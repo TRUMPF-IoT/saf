@@ -52,26 +52,8 @@ namespace SAF.Messaging.Cde
 
                 TheScopeManager.SetApplicationID(config.ApplicationId);
 
-                TheBaseAssets.MyServiceHostInfo = new TheServiceHostInfo(cdeHostType.Application)
-                {
-                    Title = config.ApplicationTitle,
-                    ApplicationName = config.ApplicationName,
-                    ApplicationTitle = config.PortalTitle,
-                    DebugLevel = GetDebugLevel(config.DebugLevel, eDEBUG_LEVELS.ESSENTIALS),
-                    MyStationPort = config.HttpPort,
-                    MyStationWSPort = config.WsPort,
-                    cdeMID = TheCommonUtils.CGuid(config.StorageId),
-                    FailOnAdminCheck = config.FailOnAdminCheck,
-                    CloudServiceRoute = config.CloudServiceRoutes,
-                    LocalServiceRoute = config.LocalServiceRoutes,
-                    IsCloudService = config.IsCloudService,
-                    ISMMainExecutable = Assembly.GetEntryAssembly()?.GetName().Name,
-                    CurrentVersion = config.ApplicationVersion,
-                    AllowLocalHost = config.AllowLocalHost,
-                    PreShutDownDelay = config.PreShutdownDelay
-                };
+                InitializeServiceHostInfo(config);
 
-                TheBaseAssets.MyServiceHostInfo.IgnoredEngines.AddRange(config.LogIgnore.Split(';'));
                 IDictionary<string, string> arguments = new Dictionary<string, string>
                 {
                     { "DontVerifyTrust", $"{config.DontVerifyTrust}" },
@@ -111,6 +93,31 @@ namespace SAF.Messaging.Cde
                 throw;
             }
         }
+
+        private static void InitializeServiceHostInfo(CdeConfiguration config)
+        {
+            TheBaseAssets.MyServiceHostInfo = new TheServiceHostInfo(cdeHostType.Application)
+            {
+                Title = config.ApplicationTitle,
+                ApplicationName = config.ApplicationName,
+                ApplicationTitle = config.PortalTitle,
+                DebugLevel = GetDebugLevel(config.DebugLevel, eDEBUG_LEVELS.ESSENTIALS),
+                MyStationPort = config.HttpPort,
+                MyStationWSPort = config.WsPort,
+                cdeMID = TheCommonUtils.CGuid(config.StorageId),
+                FailOnAdminCheck = config.FailOnAdminCheck,
+                CloudServiceRoute = config.CloudServiceRoutes,
+                LocalServiceRoute = config.LocalServiceRoutes,
+                IsCloudService = config.IsCloudService,
+                ISMMainExecutable = Assembly.GetEntryAssembly()?.GetName().Name,
+                CurrentVersion = config.ApplicationVersion,
+                AllowLocalHost = config.AllowLocalHost,
+                PreShutDownDelay = config.PreShutdownDelay
+            };
+
+            TheBaseAssets.MyServiceHostInfo.IgnoredEngines.AddRange(config.LogIgnore.Split(';'));
+        }
+
 
         private void LoadAlternateCryptoLib(CdeCryptoLibConfig cryptoLibConfig)
         {

@@ -13,191 +13,190 @@ using Microsoft.Extensions.Logging.Abstractions;
 using SAF.Common;
 using SAF.Communication.PubSub;
 
-namespace SAF.Messaging.InProcess
+namespace SAF.Messaging.InProcess;
+
+internal class InProcessMessaging : IInProcessMessagingInfrastructure
 {
-    internal class InProcessMessaging : IInProcessMessagingInfrastructure
+    private readonly ILogger<InProcessMessaging> _log;
+    private readonly IServiceMessageDispatcher _messageDispatcher;
+    private readonly Action<Message> _traceAction;
+
+    private readonly ReaderWriterLockSlim _syncSubscriptionsByType = new(LockRecursionPolicy.SupportsRecursion);
+    private readonly Dictionary<string, List<string>> _subscriptionsByType = new();
+
+    private readonly ReaderWriterLockSlim _syncSubscriptionsByLambda = new(LockRecursionPolicy.SupportsRecursion);
+    private readonly Dictionary<string, List<Action<Message>>> _subscriptionsByLambda = new();
+
+    private const string MessagingKeySeparator = "###########";
+
+    public InProcessMessaging(ILogger<InProcessMessaging> log, IServiceMessageDispatcher messageDispatcher, Action<Message> traceAction = null)
     {
-        private readonly ILogger<InProcessMessaging> _log;
-        private readonly IServiceMessageDispatcher _messageDispatcher;
-        private readonly Action<Message> _traceAction;
-
-        private readonly ReaderWriterLockSlim _syncSubscriptionsByType = new(LockRecursionPolicy.SupportsRecursion);
-        private readonly Dictionary<string, List<string>> _subscriptionsByType = new();
-
-        private readonly ReaderWriterLockSlim _syncSubscriptionsByLambda = new(LockRecursionPolicy.SupportsRecursion);
-        private readonly Dictionary<string, List<Action<Message>>> _subscriptionsByLambda = new();
-
-        private const string MessagingKeySeparator = "###########";
-
-        public InProcessMessaging(ILogger<InProcessMessaging> log, IServiceMessageDispatcher messageDispatcher, Action<Message> traceAction = null)
-        {
-            _log = log ?? NullLogger<InProcessMessaging>.Instance;
-            _messageDispatcher = messageDispatcher;
-            _traceAction = traceAction;
-        }
+        _log = log ?? NullLogger<InProcessMessaging>.Instance;
+        _messageDispatcher = messageDispatcher;
+        _traceAction = traceAction;
+    }
         
-        public object Subscribe<TMessageHandler>() where TMessageHandler : IMessageHandler
-            => Subscribe<TMessageHandler>("*");
+    public object Subscribe<TMessageHandler>() where TMessageHandler : IMessageHandler
+        => Subscribe<TMessageHandler>("*");
 
-        public object Subscribe(Action<Message> handler)
-            => Subscribe("*", handler);
+    public object Subscribe(Action<Message> handler)
+        => Subscribe("*", handler);
         
-        public void Publish(Message message)
+    public object Subscribe<TMessageHandler>(string routeFilterPattern) where TMessageHandler : IMessageHandler
+    {
+        var handlerType = typeof(TMessageHandler);
+        _log.LogDebug($"Subscribe {handlerType} to {routeFilterPattern}");
+
+        _syncSubscriptionsByType.EnterWriteLock();
+        try
         {
-            _log.LogDebug($"Publish to {message.Topic}");
-            _traceAction?.Invoke(message);
-
-            var subscriptionsToRun = new List<Func<Task>>();
-
-            _syncSubscriptionsByType.EnterReadLock();
-            try
+            if (_subscriptionsByType.ContainsKey(routeFilterPattern))
             {
-                foreach (var kvp in _subscriptionsByType)
-                {
-                    if (!message.Topic.IsMatch(kvp.Key))
-                        continue;
-
-                    foreach (var handlerTypeName in kvp.Value)
-                        subscriptionsToRun.Add(PrepareTaskWithErrorHandler(handlerTypeName, () => _messageDispatcher.DispatchMessage(handlerTypeName, message)));
-                }
+                _subscriptionsByType[routeFilterPattern].Add(typeof(TMessageHandler).FullName);
             }
-            finally
+            else
             {
-                _syncSubscriptionsByType.ExitReadLock();
+                _subscriptionsByType.Add(routeFilterPattern, new List<string> { typeof(TMessageHandler).FullName });
             }
-
-            _syncSubscriptionsByLambda.EnterReadLock();
-            try
-            {
-                foreach (var kvp in _subscriptionsByLambda)
-                {
-                    if (!message.Topic.IsMatch(kvp.Key)) 
-                        continue;
-
-                    foreach (var action in _subscriptionsByLambda[kvp.Key])
-                        subscriptionsToRun.Add(PrepareTaskWithErrorHandler("<Lambda>", () => _messageDispatcher.DispatchMessage(action, message)));
-                }
-            }
-            finally
-            {
-                _syncSubscriptionsByLambda.ExitReadLock();
-            }
-
-            _ = Task.WhenAll(subscriptionsToRun.Select(t => t()))
-                .ContinueWith(t => _log.LogTrace("Finished invoking {0} handlers.", subscriptionsToRun.Count));
+        }
+        finally
+        {
+            _syncSubscriptionsByType.ExitWriteLock();
         }
 
-        private Func<Task> PrepareTaskWithErrorHandler(string handlerName, Action action) 
-            => () => Task.Run(action).ContinueWith(t =>
-               {
-                   _log.LogError(t.Exception, "Error while executing subscription handler {0}.", handlerName);
+        return $"{handlerType}{MessagingKeySeparator}{routeFilterPattern}";
+    }
 
-                   if (Debugger.IsAttached)
-                       Debugger.Break();
+    public object Subscribe(string routeFilterPattern, Action<Message> handler)
+    {
+        _log.LogDebug($"Subscribe lambda to {routeFilterPattern}");
 
-               }, TaskContinuationOptions.NotOnRanToCompletion);
-
-        public object Subscribe<TMessageHandler>(string routeFilterPattern) where TMessageHandler : IMessageHandler
+        _syncSubscriptionsByLambda.EnterWriteLock();
+        try
         {
-            var handlerType = typeof(TMessageHandler);
-            _log.LogDebug($"Subscribe {handlerType} to {routeFilterPattern}");
-
-            _syncSubscriptionsByType.EnterWriteLock();
-            try
+            if (_subscriptionsByLambda.ContainsKey(routeFilterPattern))
             {
-                if (_subscriptionsByType.ContainsKey(routeFilterPattern))
-                {
-                    _subscriptionsByType[routeFilterPattern].Add(typeof(TMessageHandler).FullName);
-                }
-                else
-                {
-                    _subscriptionsByType.Add(routeFilterPattern, new List<string> { typeof(TMessageHandler).FullName });
-                }
+                _subscriptionsByLambda[routeFilterPattern].Add(handler);
             }
-            finally
+            else
             {
-                _syncSubscriptionsByType.ExitWriteLock();
+                _subscriptionsByLambda.Add(routeFilterPattern, new List<Action<Message>> { handler });
             }
-
-            return $"{handlerType}{MessagingKeySeparator}{routeFilterPattern}";
+        }
+        finally
+        {
+            _syncSubscriptionsByLambda.ExitWriteLock();
         }
 
-        public object Subscribe(string routeFilterPattern, Action<Message> handler)
+        return $"{handler.GetHashCode()}{MessagingKeySeparator}{routeFilterPattern}";
+    }
+
+    public void Publish(Message message)
+    {
+        _log.LogDebug($"Publish to {message.Topic}");
+        _traceAction?.Invoke(message);
+
+        var subscriptionsToRun = new List<Func<Task>>();
+
+        _syncSubscriptionsByType.EnterReadLock();
+        try
         {
-            _log.LogDebug($"Subscribe lambda to {routeFilterPattern}");
-
-            _syncSubscriptionsByLambda.EnterWriteLock();
-            try
+            foreach (var kvp in _subscriptionsByType)
             {
-                if (_subscriptionsByLambda.ContainsKey(routeFilterPattern))
-                {
-                    _subscriptionsByLambda[routeFilterPattern].Add(handler);
-                }
-                else
-                {
-                    _subscriptionsByLambda.Add(routeFilterPattern, new List<Action<Message>> { handler });
-                }
-            }
-            finally
-            {
-                _syncSubscriptionsByLambda.ExitWriteLock();
-            }
+                if (!message.Topic.IsMatch(kvp.Key))
+                    continue;
 
-            return $"{handler.GetHashCode()}{MessagingKeySeparator}{routeFilterPattern}";
+                foreach (var handlerTypeName in kvp.Value)
+                    subscriptionsToRun.Add(PrepareTaskWithErrorHandler(handlerTypeName, () => _messageDispatcher.DispatchMessage(handlerTypeName, message)));
+            }
+        }
+        finally
+        {
+            _syncSubscriptionsByType.ExitReadLock();
         }
 
-        public void Unsubscribe(object subscription)
+        _syncSubscriptionsByLambda.EnterReadLock();
+        try
         {
-            if (!(subscription is string subscriptionKey) || string.IsNullOrWhiteSpace(subscriptionKey))
-                return;
-
-            var kvp = subscriptionKey.Split(new[] { MessagingKeySeparator }, StringSplitOptions.RemoveEmptyEntries);
-
-            if (kvp.Length != 2)
-                return;
-
-            var handlerType = kvp[0];
-            var routeFilterPattern = kvp[1];
-
-            _syncSubscriptionsByLambda.EnterWriteLock();
-            try
+            foreach (var subscriptionTopic in _subscriptionsByLambda.Select(kvp => kvp.Key))
             {
-                if (_subscriptionsByLambda.TryGetValue(routeFilterPattern, out var handlers))
-                {
-                    var toBeRemoved = handlers.Where(h => $"{h.GetHashCode()}" == handlerType).ToArray();
-                    foreach (var action in toBeRemoved)
-                    {
-                        handlers.Remove(action);
-                    }
+                if (!message.Topic.IsMatch(subscriptionTopic))
+                    continue;
 
-                    if (handlers.Count == 0)
-                    {
-                        _subscriptionsByLambda.Remove(routeFilterPattern);
-                    }
+                foreach (var action in _subscriptionsByLambda[subscriptionTopic])
+                    subscriptionsToRun.Add(PrepareTaskWithErrorHandler("<Lambda>", () => _messageDispatcher.DispatchMessage(action, message)));
+            }
+        }
+        finally
+        {
+            _syncSubscriptionsByLambda.ExitReadLock();
+        }
+
+        _ = Task.WhenAll(subscriptionsToRun.Select(t => t()))
+            .ContinueWith(t => _log.LogTrace("Finished invoking {0} handlers.", subscriptionsToRun.Count));
+    }
+
+    public void Unsubscribe(object subscription)
+    {
+        if (!(subscription is string subscriptionKey) || string.IsNullOrWhiteSpace(subscriptionKey))
+            return;
+
+        var kvp = subscriptionKey.Split(new[] { MessagingKeySeparator }, StringSplitOptions.RemoveEmptyEntries);
+
+        if (kvp.Length != 2)
+            return;
+
+        var handlerType = kvp[0];
+        var routeFilterPattern = kvp[1];
+
+        _syncSubscriptionsByLambda.EnterWriteLock();
+        try
+        {
+            if (_subscriptionsByLambda.TryGetValue(routeFilterPattern, out var handlers))
+            {
+                var toBeRemoved = handlers.Where(h => $"{h.GetHashCode()}" == handlerType).ToArray();
+                foreach (var action in toBeRemoved)
+                {
+                    handlers.Remove(action);
+                }
+
+                if (handlers.Count == 0)
+                {
+                    _subscriptionsByLambda.Remove(routeFilterPattern);
                 }
             }
-            finally
-            {
-                _syncSubscriptionsByLambda.ExitWriteLock();
-            }
+        }
+        finally
+        {
+            _syncSubscriptionsByLambda.ExitWriteLock();
+        }
 
-            _syncSubscriptionsByType.EnterWriteLock();
-            try
+        _syncSubscriptionsByType.EnterWriteLock();
+        try
+        {
+            if (_subscriptionsByType.TryGetValue(routeFilterPattern, out var handlerTypes))
             {
-                if (_subscriptionsByType.TryGetValue(routeFilterPattern, out var handlerTypes))
+                handlerTypes.Remove(handlerType);
+
+                if (handlerTypes.Count == 0)
                 {
-                    handlerTypes.Remove(handlerType);
-
-                    if (handlerTypes.Count == 0)
-                    {
-                        _subscriptionsByLambda.Remove(routeFilterPattern);
-                    }
+                    _subscriptionsByLambda.Remove(routeFilterPattern);
                 }
             }
-            finally
-            {
-                _syncSubscriptionsByType.ExitWriteLock();
-            }
+        }
+        finally
+        {
+            _syncSubscriptionsByType.ExitWriteLock();
         }
     }
+
+    private Func<Task> PrepareTaskWithErrorHandler(string handlerName, Action action)
+        => () => Task.Run(action).ContinueWith(t =>
+        {
+            _log.LogError(t.Exception, "Error while executing subscription handler {0}.", handlerName);
+
+            if (Debugger.IsAttached)
+                Debugger.Break();
+
+        }, TaskContinuationOptions.NotOnRanToCompletion);
 }

@@ -242,12 +242,15 @@ public sealed class ServiceHost : Microsoft.Extensions.Hosting.IHostedService, I
             _services.AddRange(servicesToAdd);
 
             var messageHandlerType = typeof(IMessageHandler);
-            foreach(var messageHandlerRegistration in assemblyServiceCollection.Where(s => messageHandlerType.IsAssignableFrom(s.ServiceType)))
+            foreach (var messageHandlerServiceType in assemblyServiceCollection
+                         .Where(s => messageHandlerType.IsAssignableFrom(s.ServiceType))
+                         .Select(s => s.ServiceType))
             {
                 // keep a reference to the providing service provider within the dispatcher for every registered message handler
-                _log.LogDebug($"Add message handler factory function to dispatcher: {messageHandlerRegistration.ServiceType.FullName}.");
-                _messageDispatcher.AddHandler(messageHandlerRegistration.ServiceType.FullName,
-                    () => (IMessageHandler) assemblyServiceProvider.GetRequiredService(messageHandlerRegistration.ServiceType));
+                _log.LogDebug(
+                    $"Add message handler factory function to dispatcher: {messageHandlerServiceType.FullName}.");
+                _messageDispatcher.AddHandler(messageHandlerServiceType.FullName!,
+                    () => (IMessageHandler) assemblyServiceProvider.GetRequiredService(messageHandlerServiceType));
             }
         }
     }

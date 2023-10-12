@@ -11,7 +11,7 @@ using SAF.Common;
 
 namespace SAF.Messaging.Routing
 {
-    internal class RoutingSubscription : IDisposable
+    internal sealed class RoutingSubscription : IDisposable
     {
         public IList<IDisposable> Subscriptions { get; } =
             new List<IDisposable>();
