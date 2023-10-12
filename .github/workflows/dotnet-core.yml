@@ -24,22 +24,25 @@ jobs:
 
     - name: Checkout
       uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
     
-    #- name: Setup Python
-    #  uses: actions/setup-python@v4
-    #  with:
-    #    python-version: '3.x'
+    - name: Setup Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.x'
+        cache: 'pip'
+        cache-dependency-path: '.reuse/requirements.txt'
     
-    #- name: Install REUSE
-    #  run: |
-    #    python -m pip install --upgrade pip
-    #    pip install python-debian==0.1.38
-    #    pip install reuse
+    - name: Install REUSE
+      run: |
+        python -m pip install --upgrade pip
+        pip install python-debian==0.1.38
+        pip install reuse
         
     - name: REUSE Compliance Check
-    #  run: |
-    #    reuse lint
-      uses: fsfe/reuse-action@v2
+      run: |
+        reuse lint
         
     - name: Setup .NET
       uses: actions/setup-dotnet@v3
@@ -91,7 +94,7 @@ jobs:
         SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
       shell: powershell
       run: |
-        .\.tools\sonarscanner\dotnet-sonarscanner begin /k:"TRUMPF-IoT_saf" /o:"trumpf-iot" /d:sonar.login="${{ secrets.SONAR_TOKEN }}" /d:sonar.host.url="https://sonarcloud.io" /d:sonar.dotnet.excludeTestProjects=true /d:sonar.cs.vscoveragexml.reportsPaths=coverage.xml
+        .\.tools\sonarscanner\dotnet-sonarscanner begin /k:"TRUMPF-IoT_saf" /o:"trumpf-iot" /d:sonar.token="${{ secrets.SONAR_TOKEN }}" /d:sonar.host.url="https://sonarcloud.io" /d:sonar.dotnet.excludeTestProjects=true /d:sonar.cs.vscoveragexml.reportsPaths=coverage.xml
         dotnet build './src/SmartApplicationFramework.sln' --configuration Release --no-restore
         .\.tools\coverage\dotnet-coverage collect -f xml -o coverage.xml 'dotnet test ./src/SmartApplicationFramework.sln --configuration Release --no-build --no-restore --verbosity normal'
         .\.tools\sonarscanner\dotnet-sonarscanner end /d:sonar.login="${{ secrets.SONAR_TOKEN }}"
