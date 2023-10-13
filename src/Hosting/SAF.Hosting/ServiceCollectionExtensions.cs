@@ -10,6 +10,7 @@ using System.Linq;
 using System.Reflection;
 using System.Runtime.CompilerServices;
 using System.Text.RegularExpressions;
+using System.Threading;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.FileSystemGlobbing;
@@ -117,7 +118,7 @@ public static class ServiceCollectionExtensions
         IList<string> results = serviceMatcher.GetResultsInFullPath(basePath).ToList();
 
         // Filter assemblies using RegEx
-        var serviceAssemblyNameRegEx = new Regex(fileNameFilterRegEx, RegexOptions.IgnoreCase);
+        var serviceAssemblyNameRegEx = new Regex(fileNameFilterRegEx, RegexOptions.IgnoreCase, Timeout.InfiniteTimeSpan);
         results = results.Where(assembly => serviceAssemblyNameRegEx.IsMatch(Path.GetFileName(assembly))).ToList();
 
         return results;
