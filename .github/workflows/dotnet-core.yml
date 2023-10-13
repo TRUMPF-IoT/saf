@@ -15,21 +15,25 @@ jobs:
     runs-on: windows-latest
 
     steps:
-    - name: Set up JDK 11
-      uses: actions/setup-java@v1
+    - name: Setup JDK
+      uses: actions/setup-java@v3
       with:
-        java-version: 1.11
+        distribution: 'temurin'
+        java-version: '17'
+        java-package: jdk
 
     - name: Checkout
-      uses: actions/checkout@v2
+      uses: actions/checkout@v4
       with:
         fetch-depth: 0
     
     - name: Setup Python
-      uses: actions/setup-python@v2
+      uses: actions/setup-python@v4
       with:
         python-version: '3.x'
-        
+        cache: 'pip'
+        cache-dependency-path: '.reuse/requirements.txt'
+    
     - name: Install REUSE
       run: |
         python -m pip install --upgrade pip
@@ -40,28 +44,21 @@ jobs:
       run: |
         reuse lint
         
-    - name: Run minver
-      id: minver
-      uses: thefringeninja/action-minver@2.0.0-preview1
-        
-    - name: Setup .NET 6.0
-      uses: actions/setup-dotnet@v1
+    - name: Setup .NET
+      uses: actions/setup-dotnet@v3
       with:
-        dotnet-version: '6.0.x'
+        dotnet-version: '7.x'
 
     - name: Cache nuget Packages
-      uses: actions/cache@v1
+      uses: actions/cache@v3
       with:
         path: ~/.nuget/packages
-        key: ${{ runner.os }}-nuget-${{ hashFiles('**/packages.lock.json') }}
+        key: ${{ runner.os }}-nuget-${{ hashFiles('Directory.Packages.props') }}
         restore-keys: |
           ${{ runner.os }}-nuget-
       
-    - name: Install dependencies
-      run: dotnet restore './src/SmartApplicationFramework.sln' --locked-mode
-      
     - name: Cache SonarCloud packages
-      uses: actions/cache@v1
+      uses: actions/cache@v3
       with:
         path: ~\sonar\cache
         key: ${{ runner.os }}-sonar
@@ -69,19 +66,27 @@ jobs:
 
     - name: Cache dotnet tools
       id: cache-dotnet-tools
-      uses: actions/cache@v1
+      uses: actions/cache@v3
       with:
         path: .\.tools
-        key: ${{ runner.os }}-dotnet-tools
-        restore-keys: ${{ runner.os }}-dotnet-tools
+        key: ${{ runner.os }}-dotnet-tools-${{ hashFiles('.\.tools\**\*') }}
+        restore-keys: ${{ runner.os }}-dotnet-tools-
 
     - name: Install dotnet tools
       if: steps.cache-dotnet-tools.outputs.cache-hit != 'true'
       shell: powershell
       run: |
         New-Item -Path .\.tools -ItemType Directory
+        dotnet tool update minver-cli --tool-path .\.tools\minver
         dotnet tool update dotnet-coverage --tool-path .\.tools\coverage
         dotnet tool update dotnet-sonarscanner --tool-path .\.tools\sonarscanner
+
+    - name: Run minver
+      id: minver
+      uses: thefringeninja/action-minver@2.0.0-preview1
+
+    - name: nuget restore
+      run: dotnet restore './src/SmartApplicationFramework.sln'
         
     - name: Build, test and analyze
       env:
@@ -89,7 +94,7 @@ jobs:
         SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
       shell: powershell
       run: |
-        .\.tools\sonarscanner\dotnet-sonarscanner begin /k:"TRUMPF-IoT_saf" /o:"trumpf-iot" /d:sonar.login="${{ secrets.SONAR_TOKEN }}" /d:sonar.host.url="https://sonarcloud.io" /d:sonar.dotnet.excludeTestProjects=true /d:sonar.cs.vscoveragexml.reportsPaths=coverage.xml
+        .\.tools\sonarscanner\dotnet-sonarscanner begin /k:"TRUMPF-IoT_saf" /o:"trumpf-iot" /d:sonar.token="${{ secrets.SONAR_TOKEN }}" /d:sonar.host.url="https://sonarcloud.io" /d:sonar.dotnet.excludeTestProjects=true /d:sonar.cs.vscoveragexml.reportsPaths=coverage.xml
         dotnet build './src/SmartApplicationFramework.sln' --configuration Release --no-restore
         .\.tools\coverage\dotnet-coverage collect -f xml -o coverage.xml 'dotnet test ./src/SmartApplicationFramework.sln --configuration Release --no-build --no-restore --verbosity normal'
         .\.tools\sonarscanner\dotnet-sonarscanner end /d:sonar.login="${{ secrets.SONAR_TOKEN }}"

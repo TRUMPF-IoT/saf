@@ -8,6 +8,8 @@ using NSubstitute;
 using SAF.Common;
 using System;
 using System.Collections.Generic;
+using System.Threading;
+using System.Threading.Tasks;
 using Xunit;
 
 namespace SAF.Hosting.Tests
@@ -19,7 +21,7 @@ namespace SAF.Hosting.Tests
         public static int DummyStorageHashCode;
 
         [Fact]
-        public void OuterServicesRedirected()
+        public async Task OuterServicesRedirected()
         {
             var dummyMessagingImplementation = new DummyMessaging();
             DummyMessagingHashCode = dummyMessagingImplementation.GetHashCode();
@@ -35,8 +37,8 @@ namespace SAF.Hosting.Tests
             var messageDispatcherMock = Substitute.For<IServiceMessageDispatcher>();
             var manifests = new List<IServiceAssemblyManifest> { new DummyServiceManifest() };
 
-            var sut = new ServiceHost(serviceProvider, NullLogger<ServiceHost>.Instance, messageDispatcherMock, manifests);
-            sut.StartServices();
+            using var sut = new ServiceHost(serviceProvider, NullLogger<ServiceHost>.Instance, messageDispatcherMock, manifests);
+            await sut.StartAsync(CancellationToken.None);
 
             // Assertions are in DummyService.Start... i know, this doesn't win a design price but i have no better idea at the moment.
         }

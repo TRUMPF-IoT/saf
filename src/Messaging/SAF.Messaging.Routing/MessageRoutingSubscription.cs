@@ -8,7 +8,7 @@ using SAF.Common;
 
 namespace SAF.Messaging.Routing
 {
-    internal class MessageRoutingSubscription : IDisposable
+    internal sealed class MessageRoutingSubscription : IDisposable
     {
         private readonly IMessagingInfrastructure _messaging;
         private object[] _subscriptionHandles;

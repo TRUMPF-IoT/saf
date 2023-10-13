@@ -83,7 +83,7 @@ namespace SAF.Messaging.Routing
 
         private bool MessageNeedsPublication(string messageTopic)
         {
-            return PublishPatterns == null || PublishPatterns.Length == 0 || PublishPatterns.Any(messageTopic.IsMatch);
+            return PublishPatterns == null || PublishPatterns.Length == 0 || Array.Exists(PublishPatterns, messageTopic.IsMatch);
         }
 
         private IEnumerable<string> DetermineSubscriptionPatterns(string routeFilterPattern)
@@ -94,7 +94,7 @@ namespace SAF.Messaging.Routing
             }
             else
             {
-                if (SubscriptionPatterns.Any(routeFilterPattern.IsMatch))
+                if (Array.Exists(SubscriptionPatterns, routeFilterPattern.IsMatch))
                     yield return routeFilterPattern;
 
                 // in case routeFilterPattern starts with '*', probably all SubscriptionPatterns ending with '*' may match

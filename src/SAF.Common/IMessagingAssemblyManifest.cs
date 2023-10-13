@@ -1,20 +1,18 @@
-// SPDX-FileCopyrightText: 2017-2020 TRUMPF Laser GmbH
+// SPDX-FileCopyrightText: 2017-2022 TRUMPF Laser GmbH
 //
 // SPDX-License-Identifier: MPL-2.0
 
 using Microsoft.Extensions.DependencyInjection;
-using System.Collections.Generic;
 
-namespace SAF.Common
+namespace SAF.Common;
+
+public class MessagingConfiguration
 {
-    public class MessagingConfiguration
-    {
-        public string Type { get; set; }
-        public IDictionary<string, string> Config { get; set; }
-    }
+    public string Type { get; set; } = string.Empty;
+    public IDictionary<string, string>? Config { get; set; }
+}
 
-    public interface IMessagingAssemblyManifest
-    {
-        void RegisterDependencies(IServiceCollection services, MessagingConfiguration config);
-    }
+public interface IMessagingAssemblyManifest
+{
+    void RegisterDependencies(IServiceCollection services, MessagingConfiguration config);
 }

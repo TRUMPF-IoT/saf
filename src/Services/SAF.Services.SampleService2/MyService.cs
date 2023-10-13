@@ -5,6 +5,7 @@
 using System;
 using System.Collections.Generic;
 using System.Threading;
+using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
 using SAF.Common;
 using SAF.Toolbox.Serialization;
@@ -17,7 +18,7 @@ namespace SAF.Services.SampleService2
         public string Id { get; set; }
     }
 
-    public class MyService : IHostedService
+    public class MyService : IHostedServiceAsync
     {
         private readonly ILogger<MyService> _log;
         private readonly IMessagingInfrastructure _messaging;
@@ -32,21 +33,29 @@ namespace SAF.Services.SampleService2
             _messaging = messaging;
         }
 
-        public void Start()
+        public Task StartAsync(CancellationToken cancelToken)
+            => Task.Run(Start, cancelToken);
+
+        public Task StopAsync(CancellationToken cancelToken)
+            => Task.Run(Stop, cancelToken);
+
+        private void Start()
         {
-            Action<Message> handler = m =>
+            void Handler
+                (Message m)
             {
                 var req = JsonSerializer.Deserialize<PingRequest>(m.Payload);
                 _log.LogInformation($"Received {m.Topic} ({req.Id}), Payload: {m.Payload}");
-            };
+            }
+
             _subscriptions.AddRange(new[]
             {
-                _messaging.Subscribe("ping/response", handler),
-                _messaging.Subscribe("pong/response", handler)
+                _messaging.Subscribe("ping/response", Handler),
+                _messaging.Subscribe("pong/response", Handler)
             });
             _log.LogInformation("My service started.");
 
-            _timer = new Timer(s =>
+            _timer = new Timer(_ =>
             {
                 _log.LogInformation($"-------------------------------------------------------------------------------");
                 var pingId = Interlocked.Increment(ref _pingId);
@@ -66,14 +75,16 @@ namespace SAF.Services.SampleService2
             }, null, TimeSpan.Zero, TimeSpan.FromSeconds(5));
         }
 
-        public void Stop()
+        private void Stop()
         {
-            _log.LogInformation("My service stopped.");
-        }
+            foreach (var subscription in _subscriptions)
+            {
+                _messaging.Unsubscribe(subscription);
+            }
+            _subscriptions.Clear();
 
-        public void Kill()
-        {
-            _log.LogInformation("My service killed!");
+            _timer?.Dispose();
+            _log.LogInformation("My service stopped.");
         }
     }
 }

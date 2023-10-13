@@ -40,7 +40,7 @@ namespace SAF.Messaging.Redis.Tests
             msg.Topic = "Top";
             msg.Payload = "Payxx";
             messaging.Publish(msg);
-            subscriber.Received().Publish(Arg.Is<RedisChannel>("Top"), Arg.Is<RedisValue>(v => v.ToString().Contains("Payxx")), Arg.Is(CommandFlags.FireAndForget));
+            subscriber.Received().Publish(Arg.Is(RedisChannel.Literal("Top")), Arg.Is<RedisValue>(v => v.ToString().Contains("Payxx")), Arg.Is(CommandFlags.FireAndForget));
             subscriber.ClearReceivedCalls();
 
             messaging.Unsubscribe(id);

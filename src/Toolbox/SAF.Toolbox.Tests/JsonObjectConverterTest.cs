@@ -80,7 +80,7 @@ namespace SAF.Toolbox.Tests
 
         private class Test
         {
-            public int Value { get; set; }
+            public int Value { get; init; }
         }
     }
 }

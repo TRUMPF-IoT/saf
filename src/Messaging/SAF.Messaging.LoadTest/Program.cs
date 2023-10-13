@@ -22,7 +22,7 @@ namespace SAF.Messaging.LoadTest
             var sc = new ServiceCollection();
 
             sc.AddLogging(l => l.AddConsole());
-            sc.AddSingleton<IServiceMessageDispatcher, MessageDispatcher>();
+            sc.AddSingleton<IServiceMessageDispatcher, ServiceMessageDispatcher>();
 
             var n = 500;
             var msWait = 100;

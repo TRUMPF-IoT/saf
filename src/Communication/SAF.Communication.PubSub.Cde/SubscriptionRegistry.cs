@@ -121,7 +121,7 @@ namespace SAF.Communication.PubSub.Cde
             var request = TheCommonUtils.DeserializeJSONStringToObject<RegistrySubscriptionRequest>(message.PLS);
 
             const string all = "*";
-            var topics = request.topics ?? new string[0];
+            var topics = request.topics ?? Array.Empty<string>();
 
             var newPatterns = topics.Distinct().ToList();
             if (newPatterns.Count == 0)

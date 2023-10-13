@@ -6,6 +6,7 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
+using System.Threading;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
@@ -74,7 +75,8 @@ namespace SAF.DevToolbox.TestRunner
                 _config.GetSection("Cde").Bind(config);
             },
             m => _currentTestSequenceTracer?.MessagingTrace(m));
-            _infrastructureInitialization = sp => sp.UseCde();
+            _infrastructureInitialization = sp => sp.GetRequiredService<ICdeMessagingInfrastructure>();
+
             return this;
         }
 
@@ -134,8 +136,10 @@ namespace SAF.DevToolbox.TestRunner
         public void Run()
         {
             _applicationServiceProvider = _applicationServices.BuildServiceProvider();
+
             _infrastructureInitialization?.Invoke(_applicationServiceProvider);
-            _applicationServiceProvider.UseServiceHost();
+            _applicationServiceProvider.GetRequiredService<ServiceHost>().StartAsync(CancellationToken.None).Wait();
+
             var messaging = _applicationServiceProvider.GetService<IMessagingInfrastructure>();
 
             foreach (var subscribeChannelAction in _subscribeChannelActions)

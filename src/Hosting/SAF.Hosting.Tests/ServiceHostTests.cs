@@ -7,6 +7,8 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Reflection;
+using System.Threading;
+using System.Threading.Tasks;
 using Microsoft.Extensions.DependencyInjection;
 using SAF.Common;
 using Xunit;
@@ -19,32 +21,30 @@ namespace SAF.Hosting.Tests
 
         private string TestDataPath => System.IO.Path.Combine(TestAssemblyPath, "TestData");
 
-        [Fact]
-        public void StartsLoadedServices()
+        [Theory]
+        [InlineData(false)]
+        [InlineData(true)]
+        public async Task StartsAndStopsLoadedServices(bool asyncService)
         {
             // Arrange
             var callCounters = new CallCounters();
-            using(var sut = SetupServiceHostWithCallCountersService(callCounters))
+            using (var sut = SetupServiceHostWithCallCountersService(callCounters, asyncService))
             {
                 // Act
-                sut.StartServices();
+                await sut.StartAsync(CancellationToken.None);
 
                 // Assert
                 Assert.Equal(1, callCounters.StartCalled);
                 Assert.Equal(0, callCounters.StopCalled);
                 Assert.Equal(0, callCounters.KillCalled);
-            }
-        }
 
-        [Fact]
-        public void StopsLoadedServicesOnDispose()
-        {
-            // Arrange
-            var callCounters = new CallCounters();
-            using(var sut = SetupServiceHostWithCallCountersService(callCounters))
-            {
                 // Act
-                sut.StartServices();
+                await sut.StopAsync(CancellationToken.None);
+
+                // Assert
+                Assert.Equal(1, callCounters.StartCalled);
+                Assert.Equal(1, callCounters.StopCalled);
+                Assert.Equal(0, callCounters.KillCalled);
             }
 
             // Assert
@@ -53,41 +53,67 @@ namespace SAF.Hosting.Tests
             Assert.Equal(0, callCounters.KillCalled);
         }
 
-        [Fact]
-        public void RegistersHandlersWithinDispatchers()
+        [Theory]
+        [InlineData(false)]
+        [InlineData(true)]
+        public async Task StopsLoadedServicesOnDispose(bool asyncService)
+        {
+            // Arrange
+            var callCounters = new CallCounters();
+            using (var sut = SetupServiceHostWithCallCountersService(callCounters, asyncService))
+            {
+                // Act
+                await sut.StartAsync(CancellationToken.None);
+
+                // Assert
+                Assert.Equal(1, callCounters.StartCalled);
+                Assert.Equal(0, callCounters.StopCalled);
+                Assert.Equal(0, callCounters.KillCalled);
+            }
+
+            // Assert
+            Assert.Equal(1, callCounters.StartCalled);
+            Assert.Equal(1, callCounters.StopCalled);
+            Assert.Equal(0, callCounters.KillCalled);
+        }
+
+        [Theory]
+        [InlineData(false)]
+        [InlineData(true)]
+        public void RegistersHandlersWithinDispatchers(bool asyncService)
         {
             // Arrange
             var serviceProvider = new ServiceCollection().BuildServiceProvider();
-            var serviceAssemblies = new List<IServiceAssemblyManifest> { new CountingTestAssemblyManifest(null, true) };
-            var dispatcher = new MessageDispatcher(null);
+            var serviceAssemblies = new List<IServiceAssemblyManifest> { new CountingTestAssemblyManifest(null, asyncService, true) };
+            var dispatcher = new ServiceMessageDispatcher(null);
 
             // Act
-            using(new ServiceHost(serviceProvider, null, dispatcher, serviceAssemblies))
-            {
-                // Assert
-                Assert.Single(dispatcher.RegisteredHandlers);
-                Assert.Equal("SAF.Hosting.Tests.ServiceHostTests+CountingTestHandler", dispatcher.RegisteredHandlers.First());
-            }
+            using var _ = new ServiceHost(serviceProvider, null, dispatcher, serviceAssemblies);
+            
+            // Assert
+            Assert.Single(dispatcher.RegisteredHandlers);
+            Assert.Equal("SAF.Hosting.Tests.ServiceHostTests+CountingTestHandler", dispatcher.RegisteredHandlers.First());
         }
 
-        [Fact]
-        public void DispatcherCallsCorrectHandler()
+        [Theory]
+        [InlineData(false)]
+        [InlineData(true)]
+        public void DispatcherCallsCorrectHandler(bool asyncService)
         {
             // Arrange
             var callCounters = new CallCounters();
             var serviceProvider = new ServiceCollection().BuildServiceProvider();
-            var serviceAssemblies = new List<IServiceAssemblyManifest> { new CountingTestAssemblyManifest(callCounters, true) };
-            var dispatcher = new MessageDispatcher(null);
+            var serviceAssemblies = new List<IServiceAssemblyManifest> { new CountingTestAssemblyManifest(callCounters, asyncService, true) };
+            var dispatcher = new ServiceMessageDispatcher(null);
 
-            using(new ServiceHost(serviceProvider, null, dispatcher, serviceAssemblies))
-            {
-                // Act
-                dispatcher.DispatchMessage("SAF.Hosting.Tests.ServiceHostTests+CountingTestHandler", new Message());
+            using var _ = new ServiceHost(serviceProvider, null, dispatcher, serviceAssemblies);
+            
+            // Act
+            dispatcher.DispatchMessage("SAF.Hosting.Tests.ServiceHostTests+CountingTestHandler", new Message());
 
-                // Assert
-                Assert.Equal(1, callCounters.CanHandleCalled);
-                Assert.Equal(1, callCounters.HandleCalled);
-            }
+            // Assert
+            Assert.Equal(1, callCounters.CanHandleCalled);
+            Assert.Equal(1, callCounters.HandleCalled);
         }
 
         [Fact]
@@ -136,10 +162,10 @@ namespace SAF.Hosting.Tests
             Assert.Contains(Path.Combine(TestDataPath, "FilePatterns1", "My.Service3.txt"), result);
         }
         
-        private static ServiceHost SetupServiceHostWithCallCountersService(CallCounters callCounters)
+        private static ServiceHost SetupServiceHostWithCallCountersService(CallCounters callCounters, bool asyncService)
         {
             var serviceProvider = new ServiceCollection().BuildServiceProvider();
-            var serviceAssemblies = new List<IServiceAssemblyManifest> { new CountingTestAssemblyManifest(callCounters) };
+            var serviceAssemblies = new List<IServiceAssemblyManifest> { new CountingTestAssemblyManifest(callCounters, asyncService) };
             return new ServiceHost(serviceProvider, null, null, serviceAssemblies);
         }
 
@@ -157,11 +183,13 @@ namespace SAF.Hosting.Tests
         internal class CountingTestAssemblyManifest : IServiceAssemblyManifest
         {
             private readonly CallCounters _counters;
+            private readonly bool _registerAsAsyncService;
             private readonly bool _registerAHandler;
 
-            public CountingTestAssemblyManifest(CallCounters counters, bool registerAHandler = false)
+            public CountingTestAssemblyManifest(CallCounters counters, bool registerAsAsyncService, bool registerAHandler = false)
             {
                 _counters = counters;
+                _registerAsAsyncService = registerAsAsyncService;
                 _registerAHandler = registerAHandler;
             }
 
@@ -169,7 +197,11 @@ namespace SAF.Hosting.Tests
 
             public void RegisterDependencies(IServiceCollection services, IServiceHostContext context)
             {
-                services.AddHosted<CountingTestService>();
+                if(!_registerAsAsyncService)
+                    services.AddHosted<SyncCountingTestService>();
+                else
+                    services.AddHostedAsync<AsyncCountingTestService>();
+
                 services.AddSingleton(typeof(CallCounters), r => _counters);
 
                 if(_registerAHandler)
@@ -177,13 +209,33 @@ namespace SAF.Hosting.Tests
             }
         }
 
-        internal class CountingTestService : IHostedService
+        internal class SyncCountingTestService : IHostedService
         {
             private readonly CallCounters _counters;
-            public CountingTestService(CallCounters counters) => _counters = counters ?? new CallCounters();
+            public SyncCountingTestService(CallCounters counters) => _counters = counters ?? new CallCounters();
             public void Start() => _counters.StartCalled++;
             public void Stop() => _counters.StopCalled++;
             public void Kill() => _counters.KillCalled++;
+        }
+
+        internal class AsyncCountingTestService : IHostedServiceAsync
+        {
+            private readonly CallCounters _counters;
+            public AsyncCountingTestService(CallCounters counters) => _counters = counters ?? new CallCounters();
+
+            public void Start() => _counters.StartCalled++;
+            public void Stop() => _counters.StopCalled++;
+
+            public Task StartAsync(CancellationToken _)
+            {
+                Start();
+                return Task.CompletedTask;
+            }
+            public Task StopAsync(CancellationToken _)
+            {
+                Stop();
+                return Task.CompletedTask;
+            }
         }
 
         internal class CountingTestHandler : IMessageHandler

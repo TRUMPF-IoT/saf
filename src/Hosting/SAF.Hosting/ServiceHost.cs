@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: 2017-2020 TRUMPF Laser GmbH
+// SPDX-FileCopyrightText: 2017-2022 TRUMPF Laser GmbH
 //
 // SPDX-License-Identifier: MPL-2.0
 
@@ -7,176 +7,288 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
 using System.Reflection;
+using System.Threading;
+using System.Threading.Tasks;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using SAF.Common;
 
-namespace SAF.Hosting
+namespace SAF.Hosting;
+
+/// <summary>
+/// Central entry point for initializing and starting the services used.
+/// </summary>
+public sealed class ServiceHost : Microsoft.Extensions.Hosting.IHostedService, IDisposable
 {
-    /// <summary>
-    /// Central entry point for initializing and starting the services used.
-    /// </summary>
-    public class ServiceHost : IDisposable
+    private readonly IServiceProvider _runtimeApplicationServiceProvider;
+    private readonly ILogger _log;
+    private readonly IEnumerable<IServiceAssemblyManifest> _serviceAssemblies;
+    private readonly IServiceMessageDispatcher _messageDispatcher;
+
+    private readonly IConfiguration _configuration;
+    private readonly ServiceHostEnvironment _environment;
+    private readonly IServiceHostContext _context;
+
+    private readonly List<IHostedServiceBase> _services = new();
+
+    public ServiceHost(
+        IServiceProvider runtimeApplicationServiceProvider,
+        ILogger<ServiceHost> log,
+        IServiceMessageDispatcher messageDispatcher,
+        IEnumerable<IServiceAssemblyManifest> serviceAssemblies)
     {
-        private readonly IServiceProvider _runtimeApplicationServiceProvider;
-        private readonly ILogger _log;
-        private readonly IEnumerable<IServiceAssemblyManifest> _serviceAssemblies;
-        private readonly IServiceMessageDispatcher _messageDispatcher;
+        _runtimeApplicationServiceProvider = runtimeApplicationServiceProvider;
+        _log = log ?? NullLogger<ServiceHost>.Instance;
+        _messageDispatcher = messageDispatcher;
+        _serviceAssemblies = serviceAssemblies;
 
-        private readonly IConfiguration _configuration;
-        private readonly ServiceHostEnvironment _environment;
-        private readonly IServiceHostContext _context;
+        _configuration = _runtimeApplicationServiceProvider.GetService<IConfiguration>();
+        _environment = BuildServiceHostEnvironment();
+        _context = BuildServiceHostContext();
+    }
 
-        private readonly List<IHostedService> _services = new();
-
-        public ServiceHost(
-            IServiceProvider runtimeApplicationServiceProvider,
-            ILogger<ServiceHost> log,
-            IServiceMessageDispatcher messageDispatcher,
-            IEnumerable<IServiceAssemblyManifest> serviceAssemblies)
+    public Task StartAsync(CancellationToken cancellationToken)
+        => Task.Run(async () =>
         {
-            _runtimeApplicationServiceProvider = runtimeApplicationServiceProvider;
-            _log = log ?? NullLogger<ServiceHost>.Instance;
-            _messageDispatcher = messageDispatcher;
-            _serviceAssemblies = serviceAssemblies;
+            var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+            try
+            {
+                await StartInternalAsync(cancellationToken);
+            }
+            catch (TaskCanceledException)
+            {
+                // intentionally ignored
+            }
+            catch (OperationCanceledException)
+            {
+                // intentionally ignored
+            }
+            finally
+            {
+                linkedCts.Dispose();
+            }
+        }, cancellationToken);
 
-            _configuration = _runtimeApplicationServiceProvider.GetService<IConfiguration>();
-            _environment = BuildServiceHostEnvironment();
-            _context = BuildServiceHostContext();
+    private async Task StartInternalAsync(CancellationToken token)
+    {
+        var stopWatch = new Stopwatch();
+        stopWatch.Start();
 
-            InitializeServices();
-            AddRuntimeMessageHandlersToDispatcher();
-        }
+        InitializeServices();
+        AddRuntimeMessageHandlersToDispatcher();
 
-        public void StartServices()
+        await StartServicesAsync(_services, token);
+
+        stopWatch.Stop();
+
+        _log.LogInformation($"Starting all services took {stopWatch.Elapsed.TotalMilliseconds * 1000000:N0} ns");
+    }
+
+    public async Task StopAsync(CancellationToken cancellationToken)
+    {
+        if (_services.Count == 0)
+            return;
+
+        var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+        try
         {
             var stopWatch = new Stopwatch();
             stopWatch.Start();
 
-            foreach (var service in _services)
+            await StopServicesAsync(_services, linkedCts.Token);
+
+            stopWatch.Stop();
+            _log.LogInformation($"Stopping all services took {stopWatch.Elapsed.TotalMilliseconds * 1000000:N0} ns");
+
+            _services.Clear();
+        }
+        catch (TaskCanceledException)
+        {
+            // intentionally ignored
+        }
+        catch (OperationCanceledException)
+        {
+            // intentionally ignored
+        }
+        finally
+        {
+            linkedCts.Dispose();
+        }
+    }
+
+    public void Dispose()
+    {
+        StopAsync(CancellationToken.None).Wait();
+    }
+
+    private async Task StartServicesAsync(IEnumerable<IHostedServiceBase> services, CancellationToken cancelToken)
+    {
+        var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(cancelToken);
+        try
+        {
+            foreach (var service in services.TakeWhile(_ => !linkedCts.Token.IsCancellationRequested))
             {
                 _log.LogDebug($"Starting service: {service.GetType().Name}");
 
                 var serviceStopWatch = new Stopwatch();
                 serviceStopWatch.Start();
 
-                service.Start();
+                switch (service)
+                {
+                    case IHostedServiceAsync asyncService:
+                        await asyncService.StartAsync(linkedCts.Token);
+                        break;
+                    case IHostedService syncService:
+                        syncService.Start();
+                        break;
+                }
 
                 serviceStopWatch.Stop();
 
-                _log.LogInformation($"Started service: {service.GetType().Name}, start-up took {serviceStopWatch.Elapsed.TotalMilliseconds * 1000000:N0} ns");
+                _log.LogInformation(
+                    $"Started service: {service.GetType().Name}, start-up took {serviceStopWatch.Elapsed.TotalMilliseconds * 1000000:N0} ns");
             }
-
-            stopWatch.Stop();
-            _log.LogInformation($"Starting all services took {stopWatch.Elapsed.TotalMilliseconds * 1000000:N0} ns");
         }
-
-        public void Dispose()
+        catch (TaskCanceledException)
         {
-            var stopWatch = new Stopwatch();
-            stopWatch.Start();
+            // intentionally ignored
+        }
+        catch (OperationCanceledException)
+        {
+            // intentionally ignored
+        }
+        finally
+        {
+            linkedCts.Dispose();
+        }
+    }
 
-            foreach (var service in _services)
+    private async Task StopServicesAsync(IEnumerable<IHostedServiceBase> services, CancellationToken cancelToken)
+    {
+        var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(cancelToken);
+        try
+        {
+            foreach (var service in services.TakeWhile(_ => !cancelToken.IsCancellationRequested))
             {
                 _log.LogDebug($"Stopping service: {service.GetType().Name}");
 
                 var serviceStopWatch = new Stopwatch();
                 serviceStopWatch.Start();
 
-                service.Stop();
+                switch (service)
+                {
+                    case IHostedServiceAsync asyncService:
+                        await asyncService.StopAsync(linkedCts.Token);
+                        break;
+                    case IHostedService syncService:
+                        syncService.Stop();
+                        break;
+                }
 
                 serviceStopWatch.Stop();
 
                 _log.LogInformation($"Stopped service: {service.GetType().Name}, shutdown took {serviceStopWatch.Elapsed.TotalMilliseconds * 1000000:N0} ns");
             }
-
-            stopWatch.Stop();
-            _log.LogInformation($"Stopping all services took {stopWatch.Elapsed.TotalMilliseconds * 1000000:N0} ns");
         }
-
-        private ServiceHostEnvironment BuildServiceHostEnvironment()
+        catch (TaskCanceledException)
         {
-            return new()
-            {
-                ApplicationName = Assembly.GetEntryAssembly()?.GetName().Name,
-                EnvironmentName = GetEnvironment()
-            };
+            // intentionally ignored
         }
-
-        private IServiceHostContext BuildServiceHostContext()
+        catch (OperationCanceledException)
         {
-            return new ServiceHostContext
-            {
-                Configuration = _runtimeApplicationServiceProvider.GetService<IConfiguration>(),
-                Environment = _environment,
-                HostInfo = _runtimeApplicationServiceProvider.GetService<IHostInfo>()
-            };
+            // intentionally ignored
         }
-
-        private void InitializeServices()
+        finally
         {
-            foreach(var manifest in _serviceAssemblies)
+            linkedCts.Dispose();
+        }
+    }
+
+    private ServiceHostEnvironment BuildServiceHostEnvironment()
+    {
+        return new()
+        {
+            ApplicationName = Assembly.GetEntryAssembly()?.GetName().Name,
+            EnvironmentName = GetEnvironment()
+        };
+    }
+
+    private IServiceHostContext BuildServiceHostContext()
+    {
+        return new ServiceHostContext
+        {
+            Configuration = _runtimeApplicationServiceProvider.GetService<IConfiguration>(),
+            Environment = _environment,
+            HostInfo = _runtimeApplicationServiceProvider.GetService<IHostInfo>()
+        };
+    }
+
+    private void InitializeServices()
+    {
+        foreach(var manifest in _serviceAssemblies)
+        {
+            _log.LogInformation($"Initializing service assembly: {manifest.FriendlyName}.");
+
+            var assemblyServiceCollection = new ServiceCollection();
+
+            RedirectCommonServicesFromOuterContainer(assemblyServiceCollection);
+
+            manifest.RegisterDependencies(assemblyServiceCollection, _context);
+            var assemblyServiceProvider = assemblyServiceCollection.BuildServiceProvider();
+
+            var servicesToAdd = assemblyServiceProvider.GetServices<IHostedServiceBase>();
+            _services.AddRange(servicesToAdd);
+
+            var messageHandlerType = typeof(IMessageHandler);
+            foreach (var messageHandlerServiceType in assemblyServiceCollection
+                         .Where(s => messageHandlerType.IsAssignableFrom(s.ServiceType))
+                         .Select(s => s.ServiceType))
             {
-                _log.LogInformation($"Initializing service assembly: {manifest.FriendlyName}.");
-
-                var assemblyServiceCollection = new ServiceCollection();
-
-                RedirectCommonServicesFromOuterContainer(assemblyServiceCollection);
-
-                manifest.RegisterDependencies(assemblyServiceCollection, _context);
-                var assemblyServiceProvider = assemblyServiceCollection.BuildServiceProvider();
-
-                var servicesToAdd = assemblyServiceProvider.GetServices<IHostedService>();
-                _services.AddRange(servicesToAdd);
-
-                var messageHandlerType = typeof(IMessageHandler);
-                foreach(var messageHandlerRegistration in assemblyServiceCollection.Where(s => messageHandlerType.IsAssignableFrom(s.ServiceType)))
-                {
-                    // keep a reference to the providing service provider within the dispatcher for every registered message handler
-                    _log.LogDebug($"Add message handler factory function to dispatcher: {messageHandlerRegistration.ServiceType.FullName}.");
-                    _messageDispatcher.AddHandler(messageHandlerRegistration.ServiceType.FullName,
-                        () => (IMessageHandler) assemblyServiceProvider.GetRequiredService(messageHandlerRegistration.ServiceType));
-                }
+                // keep a reference to the providing service provider within the dispatcher for every registered message handler
+                _log.LogDebug(
+                    $"Add message handler factory function to dispatcher: {messageHandlerServiceType.FullName}.");
+                _messageDispatcher.AddHandler(messageHandlerServiceType.FullName!,
+                    () => (IMessageHandler) assemblyServiceProvider.GetRequiredService(messageHandlerServiceType));
             }
         }
+    }
 
-        private void RedirectCommonServicesFromOuterContainer(IServiceCollection assemblyServices)
-        {
-            assemblyServices.AddSingleton(sp => _runtimeApplicationServiceProvider.GetService<IConfiguration>());
+    private void RedirectCommonServicesFromOuterContainer(IServiceCollection assemblyServices)
+    {
+        assemblyServices.AddSingleton(sp => _runtimeApplicationServiceProvider.GetService<IConfiguration>());
                 
-            assemblyServices.AddSingleton(sp => _runtimeApplicationServiceProvider.GetService<IMessagingInfrastructure>());
-            assemblyServices.AddSingleton(sp => _runtimeApplicationServiceProvider.GetService<IStorageInfrastructure>());
+        assemblyServices.AddSingleton(sp => _runtimeApplicationServiceProvider.GetService<IMessagingInfrastructure>());
+        assemblyServices.AddSingleton(sp => _runtimeApplicationServiceProvider.GetService<IStorageInfrastructure>());
 
-            assemblyServices.AddTransient(sp => _runtimeApplicationServiceProvider.GetService<ILogger>());
-            assemblyServices.AddTransient(typeof(ILogger<>), typeof(Logger<>));
+        assemblyServices.AddTransient(sp => _runtimeApplicationServiceProvider.GetService<ILogger>());
+        assemblyServices.AddTransient(typeof(ILogger<>), typeof(Logger<>));
 
-            assemblyServices.AddSingleton(sp => _runtimeApplicationServiceProvider.GetService<ILoggerFactory>());
-            assemblyServices.AddSingleton(sp => _runtimeApplicationServiceProvider.GetService<IHostInfo>());
-        }
+        assemblyServices.AddSingleton(sp => _runtimeApplicationServiceProvider.GetService<ILoggerFactory>());
+        assemblyServices.AddSingleton(sp => _runtimeApplicationServiceProvider.GetService<IHostInfo>());
+    }
 
-        private void AddRuntimeMessageHandlersToDispatcher()
+    private void AddRuntimeMessageHandlersToDispatcher()
+    {
+        foreach(var runtimeApplicationMessageHandler in _runtimeApplicationServiceProvider.GetServices<IMessageHandler>())
         {
-            foreach(var runtimeApplicationMessageHandler in _runtimeApplicationServiceProvider.GetServices<IMessageHandler>())
-            {
-                var type = runtimeApplicationMessageHandler.GetType();
-                _log.LogDebug($"Add runtime message handler factory function to dispatcher: {type.FullName}.");
-                _messageDispatcher.AddHandler(type.FullName, () => runtimeApplicationMessageHandler);
-            }
+            var type = runtimeApplicationMessageHandler.GetType();
+            _log.LogDebug($"Add runtime message handler factory function to dispatcher: {type.FullName}.");
+            _messageDispatcher.AddHandler(type.FullName, () => runtimeApplicationMessageHandler);
         }
+    }
 
-        private string GetEnvironment()
-        {
-            string environment = null;
+    private string GetEnvironment()
+    {
+        string environment = null;
 
-            if (_configuration != null)
-                environment = _configuration["environment"];
+        if (_configuration != null)
+            environment = _configuration["environment"];
 
-            if(string.IsNullOrWhiteSpace(environment))
-                environment = Environment.GetEnvironmentVariable("NETCORE_ENVIRONMENT");
+        if(string.IsNullOrWhiteSpace(environment))
+            environment = Environment.GetEnvironmentVariable("NETCORE_ENVIRONMENT");
 
-            return string.IsNullOrEmpty(environment) ? "Production" : environment;
-        }
+        return string.IsNullOrEmpty(environment) ? "Production" : environment;
     }
 }

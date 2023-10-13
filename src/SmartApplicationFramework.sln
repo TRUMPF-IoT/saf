@@ -59,6 +59,7 @@ EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "_build", "_build", "{2C13739B-7911-4D4D-82D5-8FD959A2D362}"
 	ProjectSection(SolutionItems) = preProject
 		..\Directory.Build.props = ..\Directory.Build.props
+		..\Directory.Packages.props = ..\Directory.Packages.props
 		..\.github\workflows\dotnet-core.yml = ..\.github\workflows\dotnet-core.yml
 	EndProjectSection
 EndProject

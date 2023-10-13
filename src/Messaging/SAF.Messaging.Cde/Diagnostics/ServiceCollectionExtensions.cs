@@ -9,6 +9,6 @@ namespace SAF.Messaging.Cde.Diagnostics
     public static class ServiceCollectionExtensions
     {
         public static IServiceCollection AddCdeDiagnostics(this IServiceCollection collection)
-            => collection.AddSingleton<ServiceHostDiagnostics>();
+            => collection.AddHostedService<ServiceHostDiagnostics>();
     }
 }

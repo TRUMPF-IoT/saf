@@ -1,67 +1,33 @@
-// SPDX-FileCopyrightText: 2017-2020 TRUMPF Laser GmbH
+// SPDX-FileCopyrightText: 2017-2022 TRUMPF Laser GmbH
 //
 // SPDX-License-Identifier: MPL-2.0
 
-using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
-using SAF.Messaging.Routing;
-using System;
-using System.IO;
 using SAF.Hosting;
 using SAF.Messaging.Cde;
 using SAF.Messaging.Redis;
+using SAF.Messaging.Routing;
 
-namespace TestRunnerMessageRouting
-{
-    class Program
+Console.Title = "SAF Message Routing Test Host";
+
+var host = Host.CreateDefaultBuilder(args)
+    .ConfigureServices((context, services) =>
     {
-        static void Main(string[] args)
-        {
-            var environment = GetEnvironment();
+        var loggingServices = new ServiceCollection();
+        loggingServices.AddLogging(l => l.AddConfiguration(context.Configuration.GetSection("Logging")).AddConsole());
+        using var loggingServiceProvider = loggingServices.BuildServiceProvider();
+        var mainLogger = loggingServiceProvider.GetService<ILogger<Program>>();
 
-            Console.Title = "SAF Message Routing Test Host";
+        services.AddCde(context.Configuration.GetSection("Cde").Bind)
+            .AddRoutingMessagingInfrastructure(context.Configuration.GetSection("MessageRouting").Bind)
+            .AddRedisStorageInfrastructure(context.Configuration.GetSection("Redis").Bind);
 
-            var config = new ConfigurationBuilder()
-                .SetBasePath(Directory.GetCurrentDirectory())
-                .AddJsonFile("appsettings.json", optional: true, reloadOnChange: false)
-                .AddJsonFile($"appsettings.{environment}.json", optional: true, reloadOnChange: false)
-                .Build();
+        services.AddHost(context.Configuration.GetSection("ServiceHost").Bind, mainLogger);
+        services.AddHostDiagnostics();
+    })
+    .Build();
 
-            var applicationServices = new ServiceCollection();
-            applicationServices.AddLogging(l => l.AddConfiguration(config.GetSection("Logging")).AddConsole());
-
-            var baseServiceProvider = applicationServices.BuildServiceProvider();
-            var mainLogger = baseServiceProvider.GetService<ILogger<Program>>();
-            mainLogger.LogInformation("Starting test runner console app...");
-
-            applicationServices.AddConfiguration(config);
-            applicationServices.AddHost(config.GetSection("ServiceHost").Bind, mainLogger)
-                .AddHostDiagnostics()
-                .AddCde(config.GetSection("Cde").Bind)
-                .AddRoutingMessagingInfrastructure(config.GetSection("MessageRouting").Bind)
-                .AddRedisStorageInfrastructure(config.GetSection("Redis").Bind);
-
-            using(var applicationServiceProvider = applicationServices.BuildServiceProvider())
-            {
-                applicationServiceProvider.UseCde()
-                    .UseServiceHost()
-                    .UseServiceHostDiagnostics();
-
-                Console.ReadLine();
-            }
-        }
-
-        private static string GetEnvironment()
-        {
-            var environment = "production";
-
-            var envVarEnvironment = Environment.GetEnvironmentVariable("NETCORE_ENVIRONMENT");
-
-            if(!string.IsNullOrEmpty(envVarEnvironment))
-                environment = envVarEnvironment;
-
-            return environment;
-        }
-    }
-}
+await host.RunAsync();
