@@ -31,10 +31,8 @@ namespace SAF.Toolbox.FileTransfer
             if(string.IsNullOrEmpty(topic)) throw new ArgumentException("Topic must not be empty", nameof(topic));
             if(callback == null) throw new ArgumentNullException(nameof(callback));
             
-            // Console.WriteLineConsole.WriteLine($"^^^ FILERECEIVER subscribe to {topic}");
             var subscription = _messaging.Subscribe(topic, message =>
             {
-                // Console.WriteLine($"^^^ FILERECEIVER receive file on topic: {topic}");
                 HandleMessage(callback, message);
             });
 
