@@ -94,7 +94,7 @@ namespace SAF.Toolbox.FileTransfer
                     {
                         ReceiptAction = message =>
                         {
-                            tcs.TrySetResult(message.Payload.Equals("OK", StringComparison.OrdinalIgnoreCase)
+                            tcs.TrySetResult((message.Payload ?? string.Empty).Equals("OK", StringComparison.OrdinalIgnoreCase)
                                 ? FileTransferStatus.Delivered
                                 : FileTransferStatus.Error);
                         }
@@ -108,19 +108,19 @@ namespace SAF.Toolbox.FileTransfer
                     if (waitResult.IsCanceled || waitResult.IsFaulted || waitResult.Status != TaskStatus.RanToCompletion)
                     {
                         result = FileTransferStatus.Error;
-                        _log.LogInformation($"Cancelled transfer of file {file.Name}");
+                        _log.LogInformation("Cancelled transfer of file {fileName}. {replyTo}", file.Name, replyTo);
                     }
                     else
                     {
                         result = waitResult == tcs.Task ? tcs.Task.Result : FileTransferStatus.TimedOut;
                         if(result != FileTransferStatus.Delivered)
-                            _log.LogWarning($"Transfer of file {file.Name} timed out");
+                            _log.LogWarning("Transfer of file {fileName} timed out. {replyTo}", file.Name, replyTo);
                     }
                 }
                 catch (OperationCanceledException)
                 {
                     result = FileTransferStatus.Error;
-                    _log.LogInformation($"Cancelled transfer of file {file.Name}");
+                    _log.LogInformation("Cancelled transfer of file {fileName}. {replyTo}", file.Name, replyTo);
                 }
                 finally
                 {
@@ -205,10 +205,8 @@ namespace SAF.Toolbox.FileTransfer
 
         private async Task ReadChunkFromFile(MemoryMappedFile mmf, long offset, byte[] buffer)
         {
-            using (var accessor = mmf.CreateViewStream(offset, 0, MemoryMappedFileAccess.Read))
-            {
-                await accessor.ReadAsync(buffer, 0, buffer.Length);
-            }
+            await using var accessor = mmf.CreateViewStream(offset, 0, MemoryMappedFileAccess.Read);
+            _ = await accessor.ReadAsync(buffer, 0, buffer.Length);
         }
 
         private async Task<FileTransferStatus> TransferFileChunk(
