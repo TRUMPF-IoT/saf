@@ -83,7 +83,10 @@ jobs:
 
     - name: Run minver
       id: minver
-      uses: thefringeninja/action-minver@2.0.0-preview1
+      shell: powershell
+      run: |
+        $version = .\.tools\minver\minver.exe
+        "version=$version" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
 
     - name: nuget restore
       run: dotnet restore './src/SmartApplicationFramework.sln'
