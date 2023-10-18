@@ -35,9 +35,9 @@ namespace SAF.Communication.PubSub.Cde
             _rawHandler = null;
         }
 
-        public void SetRawHandler(Action<string, TheProcessMessage> rawHandler)
+        public void SetRawHandler(Action<string, TheProcessMessage> callback)
         {
-            _rawHandler = rawHandler;
+            _rawHandler = callback;
         }
 
         private void OnMessage(string topic, string msgVersion, TheProcessMessage msg)

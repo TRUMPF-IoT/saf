@@ -86,12 +86,14 @@ namespace SAF.Communication.PubSub.Cde.Authorization
             _publisher.Publish(replyMsg, uid);
         }
 
+#pragma warning disable S3459 // Unassigned members should be removed
 #pragma warning disable 169
 #pragma warning disable 649
         // ReSharper disable InconsistentNaming
 
         private struct AuthCheckRequestMessage
         {
+
             public string replyTo;
             public string resource;
             public string token;
@@ -105,7 +107,8 @@ namespace SAF.Communication.PubSub.Cde.Authorization
         }
 
         // ReSharper restore InconsistentNaming
-#pragma warning restore 169
 #pragma warning restore 694
+#pragma warning restore 169
+#pragma warning restore S3459 // Unassigned members should be removed
     }
 }

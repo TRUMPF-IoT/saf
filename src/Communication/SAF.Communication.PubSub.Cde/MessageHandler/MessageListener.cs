@@ -25,10 +25,7 @@ namespace SAF.Communication.PubSub.Cde.MessageHandler
                 new CheckTokenHandler(_authService,
                     new GetTokenHandler(_authService, null));
 
-            var subscription = subscriber.Subscribe(new[]
-            {
-                $"{AuthorizationService.BaseChannelName}/*"
-            }) as ISubscriptionInternal;
+            var subscription = subscriber.Subscribe($"{AuthorizationService.BaseChannelName}/*") as ISubscriptionInternal;
 
             subscription?.SetRawHandler((msgVersion, msg) =>
             {
@@ -39,6 +36,14 @@ namespace SAF.Communication.PubSub.Cde.MessageHandler
 
         public void Dispose()
         {
+            Dispose(true);
+            GC.SuppressFinalize(this);
+        }
+
+        protected virtual void Dispose(bool disposing)
+        {
+            if (!disposing) return;
+
             _subscription?.Dispose();
         }
     }

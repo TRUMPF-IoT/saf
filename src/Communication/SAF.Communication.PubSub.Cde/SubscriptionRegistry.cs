@@ -326,6 +326,14 @@ namespace SAF.Communication.PubSub.Cde
 
         public void Dispose()
         {
+            Dispose(true);
+            GC.SuppressFinalize(this);
+        }
+
+        protected virtual void Dispose(bool disposing)
+        {
+            if (!disposing) return;
+
             _subscriberLifetimeTimer?.Dispose();
 
             // send to other registries in the mesh
