@@ -5,6 +5,7 @@
 using System;
 using System.Linq;
 using System.Text.Json;
+using System.Text.Json.Serialization;
 using JsonTransformer = System.Text.Json.JsonSerializer;
 using JsonConverter = System.Text.Json.Serialization.JsonConverter<object>;
 
@@ -39,6 +40,7 @@ namespace SAF.Toolbox.Serialization
             {
                 settings.Converters.Add(c);
             }
+
             return settings;
         }
 
@@ -52,7 +54,8 @@ namespace SAF.Toolbox.Serialization
                 Encoder = System.Text.Encodings.Web.JavaScriptEncoder.UnsafeRelaxedJsonEscaping,
                 ReadCommentHandling = JsonCommentHandling.Skip,
                 AllowTrailingCommas = true,
-                WriteIndented = false
+                WriteIndented = false,
+                DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull
             };
 
             options.Converters.Add(new ObjectToInferredTypesConverter());

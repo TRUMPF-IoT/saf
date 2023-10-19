@@ -10,7 +10,7 @@ using Xunit;
 using System.Text;
 using System.IO;
 
-namespace SAF.Toolbox.Tests
+namespace SAF.Toolbox.Tests.Serialization
 {
     public class JsonObjectConverterTest
     {
@@ -69,11 +69,11 @@ namespace SAF.Toolbox.Tests
         {
             var jsonObjectConverter = Substitute.For<IJsonObjectConverter>();
             jsonObjectConverter.CanRead.Returns(false);
-            byte[] wert = Encoding.UTF8.GetBytes("{\"value\":55}");
+            byte[] wert = "{\"value\":55}"u8.ToArray();
             var reader = new Utf8JsonReader(wert);
 
             var converter = new JsonObjectConverter(jsonObjectConverter);
-            var obj = (Test)converter.Read(ref reader,typeof(Test), new JsonSerializerOptions());
+            var obj = (Test)converter.Read(ref reader, typeof(Test), new JsonSerializerOptions());
 
             Assert.Equal(55, obj.Value);
         }
