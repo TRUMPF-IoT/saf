@@ -5,11 +5,11 @@
 using System;
 using System.Text.Json;
 using System.Text.Json.Nodes;
-using JsonConverter = System.Text.Json.Serialization.JsonConverter<object>;
+using System.Text.Json.Serialization;
 
 namespace SAF.Toolbox.Serialization
 {
-    public class JsonObjectConverter : JsonConverter
+    public class JsonObjectConverter : JsonConverter<object>
     {
         private readonly IJsonObjectConverter _converter;
 
