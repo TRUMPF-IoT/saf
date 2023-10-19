@@ -29,7 +29,7 @@ namespace SAF.Toolbox.Serialization
 
         public override object Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
         {
-            var jsonObject = JsonNode.Parse(ref reader).ToString();
+            var jsonObject = JsonNode.Parse(ref reader)?.ToString();
             return CanRead ? _converter.DeserializeObject(typeToConvert, jsonObject) : JsonSerializer.Deserialize(jsonObject, typeToConvert);
         }
 
