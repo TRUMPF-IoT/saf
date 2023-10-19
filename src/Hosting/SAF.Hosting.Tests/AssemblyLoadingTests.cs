@@ -32,7 +32,7 @@ namespace SAF.Hosting.Tests
 
             // ... added the service host (as self-implementation) and the service message dispatcher (as IServiceMessageDispatcher)
             servicesMock.Received(1).Add(Arg.Is<ServiceDescriptor>(sd => sd.ServiceType.Name == "ServiceHost" && sd.ImplementationType.Name == "ServiceHost"));
-            servicesMock.Received(1).Add(Arg.Is<ServiceDescriptor>(sd => sd.ServiceType.Name == "IServiceMessageDispatcher" && sd.ImplementationType.Name == "MessageDispatcher"));
+            servicesMock.Received(1).Add(Arg.Is<ServiceDescriptor>(sd => sd.ServiceType.Name == "IServiceMessageDispatcher" && sd.ImplementationType.Name == "ServiceMessageDispatcher"));
 
             // ... and no error logged
             loggerMock.AssertNotLogged(LogLevel.Error);
@@ -58,7 +58,7 @@ namespace SAF.Hosting.Tests
 
                 // ... added the service host (as self-implementation) and the service message dispatcher (as IServiceMessageDispatcher)
                 serviceCollectionMock.Received(1).Add(Arg.Is<ServiceDescriptor>(sd => sd.ServiceType.Name == "ServiceHost" && sd.ImplementationType.Name == "ServiceHost"));
-                serviceCollectionMock.Received(1).Add(Arg.Is<ServiceDescriptor>(sd => sd.ServiceType.Name == "IServiceMessageDispatcher" && sd.ImplementationType.Name == "MessageDispatcher"));
+                serviceCollectionMock.Received(1).Add(Arg.Is<ServiceDescriptor>(sd => sd.ServiceType.Name == "IServiceMessageDispatcher" && sd.ImplementationType.Name == "ServiceMessageDispatcher"));
 
                 // ... and the error is logged
                 loggerMock.AssertLogged(LogLevel.Error);

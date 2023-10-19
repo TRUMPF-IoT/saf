@@ -80,7 +80,7 @@ namespace SAF.Hosting.Tests
         [Theory]
         [InlineData(false)]
         [InlineData(true)]
-        public void RegistersHandlersWithinDispatchers(bool asyncService)
+        public async Task RegistersHandlersWithinDispatchers(bool asyncService)
         {
             // Arrange
             var serviceProvider = new ServiceCollection().BuildServiceProvider();
@@ -88,17 +88,20 @@ namespace SAF.Hosting.Tests
             var dispatcher = new ServiceMessageDispatcher(null);
 
             // Act
-            using var _ = new ServiceHost(serviceProvider, null, dispatcher, serviceAssemblies);
-            
+            using var host = new ServiceHost(serviceProvider, null, dispatcher, serviceAssemblies);
+            await host.StartAsync(CancellationToken.None);
+
             // Assert
             Assert.Single(dispatcher.RegisteredHandlers);
             Assert.Equal("SAF.Hosting.Tests.ServiceHostTests+CountingTestHandler", dispatcher.RegisteredHandlers.First());
+
+            await host.StopAsync(CancellationToken.None);
         }
 
         [Theory]
         [InlineData(false)]
         [InlineData(true)]
-        public void DispatcherCallsCorrectHandler(bool asyncService)
+        public async Task DispatcherCallsCorrectHandler(bool asyncService)
         {
             // Arrange
             var callCounters = new CallCounters();
@@ -106,7 +109,8 @@ namespace SAF.Hosting.Tests
             var serviceAssemblies = new List<IServiceAssemblyManifest> { new CountingTestAssemblyManifest(callCounters, asyncService, true) };
             var dispatcher = new ServiceMessageDispatcher(null);
 
-            using var _ = new ServiceHost(serviceProvider, null, dispatcher, serviceAssemblies);
+            using var host = new ServiceHost(serviceProvider, null, dispatcher, serviceAssemblies);
+            await host.StartAsync(CancellationToken.None);
             
             // Act
             dispatcher.DispatchMessage("SAF.Hosting.Tests.ServiceHostTests+CountingTestHandler", new Message());
@@ -114,6 +118,8 @@ namespace SAF.Hosting.Tests
             // Assert
             Assert.Equal(1, callCounters.CanHandleCalled);
             Assert.Equal(1, callCounters.HandleCalled);
+
+            await host.StopAsync(CancellationToken.None);
         }
 
         [Fact]
