@@ -5,6 +5,7 @@
 using System;
 using System.Linq;
 using System.Text.Json;
+using System.Text.Json.Serialization;
 using JsonTransformer = System.Text.Json.JsonSerializer;
 using JsonConverter = System.Text.Json.Serialization.JsonConverter<object>;
 
@@ -20,7 +21,8 @@ namespace SAF.Toolbox.Serialization
             Encoder = System.Text.Encodings.Web.JavaScriptEncoder.UnsafeRelaxedJsonEscaping,
             ReadCommentHandling = JsonCommentHandling.Skip,
             AllowTrailingCommas = true,
-            WriteIndented = false
+            WriteIndented = false,
+            UnknownTypeHandling = JsonUnknownTypeHandling.JsonNode
         };
 
         public static string Serialize(object obj)
