@@ -21,12 +21,4 @@ SPDX-License-Identifier: MPL-2.0
     <LangVersion>latest</LangVersion>
   </PropertyGroup>
 
-  <ItemGroup>
-    <PackageReference Include="MinVer">
-      <PrivateAssets>all</PrivateAssets>
-      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
-    </PackageReference>
-    <PackageReference Include="Microsoft.SourceLink.GitHub" PrivateAssets="All"/>
-  </ItemGroup>
-
 </Project>
