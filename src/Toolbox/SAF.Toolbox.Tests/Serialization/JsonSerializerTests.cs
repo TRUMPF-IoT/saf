@@ -152,19 +152,20 @@ public class JsonSerializerTests
             { "datetimeoffset", new DateTimeOffset(2023, 10, 19, 0, 0, 0, TimeSpan.FromHours(2)) },
             { "datetime", new DateTime(2023, 10, 19, 0, 0, 0, DateTimeKind.Utc) },
             { "number", 1234 },
-            { "double", 12.34d }
+            { "double", 12.34d },
+            { "string", "A string" }
         };
 
         var json = JsonSerializer.Serialize(objectDictionary);
 
-        const string expectedJson = "{\"boolean\":true,\"datetimeoffset\":\"2023-10-19T00:00:00+02:00\",\"datetime\":\"2023-10-19T00:00:00Z\",\"number\":1234,\"double\":12.34}";
+        const string expectedJson = "{\"boolean\":true,\"datetimeoffset\":\"2023-10-19T00:00:00+02:00\",\"datetime\":\"2023-10-19T00:00:00Z\",\"number\":1234,\"double\":12.34,\"string\":\"A string\"}";
         Assert.Equal(expectedJson, json);
     }
 
     [Fact]
     public void ObjectToInferredTypesConverterDeserialization()
     {
-        const string json = "{\"boolean\":true,\"datetimeoffset\":\"2023-10-19T00:00:00+02:00\",\"datetime\":\"2023-10-19T00:00:00Z\",\"number\":1234,\"double\":12.34}";
+        const string json = "{\"boolean\":true,\"datetimeoffset\":\"2023-10-19T00:00:00+02:00\",\"datetime\":\"2023-10-19T00:00:00Z\",\"number\":1234,\"double\":12.34,\"string\":\"A string\"}";
 
         var objectDictionary = JsonSerializer.Deserialize<Dictionary<string, object>>(json);
 
@@ -179,6 +180,8 @@ public class JsonSerializerTests
         Assert.Equal(1234L, objectDictionary["number"]);
         Assert.True(objectDictionary["double"] is double);
         Assert.Equal(12.34, objectDictionary["double"]);
+        Assert.True(objectDictionary["string"] is string);
+        Assert.Equal("A string", objectDictionary["string"]);
     }
 
     [Fact]
@@ -217,14 +220,14 @@ public class JsonSerializerTests
         var converter = new CustomJsonConverter();
         var obj = new TestCaseCustomConverterType
         {
-            ObjectDictionary = new Dictionary<string, object> { { "boolean", true } },
+            ObjectDictionary = new Dictionary<string, object> { { "boolean", false } },
             CustomType = new TestCaseCustomType { IntValue = 1234, StringValue = "5678" }
         };
 
         var json = JsonSerializer.Serialize(obj, converter);
         Assert.Equal(1, converter.SerializeCalled);
 
-        Assert.Equal("{\"objectDictionary\":{\"boolean\":true},\"customType\":{\"intValue\":1234,\"stringValue\":\"5678\"}}", json);
+        Assert.Equal("{\"objectDictionary\":{\"boolean\":false},\"customType\":{\"intValue\":1234,\"stringValue\":\"5678\"}}", json);
     }
 
     [Fact]
