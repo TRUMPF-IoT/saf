@@ -47,7 +47,7 @@ namespace SAF.Communication.PubSub.Cde
         public const int AliveIntervalSeconds = 30;
 
         private readonly ReaderWriterLockSlim _syncSubscribers = new(LockRecursionPolicy.SupportsRecursion);
-        private readonly IDictionary<string, IRemoteSubscriber> _subscribers = new Dictionary<string, IRemoteSubscriber>();
+        private readonly Dictionary<string, IRemoteSubscriber> _subscribers = new();
 
         private readonly Logger _log;
         private readonly ComLine _line;

@@ -42,9 +42,9 @@ namespace SAF.Communication.PubSub.Cde.Authorization
                 var accessLevel = message.accessLevel;
                 var res = token.Substring(0, resource.Length);
                 var hasAccess = false;
-                if(res == resource && _tokens.ContainsKey(token))
+                if(res == resource && _tokens.TryGetValue(token, out var tokenUid))
                 {
-                    hasAccess = TheUserManager.HasUserAccess(TheCommonUtils.CGuid(_tokens[token]), accessLevel);
+                    hasAccess = TheUserManager.HasUserAccess(TheCommonUtils.CGuid(tokenUid), accessLevel);
                     _tokens.TryRemove(token, out _);
                 }
 

@@ -73,7 +73,7 @@ namespace SAF.Communication.PubSub.Cde
 
         public ISubscription Subscribe(RoutingOptions routingOptions, params string[] patterns)
         {
-            if (patterns == null || !patterns.Any()) patterns = new[] { "*" };
+            if (patterns == null || patterns.Length == 0) patterns = new[] { "*" };
 
             var subscription = new SubscriptionInternal(this, routingOptions, patterns);
             RemoteSubscribe(subscription.Id, routingOptions, patterns);
@@ -198,10 +198,10 @@ namespace SAF.Communication.PubSub.Cde
             }
         }
 
-        private RegistrySubscriptionRequest CreateSubscriptionRequest(string[] topics)
+        private static RegistrySubscriptionRequest CreateSubscriptionRequest(string[] topics)
             => CreateSubscriptionRequest(Guid.NewGuid(), topics);
 
-        private RegistrySubscriptionRequest CreateSubscriptionRequest(Guid subId, string[] topics)
+        private static RegistrySubscriptionRequest CreateSubscriptionRequest(Guid subId, string[] topics)
         {
             return new()
             {
