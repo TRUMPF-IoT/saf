@@ -22,16 +22,16 @@ namespace SAF.Toolbox.Serialization
             => JsonTransformer.Serialize(obj, DefaultOptionsWithConverters(converters));
 
         public static T Deserialize<T>(string json)
-            => JsonTransformer.Deserialize<T>(json, DefaultOptions);
+            => string.IsNullOrWhiteSpace(json) ? default : JsonTransformer.Deserialize<T>(json, DefaultOptions);
 
         public static object Deserialize(string json, Type type)
-            => JsonTransformer.Deserialize(json, type, DefaultOptions);
+            => string.IsNullOrWhiteSpace(json) ? default : JsonTransformer.Deserialize(json, type, DefaultOptions);
 
         public static T Deserialize<T>(string json, params IJsonObjectConverter[] converters)
-            => JsonTransformer.Deserialize<T>(json, DefaultOptionsWithConverters(converters));
+            => string.IsNullOrWhiteSpace(json) ? default : JsonTransformer.Deserialize<T>(json, DefaultOptionsWithConverters(converters));
 
         public static object Deserialize(string json, Type type, params IJsonObjectConverter[] converters)
-            => JsonTransformer.Deserialize(json, type, DefaultOptionsWithConverters(converters));
+            => string.IsNullOrWhiteSpace(json) ? default : JsonTransformer.Deserialize(json, type, DefaultOptionsWithConverters(converters));
 
         private static JsonSerializerOptions DefaultOptionsWithConverters(IJsonObjectConverter[] converters)
         {
