@@ -30,14 +30,14 @@ namespace SAF.Storage.LiteDb
         public void Dispose()
         {
             Dispose(true);
+            GC.SuppressFinalize(this);
         }
 
-        protected virtual void Dispose(bool cleanUpManagedAndNative)
+        protected virtual void Dispose(bool disposing)
         {
-            if (cleanUpManagedAndNative)
-            {
-                _connection?.Dispose();
-            }
+            if (!disposing) return;
+
+            _connection?.Dispose();
         }
 
         public byte[] GetBytes(string key)

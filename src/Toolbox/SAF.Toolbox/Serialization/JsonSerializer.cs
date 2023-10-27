@@ -22,16 +22,32 @@ namespace SAF.Toolbox.Serialization
             => JsonTransformer.Serialize(obj, DefaultOptionsWithConverters(converters));
 
         public static T Deserialize<T>(string json)
-            => string.IsNullOrWhiteSpace(json) ? default : JsonTransformer.Deserialize<T>(json, DefaultOptions);
+        {
+            if(json == null) throw new ArgumentNullException(nameof(json));
+            return string.IsNullOrEmpty(json) ? default : JsonTransformer.Deserialize<T>(json, DefaultOptions);
+        }
 
         public static object Deserialize(string json, Type type)
-            => string.IsNullOrWhiteSpace(json) ? default : JsonTransformer.Deserialize(json, type, DefaultOptions);
+        {
+            if (json == null) throw new ArgumentNullException(nameof(json));
+            return string.IsNullOrWhiteSpace(json) ? default : JsonTransformer.Deserialize(json, type, DefaultOptions);
+        }
 
         public static T Deserialize<T>(string json, params IJsonObjectConverter[] converters)
-            => string.IsNullOrWhiteSpace(json) ? default : JsonTransformer.Deserialize<T>(json, DefaultOptionsWithConverters(converters));
+        {
+            if (json == null) throw new ArgumentNullException(nameof(json));
+            return string.IsNullOrWhiteSpace(json)
+                ? default
+                : JsonTransformer.Deserialize<T>(json, DefaultOptionsWithConverters(converters));
+        }
 
         public static object Deserialize(string json, Type type, params IJsonObjectConverter[] converters)
-            => string.IsNullOrWhiteSpace(json) ? default : JsonTransformer.Deserialize(json, type, DefaultOptionsWithConverters(converters));
+        {
+            if (json == null) throw new ArgumentNullException(nameof(json));
+            return string.IsNullOrWhiteSpace(json)
+                ? default
+                : JsonTransformer.Deserialize(json, type, DefaultOptionsWithConverters(converters));
+        }
 
         private static JsonSerializerOptions DefaultOptionsWithConverters(IJsonObjectConverter[] converters)
         {
