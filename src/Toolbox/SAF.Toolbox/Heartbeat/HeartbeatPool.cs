@@ -3,7 +3,6 @@
 // SPDX-License-Identifier: MPL-2.0
 
 using System.Collections.Concurrent;
-using System.Linq;
 
 namespace SAF.Toolbox.Heartbeat
 {

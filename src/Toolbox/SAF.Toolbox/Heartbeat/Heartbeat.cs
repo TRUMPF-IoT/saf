@@ -2,9 +2,6 @@
 //
 // SPDX-License-Identifier: MPL-2.0
 
-using System;
-using System.Threading;
-
 namespace SAF.Toolbox.Heartbeat
 {
     internal sealed class Heartbeat : IHeartbeat, IDisposable

@@ -2,11 +2,7 @@
 //
 // SPDX-License-Identifier: MPL-2.0
 
-using System;
-using System.IO;
 using System.IO.MemoryMappedFiles;
-using System.Linq;
-using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 

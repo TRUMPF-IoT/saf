@@ -3,11 +3,6 @@
 // SPDX-License-Identifier: MPL-2.0
 
 
-using System;
-using System.Collections.Generic;
-using System.IO;
-using System.Threading.Tasks;
-
 namespace SAF.Toolbox.FileTransfer
 {
     public interface IFileSender : IDisposable

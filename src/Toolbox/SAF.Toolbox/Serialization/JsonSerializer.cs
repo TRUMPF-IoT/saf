@@ -2,8 +2,6 @@
 //
 // SPDX-License-Identifier: MPL-2.0
 
-using System;
-using System.Linq;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using JsonTransformer = System.Text.Json.JsonSerializer;
