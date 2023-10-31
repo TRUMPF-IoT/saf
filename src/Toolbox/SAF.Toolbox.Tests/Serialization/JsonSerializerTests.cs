@@ -185,6 +185,13 @@ public class JsonSerializerTests
     }
 
     [Fact]
+    public void ObjectToInferredTypesConverterSerializesObject()
+    {
+        var json = JsonSerializer.Serialize(new object());
+        Assert.Equal("{}", json);
+    }
+
+    [Fact]
     public void TestCaseFieldsCompare()
     {
         var testobjekt = new TestCaseFields { AnInteger = 1, aString = "Wert" };

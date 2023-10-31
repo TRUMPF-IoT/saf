@@ -22,5 +22,18 @@ internal class ObjectToInferredTypesConverter : JsonConverter<object>
         };
 
     public override void Write(Utf8JsonWriter writer, object value, JsonSerializerOptions options)
-        => System.Text.Json.JsonSerializer.Serialize(writer, value, value.GetType(), options);
+    {
+        if (value.GetType() == typeof(object))
+        {
+            // don't use ourselves when serializing an object to avoid StackOverflowException
+            var copiedOptions = new JsonSerializerOptions(options);
+            copiedOptions.Converters.Remove(this);
+
+            System.Text.Json.JsonSerializer.Serialize(writer, value, value.GetType(), copiedOptions);
+        }
+        else
+        {
+            System.Text.Json.JsonSerializer.Serialize(writer, value, value.GetType(), options);
+        }
+    }
 }
