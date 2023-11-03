@@ -2,12 +2,11 @@
 //
 // SPDX-License-Identifier: MPL-2.0
 
-namespace SAF.Communication.PubSub.Interfaces
+namespace SAF.Communication.PubSub.Interfaces;
+
+public enum RoutingOptions
 {
-    public enum RoutingOptions
-    {
-        All,
-        Local,
-        Remote
-    }
+    All,
+    Local,
+    Remote
 }

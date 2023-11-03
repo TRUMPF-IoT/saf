@@ -5,25 +5,24 @@
 
 using SAF.Common;
 
-namespace SAF.Messaging.Redis
+namespace SAF.Messaging.Redis;
+
+internal class RedisMessagingConfiguration
 {
-    internal class RedisMessagingConfiguration
+    private readonly IDictionary<string, string> _config;
+
+    public RedisMessagingConfiguration()
+        : this(new Dictionary<string, string>())
+    { }
+    public RedisMessagingConfiguration(MessagingConfiguration config)
+        : this(config.Config ?? new Dictionary<string, string>())
+    { }
+
+    public RedisMessagingConfiguration(IDictionary<string, string> config)
     {
-        private readonly IDictionary<string, string> _config;
-
-        public RedisMessagingConfiguration()
-            : this(new Dictionary<string, string>())
-        { }
-        public RedisMessagingConfiguration(MessagingConfiguration config)
-            : this(config.Config ?? new Dictionary<string, string>())
-        { }
-
-        public RedisMessagingConfiguration(IDictionary<string, string> config)
-        {
-            _config = config;
-        }
-
-        public string? ConnectionString
-            => _config.TryGetValue("connectionString", out var connString) ? connString : null;
+        _config = config;
     }
+
+    public string? ConnectionString
+        => _config.TryGetValue("connectionString", out var connString) ? connString : null;
 }

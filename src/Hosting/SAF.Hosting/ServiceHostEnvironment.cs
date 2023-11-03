@@ -4,11 +4,10 @@
 
 using SAF.Common;
 
-namespace SAF.Hosting
+namespace SAF.Hosting;
+
+internal class ServiceHostEnvironment : IServiceHostEnvironment
 {
-    internal class ServiceHostEnvironment : IServiceHostEnvironment
-    {
-        public string? ApplicationName { get; set; }
-        public string EnvironmentName { get; set; } = default!;
-    }
+    public string? ApplicationName { get; set; }
+    public string EnvironmentName { get; set; } = default!;
 }

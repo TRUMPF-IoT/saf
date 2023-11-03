@@ -6,26 +6,25 @@ using nsCDEngine.BaseClasses;
 using SAF.Communication.Cde;
 using SAF.Communication.PubSub.Interfaces;
 
-namespace SAF.Communication.PubSub.Cde
+namespace SAF.Communication.PubSub.Cde;
+
+internal static class TsmExtensions
 {
-    internal static class TsmExtensions
+    public static bool IsRoutingAllowed(this TSM tsm, RoutingOptions routingOptions)
     {
-        public static bool IsRoutingAllowed(this TSM tsm, RoutingOptions routingOptions)
+        switch (routingOptions)
         {
-            switch (routingOptions)
-            {
-                case RoutingOptions.All:
-                    return true;
+            case RoutingOptions.All:
+                return true;
 
-                case RoutingOptions.Local:
-                    return tsm.IsLocalHost();
+            case RoutingOptions.Local:
+                return tsm.IsLocalHost();
 
-                case RoutingOptions.Remote:
-                    return !tsm.IsLocalHost();
+            case RoutingOptions.Remote:
+                return !tsm.IsLocalHost();
 
-                default:
-                    throw new ArgumentOutOfRangeException(nameof(routingOptions));
-            }
+            default:
+                throw new ArgumentOutOfRangeException(nameof(routingOptions));
         }
     }
 }

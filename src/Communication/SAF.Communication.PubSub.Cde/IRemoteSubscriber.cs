@@ -4,23 +4,22 @@
 
 using nsCDEngine.BaseClasses;
 
-namespace SAF.Communication.PubSub.Cde
+namespace SAF.Communication.PubSub.Cde;
+
+internal interface IRemoteSubscriber
 {
-    internal interface IRemoteSubscriber
-    {
-        TSM Tsm { get; }
-        bool IsLocalHost { get; }
-        bool IsAlive { get; }
-        bool IsRegistry { get; }
-        string TargetEngine { get; }
-        string Version { get; }
+    TSM Tsm { get; }
+    bool IsLocalHost { get; }
+    bool IsAlive { get; }
+    bool IsRegistry { get; }
+    string TargetEngine { get; }
+    string Version { get; }
 
-        void AddPatterns(IList<string> patterns);
-        void RemovePatterns(IList<string> patterns);
-        bool HasPatterns { get; }
+    void AddPatterns(IList<string> patterns);
+    void RemovePatterns(IList<string> patterns);
+    bool HasPatterns { get; }
 
-        bool IsMatch(string topic);
+    bool IsMatch(string topic);
 
-        void Touch();
-    }
+    void Touch();
 }

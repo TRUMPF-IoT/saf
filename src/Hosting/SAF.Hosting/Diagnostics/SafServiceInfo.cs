@@ -5,27 +5,26 @@
 using SAF.Common;
 using System.Diagnostics;
 
-namespace SAF.Hosting.Diagnostics
+namespace SAF.Hosting.Diagnostics;
+
+public class SafServiceInfo
 {
-    public class SafServiceInfo
+    public SafServiceInfo(IServiceAssemblyManifest assembly)
     {
-        public SafServiceInfo(IServiceAssemblyManifest assembly)
-        {
-            var type = assembly.GetType();
+        var type = assembly.GetType();
 
-            var fvi = FileVersionInfo.GetVersionInfo(type.Assembly.Location);
+        var fvi = FileVersionInfo.GetVersionInfo(type.Assembly.Location);
 
-            Name = type.AssemblyQualifiedName ?? string.Empty;
-            FriendlyName = assembly.FriendlyName;
-            Version = fvi.ProductVersion ?? string.Empty;
-            BuildNumber = type.Assembly.GetName().Version?.ToString() ?? string.Empty;
-            BuildDate = File.GetLastWriteTimeUtc(type.Assembly.Location);
-        }
-
-        public string Name { get; set; }
-        public string FriendlyName { get; set; }
-        public string Version { get; set; }
-        public string BuildNumber { get; set; }
-        public DateTimeOffset BuildDate { get; set; }
+        Name = type.AssemblyQualifiedName ?? string.Empty;
+        FriendlyName = assembly.FriendlyName;
+        Version = fvi.ProductVersion ?? string.Empty;
+        BuildNumber = type.Assembly.GetName().Version?.ToString() ?? string.Empty;
+        BuildDate = File.GetLastWriteTimeUtc(type.Assembly.Location);
     }
+
+    public string Name { get; set; }
+    public string FriendlyName { get; set; }
+    public string Version { get; set; }
+    public string BuildNumber { get; set; }
+    public DateTimeOffset BuildDate { get; set; }
 }

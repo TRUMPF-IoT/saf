@@ -8,24 +8,23 @@ using SAF.Services.SampleService1.AnyOtherInternalLogic;
 using SAF.Services.SampleService1.MessageHandlers;
 using SAF.Toolbox;
 
-namespace SAF.Services.SampleService1
+namespace SAF.Services.SampleService1;
+
+public class AssemblyManifest : IServiceAssemblyManifest
 {
-    public class AssemblyManifest : IServiceAssemblyManifest
+    public string FriendlyName => "My special services.";
+
+    public void RegisterDependencies(IServiceCollection services, IServiceHostContext context)
     {
-        public string FriendlyName => "My special services.";
+        // dependencies
+        services.AddTransient<MyInternalDependency>();
+        services.AddTransient<CatchAllMessageHandler>();
+        services.AddTransient<PingMessageHandler>();
 
-        public void RegisterDependencies(IServiceCollection services, IServiceHostContext context)
-        {
-            // dependencies
-            services.AddTransient<MyInternalDependency>();
-            services.AddTransient<CatchAllMessageHandler>();
-            services.AddTransient<PingMessageHandler>();
+        // "microservice" settings
+        services.AddServiceConfiguration<MyServiceConfiguration>(context.Configuration, nameof(MySpecialService));
 
-            // "microservice" settings
-            services.AddServiceConfiguration<MyServiceConfiguration>(context.Configuration, nameof(MySpecialService));
-
-            // "microservices"
-            services.AddHosted<MySpecialService>();
-        }
+        // "microservices"
+        services.AddHosted<MySpecialService>();
     }
 }

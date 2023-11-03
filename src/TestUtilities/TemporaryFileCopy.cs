@@ -2,25 +2,24 @@
 //
 // SPDX-License-Identifier: MPL-2.0
 
-namespace TestUtilities
+namespace TestUtilities;
+
+public class TemporaryFileCopy : IDisposable
 {
-    public class TemporaryFileCopy : IDisposable
+    public string TempFileName { get; }
+    public string TempFilePath { get; }
+
+    public TemporaryFileCopy(string originalFileRelativePath)
     {
-        public string TempFileName { get; }
-        public string TempFilePath { get; }
+        var curDir = Directory.GetCurrentDirectory();
+        var originalFilePath = Path.Combine(curDir, originalFileRelativePath);
+        TempFileName = $"{Path.GetFileNameWithoutExtension(originalFilePath)}_{Guid.NewGuid()}_.{Path.GetExtension(originalFilePath)}";
+        TempFilePath = Path.Combine(curDir, TempFileName);
+        File.Copy(originalFilePath, TempFilePath);
+    }
 
-        public TemporaryFileCopy(string originalFileRelativePath)
-        {
-            var curDir = Directory.GetCurrentDirectory();
-            var originalFilePath = Path.Combine(curDir, originalFileRelativePath);
-            TempFileName = $"{Path.GetFileNameWithoutExtension(originalFilePath)}_{Guid.NewGuid()}_.{Path.GetExtension(originalFilePath)}";
-            TempFilePath = Path.Combine(curDir, TempFileName);
-            File.Copy(originalFilePath, TempFilePath);
-        }
-
-        public void Dispose()
-        {
-            File.Delete(TempFilePath);
-        }
+    public void Dispose()
+    {
+        File.Delete(TempFilePath);
     }
 }

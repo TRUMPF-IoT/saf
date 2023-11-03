@@ -11,103 +11,102 @@ using nsCDEngine.ViewModels;
 using SAF.Common;
 using SAF.Communication.PubSub.Interfaces;
 
-namespace SAF.Communication.PubSub.Cde.Authorization
+namespace SAF.Communication.PubSub.Cde.Authorization;
+
+public class AuthorizationService
 {
-    public class AuthorizationService
+    private readonly IPublisher _publisher;
+
+    public const string BaseChannelName = "internal/auth";
+    public static readonly string ChannelGetToken = $"{BaseChannelName}/token/get";
+    public static readonly string ChannelCheckToken = $"{BaseChannelName}/token/check";
+
+    private readonly ConcurrentDictionary<string, string> _tokens = new();
+
+    public AuthorizationService(IPublisher publisher)
     {
-        private readonly IPublisher _publisher;
+        _publisher = publisher;
+    }
 
-        public const string BaseChannelName = "internal/auth";
-        public static readonly string ChannelGetToken = $"{BaseChannelName}/token/get";
-        public static readonly string ChannelCheckToken = $"{BaseChannelName}/token/check";
-
-        private readonly ConcurrentDictionary<string, string> _tokens = new();
-
-        public AuthorizationService(IPublisher publisher)
+    public void CheckToken(string msgVersion, TheProcessMessage msg)
+    {
+        try
         {
-            _publisher = publisher;
-        }
+            var message = msgVersion == PubSubVersion.V1
+                ? TheCommonUtils.DeserializeJSONStringToObject<AuthCheckRequestMessage>(msg.Message.PLS)
+                : TheCommonUtils.DeserializeJSONStringToObject<AuthCheckRequestMessage>(TheCommonUtils.DeserializeJSONStringToObject<Message>(msg.Message.PLS).Payload);
+            var replyTo = message.replyTo;
+            var resource = message.resource;
+            var token = message.token;
+            var accessLevel = message.accessLevel;
+            var res = token.Substring(0, resource.Length);
+            var hasAccess = false;
+            if(res == resource && _tokens.TryGetValue(token, out var tokenUid))
+            {
+                hasAccess = TheUserManager.HasUserAccess(TheCommonUtils.CGuid(tokenUid), accessLevel);
+                _tokens.TryRemove(token, out _);
+            }
 
-        public void CheckToken(string msgVersion, TheProcessMessage msg)
+            var uid = msg.CurrentUserID != Guid.Empty ? $"{msg.CurrentUserID}" : $"{msg.Message.UID}";
+            SendReply(uid, replyTo, $"{hasAccess}".ToLowerInvariant());
+        }
+        catch(Exception e)
         {
-            try
-            {
-                var message = msgVersion == PubSubVersion.V1
-                    ? TheCommonUtils.DeserializeJSONStringToObject<AuthCheckRequestMessage>(msg.Message.PLS)
-                    : TheCommonUtils.DeserializeJSONStringToObject<AuthCheckRequestMessage>(TheCommonUtils.DeserializeJSONStringToObject<Message>(msg.Message.PLS).Payload);
-                var replyTo = message.replyTo;
-                var resource = message.resource;
-                var token = message.token;
-                var accessLevel = message.accessLevel;
-                var res = token.Substring(0, resource.Length);
-                var hasAccess = false;
-                if(res == resource && _tokens.TryGetValue(token, out var tokenUid))
-                {
-                    hasAccess = TheUserManager.HasUserAccess(TheCommonUtils.CGuid(tokenUid), accessLevel);
-                    _tokens.TryRemove(token, out _);
-                }
-
-                var uid = msg.CurrentUserID != Guid.Empty ? $"{msg.CurrentUserID}" : $"{msg.Message.UID}";
-                SendReply(uid, replyTo, $"{hasAccess}".ToLowerInvariant());
-            }
-            catch(Exception e)
-            {
-                Debug.WriteLine(e);
-            }
+            Debug.WriteLine(e);
         }
+    }
 
-        public void GetToken(string msgVersion, TheProcessMessage msg)
+    public void GetToken(string msgVersion, TheProcessMessage msg)
+    {
+        // Check if user is locally known - given the user has set at least one bit
+        if(!TheUserManager.HasUserAccess(TheCommonUtils.CGuid(msg.CurrentUserID), 0xffffff)) return;
+
+        try
         {
-            // Check if user is locally known - given the user has set at least one bit
-            if(!TheUserManager.HasUserAccess(TheCommonUtils.CGuid(msg.CurrentUserID), 0xffffff)) return;
-
-            try
-            {
-                var message = msgVersion == PubSubVersion.V1
-                    ? TheCommonUtils.DeserializeJSONStringToObject<AuthTokenRequestMessage>(msg.Message.PLS)
-                    : TheCommonUtils.DeserializeJSONStringToObject<AuthTokenRequestMessage>(TheCommonUtils.DeserializeJSONStringToObject<Message>(msg.Message.PLS).Payload);
-                var replyTo = message.replyTo;
-                var resource = message.resource;
-                var hash = $"{resource}{replyTo}";
-                var uid = msg.CurrentUserID != Guid.Empty ? $"{msg.CurrentUserID}" : $"{msg.Message.UID}";
-                _tokens[hash] = uid;
-                SendReply(uid, replyTo, hash);
-            }
-            catch(Exception e)
-            {
-                Debug.WriteLine(e);
-            }
+            var message = msgVersion == PubSubVersion.V1
+                ? TheCommonUtils.DeserializeJSONStringToObject<AuthTokenRequestMessage>(msg.Message.PLS)
+                : TheCommonUtils.DeserializeJSONStringToObject<AuthTokenRequestMessage>(TheCommonUtils.DeserializeJSONStringToObject<Message>(msg.Message.PLS).Payload);
+            var replyTo = message.replyTo;
+            var resource = message.resource;
+            var hash = $"{resource}{replyTo}";
+            var uid = msg.CurrentUserID != Guid.Empty ? $"{msg.CurrentUserID}" : $"{msg.Message.UID}";
+            _tokens[hash] = uid;
+            SendReply(uid, replyTo, hash);
         }
-
-        private void SendReply(string uid, string channel, string reply)
+        catch(Exception e)
         {
-            var replyMsg = new Message {Topic = channel, Payload = reply};
-            _publisher.Publish(replyMsg, uid);
+            Debug.WriteLine(e);
         }
+    }
+
+    private void SendReply(string uid, string channel, string reply)
+    {
+        var replyMsg = new Message {Topic = channel, Payload = reply};
+        _publisher.Publish(replyMsg, uid);
+    }
 
 #pragma warning disable S3459 // Unassigned members should be removed
 #pragma warning disable 169
 #pragma warning disable 649
-        // ReSharper disable InconsistentNaming
+    // ReSharper disable InconsistentNaming
 
-        private struct AuthCheckRequestMessage
-        {
+    private struct AuthCheckRequestMessage
+    {
 
-            public string replyTo;
-            public string resource;
-            public string token;
-            public int accessLevel;
-        }
+        public string replyTo;
+        public string resource;
+        public string token;
+        public int accessLevel;
+    }
 
-        private struct AuthTokenRequestMessage
-        {
-            public string replyTo;
-            public string resource;
-        }
+    private struct AuthTokenRequestMessage
+    {
+        public string replyTo;
+        public string resource;
+    }
 
-        // ReSharper restore InconsistentNaming
+    // ReSharper restore InconsistentNaming
 #pragma warning restore 694
 #pragma warning restore 169
 #pragma warning restore S3459 // Unassigned members should be removed
-    }
 }

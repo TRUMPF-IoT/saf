@@ -4,12 +4,11 @@
 
 using SAF.Common;
 
-namespace SAF.Messaging.Routing
+namespace SAF.Messaging.Routing;
+
+internal interface IMessageRouting
 {
-    internal interface IMessageRouting
-    {
-        public void Publish(Message message);
-        public MessageRoutingSubscription? Subscribe<TMessageHandler>(string routeFilterPattern) where TMessageHandler : IMessageHandler;
-        public MessageRoutingSubscription? Subscribe(string routeFilterPattern, Action<Message> handler);
-    }
+    public void Publish(Message message);
+    public MessageRoutingSubscription? Subscribe<TMessageHandler>(string routeFilterPattern) where TMessageHandler : IMessageHandler;
+    public MessageRoutingSubscription? Subscribe(string routeFilterPattern, Action<Message> handler);
 }

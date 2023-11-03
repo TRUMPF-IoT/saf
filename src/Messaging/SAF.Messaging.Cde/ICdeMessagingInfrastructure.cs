@@ -4,12 +4,11 @@
 
 using SAF.Common;
 
-namespace SAF.Messaging.Cde
+namespace SAF.Messaging.Cde;
+
+public interface ICdeMessagingInfrastructure : IMessagingInfrastructure
 {
-    public interface ICdeMessagingInfrastructure : IMessagingInfrastructure
-    {
-        // Defined only to support specific CDE IMessagingInfrastructure in DI containers. 
-        // The specific instance can be retrieved like this: serviceProvider.GetService<ICdeMessagingInfrastructure>. 
-        // Use IServiceCollection.AddCdeMessagingInfrastructure extension method to add ICdeMessagingInfrastructure into the DI container. 
-    }
+    // Defined only to support specific CDE IMessagingInfrastructure in DI containers. 
+    // The specific instance can be retrieved like this: serviceProvider.GetService<ICdeMessagingInfrastructure>. 
+    // Use IServiceCollection.AddCdeMessagingInfrastructure extension method to add ICdeMessagingInfrastructure into the DI container. 
 }

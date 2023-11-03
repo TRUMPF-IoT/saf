@@ -5,22 +5,21 @@
 using SAF.Common.Contracts;
 using SAF.Toolbox.Serialization;
 
-namespace SAF.Toolbox.RequestClient
+namespace SAF.Toolbox.RequestClient;
+
+public interface IRequestClient
 {
-    public interface IRequestClient
-    {
-        void SetDefaultPrefix(string prefix);
+    void SetDefaultPrefix(string prefix);
 
-        Task<TResponse?> SendRequestAwaitFirstAnswer<TRequest, TResponse>(string topic, TRequest request, string? replyTopicPrefix = null, double? millisecondsTimeoutTarget = null)
-            where TRequest : MessageRequestBase
-            where TResponse : class;
+    Task<TResponse?> SendRequestAwaitFirstAnswer<TRequest, TResponse>(string topic, TRequest request, string? replyTopicPrefix = null, double? millisecondsTimeoutTarget = null)
+        where TRequest : MessageRequestBase
+        where TResponse : class;
 
-        Task<TResponse?> SendRequestAwaitFirstAnswer<TRequest, TResponse>(string topic, TRequest request, IJsonObjectConverter[] converters, string? replyTopicPrefix = null, double? millisecondsTimeoutTarget = null)
-            where TRequest : MessageRequestBase
-            where TResponse : class;
+    Task<TResponse?> SendRequestAwaitFirstAnswer<TRequest, TResponse>(string topic, TRequest request, IJsonObjectConverter[] converters, string? replyTopicPrefix = null, double? millisecondsTimeoutTarget = null)
+        where TRequest : MessageRequestBase
+        where TResponse : class;
 
-        Task<string?> SendRequestAwaitFirstAnswer<TRequest>(string topic, TRequest request,
-            IJsonObjectConverter[] converters, string? replyTopicPrefix = null, double? millisecondsTimeoutTarget = null)
-            where TRequest : MessageRequestBase;
-    }
+    Task<string?> SendRequestAwaitFirstAnswer<TRequest>(string topic, TRequest request,
+        IJsonObjectConverter[] converters, string? replyTopicPrefix = null, double? millisecondsTimeoutTarget = null)
+        where TRequest : MessageRequestBase;
 }

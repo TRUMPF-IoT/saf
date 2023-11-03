@@ -10,20 +10,19 @@ using SAF.Common;
 [assembly: InternalsVisibleTo("SAF.Messaging.InProcess.Tests")]
 [assembly: InternalsVisibleTo("DynamicProxyGenAssembly2")]
 
-namespace SAF.Messaging.InProcess
+namespace SAF.Messaging.InProcess;
+
+public static class ServiceCollectionExtensions
 {
-    public static class ServiceCollectionExtensions
+    public static IServiceCollection AddInProcessMessagingInfrastructure(this IServiceCollection serviceCollection, Action<Message>? traceAction = null)
+        => serviceCollection.AddTransient<IInProcessMessagingInfrastructure>(r =>
+            new InProcessMessaging(r.GetService<ILogger<InProcessMessaging>>(), r.GetRequiredService<IServiceMessageDispatcher>(), traceAction));
+
+    internal static IServiceCollection AddInProcessMessagingInfrastructure(this IServiceCollection serviceCollection, MessagingConfiguration config)
     {
-        public static IServiceCollection AddInProcessMessagingInfrastructure(this IServiceCollection serviceCollection, Action<Message>? traceAction = null)
-            => serviceCollection.AddTransient<IInProcessMessagingInfrastructure>(r =>
-                new InProcessMessaging(r.GetService<ILogger<InProcessMessaging>>(), r.GetRequiredService<IServiceMessageDispatcher>(), traceAction));
+        serviceCollection.AddTransient(sp => new Func<MessagingConfiguration, IInProcessMessagingInfrastructure>(_ =>
+            new InProcessMessaging(sp.GetService<ILogger<InProcessMessaging>>(), sp.GetRequiredService<IServiceMessageDispatcher>())));
 
-        internal static IServiceCollection AddInProcessMessagingInfrastructure(this IServiceCollection serviceCollection, MessagingConfiguration config)
-        {
-            serviceCollection.AddTransient(sp => new Func<MessagingConfiguration, IInProcessMessagingInfrastructure>(_ =>
-                new InProcessMessaging(sp.GetService<ILogger<InProcessMessaging>>(), sp.GetRequiredService<IServiceMessageDispatcher>())));
-
-            return serviceCollection.AddTransient(sp => sp.GetRequiredService<Func<MessagingConfiguration, IInProcessMessagingInfrastructure>>().Invoke(config));
-        }
+        return serviceCollection.AddTransient(sp => sp.GetRequiredService<Func<MessagingConfiguration, IInProcessMessagingInfrastructure>>().Invoke(config));
     }
 }

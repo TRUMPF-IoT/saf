@@ -5,10 +5,9 @@
 using nsCDEngine.ViewModels;
 using SAF.Communication.PubSub.Interfaces;
 
-namespace SAF.Communication.PubSub.Cde
+namespace SAF.Communication.PubSub.Cde;
+
+internal interface ISubscriptionInternal : ISubscription
 {
-    internal interface ISubscriptionInternal : ISubscription
-    {
-        void SetRawHandler(Action<string, TheProcessMessage> callback);
-    }
+    void SetRawHandler(Action<string, TheProcessMessage> callback);
 }

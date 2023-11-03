@@ -2,31 +2,30 @@
 //
 // SPDX-License-Identifier: MPL-2.0
 
-namespace SAF.Toolbox.Heartbeat
+namespace SAF.Toolbox.Heartbeat;
+
+internal sealed class Heartbeat : IHeartbeat, IDisposable
 {
-    internal sealed class Heartbeat : IHeartbeat, IDisposable
+    public event EventHandler<HeartbeatEventArgs>? Beat;
+    public int BeatCycleTimeMillis { get; }
+    public long CurrentBeat { get; private set; }
+
+    private readonly Timer _heartbeatTimer;
+
+    public Heartbeat(int beatCycleTimeMillis)
     {
-        public event EventHandler<HeartbeatEventArgs>? Beat;
-        public int BeatCycleTimeMillis { get; }
-        public long CurrentBeat { get; private set; }
-
-        private readonly Timer _heartbeatTimer;
-
-        public Heartbeat(int beatCycleTimeMillis)
-        {
-            BeatCycleTimeMillis = beatCycleTimeMillis;
-            _heartbeatTimer = new Timer(Tick, null, TimeSpan.Zero, TimeSpan.FromMilliseconds(beatCycleTimeMillis));
-        }
-
-        public TimeSpan WallClockTimeAgo(long beatCount)
-            => TimeSpan.FromMilliseconds(beatCount * BeatCycleTimeMillis);
-
-        public void Dispose()
-        {
-            _heartbeatTimer.Dispose();
-        }
-
-        private void Tick(object? state)
-            => Beat?.Invoke(this, new HeartbeatEventArgs(BeatCycleTimeMillis, ++CurrentBeat));
+        BeatCycleTimeMillis = beatCycleTimeMillis;
+        _heartbeatTimer = new Timer(Tick, null, TimeSpan.Zero, TimeSpan.FromMilliseconds(beatCycleTimeMillis));
     }
+
+    public TimeSpan WallClockTimeAgo(long beatCount)
+        => TimeSpan.FromMilliseconds(beatCount * BeatCycleTimeMillis);
+
+    public void Dispose()
+    {
+        _heartbeatTimer.Dispose();
+    }
+
+    private void Tick(object? state)
+        => Beat?.Invoke(this, new HeartbeatEventArgs(BeatCycleTimeMillis, ++CurrentBeat));
 }

@@ -5,22 +5,21 @@
 using nsCDEngine.BaseClasses;
 using nsCDEngine.Engines.ThingService;
 
-namespace SAF.Communication.Cde
-{
-    public delegate void MessageReceivedHandler(ICDEThing sender, object msg);
+namespace SAF.Communication.Cde;
 
-    /// <summary>
-    /// <para>Abstract link class between the C-DEngine object <c>TheThing</c> and the SAF objects
-    /// <c>Subscriber</c> and <c>SubscriptionRegistry</c>.</para>For the concret implementations see
-    /// <see cref="ConnectionTypes.DefaultComLine">DefaultComLine</see> and 
-    /// <see cref="ConnectionTypes.AdvancedComLine">AdvancedComLine</see>
-    /// </summary>
-    public abstract class ComLine
-    {
-        public abstract string Address { get; }
-        public abstract event MessageReceivedHandler? MessageReceived;
-        public abstract Task Subscribe(string topic);
-        public abstract void Broadcast(TSM message);
-        public abstract void AnswerToSender(TSM originalMessage, TSM reply);
-    }
+public delegate void MessageReceivedHandler(ICDEThing sender, object msg);
+
+/// <summary>
+/// <para>Abstract link class between the C-DEngine object <c>TheThing</c> and the SAF objects
+/// <c>Subscriber</c> and <c>SubscriptionRegistry</c>.</para>For the concret implementations see
+/// <see cref="ConnectionTypes.DefaultComLine">DefaultComLine</see> and 
+/// <see cref="ConnectionTypes.AdvancedComLine">AdvancedComLine</see>
+/// </summary>
+public abstract class ComLine
+{
+    public abstract string Address { get; }
+    public abstract event MessageReceivedHandler? MessageReceived;
+    public abstract Task Subscribe(string topic);
+    public abstract void Broadcast(TSM message);
+    public abstract void AnswerToSender(TSM originalMessage, TSM reply);
 }

@@ -7,23 +7,22 @@ using SAF.Common;
 using SAF.Services.SampleService1.MessageHandlers;
 using Xunit;
 
-namespace SAF.Services.SampleService1.Tests
+namespace SAF.Services.SampleService1.Tests;
+
+public class PingMessageHandlerTests
 {
-    public class PingMessageHandlerTests
+    [Fact]
+    public void RepliesMessagesToSender()
     {
-        [Fact]
-        public void RepliesMessagesToSender()
-        {
-            // Arrange
-            var meshMock = Substitute.For<IMessagingInfrastructure>();
-            var message = new Message { Topic = "ping/request", Payload = "{ \"replyTo\": \"ping/response\", \"id\": \"1\" }" };
-            var sut = new PingMessageHandler(null, meshMock);
+        // Arrange
+        var meshMock = Substitute.For<IMessagingInfrastructure>();
+        var message = new Message { Topic = "ping/request", Payload = "{ \"replyTo\": \"ping/response\", \"id\": \"1\" }" };
+        var sut = new PingMessageHandler(null, meshMock);
 
-            // Act
-            sut.Handle(message);
+        // Act
+        sut.Handle(message);
 
-            // Assert
-            meshMock.Received().Publish(Arg.Is<Message>(m => m.Topic == "ping/response" && m.Payload == "{\"id\":\"1\"}"));
-        }
+        // Assert
+        meshMock.Received().Publish(Arg.Is<Message>(m => m.Topic == "ping/response" && m.Payload == "{\"id\":\"1\"}"));
     }
 }

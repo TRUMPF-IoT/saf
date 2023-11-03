@@ -4,12 +4,11 @@
 
 using SAF.Common;
 
-namespace SAF.Messaging.Routing
+namespace SAF.Messaging.Routing;
+
+public class RoutingConfiguration
 {
-    public class RoutingConfiguration
-    {
-        public MessagingConfiguration Messaging { get; set; } = default!;
-        public string[]? PublishPatterns { get; set; }
-        public string[]? SubscriptionPatterns { get; set; }
-    }
+    public MessagingConfiguration Messaging { get; set; } = default!;
+    public string[]? PublishPatterns { get; set; }
+    public string[]? SubscriptionPatterns { get; set; }
 }

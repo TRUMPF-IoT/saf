@@ -4,24 +4,23 @@
 
 using System.Collections.Concurrent;
 
-namespace SAF.Toolbox.Heartbeat
+namespace SAF.Toolbox.Heartbeat;
+
+internal sealed class HeartbeatPool : IHeartbeatPool
 {
-    internal sealed class HeartbeatPool : IHeartbeatPool
+    private readonly ConcurrentDictionary<int, Heartbeat> _heartbeatsPerCycle = new();
+
+    public IHeartbeat GetOrCreateHeartbeat(int heartbeatMillis)
+        => _heartbeatsPerCycle.GetOrAdd(heartbeatMillis, cycle => new Heartbeat(cycle));
+
+    public void Dispose()
     {
-        private readonly ConcurrentDictionary<int, Heartbeat> _heartbeatsPerCycle = new();
+        var heartbeats = _heartbeatsPerCycle.Values.ToArray();
+        _heartbeatsPerCycle.Clear();
 
-        public IHeartbeat GetOrCreateHeartbeat(int heartbeatMillis)
-            => _heartbeatsPerCycle.GetOrAdd(heartbeatMillis, cycle => new Heartbeat(cycle));
-
-        public void Dispose()
+        foreach (var heartbeat in heartbeats)
         {
-            var heartbeats = _heartbeatsPerCycle.Values.ToArray();
-            _heartbeatsPerCycle.Clear();
-
-            foreach (var heartbeat in heartbeats)
-            {
-                heartbeat.Dispose();
-            }
+            heartbeat.Dispose();
         }
     }
 }

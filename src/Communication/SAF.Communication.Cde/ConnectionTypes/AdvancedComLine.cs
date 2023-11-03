@@ -7,72 +7,71 @@ using nsCDEngine.Communication;
 using nsCDEngine.Engines.ThingService;
 using nsCDEngine.ViewModels;
 
-namespace SAF.Communication.Cde.ConnectionTypes
+namespace SAF.Communication.Cde.ConnectionTypes;
+
+public class AdvancedComLine : ComLine
 {
-    public class AdvancedComLine : ComLine
-    {
-        private readonly TheThing _thing;
-        private readonly TheISBConnect _line;
-        private readonly List<string> _subscribedEngines = new();
+    private readonly TheThing _thing;
+    private readonly TheISBConnect _line;
+    private readonly List<string> _subscribedEngines = new();
         
-        public bool IsConnected { get; private set; }
+    public bool IsConnected { get; private set; }
 
-        public AdvancedComLine(TheThing thing, string address, string scope)
-        {
-            _thing = thing;
+    public AdvancedComLine(TheThing thing, string address, string scope)
+    {
+        _thing = thing;
 
-            var line = new TheISBConnect();
-            line.RegisterEvent2("Connected", OnRouteConnected);
-            line.RegisterEvent2("TSMReceived", OnRouteTsmReceived);
-            line.RegisterEvent2("Disconnected", OnRouteDisconnected);
-            line.Connect(address, scope);
+        var line = new TheISBConnect();
+        line.RegisterEvent2("Connected", OnRouteConnected);
+        line.RegisterEvent2("TSMReceived", OnRouteTsmReceived);
+        line.RegisterEvent2("Disconnected", OnRouteDisconnected);
+        line.Connect(address, scope);
             
-            _line = line;
-        }
+        _line = line;
+    }
 
-        public override string Address => $"{_thing.cdeN}:{_thing.cdeMID}";
+    public override string Address => $"{_thing.cdeN}:{_thing.cdeMID}";
 
-        public override event MessageReceivedHandler? MessageReceived;
+    public override event MessageReceivedHandler? MessageReceived;
 
-        public override Task Subscribe(string topic)
-        {
-            if(_subscribedEngines.Contains(topic))
-                return Task.CompletedTask;
-
-            _subscribedEngines.Add(topic);
-            _line.Subscribe(topic);
-
+    public override Task Subscribe(string topic)
+    {
+        if(_subscribedEngines.Contains(topic))
             return Task.CompletedTask;
-        }
 
-        public override void Broadcast(TSM message)
-        {
-            message.SetOriginatorThing(_thing);
-            _line.SendTSM(message);
-        }
+        _subscribedEngines.Add(topic);
+        _line.Subscribe(topic);
 
-        public override void AnswerToSender(TSM originalMessage, TSM reply)
-        {
-            reply.SetOriginatorThing(_thing);
-            _line.SendToOriginator(originalMessage, reply, originalMessage.IsLocalHost());
-        }
+        return Task.CompletedTask;
+    }
 
-        private void OnRouteConnected(TheProcessMessage message, object sender)
-        {
-            IsConnected = true;
-            var topics = _thing.GetBaseThing().GetBaseEngine().GetEngineName();
-            if(_subscribedEngines.Any()) topics += $";{string.Join(";", _subscribedEngines)}";
-            _line.Subscribe(topics);
-        }
+    public override void Broadcast(TSM message)
+    {
+        message.SetOriginatorThing(_thing);
+        _line.SendTSM(message);
+    }
 
-        private void OnRouteDisconnected(TheProcessMessage message, object sender)
-        {
-            IsConnected = false;
-        }
+    public override void AnswerToSender(TSM originalMessage, TSM reply)
+    {
+        reply.SetOriginatorThing(_thing);
+        _line.SendToOriginator(originalMessage, reply, originalMessage.IsLocalHost());
+    }
 
-        private void OnRouteTsmReceived(TheProcessMessage message, object sender)
-        {
-            MessageReceived?.Invoke(_thing, message.Message);
-        }
+    private void OnRouteConnected(TheProcessMessage message, object sender)
+    {
+        IsConnected = true;
+        var topics = _thing.GetBaseThing().GetBaseEngine().GetEngineName();
+        if(_subscribedEngines.Any()) topics += $";{string.Join(";", _subscribedEngines)}";
+        _line.Subscribe(topics);
+    }
+
+    private void OnRouteDisconnected(TheProcessMessage message, object sender)
+    {
+        IsConnected = false;
+    }
+
+    private void OnRouteTsmReceived(TheProcessMessage message, object sender)
+    {
+        MessageReceived?.Invoke(_thing, message.Message);
     }
 }

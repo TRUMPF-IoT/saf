@@ -5,12 +5,11 @@
 
 using SAF.Common;
 
-namespace SAF.Messaging.Routing
+namespace SAF.Messaging.Routing;
+
+public interface IRoutingMessagingInfrastructure : IMessagingInfrastructure
 {
-    public interface IRoutingMessagingInfrastructure : IMessagingInfrastructure
-    {
-        // Defined only to support specific Redis IMessagingInfrastructure in DI containers.
-        // The specific instance can be retrieved like this: serviceProvider.GetService<IRedisMessagingInfrastructure>.
-        // Use IServiceCollection.AddRedisMessagingInfrastructure extension method to add IRedisMessagingInfrastructure into the DI container.
-    }
+    // Defined only to support specific Redis IMessagingInfrastructure in DI containers.
+    // The specific instance can be retrieved like this: serviceProvider.GetService<IRedisMessagingInfrastructure>.
+    // Use IServiceCollection.AddRedisMessagingInfrastructure extension method to add IRedisMessagingInfrastructure into the DI container.
 }

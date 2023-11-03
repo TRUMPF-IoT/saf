@@ -5,13 +5,12 @@
 using Microsoft.Extensions.DependencyInjection;
 using SAF.Common;
 
-namespace SAF.Messaging.InProcess
+namespace SAF.Messaging.InProcess;
+
+public class AssemblyManifest : IMessagingAssemblyManifest
 {
-    public class AssemblyManifest : IMessagingAssemblyManifest
+    public void RegisterDependencies(IServiceCollection services, MessagingConfiguration config)
     {
-        public void RegisterDependencies(IServiceCollection services, MessagingConfiguration config)
-        {
-            services.AddInProcessMessagingInfrastructure(config);
-        }
+        services.AddInProcessMessagingInfrastructure(config);
     }
 }

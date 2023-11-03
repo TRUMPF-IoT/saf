@@ -2,13 +2,12 @@
 //
 // SPDX-License-Identifier: MPL-2.0
 
-namespace SAF.Toolbox.FileTransfer
-{
-    public interface IStatefulFileReceiver
-    {
-        event Action<string>? FileReceived;
-        event Action<string>? StreamReceived;
+namespace SAF.Toolbox.FileTransfer;
 
-        void WriteFile(string folderPath, TransportFileDelivery delivery, bool overwrite);
-    }
+public interface IStatefulFileReceiver
+{
+    event Action<string>? FileReceived;
+    event Action<string>? StreamReceived;
+
+    void WriteFile(string folderPath, TransportFileDelivery delivery, bool overwrite);
 }

@@ -4,29 +4,28 @@
 
 using SAF.Common;
 
-namespace SAF.Hosting.Diagnostics
+namespace SAF.Hosting.Diagnostics;
+
+internal class SafNodeInfo
 {
-    internal class SafNodeInfo
+    private readonly IHostInfo _hostInfo;
+
+    public SafNodeInfo(IHostInfo hostInfo, IEnumerable<IServiceAssemblyManifest> serviceAssemblies)
     {
-        private readonly IHostInfo _hostInfo;
+        _hostInfo = hostInfo;
+        SafServices = ReadServiceInfos(serviceAssemblies);
+    }
 
-        public SafNodeInfo(IHostInfo hostInfo, IEnumerable<IServiceAssemblyManifest> serviceAssemblies)
-        {
-            _hostInfo = hostInfo;
-            SafServices = ReadServiceInfos(serviceAssemblies);
-        }
+    public string HostId => _hostInfo.Id;
+    public SafVersionInfo SafVersionInfo { get; } = new();
+    public IEnumerable<SafServiceInfo> SafServices { get; }
+    public DateTimeOffset UpSince => _hostInfo.UpSince;
 
-        public string HostId => _hostInfo.Id;
-        public SafVersionInfo SafVersionInfo { get; } = new();
-        public IEnumerable<SafServiceInfo> SafServices { get; }
-        public DateTimeOffset UpSince => _hostInfo.UpSince;
-
-        private IEnumerable<SafServiceInfo> ReadServiceInfos(IEnumerable<IServiceAssemblyManifest> serviceAssemblies)
-        {
-            return serviceAssemblies
-                .Select(a => { try { return new SafServiceInfo(a); } catch { return null; } })
-                .Where(si => si != null)
-                .Cast<SafServiceInfo>();
-        }
+    private IEnumerable<SafServiceInfo> ReadServiceInfos(IEnumerable<IServiceAssemblyManifest> serviceAssemblies)
+    {
+        return serviceAssemblies
+            .Select(a => { try { return new SafServiceInfo(a); } catch { return null; } })
+            .Where(si => si != null)
+            .Cast<SafServiceInfo>();
     }
 }

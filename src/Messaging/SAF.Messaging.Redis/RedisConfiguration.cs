@@ -3,11 +3,10 @@
 // SPDX-License-Identifier: MPL-2.0
 
 
-namespace SAF.Messaging.Redis
+namespace SAF.Messaging.Redis;
+
+public class RedisConfiguration
 {
-    public class RedisConfiguration
-    {
-        public string ConnectionString { get; set; } = default!;
-        public int Timeout { get; set; }
-    }
+    public string ConnectionString { get; set; } = default!;
+    public int Timeout { get; set; }
 }

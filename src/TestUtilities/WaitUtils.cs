@@ -4,26 +4,25 @@
 
 using System.Diagnostics;
 
-namespace TestUtilities
+namespace TestUtilities;
+
+public static class WaitUtils
 {
-    public static class WaitUtils
+    public static Task WaitUntil(Func<bool> condition)
+        => WaitUntil(condition, TimeSpan.FromSeconds(5));
+
+    public static async Task WaitUntil(Func<bool> condition, TimeSpan timeout)
     {
-        public static Task WaitUntil(Func<bool> condition)
-            => WaitUntil(condition, TimeSpan.FromSeconds(5));
+        var sw = new Stopwatch();
+        sw.Start();
 
-        public static async Task WaitUntil(Func<bool> condition, TimeSpan timeout)
+        while(!condition())
         {
-            var sw = new Stopwatch();
-            sw.Start();
+            var wait = (int) Math.Min(200, timeout.Subtract(sw.Elapsed).TotalMilliseconds);
+            await Task.Delay(wait);
 
-            while(!condition())
-            {
-                var wait = (int) Math.Min(200, timeout.Subtract(sw.Elapsed).TotalMilliseconds);
-                await Task.Delay(wait);
-
-                if (sw.Elapsed > timeout)
-                    throw new TimeoutException($"WaitUntil timed out after {timeout.TotalMilliseconds}ms.");
-            }
+            if (sw.Elapsed > timeout)
+                throw new TimeoutException($"WaitUntil timed out after {timeout.TotalMilliseconds}ms.");
         }
     }
 }

@@ -17,72 +17,71 @@ using SAF.Toolbox.RequestClient;
 [assembly: InternalsVisibleTo("SAF.Toolbox.Tests")]
 [assembly: InternalsVisibleTo("DynamicProxyGenAssembly2")]
 
-namespace SAF.Toolbox
+namespace SAF.Toolbox;
+
+public static class ServiceCollectionExtensions
 {
-    public static class ServiceCollectionExtensions
+    public static IServiceCollection AddHeartbeat(this IServiceCollection services, int heartbeatMillis = 1000)
+        => services.AddSingleton<IHeartbeat>(sp => new Heartbeat.Heartbeat(heartbeatMillis));
+
+    public static IServiceCollection AddHeartbeatPool(this IServiceCollection services)
     {
-        public static IServiceCollection AddHeartbeat(this IServiceCollection services, int heartbeatMillis = 1000)
-            => services.AddSingleton<IHeartbeat>(sp => new Heartbeat.Heartbeat(heartbeatMillis));
-
-        public static IServiceCollection AddHeartbeatPool(this IServiceCollection services)
+        services.TryAddSingleton<IHeartbeatPool, HeartbeatPool>();
+        services.TryAddTransient<Func<int, IHeartbeat>>(sp => heartbeatMillis =>
         {
-            services.TryAddSingleton<IHeartbeatPool, HeartbeatPool>();
-            services.TryAddTransient<Func<int, IHeartbeat>>(sp => heartbeatMillis =>
-                {
-                    var factory = sp.GetRequiredService<IHeartbeatPool>();
-                    return factory.GetOrCreateHeartbeat(heartbeatMillis);
-                });
+            var factory = sp.GetRequiredService<IHeartbeatPool>();
+            return factory.GetOrCreateHeartbeat(heartbeatMillis);
+        });
             
-            return services;
-        }
+        return services;
+    }
 
-        public static IServiceCollection AddFileHandling(this IServiceCollection services)
-            => services.AddTransient<IFileSystem, FileSystem>()
-                .AddTransient(sp =>
-                {
-                    var hi = sp.GetRequiredService<IHostInfo>();
-                    var fs = sp.GetRequiredService<IFileSystem>();
-                    var di = fs.DirectoryInfo.New(hi.FileSystemUserBasePath);
-                    if(!di.Exists) di.Create();
-                    return di;
-                });
-
-        public static IServiceCollection AddRequestClient(this IServiceCollection services)
-        {
-            services.AddHeartbeatPool();
-            
-            services.TryAddSingleton<IRequestClient>(sp =>
+    public static IServiceCollection AddFileHandling(this IServiceCollection services)
+        => services.AddTransient<IFileSystem, FileSystem>()
+            .AddTransient(sp =>
             {
-                var pool = sp.GetRequiredService<IHeartbeatPool>();
-                return new RequestClient.RequestClient(
-                    sp.GetRequiredService<IMessagingInfrastructure>(),
-                    pool.GetOrCreateHeartbeat(1000),
-                    sp.GetService<ILogger<RequestClient.RequestClient>>());
+                var hi = sp.GetRequiredService<IHostInfo>();
+                var fs = sp.GetRequiredService<IFileSystem>();
+                var di = fs.DirectoryInfo.New(hi.FileSystemUserBasePath);
+                if(!di.Exists) di.Create();
+                return di;
             });
 
-            return services;
-        }
-
-        public static IServiceCollection AddFileSender(this IServiceCollection services)
+    public static IServiceCollection AddRequestClient(this IServiceCollection services)
+    {
+        services.AddHeartbeatPool();
+            
+        services.TryAddSingleton<IRequestClient>(sp =>
         {
-            services.AddTransient<IFileSender, FileSender>();
-            return services;
-        }
+            var pool = sp.GetRequiredService<IHeartbeatPool>();
+            return new RequestClient.RequestClient(
+                sp.GetRequiredService<IMessagingInfrastructure>(),
+                pool.GetOrCreateHeartbeat(1000),
+                sp.GetService<ILogger<RequestClient.RequestClient>>());
+        });
 
-        public static IServiceCollection AddFileReceiver(this IServiceCollection services)
-        {
-            services.AddTransient<IFileReceiver, FileReceiver>();
-            services.AddTransient<IStatefulFileReceiver, StatefulFileReceiver>();
-            return services;
-        }
+        return services;
+    }
 
-        public static IServiceCollection AddServiceConfiguration<TServiceConfiguration>(this IServiceCollection services, IConfiguration hostConfig, string configName)
-            where TServiceConfiguration : class, new()
-        {
-            services.Configure<TServiceConfiguration>(hostConfig.GetSection(configName))
-                .AddSingleton(sp => sp.GetRequiredService<IOptions<TServiceConfiguration>>().Value);
+    public static IServiceCollection AddFileSender(this IServiceCollection services)
+    {
+        services.AddTransient<IFileSender, FileSender>();
+        return services;
+    }
 
-            return services;
-        }
+    public static IServiceCollection AddFileReceiver(this IServiceCollection services)
+    {
+        services.AddTransient<IFileReceiver, FileReceiver>();
+        services.AddTransient<IStatefulFileReceiver, StatefulFileReceiver>();
+        return services;
+    }
+
+    public static IServiceCollection AddServiceConfiguration<TServiceConfiguration>(this IServiceCollection services, IConfiguration hostConfig, string configName)
+        where TServiceConfiguration : class, new()
+    {
+        services.Configure<TServiceConfiguration>(hostConfig.GetSection(configName))
+            .AddSingleton(sp => sp.GetRequiredService<IOptions<TServiceConfiguration>>().Value);
+
+        return services;
     }
 }
