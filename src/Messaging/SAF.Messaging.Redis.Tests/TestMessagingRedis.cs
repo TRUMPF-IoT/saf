@@ -69,7 +69,7 @@ public class TestMessagingRedis
         connectionMultiplexer.GetServer(Arg.Any<EndPoint>(), Arg.Any<object>()).Returns(server);
 
         byte[] byteArray = { 37, 241 };
-        Storage storage = new(connectionMultiplexer, new ConfigurationOptions());
+        Storage storage = new(connectionMultiplexer, ConfigurationOptions.Parse("localhost"));
         Assert.Throws<Exception>(() => storage.Set("area", "key", "value"));
         Assert.Throws<Exception>(() => storage.Set("area", "keyByte", byteArray));
         database.StringSet(Arg.Any<RedisKey>(), Arg.Any<RedisValue>()).Returns(true);

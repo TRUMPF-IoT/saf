@@ -8,9 +8,6 @@ SPDX-License-Identifier: MPL-2.0
 
   <PropertyGroup>
     <TargetFrameworks>netstandard2.1;net6.0;net7.0;net8.0</TargetFrameworks>
-    <Version>1.2.3.4</Version>
-    <FileVersion>1.2.3.4</FileVersion>
-    <InformationalVersion>$(InformationalVersion)</InformationalVersion>
     <AllowedOutputExtensionsInPackageBuildOutputFolder>$(AllowedOutputExtensionsInPackageBuildOutputFolder);.pdb</AllowedOutputExtensionsInPackageBuildOutputFolder>
     <IsPackable>false</IsPackable>
   </PropertyGroup>
@@ -22,5 +19,15 @@ SPDX-License-Identifier: MPL-2.0
   <ItemGroup>
     <ProjectReference Include="..\..\SAF.Common\SAF.Common.csproj" />
   </ItemGroup>
+
+  <Target Name="OverwriteMinVerVersions" AfterTargets="MinVer">
+    <PropertyGroup>
+      <AssemblyVersion>1.2.3.4</AssemblyVersion>
+      <FileVersion>1.2.3.4</FileVersion>
+      <InformationalVersion>1.2.3.4</InformationalVersion>
+      <PackageVersion>1.2.3.4</PackageVersion>
+      <Version>1.2.3.4</Version>
+    </PropertyGroup>
+  </Target>
 
 </Project>

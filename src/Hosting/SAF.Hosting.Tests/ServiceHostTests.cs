@@ -79,7 +79,7 @@ public class ServiceHostTests
     {
         // Arrange
         var serviceProvider = new ServiceCollection().BuildServiceProvider();
-        var serviceAssemblies = new List<IServiceAssemblyManifest> { new CountingTestAssemblyManifest(null, asyncService, true) };
+        var serviceAssemblies = new List<IServiceAssemblyManifest> { new CountingTestAssemblyManifest(new CallCounters(), asyncService, true) };
         var dispatcher = new ServiceMessageDispatcher(null);
 
         // Act
@@ -188,7 +188,7 @@ public class ServiceHostTests
         private readonly bool _registerAsAsyncService;
         private readonly bool _registerAHandler;
 
-        public CountingTestAssemblyManifest(CallCounters? counters, bool registerAsAsyncService, bool registerAHandler = false)
+        public CountingTestAssemblyManifest(CallCounters counters, bool registerAsAsyncService, bool registerAHandler = false)
         {
             _counters = counters;
             _registerAsAsyncService = registerAsAsyncService;
@@ -204,8 +204,7 @@ public class ServiceHostTests
             else
                 services.AddHostedAsync<AsyncCountingTestService>();
                 
-            if(_counters != null)
-                services.AddSingleton(typeof(CallCounters), r => _counters);
+            services.AddSingleton(typeof(CallCounters), r => _counters);
 
             if(_registerAHandler)
                 services.AddTransient<CountingTestHandler>();
