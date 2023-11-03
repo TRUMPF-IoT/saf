@@ -2,14 +2,9 @@
 //
 // SPDX-License-Identifier: MPL-2.0
 
-using System;
-using System.Collections.Generic;
-using System.IO;
-using System.Linq;
 using System.Reflection;
-using System.Threading;
-using System.Threading.Tasks;
 using Microsoft.Extensions.DependencyInjection;
+using NSubstitute;
 using SAF.Common;
 using Xunit;
 
@@ -17,9 +12,9 @@ namespace SAF.Hosting.Tests
 {
     public class ServiceHostTests
     {
-        private string TestAssemblyPath => Path.GetDirectoryName(new Uri(Assembly.GetExecutingAssembly().Location).LocalPath);
+        private string TestAssemblyPath => Path.GetDirectoryName(new Uri(Assembly.GetExecutingAssembly().Location).LocalPath)!;
 
-        private string TestDataPath => System.IO.Path.Combine(TestAssemblyPath, "TestData");
+        private string TestDataPath => Path.Combine(TestAssemblyPath, "TestData");
 
         [Theory]
         [InlineData(false)]
@@ -125,15 +120,15 @@ namespace SAF.Hosting.Tests
         [Fact]
         public void SearchingServiceAssembliesWithWrongParameters()
         {
-            Assert.Throws<ArgumentNullException>(() => ServiceCollectionExtensions.SearchServiceAssemblies(null, "**/*.txt", ".*"));
-            Assert.Throws<ArgumentNullException>(() => ServiceCollectionExtensions.SearchServiceAssemblies(System.IO.Path.Combine(TestDataPath, "FilePatterns1"), null, ".*"));
-            Assert.Throws<ArgumentNullException>(() => ServiceCollectionExtensions.SearchServiceAssemblies(System.IO.Path.Combine(TestDataPath, "FilePatterns1"), "**/*.txt", null));
+            Assert.Throws<ArgumentNullException>(() => ServiceCollectionExtensions.SearchServiceAssemblies(null!, "**/*.txt", ".*"));
+            Assert.Throws<ArgumentNullException>(() => ServiceCollectionExtensions.SearchServiceAssemblies(Path.Combine(TestDataPath, "FilePatterns1"), null!, ".*"));
+            Assert.Throws<ArgumentNullException>(() => ServiceCollectionExtensions.SearchServiceAssemblies(Path.Combine(TestDataPath, "FilePatterns1"), "**/*.txt", null!));
         }
 
         [Fact]
         public void SearchingServiceAssembliesWithSubdirectoryWorks()
         {
-            var result = ServiceCollectionExtensions.SearchServiceAssemblies(System.IO.Path.Combine(TestDataPath, "FilePatterns1"), "**/*.txt", ".*").ToList();
+            var result = ServiceCollectionExtensions.SearchServiceAssemblies(Path.Combine(TestDataPath, "FilePatterns1"), "**/*.txt", ".*").ToList();
             // All should match -> just compare count
             Assert.Equal(6, result.Count());
         }
@@ -170,9 +165,10 @@ namespace SAF.Hosting.Tests
         
         private static ServiceHost SetupServiceHostWithCallCountersService(CallCounters callCounters, bool asyncService)
         {
+            var dispatcher = Substitute.For<IServiceMessageDispatcher>();
             var serviceProvider = new ServiceCollection().BuildServiceProvider();
             var serviceAssemblies = new List<IServiceAssemblyManifest> { new CountingTestAssemblyManifest(callCounters, asyncService) };
-            return new ServiceHost(serviceProvider, null, null, serviceAssemblies);
+            return new ServiceHost(serviceProvider, null, dispatcher, serviceAssemblies);
         }
 
         #region internal test miniclasses for "call counting test assembly"
@@ -188,11 +184,11 @@ namespace SAF.Hosting.Tests
 
         internal class CountingTestAssemblyManifest : IServiceAssemblyManifest
         {
-            private readonly CallCounters _counters;
+            private readonly CallCounters? _counters;
             private readonly bool _registerAsAsyncService;
             private readonly bool _registerAHandler;
 
-            public CountingTestAssemblyManifest(CallCounters counters, bool registerAsAsyncService, bool registerAHandler = false)
+            public CountingTestAssemblyManifest(CallCounters? counters, bool registerAsAsyncService, bool registerAHandler = false)
             {
                 _counters = counters;
                 _registerAsAsyncService = registerAsAsyncService;
@@ -207,8 +203,9 @@ namespace SAF.Hosting.Tests
                     services.AddHosted<SyncCountingTestService>();
                 else
                     services.AddHostedAsync<AsyncCountingTestService>();
-
-                services.AddSingleton(typeof(CallCounters), r => _counters);
+                
+                if(_counters != null)
+                    services.AddSingleton(typeof(CallCounters), r => _counters);
 
                 if(_registerAHandler)
                     services.AddTransient<CountingTestHandler>();

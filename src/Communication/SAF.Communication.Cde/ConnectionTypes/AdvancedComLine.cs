@@ -35,7 +35,7 @@ namespace SAF.Communication.Cde.ConnectionTypes
 
         public override string Address => $"{_thing.cdeN}:{_thing.cdeMID}";
 
-        public override event MessageReceivedHandler MessageReceived;
+        public override event MessageReceivedHandler? MessageReceived;
 
         public override Task Subscribe(string topic)
         {

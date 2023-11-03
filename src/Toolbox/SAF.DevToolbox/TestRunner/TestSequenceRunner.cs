@@ -21,18 +21,18 @@ namespace SAF.DevToolbox.TestRunner
     public class TestSequenceRunner : IDisposable
     {
         private readonly ServiceCollection _applicationServices;
-        private ServiceProvider _applicationServiceProvider;
+        private ServiceProvider? _applicationServiceProvider;
 
         private readonly List<Type> _testSequences = new();
-        private readonly List<TestSequenceTracer> _tracer = new();
+        private readonly List<TestSequenceTracer> _tracers = new();
         private readonly ILogger<TestSequenceRunner> _mainLogger;
         private readonly IConfigurationRoot _config;
         private readonly List<Action<IMessagingInfrastructure>> _subscribeChannelActions = new();
 
-        private string _traceTestSequencesToPath;
-        private TestSequenceTracer _currentTestSequenceTracer;
+        private string? _traceTestSequencesToPath;
+        private TestSequenceTracer? _currentTestSequenceTracer;
 
-        private Action<IServiceProvider> _infrastructureInitialization;
+        private Action<IServiceProvider>? _infrastructureInitialization;
 
         public TestSequenceRunner(string name)
         {
@@ -51,7 +51,7 @@ namespace SAF.DevToolbox.TestRunner
             _applicationServices.AddLogging(l => l.AddConfiguration(_config.GetSection("Logging")).AddConsole());
 
             var baseServiceProvider = _applicationServices.BuildServiceProvider();
-            _mainLogger = baseServiceProvider.GetService<ILogger<TestSequenceRunner>>();
+            _mainLogger = baseServiceProvider.GetRequiredService<ILogger<TestSequenceRunner>>();
             _mainLogger.LogInformation("Starting test runner console app...");
 
             _applicationServices.AddConfiguration(_config);
@@ -106,7 +106,7 @@ namespace SAF.DevToolbox.TestRunner
         public TestSequenceRunner AddTestSequence<T>() where T : TestSequenceBase
         {
             _applicationServices.AddSingleton<T>();
-            _applicationServices.AddTransient<IMessageHandler>(r => r.GetService<T>());
+            _applicationServices.AddTransient<IMessageHandler>(r => r.GetRequiredService<T>());
 
             _testSequences.Add(typeof(T));
 
@@ -116,7 +116,7 @@ namespace SAF.DevToolbox.TestRunner
         public TestSequenceRunner AddTestMessageHandler<T>(params string[] channels) where T : class, IMessageHandler
         {
             _applicationServices.AddSingleton<T>();
-            _applicationServices.AddTransient<IMessageHandler>(r => r.GetService<T>());
+            _applicationServices.AddTransient<IMessageHandler>(r => r.GetRequiredService<T>());
 
             foreach (var channel in channels)
             {
@@ -129,7 +129,7 @@ namespace SAF.DevToolbox.TestRunner
         public TestSequenceRunner RegisterTestDependencies(IServiceAssemblyManifest testManifest)
         {
             // TODO: Improve handling of tests and test dependencies to be able to apply the correct ServiceHostContext.
-            testManifest?.RegisterDependencies(_applicationServices, null);
+            testManifest.RegisterDependencies(_applicationServices, null!);
             return this;
         }
 
@@ -140,7 +140,7 @@ namespace SAF.DevToolbox.TestRunner
             _infrastructureInitialization?.Invoke(_applicationServiceProvider);
             _applicationServiceProvider.GetRequiredService<ServiceHost>().StartAsync(CancellationToken.None).Wait();
 
-            var messaging = _applicationServiceProvider.GetService<IMessagingInfrastructure>();
+            var messaging = _applicationServiceProvider.GetRequiredService<IMessagingInfrastructure>();
 
             foreach (var subscribeChannelAction in _subscribeChannelActions)
                     subscribeChannelAction(messaging);
@@ -149,12 +149,12 @@ namespace SAF.DevToolbox.TestRunner
             {
                 _mainLogger.LogInformation($"Starting test sequence \"{testSequenceType.Name}\"...");
 
-                var testSequence = (TestSequenceBase)_applicationServiceProvider.GetService(testSequenceType);
+                var testSequence = (TestSequenceBase)_applicationServiceProvider.GetRequiredService(testSequenceType);
 
                 if (_traceTestSequencesToPath != null)
                 {
                     _currentTestSequenceTracer = new TestSequenceTracer(_traceTestSequencesToPath, testSequenceType.Name, testSequence);
-                    _tracer.Add(_currentTestSequenceTracer);
+                    _tracers.Add(_currentTestSequenceTracer);
                     testSequence.TraceDocumentationAction = _currentTestSequenceTracer.DocumentationTrace;
                     testSequence.TraceTitleAction = _currentTestSequenceTracer.TitleTrace;
                 }
@@ -189,8 +189,16 @@ namespace SAF.DevToolbox.TestRunner
 
         public void Dispose()
         {
+            Dispose(true);
+            GC.SuppressFinalize(this);
+        }
+
+        protected virtual void Dispose(bool disposing)
+        {
+            if (!disposing) return;
+
             _applicationServiceProvider?.Dispose();
-            foreach(var tracer in _tracer)
+            foreach (var tracer in _tracers)
                 tracer?.Dispose();
         }
     }

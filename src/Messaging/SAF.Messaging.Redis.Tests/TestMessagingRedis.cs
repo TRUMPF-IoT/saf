@@ -23,7 +23,7 @@ namespace SAF.Messaging.Redis.Tests
             connectionMultiplexer.GetSubscriber().Returns(subscriber);
 
             Messaging messaging = new(null, connectionMultiplexer, smd, null);
-            messaging.Unsubscribe(null);
+            messaging.Unsubscribe(null!);
             subscriber.DidNotReceive().Unsubscribe(Arg.Any<RedisChannel>(), Arg.Any<Action<RedisChannel, RedisValue>>(), Arg.Any<CommandFlags>());
             messaging.Unsubscribe("");
             subscriber.DidNotReceive().Unsubscribe(Arg.Any<RedisChannel>(), Arg.Any<Action<RedisChannel, RedisValue>>(), Arg.Any<CommandFlags>());

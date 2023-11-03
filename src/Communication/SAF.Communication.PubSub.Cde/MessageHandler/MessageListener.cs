@@ -5,6 +5,7 @@
 using System;
 using SAF.Communication.PubSub.Cde.Authorization;
 using SAF.Communication.PubSub.Cde.MessageHandler.Authorization;
+using SAF.Communication.PubSub.Interfaces;
 
 namespace SAF.Communication.PubSub.Cde.MessageHandler
 {
@@ -13,7 +14,7 @@ namespace SAF.Communication.PubSub.Cde.MessageHandler
         private readonly AuthorizationService _authService;
         private readonly ISubscriptionInternal _subscription;
 
-        public MessageListener(Subscriber subscriber, Publisher publisher)
+        public MessageListener(Subscriber subscriber, IPublisher publisher)
         {
             _authService = new AuthorizationService(publisher);
             _subscription = Init(subscriber);            
@@ -25,12 +26,9 @@ namespace SAF.Communication.PubSub.Cde.MessageHandler
                 new CheckTokenHandler(_authService,
                     new GetTokenHandler(_authService, null));
 
-            var subscription = subscriber.Subscribe($"{AuthorizationService.BaseChannelName}/*") as ISubscriptionInternal;
+            var subscription = (ISubscriptionInternal)subscriber.Subscribe($"{AuthorizationService.BaseChannelName}/*");
+            subscription.SetRawHandler(messageHandler.Handle);
 
-            subscription?.SetRawHandler((msgVersion, msg) =>
-            {
-                messageHandler.Handle(msgVersion, msg);
-            });
             return subscription;
         }
 

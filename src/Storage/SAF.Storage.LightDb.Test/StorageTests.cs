@@ -4,397 +4,395 @@
 
 using Xunit;
 using LiteDB;
-using System;
-using System.IO;
-using System.Threading.Tasks;
 
-namespace SAF.Storage.LiteDb.Test
+namespace SAF.Storage.LiteDb.Test;
+
+public class StorageTests : IDisposable
 {
-    public class StorageTests : IDisposable
+    private const string DbName = "Filename=LocalLightDb.db;Connection=direct";
+
+    public StorageTests()
     {
-        private string DBName = "Filename=LocalLightDb.db;Connection=direct";
+        if(File.Exists("LocalLightDb.db"))
+            File.Delete("LocalLightDb.db");
+    }
 
-        public StorageTests()
+    [Fact]
+    public void WriteStringOk()
+    {
+        using (var db = new LiteDatabase(new ConnectionString(DbName)
+               {
+                   Connection = ConnectionType.Shared
+               }))
         {
-            if(File.Exists("LocalLightDb.db"))
-                File.Delete("LocalLightDb.db");
-        }
-
-        [Fact]
-        public void WriteStringOk()
-        {
-            using (var db = new LiteDatabase(new ConnectionString(DBName)
-            {
-                Connection = ConnectionType.Shared
-            }))
-            {
-                var storage = new Storage(db);
-
-                var key = "globalKey";
-                var expectedValue = "value";
-                storage.Set(key, expectedValue);
-
-                var col = db.GetCollection<StringEntry>("global");
-                var savedValue = col.FindOne(d => d.Key == key);
-                Assert.Equal(expectedValue, savedValue.Value);
-                Assert.Equal(expectedValue, storage.GetString(key));
-            }            
-        }
-
-        [Fact]
-        public void WriteStringAreaOk()
-        {
-            using (var db = new LiteDatabase(new ConnectionString(DBName)
-            {
-                Connection = ConnectionType.Shared
-            }))
-            {
-                var storage = new Storage(db);
-
-                var area = "areaName";
-                var key = "globalKey";
-                var expectedValue = "value";
-                storage.Set(area, key, expectedValue);
-
-                var col = db.GetCollection<StringEntry>(area);
-                var savedValue = col.FindOne(d => d.Key == key);
-                Assert.Equal(expectedValue, savedValue.Value);
-                Assert.Equal(expectedValue, storage.GetString(area, key));
-            }
-        }
-
-
-        [Fact]
-        public void GetStringEntryAsByteNotOk()
-        {
-            using (var db = new LiteDatabase(new ConnectionString(DBName)
-            {
-                Connection = ConnectionType.Shared
-            }))
-            {
-
-                var storage = new Storage(db);
-
-                var area = "areaName";
-                var key = "globalKey";
-                var expectedValue = "value";
-                storage.Set(area, key, expectedValue);
-
-                Assert.Equal(expectedValue, storage.GetString(area, key));
-                Assert.Null(storage.GetBytes(area, key));
-            }
-        }
-
-        [Fact]
-        public void WriteByteOk()
-        {
-            using (var db = new LiteDatabase(new ConnectionString(DBName)
-            {
-                Connection = ConnectionType.Shared
-            }))
-            {
-                var storage = new Storage(db);
-
-                var key = "globalKey";
-                var expectedValue = new byte[] { 1, 2, 3, 4, 5, 6 };
-                storage.Set(key, expectedValue);
-
-                var col = db.GetCollection<ByteEntry>("global");
-                var savedValue = col.FindOne(d => d.Key == key);
-                Assert.Equal(expectedValue, savedValue.Value);
-                Assert.Equal(expectedValue, storage.GetBytes(key));
-            }
-        }
-
-        [Fact]
-        public void WriteByteAreaOk()
-        {
-            using (var db = new LiteDatabase(new ConnectionString(DBName)
-            {
-                Connection = ConnectionType.Shared
-            }))
-            {
-
-                var storage = new Storage(db);
-
-                var area = "areaName";
-                var key = "globalKey";
-                var expectedValue = new byte[] { 1, 2, 3, 4, 5, 6 };
-                storage.Set(area, key, expectedValue);
-
-                var col = db.GetCollection<ByteEntry>(area);
-                var savedValue = col.FindOne(d => d.Key == key);
-                Assert.Equal(expectedValue, savedValue.Value);
-                Assert.Equal(expectedValue, storage.GetBytes(area, key));
-            }
-        }
-
-        [Fact]
-        public void OverwriteStringOk()
-        {
-            using (var db = new LiteDatabase(new ConnectionString(DBName)
-            {
-                Connection = ConnectionType.Shared
-            }))
-            {
-                var storage = new Storage(db);
-
-                var key = "globalKey";
-                var expectedValue = "value";
-                storage.Set(key, "value2");
-                storage.Set(key, expectedValue);
-
-                var col = db.GetCollection<StringEntry>("global");
-                Assert.Equal(1, col.Count());
-                var savedValue = col.FindOne(d => d.Key == key);
-                Assert.Equal(expectedValue, savedValue.Value);
-            }
-        }
-
-
-        [Fact]
-        public void OverwriteByteOk()
-        {
-            using (var db = new LiteDatabase(new ConnectionString(DBName)
-            {
-                Connection = ConnectionType.Shared
-            }))
-            {
-                var storage = new Storage(db);
-
-                var key = "globalKey";
-                var expectedValue = new byte[] { 1, 2, 3, 4, 5, 6 };
-                storage.Set(key, new byte[] { 9, 9, 9 });
-                storage.Set(key, expectedValue);
-
-                var col = db.GetCollection<ByteEntry>("global");
-                Assert.Equal(1, col.Count());
-                var savedValue = col.FindOne(d => d.Key == key);
-                Assert.Equal(expectedValue, savedValue.Value);
-            }
-        }
-
-        [Fact]
-        public void ParallelCallsOk()
-        {
-            using (var db = new LiteDatabase(new ConnectionString(DBName)
-            {
-                Connection = ConnectionType.Direct
-            }))
-            {
-                var storage = new Storage(db);
-
-                Parallel.For(0, 20, id =>
-                {
-                    var storageId = $"Storage{id}";
-                    Parallel.For(0, 10, fId =>
-                    {
-                        var stringId = fId.ToString();
-                        storage.Set(storageId, stringId, stringId);
-                    });
-
-                    Parallel.For(0, 10, fId =>
-                    {
-                        var stringId = fId.ToString();
-                        var result = storage.GetString(storageId, stringId);
-                        Assert.Equal(stringId, result);
-                    });
-                });
-            }
-        }
-
-        [Fact]
-        public void LegacyCallsOk()
-        {
-            using (var db = new LiteDatabase(new ConnectionString(DBName)
-            {
-                Connection = ConnectionType.Shared
-            }))
-            {
-                var storage = new Storage(db);
-
-                var uniqueArea = "area.area1/area3";
-                var key = "key1.key2/key3";
-                var expectedValue = "my starnge value";
-                storage.Set(uniqueArea, key, expectedValue);
-
-                var col = db.GetCollection<StringEntry>("area_area1_area3");
-                Assert.Equal(1, col.Count());
-                var savedValue = col.FindOne(d => d.Key == key);
-                Assert.Equal(expectedValue, savedValue.Value);
-                Assert.Equal(expectedValue, storage.GetString(uniqueArea, key));
-            }
-        }
-
-        [Fact]
-        public void RemoveKeyOk()
-        {
-            using var db = new LiteDatabase(new ConnectionString(DBName)
-            {
-                Connection = ConnectionType.Shared
-            });
             var storage = new Storage(db);
 
-            const string keyToDelete = "keyToDelete";
-            const string keyToStay = "keyToStay";
-            storage.Set(keyToDelete, new byte[] { 9, 9, 9 });
-            storage.Set(keyToStay, nameof(keyToStay));
+            var key = "globalKey";
+            var expectedValue = "value";
+            storage.Set(key, expectedValue);
+
+            var col = db.GetCollection<StringEntry>("global");
+            var savedValue = col.FindOne(d => d.Key == key);
+            Assert.Equal(expectedValue, savedValue.Value);
+            Assert.Equal(expectedValue, storage.GetString(key));
+        }            
+    }
+
+    [Fact]
+    public void WriteStringAreaOk()
+    {
+        using (var db = new LiteDatabase(new ConnectionString(DbName)
+               {
+                   Connection = ConnectionType.Shared
+               }))
+        {
+            var storage = new Storage(db);
+
+            var area = "areaName";
+            var key = "globalKey";
+            var expectedValue = "value";
+            storage.Set(area, key, expectedValue);
+
+            var col = db.GetCollection<StringEntry>(area);
+            var savedValue = col.FindOne(d => d.Key == key);
+            Assert.Equal(expectedValue, savedValue.Value);
+            Assert.Equal(expectedValue, storage.GetString(area, key));
+        }
+    }
+
+
+    [Fact]
+    public void GetStringEntryAsByteNotOk()
+    {
+        using (var db = new LiteDatabase(new ConnectionString(DbName)
+               {
+                   Connection = ConnectionType.Shared
+               }))
+        {
+
+            var storage = new Storage(db);
+
+            var area = "areaName";
+            var key = "globalKey";
+            var expectedValue = "value";
+            storage.Set(area, key, expectedValue);
+
+            Assert.Equal(expectedValue, storage.GetString(area, key));
+            Assert.Null(storage.GetBytes(area, key));
+        }
+    }
+
+    [Fact]
+    public void WriteByteOk()
+    {
+        using (var db = new LiteDatabase(new ConnectionString(DbName)
+               {
+                   Connection = ConnectionType.Shared
+               }))
+        {
+            var storage = new Storage(db);
+
+            var key = "globalKey";
+            var expectedValue = new byte[] { 1, 2, 3, 4, 5, 6 };
+            storage.Set(key, expectedValue);
 
             var col = db.GetCollection<ByteEntry>("global");
-            Assert.Equal(2, col.Count());
-
-            storage.RemoveKey(keyToDelete);
-
-            var deletedValue = col.FindOne(d => d.Key == keyToDelete);
-            Assert.Null(deletedValue);
-
-            Assert.Null(storage.GetBytes(keyToDelete));
-            Assert.Equal(nameof(keyToStay), storage.GetString(keyToStay));
+            var savedValue = col.FindOne(d => d.Key == key);
+            Assert.Equal(expectedValue, savedValue.Value);
+            Assert.Equal(expectedValue, storage.GetBytes(key));
         }
+    }
 
-        [Fact]
-        public void RemoveKeyFromAreaOk()
+    [Fact]
+    public void WriteByteAreaOk()
+    {
+        using (var db = new LiteDatabase(new ConnectionString(DbName)
+               {
+                   Connection = ConnectionType.Shared
+               }))
         {
-            using var db = new LiteDatabase(new ConnectionString(DBName)
-            {
-                Connection = ConnectionType.Shared
-            });
+
             var storage = new Storage(db);
 
-            const string areaToDeleteFrom = "areaToDeleteFrom";
-            const string areaToNotTouch = "areaToNotTouch";
-            const string keyToDelete = "keyToDelete";
-            const string keyToStay = "keyToStay";
-            storage.Set(areaToDeleteFrom, keyToDelete, new byte[] { 9, 9, 9 });
-            storage.Set(areaToDeleteFrom, keyToStay, nameof(keyToStay));
+            var area = "areaName";
+            var key = "globalKey";
+            var expectedValue = new byte[] { 1, 2, 3, 4, 5, 6 };
+            storage.Set(area, key, expectedValue);
 
-            storage.Set(areaToNotTouch, keyToStay, nameof(keyToStay));
-
-            var colToDeleteFrom = db.GetCollection<ByteEntry>(areaToDeleteFrom);
-            Assert.Equal(2, colToDeleteFrom.Count());
-
-            var colToNotTouch = db.GetCollection<ByteEntry>(areaToNotTouch);
-            Assert.Equal(1, colToNotTouch.Count());
-
-            storage.RemoveKey(areaToDeleteFrom, keyToDelete);
-
-            var deletedValue = colToDeleteFrom.FindOne(d => d.Key == keyToDelete);
-            Assert.Null(deletedValue);
-
-            Assert.Null(storage.GetBytes(areaToDeleteFrom, keyToDelete));
-            Assert.Equal(nameof(keyToStay), storage.GetString(areaToDeleteFrom, keyToStay));
-            Assert.Equal(nameof(keyToStay), storage.GetString(areaToNotTouch, keyToStay));
+            var col = db.GetCollection<ByteEntry>(area);
+            var savedValue = col.FindOne(d => d.Key == key);
+            Assert.Equal(expectedValue, savedValue.Value);
+            Assert.Equal(expectedValue, storage.GetBytes(area, key));
         }
+    }
 
-        [Fact]
-        public void RemoveAreaOk()
+    [Fact]
+    public void OverwriteStringOk()
+    {
+        using (var db = new LiteDatabase(new ConnectionString(DbName)
+               {
+                   Connection = ConnectionType.Shared
+               }))
         {
-            using var db = new LiteDatabase(new ConnectionString(DBName)
-            {
-                Connection = ConnectionType.Shared
-            });
             var storage = new Storage(db);
 
-            const string areaToDelete = "areaToDelete";
-            const string areaToStay = "areaToStay";
-            const string keyToStay = "keyToStay";
+            var key = "globalKey";
+            var expectedValue = "value";
+            storage.Set(key, "value2");
+            storage.Set(key, expectedValue);
 
-            storage.Set(areaToDelete, "bytesKeyToDelete", new byte[] { 9, 9, 9 });
-            storage.Set(areaToDelete, "stringKeyToDelete", nameof(keyToStay));
-
-            storage.Set(areaToStay, keyToStay, nameof(keyToStay));
-
-            var colToDelete = db.GetCollection<ByteEntry>(areaToDelete);
-            Assert.Equal(2, colToDelete.Count());
-
-            var colToStay = db.GetCollection<ByteEntry>(areaToStay);
-            Assert.Equal(1, colToStay.Count());
-
-            storage.RemoveArea(areaToDelete);
-
-            Assert.False(db.CollectionExists(areaToDelete));
-
-            Assert.Null(storage.GetBytes(areaToDelete, "bytesKeyToDelete"));
-            Assert.Null(storage.GetString(areaToDelete, "stringKeyToDelete"));
-
-            Assert.False(db.CollectionExists(areaToDelete));
-
-            Assert.Equal(nameof(keyToStay), storage.GetString(areaToStay, keyToStay));
+            var col = db.GetCollection<StringEntry>("global");
+            Assert.Equal(1, col.Count());
+            var savedValue = col.FindOne(d => d.Key == key);
+            Assert.Equal(expectedValue, savedValue.Value);
         }
+    }
 
-        [Fact]
-        public void RemoveGlobalAreaThrowsExceptionOk()
+
+    [Fact]
+    public void OverwriteByteOk()
+    {
+        using (var db = new LiteDatabase(new ConnectionString(DbName)
+               {
+                   Connection = ConnectionType.Shared
+               }))
         {
-            using var db = new LiteDatabase(new ConnectionString(DBName)
-            {
-                Connection = ConnectionType.Shared
-            });
             var storage = new Storage(db);
 
-            Assert.Throws<NotSupportedException>(() => storage.RemoveArea("global"));
-        }
+            var key = "globalKey";
+            var expectedValue = new byte[] { 1, 2, 3, 4, 5, 6 };
+            storage.Set(key, new byte[] { 9, 9, 9 });
+            storage.Set(key, expectedValue);
 
-        [Fact]
-        public void RemoveUnknownKeyOk()
+            var col = db.GetCollection<ByteEntry>("global");
+            Assert.Equal(1, col.Count());
+            var savedValue = col.FindOne(d => d.Key == key);
+            Assert.Equal(expectedValue, savedValue.Value);
+        }
+    }
+
+    [Fact]
+    public void ParallelCallsOk()
+    {
+        using (var db = new LiteDatabase(new ConnectionString(DbName)
+               {
+                   Connection = ConnectionType.Direct
+               }))
         {
-            using var db = new LiteDatabase(new ConnectionString(DBName)
-            {
-                Connection = ConnectionType.Shared
-            });
             var storage = new Storage(db);
 
-            const string keyToDelete = "keyToDelete";
-            const string keyToStay = "keyToStay";
-            storage.Set(keyToStay, nameof(keyToStay));
-
-            storage.RemoveKey(keyToDelete);
-
-            Assert.Equal(nameof(keyToStay), storage.GetString(keyToStay));
-        }
-
-        [Fact]
-        public void RemoveUnknownAreaOk()
-        {
-            using var db = new LiteDatabase(new ConnectionString(DBName)
+            Parallel.For(0, 20, id =>
             {
-                Connection = ConnectionType.Shared
+                var storageId = $"Storage{id}";
+                Parallel.For(0, 10, fId =>
+                {
+                    var stringId = fId.ToString();
+                    storage.Set(storageId, stringId, stringId);
+                });
+
+                Parallel.For(0, 10, fId =>
+                {
+                    var stringId = fId.ToString();
+                    var result = storage.GetString(storageId, stringId);
+                    Assert.Equal(stringId, result);
+                });
             });
+        }
+    }
+
+    [Fact]
+    public void LegacyCallsOk()
+    {
+        using (var db = new LiteDatabase(new ConnectionString(DbName)
+               {
+                   Connection = ConnectionType.Shared
+               }))
+        {
             var storage = new Storage(db);
 
-            const string keyToStay = "keyToStay";
-            const string testArea = nameof(testArea);
-            storage.Set(testArea, keyToStay, nameof(keyToStay));
+            var uniqueArea = "area.area1/area3";
+            var key = "key1.key2/key3";
+            var expectedValue = "my starnge value";
+            storage.Set(uniqueArea, key, expectedValue);
 
-            storage.RemoveArea("areaDoesNotExist");
-
-            Assert.Equal(nameof(keyToStay), storage.GetString(testArea, keyToStay));
+            var col = db.GetCollection<StringEntry>("area_area1_area3");
+            Assert.Equal(1, col.Count());
+            var savedValue = col.FindOne(d => d.Key == key);
+            Assert.Equal(expectedValue, savedValue.Value);
+            Assert.Equal(expectedValue, storage.GetString(uniqueArea, key));
         }
+    }
 
-        public void Dispose()
+    [Fact]
+    public void RemoveKeyOk()
+    {
+        using var db = new LiteDatabase(new ConnectionString(DbName)
         {
-            Dispose(true);
-        }
+            Connection = ConnectionType.Shared
+        });
+        var storage = new Storage(db);
 
-        protected virtual void Dispose(bool d)
-        {
-            if (File.Exists(DBName))
-            {
-                File.Delete(DBName);
-            }
-        }
+        const string keyToDelete = "keyToDelete";
+        const string keyToStay = "keyToStay";
+        storage.Set(keyToDelete, new byte[] { 9, 9, 9 });
+        storage.Set(keyToStay, nameof(keyToStay));
 
-        internal class StringEntry
-        {
-            [BsonId]
-            public string Key { get; set; }
-            public string Value { get; set; }
-        }
+        var col = db.GetCollection<ByteEntry>("global");
+        Assert.Equal(2, col.Count());
 
-        internal class ByteEntry
+        storage.RemoveKey(keyToDelete);
+
+        var deletedValue = col.FindOne(d => d.Key == keyToDelete);
+        Assert.Null(deletedValue);
+
+        Assert.Null(storage.GetBytes(keyToDelete));
+        Assert.Equal(nameof(keyToStay), storage.GetString(keyToStay));
+    }
+
+    [Fact]
+    public void RemoveKeyFromAreaOk()
+    {
+        using var db = new LiteDatabase(new ConnectionString(DbName)
         {
-            [BsonId]
-            public string Key { get; set; }
-            public byte[] Value { get; set; }
+            Connection = ConnectionType.Shared
+        });
+        var storage = new Storage(db);
+
+        const string areaToDeleteFrom = "areaToDeleteFrom";
+        const string areaToNotTouch = "areaToNotTouch";
+        const string keyToDelete = "keyToDelete";
+        const string keyToStay = "keyToStay";
+        storage.Set(areaToDeleteFrom, keyToDelete, new byte[] { 9, 9, 9 });
+        storage.Set(areaToDeleteFrom, keyToStay, nameof(keyToStay));
+
+        storage.Set(areaToNotTouch, keyToStay, nameof(keyToStay));
+
+        var colToDeleteFrom = db.GetCollection<ByteEntry>(areaToDeleteFrom);
+        Assert.Equal(2, colToDeleteFrom.Count());
+
+        var colToNotTouch = db.GetCollection<ByteEntry>(areaToNotTouch);
+        Assert.Equal(1, colToNotTouch.Count());
+
+        storage.RemoveKey(areaToDeleteFrom, keyToDelete);
+
+        var deletedValue = colToDeleteFrom.FindOne(d => d.Key == keyToDelete);
+        Assert.Null(deletedValue);
+
+        Assert.Null(storage.GetBytes(areaToDeleteFrom, keyToDelete));
+        Assert.Equal(nameof(keyToStay), storage.GetString(areaToDeleteFrom, keyToStay));
+        Assert.Equal(nameof(keyToStay), storage.GetString(areaToNotTouch, keyToStay));
+    }
+
+    [Fact]
+    public void RemoveAreaOk()
+    {
+        using var db = new LiteDatabase(new ConnectionString(DbName)
+        {
+            Connection = ConnectionType.Shared
+        });
+        var storage = new Storage(db);
+
+        const string areaToDelete = "areaToDelete";
+        const string areaToStay = "areaToStay";
+        const string keyToStay = "keyToStay";
+
+        storage.Set(areaToDelete, "bytesKeyToDelete", new byte[] { 9, 9, 9 });
+        storage.Set(areaToDelete, "stringKeyToDelete", nameof(keyToStay));
+
+        storage.Set(areaToStay, keyToStay, nameof(keyToStay));
+
+        var colToDelete = db.GetCollection<ByteEntry>(areaToDelete);
+        Assert.Equal(2, colToDelete.Count());
+
+        var colToStay = db.GetCollection<ByteEntry>(areaToStay);
+        Assert.Equal(1, colToStay.Count());
+
+        storage.RemoveArea(areaToDelete);
+
+        Assert.False(db.CollectionExists(areaToDelete));
+
+        Assert.Null(storage.GetBytes(areaToDelete, "bytesKeyToDelete"));
+        Assert.Null(storage.GetString(areaToDelete, "stringKeyToDelete"));
+
+        Assert.False(db.CollectionExists(areaToDelete));
+
+        Assert.Equal(nameof(keyToStay), storage.GetString(areaToStay, keyToStay));
+    }
+
+    [Fact]
+    public void RemoveGlobalAreaThrowsExceptionOk()
+    {
+        using var db = new LiteDatabase(new ConnectionString(DbName)
+        {
+            Connection = ConnectionType.Shared
+        });
+        var storage = new Storage(db);
+
+        Assert.Throws<NotSupportedException>(() => storage.RemoveArea("global"));
+    }
+
+    [Fact]
+    public void RemoveUnknownKeyOk()
+    {
+        using var db = new LiteDatabase(new ConnectionString(DbName)
+        {
+            Connection = ConnectionType.Shared
+        });
+        var storage = new Storage(db);
+
+        const string keyToDelete = "keyToDelete";
+        const string keyToStay = "keyToStay";
+        storage.Set(keyToStay, nameof(keyToStay));
+
+        storage.RemoveKey(keyToDelete);
+
+        Assert.Equal(nameof(keyToStay), storage.GetString(keyToStay));
+    }
+
+    [Fact]
+    public void RemoveUnknownAreaOk()
+    {
+        using var db = new LiteDatabase(new ConnectionString(DbName)
+        {
+            Connection = ConnectionType.Shared
+        });
+        var storage = new Storage(db);
+
+        const string keyToStay = "keyToStay";
+        const string testArea = nameof(testArea);
+        storage.Set(testArea, keyToStay, nameof(keyToStay));
+
+        storage.RemoveArea("areaDoesNotExist");
+
+        Assert.Equal(nameof(keyToStay), storage.GetString(testArea, keyToStay));
+    }
+
+    public void Dispose()
+    {
+        Dispose(true);
+        GC.SuppressFinalize(this);
+    }
+
+    protected virtual void Dispose(bool disposing)
+    {
+        if (!disposing) return;
+
+        if (File.Exists(DbName))
+        {
+            File.Delete(DbName);
         }
+    }
+
+    internal class StringEntry
+    {
+        [BsonId] public string? Key { get; set; }
+        public string? Value { get; set; }
+    }
+
+    internal class ByteEntry
+    {
+        [BsonId]
+        public string? Key { get; set; }
+        public byte[]? Value { get; set; }
     }
 }

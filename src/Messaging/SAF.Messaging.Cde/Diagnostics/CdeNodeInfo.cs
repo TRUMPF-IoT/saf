@@ -30,19 +30,20 @@ namespace SAF.Messaging.Cde.Diagnostics
         {
             return TheBaseAssets.MyCDEPluginTypes
                 .Select(pt => CreatePluginInfo(pt.Key, pt.Value))
-                .Where(pi => pi != null);
+                .Where(pi => pi != null)
+                .Cast<CdePluginInfo>();
         }
 
-        private static CdePluginInfo CreatePluginInfo(string plugInKey, Type plugInType)
+        private static CdePluginInfo? CreatePluginInfo(string plugInKey, Type plugInType)
         {
             if(string.IsNullOrEmpty(plugInType.Assembly.Location)) return null;
             var fvi = FileVersionInfo.GetVersionInfo(plugInType.Assembly.Location);
             var info = new CdePluginInfo
             {
                 Name = plugInKey,
-                Version = fvi.ProductVersion,
-                BuildNumber = plugInType.Assembly.GetName().Version.ToString(),
-                BuildDate = System.IO.File.GetLastWriteTimeUtc(plugInType.Assembly.Location)
+                Version = fvi.ProductVersion ?? string.Empty,
+                BuildNumber = plugInType.Assembly.GetName().Version?.ToString() ?? string.Empty,
+                BuildDate = File.GetLastWriteTimeUtc(plugInType.Assembly.Location)
             };
             return info;
         }

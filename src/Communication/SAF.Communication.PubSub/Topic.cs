@@ -9,9 +9,9 @@ namespace SAF.Communication.PubSub
 {
     public class Topic
     {
-        public string Channel;
-        public string MsgId;
-        public string Version;
+        public string Channel { get; set; } = default!;
+        public string MsgId { get; set; } = default!;
+        public string Version { get; set; } = default!;
 
         public Topic()
         {}
@@ -35,7 +35,7 @@ namespace SAF.Communication.PubSub
 
     public static class StringExtensions
     {
-        public static Topic ToTopic(this string txt)
+        public static Topic? ToTopic(this string txt)
         {
             var parts = txt.Split('|');
             if (parts.Length < 2) return null;

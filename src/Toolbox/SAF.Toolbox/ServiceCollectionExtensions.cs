@@ -80,7 +80,7 @@ namespace SAF.Toolbox
             where TServiceConfiguration : class, new()
         {
             services.Configure<TServiceConfiguration>(hostConfig.GetSection(configName))
-                .AddSingleton(sp => sp.GetService<IOptions<TServiceConfiguration>>().Value);
+                .AddSingleton(sp => sp.GetRequiredService<IOptions<TServiceConfiguration>>().Value);
 
             return services;
         }

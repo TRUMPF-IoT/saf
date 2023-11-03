@@ -11,7 +11,7 @@ namespace SAF.Messaging.Routing
     internal sealed class MessageRoutingSubscription : IDisposable
     {
         private readonly IMessagingInfrastructure _messaging;
-        private object[] _subscriptionHandles;
+        private object[]? _subscriptionHandles;
 
         public MessageRoutingSubscription(IMessagingInfrastructure messaging)
         {
@@ -31,7 +31,7 @@ namespace SAF.Messaging.Routing
         public void Dispose()
         {
             if (_subscriptionHandles == null) return;
-            Array.ForEach(_subscriptionHandles, handle => _messaging.Unsubscribe(handle));
+            Array.ForEach(_subscriptionHandles, _messaging.Unsubscribe);
             _subscriptionHandles = null;
         }
     }

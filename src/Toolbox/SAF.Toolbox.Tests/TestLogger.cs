@@ -17,7 +17,7 @@ internal class TestLogger : ILogger
         _outputHelper = outputHelper;
     }
 
-    public void Log<TState>(LogLevel logLevel, EventId eventId, TState state, Exception exception, Func<TState, Exception, string> formatter)
+    public void Log<TState>(LogLevel logLevel, EventId eventId, TState state, Exception? exception, Func<TState, Exception?, string> formatter)
     {
         _outputHelper.WriteLine($"{state}");
         if (exception != null)
@@ -26,9 +26,9 @@ internal class TestLogger : ILogger
 
     public bool IsEnabled(LogLevel logLevel) => true;
 
-    public IDisposable BeginScope<TState>(TState state) => new Scope();
+    public IDisposable BeginScope<TState>(TState state) where TState : notnull => new Scope();
 
-    private class Scope : IDisposable
+    private sealed class Scope : IDisposable
     {
         public void Dispose()
         {

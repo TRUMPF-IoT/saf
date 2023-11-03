@@ -18,10 +18,10 @@ namespace SAF.Messaging.Redis
 {
     public static class ServiceCollectionExtensions
     {
-        public static IServiceCollection AddRedisMessagingInfrastructure(this IServiceCollection serviceCollection, Action<RedisConfiguration> configure, Action<Message> traceAction = null)
+        public static IServiceCollection AddRedisMessagingInfrastructure(this IServiceCollection serviceCollection, Action<RedisConfiguration> configure, Action<Message>? traceAction = null)
         {
             var config = new RedisConfiguration();
-            configure?.Invoke(config);
+            configure.Invoke(config);
 
             return serviceCollection.AddRedisMessagingInfrastructure(config, traceAction);
         }
@@ -34,10 +34,10 @@ namespace SAF.Messaging.Redis
             return serviceCollection.AddRedisStorageInfrastructure(config);
         }
 
-        public static IServiceCollection AddRedisInfrastructure(this IServiceCollection serviceCollection, Action<RedisConfiguration> configure, Action<Message> traceAction = null)
+        public static IServiceCollection AddRedisInfrastructure(this IServiceCollection serviceCollection, Action<RedisConfiguration> configure, Action<Message>? traceAction = null)
         {
             var config = new RedisConfiguration();
-            configure?.Invoke(config);
+            configure.Invoke(config);
 
             return serviceCollection.AddRedisMessagingInfrastructure(config, traceAction)
                 .AddRedisStorageInfrastructure(config)
@@ -50,7 +50,7 @@ namespace SAF.Messaging.Redis
                 .AddTransient(sp => new Func<MessagingConfiguration, IRedisMessagingInfrastructure>(cfg =>
                 {
                     var msgCfg = new RedisMessagingConfiguration(cfg);
-                    var redisCfg = new RedisConfiguration { ConnectionString = msgCfg.ConnectionString };
+                    var redisCfg = new RedisConfiguration { ConnectionString = msgCfg.ConnectionString ?? string.Empty };
                     return new Messaging(sp.GetRequiredService<ILogger<Messaging>>(),
                         CreateRedisConnection(redisCfg, sp.GetRequiredService<ILogger<Messaging>>()).multiplexer,
                         sp.GetRequiredService<IServiceMessageDispatcher>(),
@@ -83,9 +83,9 @@ namespace SAF.Messaging.Redis
 
             TaskCompletionSource<ConnectionMultiplexer> tcs = new(TaskCreationOptions.AttachedToParent);
 
-            void ConnectionRestoredAction(object sender, ConnectionFailedEventArgs args)
+            void ConnectionRestoredAction(object? sender, ConnectionFailedEventArgs args)
             {
-                if (((ConnectionMultiplexer) sender).IsConnected)
+                if (sender is ConnectionMultiplexer { IsConnected: true })
                 {
                     tcs.TrySetResult((ConnectionMultiplexer) sender);
                 }
@@ -123,7 +123,7 @@ namespace SAF.Messaging.Redis
             }
         }
 
-        private static IServiceCollection AddRedisMessagingInfrastructure(this IServiceCollection serviceCollection, RedisConfiguration config, Action<Message> traceAction)
+        private static IServiceCollection AddRedisMessagingInfrastructure(this IServiceCollection serviceCollection, RedisConfiguration config, Action<Message>? traceAction)
         {
             return serviceCollection.AddTransient<IRedisMessagingInfrastructure>(r =>
                 new Messaging(r.GetRequiredService<ILogger<Messaging>>(),

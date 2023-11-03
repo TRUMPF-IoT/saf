@@ -20,10 +20,10 @@ public class TestSequenceBaseTests
         {
         }
 
-        public IDisposable SubscribeAction(string topic, Action<string> action)
+        public IDisposable SubscribeAction(string topic, Action<string?> action)
             => PayloadToVariable(topic, action);
 
-        public IDisposable SubscribeAction<T>(string topic, Action<string> action) where T: IMessageHandler
+        public IDisposable SubscribeAction<T>(string topic, Action<string?> action) where T: IMessageHandler
             => PayloadToVariable<T>(topic, action);
 
         public void WaitForPayload(ref string? payload, int timeoutSeconds)

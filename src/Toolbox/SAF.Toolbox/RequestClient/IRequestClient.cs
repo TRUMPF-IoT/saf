@@ -11,16 +11,16 @@ namespace SAF.Toolbox.RequestClient
     {
         void SetDefaultPrefix(string prefix);
 
-        Task<TResponse> SendRequestAwaitFirstAnswer<TRequest, TResponse>(string topic, TRequest request, string replyTopicPrefix = null, double? millisecondsTimeoutTarget = null)
+        Task<TResponse?> SendRequestAwaitFirstAnswer<TRequest, TResponse>(string topic, TRequest request, string? replyTopicPrefix = null, double? millisecondsTimeoutTarget = null)
             where TRequest : MessageRequestBase
             where TResponse : class;
 
-        Task<TResponse> SendRequestAwaitFirstAnswer<TRequest, TResponse>(string topic, TRequest request, IJsonObjectConverter[] converters, string replyTopicPrefix = null, double? millisecondsTimeoutTarget = null)
+        Task<TResponse?> SendRequestAwaitFirstAnswer<TRequest, TResponse>(string topic, TRequest request, IJsonObjectConverter[] converters, string? replyTopicPrefix = null, double? millisecondsTimeoutTarget = null)
             where TRequest : MessageRequestBase
             where TResponse : class;
 
-        Task<string> SendRequestAwaitFirstAnswer<TRequest>(string topic, TRequest request,
-            IJsonObjectConverter[] converters, string replyTopicPrefix = null, double? millisecondsTimeoutTarget = null)
+        Task<string?> SendRequestAwaitFirstAnswer<TRequest>(string topic, TRequest request,
+            IJsonObjectConverter[] converters, string? replyTopicPrefix = null, double? millisecondsTimeoutTarget = null)
             where TRequest : MessageRequestBase;
     }
 }

@@ -42,24 +42,24 @@ namespace SAF.Communication.PubSub.Cde
         private readonly ConcurrentDictionary<Guid, ISubscription> _subscribers = new();
         private readonly ManualResetEventSlim _registryDiscoveredEvent = new(false);
 
-        private Timer _aliveTimer;
+        private Timer? _aliveTimer;
         private int _sendingAlive;
 
-        private RemoteRegistryLifetimeHandler _registryLifetimeHandler;
-        private MessageListener _messageListener;
-        private string _registryIdentity;
+        private RemoteRegistryLifetimeHandler? _registryLifetimeHandler;
+        private MessageListener? _messageListener;
+        private string? _registryIdentity;
 
-        public event Action<string, string, TheProcessMessage> MessageEvent;
+        public event Action<string, string, TheProcessMessage>? MessageEvent;
 
-        public Subscriber(ComLine line, Publisher publisher)
+        public Subscriber(ComLine line, IPublisher publisher)
             : this(line, publisher, new CancellationTokenSource())
         { }
 
-        public Subscriber(ComLine line, Publisher publisher, CancellationToken token)
+        public Subscriber(ComLine line, IPublisher publisher, CancellationToken token)
             : this(line, publisher, CancellationTokenSource.CreateLinkedTokenSource(token))
         { }
 
-        public Subscriber(ComLine line, Publisher publisher, CancellationTokenSource tokenSource)
+        public Subscriber(ComLine line, IPublisher publisher, CancellationTokenSource tokenSource)
         {
             _log = new Logger(typeof(Subscriber));
             _line = line;
@@ -73,7 +73,7 @@ namespace SAF.Communication.PubSub.Cde
 
         public ISubscription Subscribe(RoutingOptions routingOptions, params string[] patterns)
         {
-            if (patterns == null || patterns.Length == 0) patterns = new[] { "*" };
+            if (patterns.Length == 0) patterns = new[] { "*" };
 
             var subscription = new SubscriptionInternal(this, routingOptions, patterns);
             RemoteSubscribe(subscription.Id, routingOptions, patterns);
@@ -90,7 +90,7 @@ namespace SAF.Communication.PubSub.Cde
             }
         }
 
-        private async Task InitAsync(Publisher publisher)
+        private async Task InitAsync(IPublisher publisher)
         {
             _line.MessageReceived += HandleMessage;
             await _line.Subscribe(Engines.PubSub);
@@ -178,7 +178,8 @@ namespace SAF.Communication.PubSub.Cde
         {
             if (topics.Length <= 0) return;
 
-            var registries = _registryLifetimeHandler.Registries.Where(reg => reg.IsRoutingAllowed(routingOptions)).ToList();
+            var registries = _registryLifetimeHandler?.Registries
+                .Where(reg => reg.IsRoutingAllowed(routingOptions)).ToList() ?? new List<TSM>();
             if (registries.Count == 0) return;
 
             var request = CreateSubscriptionRequest(subscriptionId, topics);
@@ -186,13 +187,13 @@ namespace SAF.Communication.PubSub.Cde
             var requestEvent = new CountdownEvent(registries.Count);
             try
             {
-                lock (_subscriptions) _subscriptions[request.id] = requestEvent;
+                lock (_subscriptions) _subscriptions[request.id!] = requestEvent;
                 registries.ForEach(reg => SendSubscribeRequest(reg, request));
                 requestEvent.Wait(SubscribeResponseTimeoutMs, linkedCts.Token);
             }
             finally
             {
-                lock (_subscriptions) _subscriptions.Remove(request.id);
+                lock (_subscriptions) _subscriptions.Remove(request.id!);
                 requestEvent.Dispose();
                 linkedCts.Dispose();
             }
@@ -224,7 +225,8 @@ namespace SAF.Communication.PubSub.Cde
         {
             if (topics.Length <= 0) return;
 
-            var registries = _registryLifetimeHandler.Registries.Where(reg => reg.IsRoutingAllowed(routingOptions)).ToList();
+            var registries = _registryLifetimeHandler?.Registries
+                .Where(reg => reg.IsRoutingAllowed(routingOptions)).ToList() ?? new List<TSM>();
             if (registries.Count == 0) return;
 
             var request = CreateSubscriptionRequest(topics);
@@ -298,7 +300,8 @@ namespace SAF.Communication.PubSub.Cde
             var response = TheCommonUtils.DeserializeJSONStringToObject<RegistrySubscriptionRequest>(msg.Message.PLS);
             lock(_subscriptions)
             {
-                if (!_subscriptions.TryGetValue(response.id, out var requestEvent)) return;
+                if (response.id == null || !_subscriptions.TryGetValue(response.id, out var requestEvent))
+                    return;
 
                 if(requestEvent.Signal())
                 {
@@ -328,7 +331,7 @@ namespace SAF.Communication.PubSub.Cde
             RemoteResubscribe(msg.Message);
         }
 
-        private void OnAliveTimer(object state)
+        private void OnAliveTimer(object? state)
         {
             if (Interlocked.Exchange(ref _sendingAlive, 1) == 1) return;
 

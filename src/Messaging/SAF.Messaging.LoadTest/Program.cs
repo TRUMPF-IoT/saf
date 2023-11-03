@@ -56,7 +56,7 @@ namespace SAF.Messaging.LoadTest
 
         static void RunMessagingLoadTest(IServiceProvider sp, int n, int msWait)
         {
-            var messaging = sp.GetService<IMessagingInfrastructure>();
+            var messaging = sp.GetRequiredService<IMessagingInfrastructure>();
             var log = sp.GetService<ILogger<Program>>();
 
             var sync = new object();
@@ -88,7 +88,7 @@ namespace SAF.Messaging.LoadTest
                 });
             });
 
-            log.LogInformation("[SYNC] Subscriptions used {0}ms.", sw.ElapsedMilliseconds);
+            log?.LogInformation("[SYNC] Subscriptions used {0}ms.", sw.ElapsedMilliseconds);
             sw.Restart();
 
             Parallel.For(0, n, i =>
@@ -98,7 +98,7 @@ namespace SAF.Messaging.LoadTest
 
                 messaging.Publish(new Message { Topic = $"load/test/{i}", Payload = "something" });
             });
-            log.LogInformation("[SYNC] Publishes used {0}ms.", sw.ElapsedMilliseconds);
+            log?.LogInformation("[SYNC] Publishes used {0}ms.", sw.ElapsedMilliseconds);
             sw.Restart();
 
             while (open > 0)
@@ -106,7 +106,7 @@ namespace SAF.Messaging.LoadTest
                 Thread.Yield();
             }
 
-            log.LogInformation("[SYNC] Handlers used {0}ms.", sw.ElapsedMilliseconds);
+            log?.LogInformation("[SYNC] Handlers used {0}ms.", sw.ElapsedMilliseconds);
         }
     }
 }

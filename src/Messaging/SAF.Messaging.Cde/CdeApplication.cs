@@ -21,9 +21,9 @@ namespace SAF.Messaging.Cde
         private readonly ILogger<CdeApplication> _log;
         private readonly CdeConfiguration _config;
 
-        private TheBaseApplication _cdeApp;
+        private TheBaseApplication? _cdeApp;
 
-        public CdeApplication(ILogger<CdeApplication> log, CdeConfiguration config)
+        public CdeApplication(ILogger<CdeApplication>? log, CdeConfiguration config)
         {
             _log = log ?? NullLogger<CdeApplication>.Instance;
             _config = config;
@@ -115,11 +115,12 @@ namespace SAF.Messaging.Cde
                 PreShutDownDelay = config.PreShutdownDelay
             };
 
-            TheBaseAssets.MyServiceHostInfo.IgnoredEngines.AddRange(config.LogIgnore.Split(';'));
+            if(!string.IsNullOrWhiteSpace(config.LogIgnore))
+                TheBaseAssets.MyServiceHostInfo.IgnoredEngines.AddRange(config.LogIgnore.Split(';'));
         }
 
 
-        private void LoadAlternateCryptoLib(CdeCryptoLibConfig cryptoLibConfig)
+        private static void LoadAlternateCryptoLib(CdeCryptoLibConfig? cryptoLibConfig)
         {
             if (string.IsNullOrWhiteSpace(cryptoLibConfig?.DllName)) return;
 

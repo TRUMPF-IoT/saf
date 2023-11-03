@@ -26,7 +26,7 @@ namespace SAF.Communication.PubSub.Cde
         private bool _disposed;
         private readonly ComLine _line; //Only needed temporarily to initialize the SubscriptionRegistry object.
         private readonly CancellationTokenSource _tokenSource;
-        internal ISubscriptionRegistry _subscriptionRegistry;
+        internal ISubscriptionRegistry? _subscriptionRegistry;
 
         public Publisher(ComLine line)
             : this(line, new CancellationTokenSource())
@@ -95,7 +95,7 @@ namespace SAF.Communication.PubSub.Cde
         public void Publish(Message message, string userId, RoutingOptions routingOptions)
         {
             var t = new Topic { Channel = message.Topic, MsgId = Guid.NewGuid().ToString("N") };
-            _subscriptionRegistry.Broadcast(t, message, userId, routingOptions);
+            _subscriptionRegistry?.Broadcast(t, message, userId, routingOptions);
         }
 
         public void Dispose()

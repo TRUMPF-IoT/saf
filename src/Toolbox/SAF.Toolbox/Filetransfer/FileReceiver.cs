@@ -16,9 +16,9 @@ namespace SAF.Toolbox.FileTransfer
         private const string Nok = "NOK";
         private readonly IMessagingInfrastructure _messaging;
         private readonly ILogger<FileReceiver> _log;
-        private readonly IDictionary<string, object> _subscriptions = new Dictionary<string, object>();
+        private readonly Dictionary<string, object> _subscriptions = new();
 
-        public FileReceiver(IMessagingInfrastructure messaging, ILogger<FileReceiver> log)
+        public FileReceiver(IMessagingInfrastructure messaging, ILogger<FileReceiver>? log)
         {
             _messaging = messaging ?? throw new ArgumentNullException(nameof(messaging));
             _log = log ?? NullLogger<FileReceiver>.Instance;
@@ -42,7 +42,7 @@ namespace SAF.Toolbox.FileTransfer
             if(string.IsNullOrEmpty(topic)) throw new ArgumentException("Topic must not be empty", nameof(topic));
 
             var isKnown = _subscriptions.TryGetValue(topic, out var subscription);
-            if(!isKnown) return;
+            if(!isKnown || subscription == null) return;
 
             _subscriptions.Remove(topic);
             _messaging.Unsubscribe(subscription);
@@ -67,7 +67,7 @@ namespace SAF.Toolbox.FileTransfer
             }
 
             var properties = ReadTransportFile(envelope);
-            if(properties == null)
+            if(properties.Count == 0)
             {
                 SendAcknowledgement(envelope, false);
                 return;
@@ -91,8 +91,7 @@ namespace SAF.Toolbox.FileTransfer
         {
             var payload = isConsistent ? Ok : Nok;
 
-            string fileName = null;
-            envelope.TransportFile?.TryGetValue("Name", out fileName);
+            envelope.TransportFile.TryGetValue("Name", out var fileName);
             _log.LogDebug($"Send ack to {envelope.ReplyTo}, payload={payload}, file={fileName}");
 
             var message = new Message
@@ -114,21 +113,19 @@ namespace SAF.Toolbox.FileTransfer
             if (!string.IsNullOrEmpty(originalLengthAsString))
                 long.TryParse(originalLengthAsString, out originalLength);
 
-            var transportFile = new TransportFile(name, mimeType, properties) { Content = content, OriginalLength = originalLength };
+            var transportFile = new TransportFile(name!, mimeType, properties) { Content = content!, OriginalLength = originalLength };
 
             return transportFile;
         }
 
-        private static IDictionary<string, string> ReadTransportFile(TransportFileEnvelope envelope)
-        {
-            return envelope.TransportFile;
-        }
+        private static IDictionary<string, string> ReadTransportFile(TransportFileEnvelope envelope) => envelope.TransportFile;
 
-        private static TransportFileEnvelope ReadEnvelope(Message message)
+        private static TransportFileEnvelope? ReadEnvelope(Message message)
         {
-            TransportFileEnvelope envelope = null;
+            TransportFileEnvelope? envelope = null;
             try
             {
+                if(string.IsNullOrEmpty(message.Payload)) return null;
                 envelope = JsonSerializer.Deserialize<TransportFileEnvelope>(message.Payload);
             }
             catch

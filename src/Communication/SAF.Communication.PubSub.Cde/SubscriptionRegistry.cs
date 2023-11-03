@@ -32,7 +32,7 @@ namespace SAF.Communication.PubSub.Cde
     {
         // ReSharper disable once InconsistentNaming
 #pragma warning disable IDE1006 // Naming Styles
-        public string instanceId { get; set; }
+        public string? instanceId { get; set; }
 #pragma warning restore IDE1006 // Naming Styles
     }
 
@@ -52,7 +52,7 @@ namespace SAF.Communication.PubSub.Cde
         private readonly Logger _log;
         private readonly ComLine _line;
 
-        private Timer _subscriberLifetimeTimer;
+        private Timer? _subscriberLifetimeTimer;
         private int _checkingLifeTimes;
 
         private readonly string _instanceId = Guid.NewGuid().ToString("N");
@@ -121,7 +121,7 @@ namespace SAF.Communication.PubSub.Cde
             var request = TheCommonUtils.DeserializeJSONStringToObject<RegistrySubscriptionRequest>(message.PLS);
 
             const string all = "*";
-            var topics = request.topics ?? Array.Empty<string>();
+            var topics = request.topics;
 
             var newPatterns = topics.Distinct().ToList();
             if (newPatterns.Count == 0)
@@ -299,7 +299,7 @@ namespace SAF.Communication.PubSub.Cde
             }
         }
 
-        private void OnSubscriberLifetimeTimer(object state)
+        private void OnSubscriberLifetimeTimer(object? state)
         {
             if (Interlocked.Exchange(ref _checkingLifeTimes, 1) == 1) return;
 

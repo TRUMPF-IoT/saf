@@ -22,7 +22,7 @@ namespace SAF.Messaging.Cde.Diagnostics
             var cdeAssembly = cdeType.Assembly;
             var cdeVersion = cdeAssembly.GetName().Version;
             var cdeFileInfo = new FileInfo(cdeAssembly.Location);
-            return (cdeVersion.ToString(), cdeFileInfo.LastWriteTimeUtc);
+            return (cdeVersion?.ToString() ?? string.Empty, cdeFileInfo.LastWriteTimeUtc);
         }
 
         public int DefaultLcid => TheBaseAssets.MyServiceHostInfo.DefaultLCID;

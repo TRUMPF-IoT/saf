@@ -14,7 +14,7 @@ namespace SAF.Communication.PubSub
     {
         protected ISubscriber Subscriber { get; }
 
-        protected Action<DateTimeOffset, Message> Handler { get; private set; }
+        protected Action<DateTimeOffset, Message>? Handler { get; private set; }
 
         public Guid Id { get; } = Guid.NewGuid();
 
@@ -45,10 +45,17 @@ namespace SAF.Communication.PubSub
         }
 
         protected bool IsTopicMatch(string topic) 
-            => Patterns.Any(p => p == "*" || p == topic) || Patterns.Any(topic.IsMatch);
+            => Array.Exists(Patterns, p => p == "*" || p == topic) || Array.Exists(Patterns, topic.IsMatch);
 
         public void Dispose()
         {
+            Dispose(true);
+            GC.SuppressFinalize(this);
+        }
+
+        protected virtual void Dispose(bool disposing)
+        {
+            if (!disposing) return;
             Unsubscribe();
         }
     }

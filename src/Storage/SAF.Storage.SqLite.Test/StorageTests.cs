@@ -2,240 +2,237 @@
 //
 // SPDX-License-Identifier: MPL-2.0
 
-using System;
 using System.Data.SQLite;
-using System.Threading.Tasks;
 using Xunit;
 
-namespace SAF.Storage.SqLite.Test
+namespace SAF.Storage.SqLite.Test;
+
+public class StorageTests
 {
-    public class StorageTests
+    private readonly SQLiteConnection _connection;
+
+    public StorageTests()
     {
-        private readonly SQLiteConnection _connection;
+        var cs = "Data Source=:memory:";
+        _connection = new SQLiteConnection(cs);
+    }
 
-        public StorageTests()
+    [Fact]
+    public void NotExistingKeysReturnNullOk()
+    {
+        using var storage = new Storage(_connection);
+
+        Assert.Null(storage.GetBytes("test"));
+        Assert.Null(storage.GetString("test"));
+    }
+
+    [Fact]
+    public void SettingByteValuesOk()
+    {
+        using var storage = new Storage(_connection);
+
+        var actualByteArray = new byte[] { 0, 1, 2, 3 };
+        storage.Set("test", actualByteArray);
+        Assert.Equal(actualByteArray, storage.GetBytes("test"));
+    }
+
+    [Fact]
+    public void OverwriteByteValuesOk()
+    {
+        using var storage = new Storage(_connection);
+
+        var actualByteArray = new byte[] { 0, 1, 2, 3 };
+        storage.Set("test", actualByteArray);
+        var overwrittenByteArray = new byte[] { 1, 2, 3, 4 };
+        storage.Set("test", overwrittenByteArray);
+        Assert.Equal(overwrittenByteArray, storage.GetBytes("test"));
+    }
+
+    [Fact]
+    public void SettingByteAreaValuesOk()
+    {
+        using var storage = new Storage(_connection);
+
+        var actualByteArray = new byte[] { 0, 1, 2, 3 };
+        storage.Set("area", "test", actualByteArray);
+        Assert.Equal(actualByteArray, storage.GetBytes("area", "test"));
+    }
+
+
+    [Fact]
+    public void SettingStringValuesOk()
+    {
+        using var storage = new Storage(_connection);
+
+        var actualStringValue = "42";
+        storage.Set("test", actualStringValue);
+        Assert.Equal(actualStringValue, storage.GetString("test"));
+    }
+
+    [Fact]
+    public void OverwriteStringValuesOk()
+    {
+        using var storage = new Storage(_connection);
+
+        var actualStringValue = "42";
+        storage.Set("test", actualStringValue);
+        var overwrittenStringValue = "43";
+        storage.Set("test", overwrittenStringValue);
+        Assert.Equal(overwrittenStringValue, storage.GetString("test"));
+    }
+
+    [Fact]
+    public void SettingStringAreaValuesOk()
+    {
+        using var storage = new Storage(_connection);
+
+        var actualStringValue = "42";
+        storage.Set("area", "test", actualStringValue);
+        Assert.Equal(actualStringValue, storage.GetString("area", "test"));
+    }
+
+    [Fact]
+    public void LegacyCallsOk()
+    {
+        using var storage = new Storage(_connection);
+
+        var uniqueArea = "area.area1/area3";
+        var key = "key1.key2/key3";
+        var expectedValue = "my starnge value";
+        storage.Set(uniqueArea, key, expectedValue);
+
+        Assert.Equal(expectedValue, storage.GetString(uniqueArea, key));
+    }
+
+    [Fact]
+    public void GetStringEntryAsByteNotOk()
+    {
+        using var storage = new Storage(_connection);
+
+        var area = "areaName";
+        var key = "globalKey";
+        var expectedValue = "value";
+        storage.Set(area, key, expectedValue);
+
+        Assert.Equal(expectedValue, storage.GetString(area, key));
+        Assert.Null(storage.GetBytes(area, key));
+    }
+
+    [Fact]
+    public void ParallelCallsOk()
+    {
+        using var storage = new Storage(_connection);
+
+        Parallel.For(0, 20, id =>
         {
-            var cs = "Data Source=:memory:";
-            _connection = new SQLiteConnection(cs);
-        }
-
-        [Fact]
-        public void NotExistingKeysReturnNullOk()
-        {
-            using var storage = new Storage(_connection);
-
-            Assert.Null(storage.GetBytes("test"));
-            Assert.Null(storage.GetString("test"));
-        }
-
-        [Fact]
-        public void SettingByteValuesOk()
-        {
-            using var storage = new Storage(_connection);
-
-            var actualByteArray = new byte[] { 0, 1, 2, 3 };
-            storage.Set("test", actualByteArray);
-            Assert.Equal(actualByteArray, storage.GetBytes("test"));
-        }
-
-        [Fact]
-        public void OverwriteByteValuesOk()
-        {
-            using var storage = new Storage(_connection);
-
-            var actualByteArray = new byte[] { 0, 1, 2, 3 };
-            storage.Set("test", actualByteArray);
-            var overwrittenByteArray = new byte[] { 1, 2, 3, 4 };
-            storage.Set("test", overwrittenByteArray);
-            Assert.Equal(overwrittenByteArray, storage.GetBytes("test"));
-        }
-
-        [Fact]
-        public void SettingByteAreaValuesOk()
-        {
-            using var storage = new Storage(_connection);
-
-            var actualByteArray = new byte[] { 0, 1, 2, 3 };
-            storage.Set("area", "test", actualByteArray);
-            Assert.Equal(actualByteArray, storage.GetBytes("area", "test"));
-        }
-
-
-        [Fact]
-        public void SettingStringValuesOk()
-        {
-            using var storage = new Storage(_connection);
-
-            var actualStringValue = "42";
-            storage.Set("test", actualStringValue);
-            Assert.Equal(actualStringValue, storage.GetString("test"));
-        }
-
-        [Fact]
-        public void OverwriteStringValuesOk()
-        {
-            using var storage = new Storage(_connection);
-
-            var actualStringValue = "42";
-            storage.Set("test", actualStringValue);
-            var overwrittenStringValue = "43";
-            storage.Set("test", overwrittenStringValue);
-            Assert.Equal(overwrittenStringValue, storage.GetString("test"));
-        }
-
-        [Fact]
-        public void SettingStringAreaValuesOk()
-        {
-            using var storage = new Storage(_connection);
-
-            var actualStringValue = "42";
-            storage.Set("area", "test", actualStringValue);
-            Assert.Equal(actualStringValue, storage.GetString("area", "test"));
-        }
-
-        [Fact]
-        public void LegacyCallsOk()
-        {
-            using var storage = new Storage(_connection);
-
-            var uniqueArea = "area.area1/area3";
-            var key = "key1.key2/key3";
-            var expectedValue = "my starnge value";
-            storage.Set(uniqueArea, key, expectedValue);
-
-            Assert.Equal(expectedValue, storage.GetString(uniqueArea, key));
-        }
-
-        [Fact]
-        public void GetStringEntryAsByteNotOk()
-        {
-            using var storage = new Storage(_connection);
-
-            var area = "areaName";
-            var key = "globalKey";
-            var expectedValue = "value";
-            storage.Set(area, key, expectedValue);
-
-            Assert.Equal(expectedValue, storage.GetString(area, key));
-            Assert.Null(storage.GetBytes(area, key));
-        }
-
-        [Fact]
-        public void ParallelCallsOk()
-        {
-            using var storage = new Storage(_connection);
-
-            Parallel.For(0, 20, id =>
+            var storageId = $"Storage{id}";
+            Parallel.For(0, 10, fId =>
             {
-                var storageId = $"Storage{id}";
-                Parallel.For(0, 10, fId =>
-                {
-                    var stringId = fId.ToString();
-                    storage.Set(storageId, stringId, stringId);
-                });
-
-                Parallel.For(0, 10, fId =>
-                {
-                    var stringId = fId.ToString();
-                    var result = storage.GetString(storageId, stringId);
-                    Assert.Equal(stringId, result);
-                });
+                var stringId = fId.ToString();
+                storage.Set(storageId, stringId, stringId);
             });
-        }
 
-        [Fact]
-        public void RemoveKeyOk()
-        {
-            using var storage = new Storage(_connection);
+            Parallel.For(0, 10, fId =>
+            {
+                var stringId = fId.ToString();
+                var result = storage.GetString(storageId, stringId);
+                Assert.Equal(stringId, result);
+            });
+        });
+    }
 
-            const string keyToDelete = "keyToDelete";
-            const string keyToStay = "keyToStay";
-            storage.Set(keyToDelete, new byte[] { 9, 9, 9 });
-            storage.Set(keyToStay, nameof(keyToStay));
+    [Fact]
+    public void RemoveKeyOk()
+    {
+        using var storage = new Storage(_connection);
 
-            storage.RemoveKey(keyToDelete);
+        const string keyToDelete = "keyToDelete";
+        const string keyToStay = "keyToStay";
+        storage.Set(keyToDelete, new byte[] { 9, 9, 9 });
+        storage.Set(keyToStay, nameof(keyToStay));
 
-            Assert.Null(storage.GetBytes(keyToDelete));
-            Assert.Equal(nameof(keyToStay), storage.GetString(keyToStay));
-        }
+        storage.RemoveKey(keyToDelete);
 
-        [Fact]
-        public void RemoveKeyFromAreaOk()
-        {
-            using var storage = new Storage(_connection);
+        Assert.Null(storage.GetBytes(keyToDelete));
+        Assert.Equal(nameof(keyToStay), storage.GetString(keyToStay));
+    }
 
-            const string areaToDeleteFrom = "areaToDeleteFrom";
-            const string areaToNotTouch = "areaToNotTouch";
-            const string keyToDelete = "keyToDelete";
-            const string keyToStay = "keyToStay";
-            storage.Set(areaToDeleteFrom, keyToDelete, new byte[] { 9, 9, 9 });
-            storage.Set(areaToDeleteFrom, keyToStay, nameof(keyToStay));
+    [Fact]
+    public void RemoveKeyFromAreaOk()
+    {
+        using var storage = new Storage(_connection);
 
-            storage.Set(areaToNotTouch, keyToStay, nameof(keyToStay));
+        const string areaToDeleteFrom = "areaToDeleteFrom";
+        const string areaToNotTouch = "areaToNotTouch";
+        const string keyToDelete = "keyToDelete";
+        const string keyToStay = "keyToStay";
+        storage.Set(areaToDeleteFrom, keyToDelete, new byte[] { 9, 9, 9 });
+        storage.Set(areaToDeleteFrom, keyToStay, nameof(keyToStay));
 
-            storage.RemoveKey(areaToDeleteFrom, keyToDelete);
+        storage.Set(areaToNotTouch, keyToStay, nameof(keyToStay));
 
-            Assert.Null(storage.GetBytes(areaToDeleteFrom, keyToDelete));
-            Assert.Equal(nameof(keyToStay), storage.GetString(areaToDeleteFrom, keyToStay));
-            Assert.Equal(nameof(keyToStay), storage.GetString(areaToNotTouch, keyToStay));
-        }
+        storage.RemoveKey(areaToDeleteFrom, keyToDelete);
 
-        [Fact]
-        public void RemoveAreaOk()
-        {
-            using var storage = new Storage(_connection);
+        Assert.Null(storage.GetBytes(areaToDeleteFrom, keyToDelete));
+        Assert.Equal(nameof(keyToStay), storage.GetString(areaToDeleteFrom, keyToStay));
+        Assert.Equal(nameof(keyToStay), storage.GetString(areaToNotTouch, keyToStay));
+    }
 
-            const string areaToDelete = "areaToDelete";
-            const string areaToStay = "areaToStay";
-            const string keyToStay = "keyToStay";
+    [Fact]
+    public void RemoveAreaOk()
+    {
+        using var storage = new Storage(_connection);
 
-            storage.Set(areaToDelete, "bytesKeyToDelete", new byte[] { 9, 9, 9 });
-            storage.Set(areaToDelete, "stringKeyToDelete", nameof(keyToStay));
+        const string areaToDelete = "areaToDelete";
+        const string areaToStay = "areaToStay";
+        const string keyToStay = "keyToStay";
 
-            storage.Set(areaToStay, keyToStay, nameof(keyToStay));
+        storage.Set(areaToDelete, "bytesKeyToDelete", new byte[] { 9, 9, 9 });
+        storage.Set(areaToDelete, "stringKeyToDelete", nameof(keyToStay));
 
-            storage.RemoveArea(areaToDelete);
+        storage.Set(areaToStay, keyToStay, nameof(keyToStay));
 
-            Assert.Null(storage.GetBytes(areaToDelete, "bytesKeyToDelete"));
-            Assert.Null(storage.GetString(areaToDelete, "stringKeyToDelete"));
+        storage.RemoveArea(areaToDelete);
 
-            Assert.Equal(nameof(keyToStay), storage.GetString(areaToStay, keyToStay));
-        }
+        Assert.Null(storage.GetBytes(areaToDelete, "bytesKeyToDelete"));
+        Assert.Null(storage.GetString(areaToDelete, "stringKeyToDelete"));
 
-        [Fact]
-        public void RemoveGlobalAreaThrowsExceptionOk()
-        {
-            using var storage = new Storage(_connection);
+        Assert.Equal(nameof(keyToStay), storage.GetString(areaToStay, keyToStay));
+    }
 
-            Assert.Throws<NotSupportedException>(() => storage.RemoveArea("global"));
-        }
+    [Fact]
+    public void RemoveGlobalAreaThrowsExceptionOk()
+    {
+        using var storage = new Storage(_connection);
 
-        [Fact]
-        public void RemoveUnknownKeyOk()
-        {
-            using var storage = new Storage(_connection);
+        Assert.Throws<NotSupportedException>(() => storage.RemoveArea("global"));
+    }
 
-            const string keyToDelete = "keyToDelete";
-            const string keyToStay = "keyToStay";
-            storage.Set(keyToStay, nameof(keyToStay));
+    [Fact]
+    public void RemoveUnknownKeyOk()
+    {
+        using var storage = new Storage(_connection);
 
-            storage.RemoveKey(keyToDelete);
+        const string keyToDelete = "keyToDelete";
+        const string keyToStay = "keyToStay";
+        storage.Set(keyToStay, nameof(keyToStay));
 
-            Assert.Equal(nameof(keyToStay), storage.GetString(keyToStay));
-        }
+        storage.RemoveKey(keyToDelete);
 
-        [Fact]
-        public void RemoveUnknownAreaOk()
-        {
-            using var storage = new Storage(_connection);
+        Assert.Equal(nameof(keyToStay), storage.GetString(keyToStay));
+    }
 
-            const string keyToStay = "keyToStay";
-            const string testArea = nameof(testArea);
-            storage.Set(testArea, keyToStay, nameof(keyToStay));
+    [Fact]
+    public void RemoveUnknownAreaOk()
+    {
+        using var storage = new Storage(_connection);
 
-            storage.RemoveArea("areaDoesNotExist");
+        const string keyToStay = "keyToStay";
+        const string testArea = nameof(testArea);
+        storage.Set(testArea, keyToStay, nameof(keyToStay));
 
-            Assert.Equal(nameof(keyToStay), storage.GetString(testArea, keyToStay));
-        }
+        storage.RemoveArea("areaDoesNotExist");
+
+        Assert.Equal(nameof(keyToStay), storage.GetString(testArea, keyToStay));
     }
 }

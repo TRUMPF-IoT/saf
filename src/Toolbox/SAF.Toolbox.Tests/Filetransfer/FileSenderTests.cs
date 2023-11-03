@@ -30,7 +30,7 @@ namespace SAF.Toolbox.Tests.FileTransfer
         [InlineData(134217728)] // 128 MByte
         public async Task SendInChunksCallsPublishOk(int fileSizeInBytes)
         {
-            Action<Message> senderHandler = null;
+            Action<Message>? senderHandler = null;
             var messaging = Substitute.For<IMessagingInfrastructure>();
             messaging.When(m => m.Subscribe(Arg.Any<string>(), Arg.Any<Action<Message>>()))
                 .Do(args => senderHandler = args.Arg<Action<Message>>());                
@@ -41,7 +41,7 @@ namespace SAF.Toolbox.Tests.FileTransfer
                 .Do(args =>
                 {
                     var msg = args.Arg<Message>();
-                    var req = JsonSerializer.Deserialize<TransportFileEnvelope>(msg.Payload);
+                    var req = JsonSerializer.Deserialize<TransportFileEnvelope>(msg.Payload!)!;
                     senderHandler?.Invoke(new Message { Topic = req.ReplyTo, Payload = "OK" });
                 });
             using (var tempFile = new TemporaryFile($"file{fileSizeInBytes}.tmp", buffer))
@@ -70,7 +70,7 @@ namespace SAF.Toolbox.Tests.FileTransfer
         [InlineData(FileSender.MaxChunkSize * 3 + 1)] // multiple of chunk size + 1
         public async Task SendInChunksAllowsWriteAccessToFileAfterSendingLastChunkOk(int fileSizeInBytes)
         {
-            Action<Message> senderHandler = null;
+            Action<Message>? senderHandler = null;
             var messaging = Substitute.For<IMessagingInfrastructure>();
             messaging.When(m => m.Subscribe(Arg.Any<string>(), Arg.Any<Action<Message>>()))
                 .Do(args => senderHandler = args.Arg<Action<Message>>());
@@ -84,7 +84,7 @@ namespace SAF.Toolbox.Tests.FileTransfer
                     .Do(args =>
                     {
                         var msg = args.Arg<Message>();
-                        var req = JsonSerializer.Deserialize<TransportFileEnvelope>(msg.Payload);
+                        var req = JsonSerializer.Deserialize<TransportFileEnvelope>(msg.Payload!)!;
                         var props = req.TransportFile.FromDictionary();
                         if (props.LastChunk)
                         {
@@ -120,7 +120,7 @@ namespace SAF.Toolbox.Tests.FileTransfer
         [InlineData(FileSender.MaxChunkSize * 3 + 1)] // multiple of chunk size + 1
         public async Task SendInChunksUsesSameUniqueTransferIdForEachChunkOk(int fileSizeInBytes)
         {
-            Action<Message> senderHandler = null;
+            Action<Message>? senderHandler = null;
             var messaging = Substitute.For<IMessagingInfrastructure>();
             messaging.When(m => m.Subscribe(Arg.Any<string>(), Arg.Any<Action<Message>>()))
                 .Do(args => senderHandler = args.Arg<Action<Message>>());
@@ -131,7 +131,7 @@ namespace SAF.Toolbox.Tests.FileTransfer
                 .Do(args =>
                 {
                     var msg = args.Arg<Message>();
-                    var req = JsonSerializer.Deserialize<TransportFileEnvelope>(msg.Payload);
+                    var req = JsonSerializer.Deserialize<TransportFileEnvelope>(msg.Payload!)!;
                     var props = req.TransportFile.FromDictionary();
 
                     Assert.NotNull(props.TransferId);

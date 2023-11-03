@@ -17,11 +17,11 @@ namespace SAF.Messaging.Routing
         /// <summary>
         /// The patterns of message topics to publish to the Messaging infrastructure of this instance.
         /// </summary>
-        public string[] PublishPatterns { get; set; }
+        public string[]? PublishPatterns { get; set; }
         /// <summary>
         /// The patterns of message topics to subscribe to on the Messaging infrastructure of this instance.
         /// </summary>
-        public string[] SubscriptionPatterns { get; set; }
+        public string[]? SubscriptionPatterns { get; set; }
 
         /// <summary>
         /// The IMessagingInfrastructure used to route messages from/to.
@@ -54,7 +54,7 @@ namespace SAF.Messaging.Routing
         /// </summary>
         /// <param name="routeFilterPattern">The message topic pattern used for subscription.</param>
         /// <returns>A subscriptionId as object or null in case no subscription where done.</returns>
-        public MessageRoutingSubscription Subscribe<TMessageHandler>(string routeFilterPattern) where TMessageHandler : IMessageHandler
+        public MessageRoutingSubscription? Subscribe<TMessageHandler>(string routeFilterPattern) where TMessageHandler : IMessageHandler
         {
             var patterns = DetermineSubscriptionPatterns(routeFilterPattern).ToArray();
             if (patterns.Length == 0) return null;
@@ -71,7 +71,7 @@ namespace SAF.Messaging.Routing
         /// <param name="routeFilterPattern">The message topic pattern used for subscription.</param>
         /// <param name="handler">Action being called in case a message with matching topic arrives.</param>
         /// <returns>A subscriptionId as object or null in case no subscription where done.</returns>
-        public MessageRoutingSubscription Subscribe(string routeFilterPattern, Action<Message> handler)
+        public MessageRoutingSubscription? Subscribe(string routeFilterPattern, Action<Message> handler)
         {
             var patterns = DetermineSubscriptionPatterns(routeFilterPattern).ToArray();
             if (patterns.Length == 0) return null;

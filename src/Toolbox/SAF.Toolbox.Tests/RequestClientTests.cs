@@ -18,12 +18,12 @@ namespace SAF.Toolbox.Tests
         public async Task ReturnsValueOfResponseTimeout()
         {
             // Arrange
-            string replyToTopic = null;
+            string? replyToTopic = null;
             var messagingMock = Substitute.For<IMessagingInfrastructure>();
             messagingMock.When(m => m.Publish(Arg.Any<Message>()))
                 .Do(ci =>
                 {   // "catch" reply to of sent message
-                    var msg = JsonSerializer.Deserialize<DummyRequest>(ci.Arg<Message>().Payload);
+                    var msg = JsonSerializer.Deserialize<DummyRequest>(ci.Arg<Message>().Payload!)!;
                     replyToTopic = msg.ReplyTo;
                 });
 
@@ -33,7 +33,7 @@ namespace SAF.Toolbox.Tests
             // Act
             var sut = new RequestClient.RequestClient(messagingMock, heartbeatMock, null);
             var task = sut.SendRequestAwaitFirstAnswer<DummyRequest, DummyResponse>("test", new DummyRequest());
-            sut.Handle(new Message { Topic = replyToTopic, Payload = "{ \"myDummyValue\": 123 }" });
+            sut.Handle(new Message { Topic = replyToTopic!, Payload = "{ \"myDummyValue\": 123 }" });
 
             // Assert
             var response = await task;

@@ -16,7 +16,7 @@ namespace SAF.Communication.PubSub.Cde
     internal class SubscriptionInternal : AbstractSubscription, ISubscriptionInternal
     {
         private readonly Subscriber _subscriber;
-        private Action<string, TheProcessMessage> _rawHandler;
+        private Action<string, TheProcessMessage>? _rawHandler;
 
         public SubscriptionInternal(Subscriber subscriber, params string[] patterns)
             : this(subscriber, RoutingOptions.All, patterns)

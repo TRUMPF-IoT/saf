@@ -9,8 +9,8 @@ namespace SAF.Hosting
 {
     internal class ServiceHostContext : IServiceHostContext
     {
-        public IConfiguration Configuration { get; set; }
-        public IServiceHostEnvironment Environment { get; set; }
-        public IHostInfo HostInfo { get; set; }
+        public IConfiguration Configuration { get; set; } = default!;
+        public IServiceHostEnvironment Environment { get; set; } = default!;
+        public IHostInfo HostInfo { get; set; } = default!;
     }
 }

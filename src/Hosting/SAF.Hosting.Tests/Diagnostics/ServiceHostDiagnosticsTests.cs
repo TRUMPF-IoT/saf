@@ -32,7 +32,7 @@ namespace SAF.Hosting.Tests.Diagnostics
             var manifest = loadedAssembly.GetExportedTypes().SingleOrDefault(t => t.IsClass && typeof(IServiceAssemblyManifest).IsAssignableFrom(t));
             Assert.NotNull(manifest);
 
-            var assembly = Activator.CreateInstance(manifest) as IServiceAssemblyManifest;
+            var assembly = (IServiceAssemblyManifest)Activator.CreateInstance(manifest)!;
             var si = new SafServiceInfo(assembly);
             Assert.Equal("1.2.3.4", si.Version);
             Assert.Equal("1.2.3.4", si.BuildNumber);

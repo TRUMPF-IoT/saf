@@ -14,11 +14,11 @@ namespace SAF.Hosting
     public class ServiceMessageDispatcher : IServiceMessageDispatcher
     {
         private readonly Dictionary<string, Func<IMessageHandler>> _messageHandlerProviders = new();
-        private readonly ILogger _log;
+        private readonly ILogger<ServiceMessageDispatcher> _log;
 
-        public ServiceMessageDispatcher(ILogger<ServiceMessageDispatcher> log)
+        public ServiceMessageDispatcher(ILogger<ServiceMessageDispatcher>? log)
         {
-            _log = log as ILogger ?? NullLogger.Instance;
+            _log = log ?? NullLogger<ServiceMessageDispatcher>.Instance;
         }
 
         public void DispatchMessage(string handlerTypeFullName, Message message)
@@ -64,7 +64,7 @@ namespace SAF.Hosting
         }
 
         public void DispatchMessage<TMessageHandler>(Message message) where TMessageHandler : IMessageHandler
-            => DispatchMessage(typeof(TMessageHandler).FullName, message);
+            => DispatchMessage(typeof(TMessageHandler).FullName!, message);
 
         public void DispatchMessage(Action<Message> handler, Message message)
         {
@@ -89,7 +89,7 @@ namespace SAF.Hosting
             => AddHandler(typeof(TMessageHandler), handlerFactory);
 
         public void AddHandler(Type handlerType, Func<IMessageHandler> handlerFactory)
-            => AddHandler(handlerType.FullName, handlerFactory);
+            => AddHandler(handlerType.FullName!, handlerFactory);
 
         public IEnumerable<string> RegisteredHandlers => _messageHandlerProviders.Keys;
     }

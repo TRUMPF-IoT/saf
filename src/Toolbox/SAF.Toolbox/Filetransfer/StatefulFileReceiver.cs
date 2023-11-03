@@ -13,13 +13,13 @@ public class StatefulFileReceiver : IStatefulFileReceiver
     private readonly ILogger<StatefulFileReceiver> _log;
     private readonly object _syncFileAccess = new();
 
-    public StatefulFileReceiver(ILogger<StatefulFileReceiver> log)
+    public StatefulFileReceiver(ILogger<StatefulFileReceiver>? log)
     {
         _log = log ?? NullLogger<StatefulFileReceiver>.Instance;
     }
 
-    public event Action<string> FileReceived;
-    public event Action<string> StreamReceived;
+    public event Action<string>? FileReceived;
+    public event Action<string>? StreamReceived;
 
     /// <summary>
     /// Saves a TransportFileDelivery to disk.
@@ -37,7 +37,7 @@ public class StatefulFileReceiver : IStatefulFileReceiver
             ? Directory.CreateDirectory(folderPath)
             : new DirectoryInfo(folderPath);
 
-        var props = tf.Properties.FromDictionary();
+        var props = tf.Properties!.FromDictionary();
 
         if (props.IsChunked)
             WriteChunkedFile(directory, delivery, props, overwrite);

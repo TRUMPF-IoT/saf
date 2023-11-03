@@ -6,7 +6,7 @@ namespace SAF.Toolbox.Heartbeat
 {
     internal sealed class Heartbeat : IHeartbeat, IDisposable
     {
-        public event EventHandler<HeartbeatEventArgs> Beat;
+        public event EventHandler<HeartbeatEventArgs>? Beat;
         public int BeatCycleTimeMillis { get; }
         public long CurrentBeat { get; private set; }
 
@@ -23,10 +23,10 @@ namespace SAF.Toolbox.Heartbeat
 
         public void Dispose()
         {
-            _heartbeatTimer?.Dispose();
+            _heartbeatTimer.Dispose();
         }
 
-        private void Tick(object state)
+        private void Tick(object? state)
             => Beat?.Invoke(this, new HeartbeatEventArgs(BeatCycleTimeMillis, ++CurrentBeat));
     }
 }

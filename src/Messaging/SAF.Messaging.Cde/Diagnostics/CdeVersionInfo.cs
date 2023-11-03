@@ -15,15 +15,15 @@ namespace SAF.Messaging.Cde.Diagnostics
         {
             var cdeTpe = typeof(TheBaseAssets);
             var assembly = cdeTpe.Assembly;
-            BuildNumber = assembly.GetName().Version.ToString();
+            BuildNumber = assembly.GetName().Version?.ToString() ?? string.Empty;
             if (!string.IsNullOrEmpty(assembly.Location))
             {
-                Version = FileVersionInfo.GetVersionInfo(assembly.Location).ProductVersion;
+                Version = FileVersionInfo.GetVersionInfo(assembly.Location).ProductVersion ?? string.Empty;
                 BuildDate = File.GetLastWriteTimeUtc(assembly.Location);
             }
         }
 
-        public string Version { get; set; }
+        public string Version { get; set; } = string.Empty;
         public string BuildNumber { get; set; }
         public DateTimeOffset BuildDate { get; set; }
     }

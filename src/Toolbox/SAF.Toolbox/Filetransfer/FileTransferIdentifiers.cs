@@ -19,7 +19,7 @@ namespace SAF.Toolbox.FileTransfer
 
     public class FileTransferProperties
     {
-        public string FullPath { get; set; }
+        public string FullPath { get; set; } = default!;
         public bool IsChunked { get; set; }
         public bool IsFileStream { get; set; }
         public bool LastChunk { get; set; }

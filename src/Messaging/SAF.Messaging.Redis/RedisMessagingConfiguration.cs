@@ -16,7 +16,7 @@ namespace SAF.Messaging.Redis
             : this(new Dictionary<string, string>())
         { }
         public RedisMessagingConfiguration(MessagingConfiguration config)
-            : this(config?.Config ?? new Dictionary<string, string>())
+            : this(config.Config ?? new Dictionary<string, string>())
         { }
 
         public RedisMessagingConfiguration(IDictionary<string, string> config)
@@ -24,14 +24,7 @@ namespace SAF.Messaging.Redis
             _config = config;
         }
 
-        public string ConnectionString
-        {
-            get
-            {
-                if(_config.TryGetValue("connectionString", out var connString))
-                    return connString;
-                return null;
-            }
-        }
+        public string? ConnectionString
+            => _config.TryGetValue("connectionString", out var connString) ? connString : null;
     }
 }

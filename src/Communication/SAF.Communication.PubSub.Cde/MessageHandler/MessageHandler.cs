@@ -9,9 +9,9 @@ namespace SAF.Communication.PubSub.Cde.MessageHandler
 {
     public abstract class MessageHandler
     {
-        private readonly MessageHandler _successor;
+        private readonly MessageHandler? _successor;
 
-        protected MessageHandler(MessageHandler successor)
+        protected MessageHandler(MessageHandler? successor)
         {
             _successor = successor;
         }

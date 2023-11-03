@@ -16,7 +16,7 @@ namespace SAF.Communication.PubSub.Cde.Authorization
 {
     public class AuthorizationService
     {
-        private readonly Publisher _publisher;
+        private readonly IPublisher _publisher;
 
         public const string BaseChannelName = "internal/auth";
         public static readonly string ChannelGetToken = $"{BaseChannelName}/token/get";
@@ -24,7 +24,7 @@ namespace SAF.Communication.PubSub.Cde.Authorization
 
         private readonly ConcurrentDictionary<string, string> _tokens = new();
 
-        public AuthorizationService(Publisher publisher)
+        public AuthorizationService(IPublisher publisher)
         {
             _publisher = publisher;
         }

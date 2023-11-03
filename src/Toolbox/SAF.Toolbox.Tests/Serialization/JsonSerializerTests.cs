@@ -102,7 +102,7 @@ public class JsonSerializerTests
         const int expectedLong = 1234;
         const string expectedString = "hello";
 
-        var jsonWithToolboxConverter = (TestCaseOrdererAttribute)JsonSerializer.Deserialize("{\"aProperty\":" + expectedInt + ",\"isCamelcasedInSaf\":" + expectedLong + ",\"butPascalCasedInQds\":\"" + expectedString + "\"}", typeof(TestCaseOrdererAttribute));
+        var jsonWithToolboxConverter = (TestCaseOrdererAttribute)JsonSerializer.Deserialize("{\"aProperty\":" + expectedInt + ",\"isCamelcasedInSaf\":" + expectedLong + ",\"butPascalCasedInQds\":\"" + expectedString + "\"}", typeof(TestCaseOrdererAttribute))!;
 
         //Test Serializer
         Assert.Equal(expectedInt, jsonWithToolboxConverter.AProperty);
@@ -117,12 +117,13 @@ public class JsonSerializerTests
         const int expectedLong = 1234;
         const string expectedString = "hello";
 
-        var jsonWithToolboxConverter = (TestCaseOrdererAttribute)JsonSerializer.Deserialize("{\"aProperty\":" + expectedInt + ",\"isCamelcasedInSaf\":" + expectedLong + ",\"butPascalCasedInQds\":\"" + expectedString + "\"}",
-            typeof(TestCaseOrdererAttribute),
-            new List<IJsonObjectConverter>().ToArray());
+        var jsonWithToolboxConverter =
+            (TestCaseOrdererAttribute?)JsonSerializer.Deserialize("{\"aProperty\":" + expectedInt + ",\"isCamelcasedInSaf\":" + expectedLong + ",\"butPascalCasedInQds\":\"" + expectedString + "\"}",
+                typeof(TestCaseOrdererAttribute),
+                new List<IJsonObjectConverter>().ToArray());
 
         //Test Serializer
-        Assert.Equal(expectedInt, jsonWithToolboxConverter.AProperty);
+        Assert.Equal(expectedInt, jsonWithToolboxConverter!.AProperty);
         Assert.Equal(expectedLong, jsonWithToolboxConverter.IsCamelcasedInSaf);
         Assert.Equal(expectedString, jsonWithToolboxConverter.ButPascalCasedInQds);
     }
@@ -138,7 +139,7 @@ public class JsonSerializerTests
             new List<IJsonObjectConverter>().ToArray());
 
         //Test Serializer
-        Assert.Equal(expectedInt, jsonWithToolboxConverter.AProperty);
+        Assert.Equal(expectedInt, jsonWithToolboxConverter!.AProperty);
         Assert.Equal(expectedLong, jsonWithToolboxConverter.IsCamelcasedInSaf);
         Assert.Equal(expectedString, jsonWithToolboxConverter.ButPascalCasedInQds);
     }
@@ -167,13 +168,13 @@ public class JsonSerializerTests
     {
         const string json = "{\"boolean\":true,\"datetimeoffset\":\"2023-10-19T00:00:00+02:00\",\"datetime\":\"2023-10-19T00:00:00Z\",\"number\":1234,\"double\":12.34,\"string\":\"A string\"}";
 
-        var objectDictionary = JsonSerializer.Deserialize<Dictionary<string, object>>(json);
+        var objectDictionary = JsonSerializer.Deserialize<Dictionary<string, object>>(json)!;
 
         Assert.True(objectDictionary["boolean"] is bool);
         Assert.True(Convert.ToBoolean(objectDictionary["boolean"]));
         Assert.True(objectDictionary["datetimeoffset"] is DateTimeOffset);
         Assert.Equal(TimeSpan.FromHours(2), ((DateTimeOffset)objectDictionary["datetimeoffset"]).Offset);
-        Assert.Equal(new DateTime(2023, 10, 19), ((DateTimeOffset)objectDictionary["datetimeoffset"]).DateTime);
+        Assert.Equal(new DateTime(2023, 10, 19, 0, 0, 0, DateTimeKind.Local), ((DateTimeOffset)objectDictionary["datetimeoffset"]).DateTime);
         Assert.True(objectDictionary["datetime"] is DateTimeOffset);
         Assert.Equal(TimeSpan.FromHours(0), ((DateTimeOffset)objectDictionary["datetime"]).Offset);
         Assert.True(objectDictionary["number"] is long);
@@ -197,7 +198,7 @@ public class JsonSerializerTests
         var testobjekt = new TestCaseFields { AnInteger = 1, aString = "Wert" };
         var jsonWithToolboxConverter = JsonSerializer.Serialize(testobjekt);
         Assert.Equal(@"{""anInteger"":1,""aString"":""Wert""}", jsonWithToolboxConverter);
-        var objectDeserialized = JsonSerializer.Deserialize<TestCaseFields>(jsonWithToolboxConverter);
+        var objectDeserialized = JsonSerializer.Deserialize<TestCaseFields>(jsonWithToolboxConverter)!;
         Assert.Equal(testobjekt.AnInteger, objectDeserialized.AnInteger);
         Assert.Equal(testobjekt.aString, objectDeserialized.aString);
     }
@@ -244,7 +245,7 @@ public class JsonSerializerTests
        
         const string json = "{\"objectDictionary\":{\"boolean\":true},\"customType\":{\"intValue\":1234}}";
 
-        var obj = JsonSerializer.Deserialize<TestCaseCustomConverterType>(json, converter);
+        var obj = JsonSerializer.Deserialize<TestCaseCustomConverterType>(json, converter)!;
         Assert.Equal(1, converter.DeserializeCalled);
 
         Assert.True(obj.ObjectDictionary["boolean"] is bool);
@@ -257,13 +258,13 @@ public class JsonSerializerTests
     {
         public int AProperty { get; set; }
         public int IsCamelcasedInSaf { get; set; }
-        public string ButPascalCasedInQds { get; set; }
+        public string ButPascalCasedInQds { get; set; } = default!;
     }
 
     private class TestCaseFields
     {
         public int AnInteger;
-        public string aString;
+        public string? aString;
     }
 
     private class TestCaseCustomConverterType
@@ -275,7 +276,7 @@ public class JsonSerializerTests
     private class TestCaseCustomType
     {
         public int IntValue { get; set; }
-        public string StringValue { get; set; }
+        public string? StringValue { get; set; }
     }
 
     private class CustomJsonConverter : IJsonObjectConverter<TestCaseCustomType>
@@ -289,7 +290,7 @@ public class JsonSerializerTests
 
         public bool CanConvert(Type objectType) => objectType == typeof(TestCaseCustomType);
 
-        public string SerializeObject(object sourceObject) => SerializeObject(sourceObject as TestCaseCustomType);
+        public string SerializeObject(object sourceObject) => SerializeObject((TestCaseCustomType)sourceObject);
 
         public object DeserializeObject(Type objectType, string jsonObject) => DeserializeObject(jsonObject);
 
@@ -302,7 +303,7 @@ public class JsonSerializerTests
         public TestCaseCustomType DeserializeObject(string jsonObject)
         {
             DeserializeCalled++;
-            return JsonSerializer.Deserialize<TestCaseCustomType>(jsonObject);
+            return JsonSerializer.Deserialize<TestCaseCustomType>(jsonObject)!;
         }
     }
 }

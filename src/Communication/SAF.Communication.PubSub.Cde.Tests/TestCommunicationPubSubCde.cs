@@ -152,7 +152,7 @@ namespace SAF.Communication.PubSub.Cde.Tests
             string guidString = "00000000-0000-0000-0000-000000000000")
         {
             subscriptionRegistry.Received().Broadcast(Arg.Is<Topic>(t => t.Channel.Equals("channel") && t.MsgId.Length == 32),
-                Arg.Is<Message>(m => m.Topic.Equals("channel") && m.Payload.Equals("payload")),
+                Arg.Is<Message>(m => m.Topic.Equals("channel") && m.Payload!.Equals("payload")),
                 guidString, routingOptions);
             subscriptionRegistry.ClearReceivedCalls();
         }
@@ -161,11 +161,12 @@ namespace SAF.Communication.PubSub.Cde.Tests
         public void RunSubscriber()
         {
             var comLineSubscriber = Substitute.For<ComLine>();
+            var publisher = Substitute.For<IPublisher>();
             comLineSubscriber.Address.Returns("NOT RUNNING");
-            TSM tsmResult = null;
+            TSM? tsmResult = null;
             comLineSubscriber.AnswerToSender(Arg.Any<TSM>(), Arg.Do<TSM>(t => tsmResult = t));
 
-            Subscriber subscriber = new(comLineSubscriber, null);
+            Subscriber subscriber = new(comLineSubscriber, publisher);
             comLineSubscriber.Received().Broadcast(Arg.Is<TSM>(t => t.ENG.Equals(Engines.PubSub) && t.TXT.Equals(MessageToken.DiscoveryRequest)));
 
             // The following discovery response simulates the reaction of the
@@ -191,8 +192,7 @@ namespace SAF.Communication.PubSub.Cde.Tests
             SubscriptionRegistry subscriptionRegistry = new(comLineSubscriptionRegistry);
             await subscriptionRegistry.ConnectAsync(new CancellationTokenSource().Token);
 
-            var registryIdent = string.Empty;
-            TSM tsmResult = null;
+            TSM? tsmResult = null;
             comLineSubscriptionRegistry.AnswerToSender(Arg.Any<TSM>(), Arg.Do<TSM>(t => tsmResult = t));
 
             // Sende a discovery request and receive a discovery response.
@@ -200,7 +200,7 @@ namespace SAF.Communication.PubSub.Cde.Tests
             TheProcessMessage tpm = new (tsm);
             comLineSubscriptionRegistry.MessageReceived += (MessageReceivedHandler)Raise.Event<MessageReceivedHandler>(null, tpm);
             comLineSubscriptionRegistry.Received().AnswerToSender(Arg.Is<TSM>(t => t.TXT == MessageToken.DiscoveryRequest), Arg.Is<TSM>(t => t.TXT == MessageToken.DiscoveryResponse));
-            registryIdent = tsmResult.PLS;
+            var registryIdent = tsmResult!.PLS;
             comLineSubscriptionRegistry.ClearReceivedCalls();
 
             // Send a subcribe-alive request and receive a subscribe trigger request.
@@ -272,7 +272,7 @@ namespace SAF.Communication.PubSub.Cde.Tests
             comLineSubscriptionRegistry.MessageReceived += (MessageReceivedHandler)Raise.Event<MessageReceivedHandler>(null, tpm);
             comLineSubscriptionRegistry.Received().AnswerToSender(Arg.Is<TSM>(t => t.TXT == MessageToken.SubscribeRequest),
                    Arg.Is<TSM>(t => t.TXT.Equals(MessageToken.SubscribeResponse)
-                && TheCommonUtils.DeserializeJSONStringToObject<RegistrySubscriptionResponse>(t.PLS).id.Equals(guid.ToString("N"))
+                && TheCommonUtils.DeserializeJSONStringToObject<RegistrySubscriptionResponse>(t.PLS).id!.Equals(guid.ToString("N"))
                 && TheCommonUtils.DeserializeJSONStringToObject<RegistrySubscriptionResponse>(t.PLS).version == "3.0.0"));
             comLineSubscriptionRegistry.ClearReceivedCalls();
             return tpm;

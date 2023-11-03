@@ -13,32 +13,23 @@ namespace SAF.Toolbox.FileTransfer
     {
         private readonly MD5 _md5 = MD5.Create();
 
-        internal string Content { get; set; }
+        internal string Content { get; set; } = string.Empty;
         internal long OriginalLength { get; set; }
 
         public string Name { get; }
-        public string MimeType { get; }
-        public IDictionary<string, string> Properties { get; }
+        public string? MimeType { get; }
+        public IDictionary<string, string>? Properties { get; }
 
-        public TransportFile(string name, string mimeType = null, IDictionary<string, string> properties = null)
+        public TransportFile(string name, string? mimeType = null, IDictionary<string, string>? properties = null)
         {
             Name = !string.IsNullOrEmpty(name) ? name : throw new ArgumentException(nameof(name));
             MimeType = mimeType;
             Properties = properties;
         }
 
-        public void ReadFrom(Stream stream)
-        {
-            if (stream == null) return;
-            (Content, OriginalLength) = Encode(stream);
-        }
+        public void ReadFrom(Stream stream) => (Content, OriginalLength) = Encode(stream);
 
-        public void WriteTo(Stream stream)
-        {
-            if (stream == null) return;
-
-            Decode(stream, Content);
-        }
+        public void WriteTo(Stream stream) => Decode(stream, Content);
 
         public IDictionary<string, string> ToSerializableProperties()
         {
@@ -49,15 +40,14 @@ namespace SAF.Toolbox.FileTransfer
                     properties.Add(kvp.Key, kvp.Value);
 
             properties["Name"] = Name;
-            properties["MimeType"] = MimeType;
+            if(!string.IsNullOrEmpty(MimeType))
+                properties["MimeType"] = MimeType;
             properties["Content"] = Content;
             properties["OriginalLength"] = $"{OriginalLength}";
 
-            using (var ms = new MemoryStream())
-            {
-                Decode(ms, Content);
-                properties["Fingerprint"] = GenerateFingerprint(ms);
-            }
+            using var ms = new MemoryStream();
+            Decode(ms, Content);
+            properties["Fingerprint"] = GenerateFingerprint(ms);
 
             return properties;
         }
@@ -72,45 +62,35 @@ namespace SAF.Toolbox.FileTransfer
 
             if (!hasFingerprint) return false;
 
-            using (var ms = new MemoryStream())
-            {
-                Decode(ms, Content);
-                var hash = GenerateFingerprint(ms);
-                return StringComparer.OrdinalIgnoreCase.Compare(hash, fingerprint) == 0;
-            }
+            using var ms = new MemoryStream();
+            Decode(ms, Content);
+            var hash = GenerateFingerprint(ms);
+            return StringComparer.OrdinalIgnoreCase.Compare(hash, fingerprint) == 0;
         }
 
         private static (string encodedContent, long originalLength) Encode(Stream stream)
         {
-            using (var ms = new MemoryStream())
-            {
-                using (var cs = new CryptoStream(ms, new ToBase64Transform(), CryptoStreamMode.Write))
-                {
-                    stream.CopyTo(cs);
-                    var originalLength = stream.Position;
+            using var ms = new MemoryStream();
+            using var cs = new CryptoStream(ms, new ToBase64Transform(), CryptoStreamMode.Write);
+            stream.CopyTo(cs);
+            var originalLength = stream.Position;
 
-                    cs.FlushFinalBlock();
-                    ms.Flush();
-                    ms.Seek(0, SeekOrigin.Begin);
-                    var reader = new StreamReader(ms);
-                    return (reader.ReadToEnd(), originalLength);
-                }
-            }
+            cs.FlushFinalBlock();
+            ms.Flush();
+            ms.Seek(0, SeekOrigin.Begin);
+            var reader = new StreamReader(ms);
+            return (reader.ReadToEnd(), originalLength);
         }
 
         private static void Decode(Stream stream, string content)
         {
             if (string.IsNullOrEmpty(content)) return;
 
-            using (var ms = new MemoryStream(Encoding.ASCII.GetBytes(content)))
-            {
-                using (var cs = new CryptoStream(ms, new FromBase64Transform(), CryptoStreamMode.Read))
-                {
-                    cs.CopyTo(stream);
-                    stream.Flush();
-                    stream.Seek(0, SeekOrigin.Begin);
-                }
-            }
+            using var ms = new MemoryStream(Encoding.ASCII.GetBytes(content));
+            using var cs = new CryptoStream(ms, new FromBase64Transform(), CryptoStreamMode.Read);
+            cs.CopyTo(stream);
+            stream.Flush();
+            stream.Seek(0, SeekOrigin.Begin);
         }
 
         private string GenerateFingerprint(Stream stream)

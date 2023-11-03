@@ -12,7 +12,15 @@ namespace SAF.Hosting.Diagnostics
     {
         public SafServiceInfo(IServiceAssemblyManifest assembly)
         {
-            ReadServiceInfo(assembly);
+            var type = assembly.GetType();
+
+            var fvi = FileVersionInfo.GetVersionInfo(type.Assembly.Location);
+
+            Name = type.AssemblyQualifiedName ?? string.Empty;
+            FriendlyName = assembly.FriendlyName;
+            Version = fvi.ProductVersion ?? string.Empty;
+            BuildNumber = type.Assembly.GetName().Version?.ToString() ?? string.Empty;
+            BuildDate = File.GetLastWriteTimeUtc(type.Assembly.Location);
         }
 
         public string Name { get; set; }
@@ -20,18 +28,5 @@ namespace SAF.Hosting.Diagnostics
         public string Version { get; set; }
         public string BuildNumber { get; set; }
         public DateTimeOffset BuildDate { get; set; }
-
-        private void ReadServiceInfo(IServiceAssemblyManifest assembly)
-        {
-            var type = assembly.GetType();
-
-            var fvi = FileVersionInfo.GetVersionInfo(type.Assembly.Location);
-
-            Name = type.AssemblyQualifiedName;
-            FriendlyName = assembly.FriendlyName;
-            Version = fvi.ProductVersion;
-            BuildNumber = type.Assembly.GetName().Version.ToString();
-            BuildDate = System.IO.File.GetLastWriteTimeUtc(type.Assembly.Location);
-        }
     }
 }

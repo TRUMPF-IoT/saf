@@ -11,12 +11,12 @@ using nsCDEngine.ViewModels;
 
 namespace SAF.Messaging.Cde.Tests
 {
-    public class CdeFixture : IDisposable
+    public sealed class CdeFixture : IDisposable
     {
         private readonly TheBaseApplication _app;
-        private Storage _storage;
+        private Storage? _storage;
 
-        internal Storage Storage => _storage ?? (_storage = new Storage(null));
+        internal Storage Storage => _storage ??= new Storage(null);
 
         public CdeFixture()
         {
@@ -26,7 +26,7 @@ namespace SAF.Messaging.Cde.Tests
         public void Dispose()
         {
             _storage?.Dispose();
-            _app?.Shutdown(false, true);
+            _app.Shutdown(false, true);
         }
 
         private TheBaseApplication InitializeCde()

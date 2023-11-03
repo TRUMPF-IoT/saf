@@ -19,7 +19,7 @@ namespace SAF.Communication.Cde
     public abstract class ComLine
     {
         public abstract string Address { get; }
-        public abstract event MessageReceivedHandler MessageReceived;
+        public abstract event MessageReceivedHandler? MessageReceived;
         public abstract Task Subscribe(string topic);
         public abstract void Broadcast(TSM message);
         public abstract void AnswerToSender(TSM originalMessage, TSM reply);

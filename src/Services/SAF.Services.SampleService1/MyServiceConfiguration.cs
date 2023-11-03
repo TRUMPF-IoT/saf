@@ -6,7 +6,7 @@ namespace SAF.Services.SampleService1
 {
     public class MyServiceConfiguration
     {
-        public string MyStringSetting { get; set; }
+        public string? MyStringSetting { get; set; }
         public int MyNumericSetting { get; set; }
     }
 }

@@ -17,22 +17,22 @@ namespace SAF.Messaging.Cde
     /// </summary>
     internal class Messaging : ICdeMessagingInfrastructure
     {
-        private readonly ILogger _log;
+        private readonly ILogger<Messaging> _log;
         private readonly IServiceMessageDispatcher _dispatcher;
         private readonly IPublisher _publisher;
         private readonly ISubscriber _subscriber;
-        private readonly Action<Message> _traceAction;
+        private readonly Action<Message>? _traceAction;
         private readonly CdeMessagingConfiguration _config;
 
         private readonly ConcurrentDictionary<string, (string pattern, ISubscription subscription)> _subscriptions = new();
 
-        public Messaging(ILogger<Messaging> log, IServiceMessageDispatcher dispatcher, IPublisher publisher, ISubscriber subscriber, Action<Message> traceAction)
-            : this(log, dispatcher, publisher, subscriber, traceAction, null)
+        public Messaging(ILogger<Messaging>? log, IServiceMessageDispatcher dispatcher, IPublisher publisher, ISubscriber subscriber, Action<Message>? traceAction)
+            : this(log, dispatcher, publisher, subscriber, traceAction, new CdeMessagingConfiguration())
         { }
 
-        public Messaging(ILogger<Messaging> log, IServiceMessageDispatcher dispatcher, IPublisher publisher, ISubscriber subscriber, Action<Message> traceAction, CdeMessagingConfiguration config)
+        public Messaging(ILogger<Messaging>? log, IServiceMessageDispatcher dispatcher, IPublisher publisher, ISubscriber subscriber, Action<Message>? traceAction, CdeMessagingConfiguration config)
         {
-            _log = log as ILogger ?? NullLogger.Instance;
+            _log = log ?? NullLogger<Messaging>.Instance;
             _dispatcher = dispatcher;
 
             _publisher = publisher;
@@ -40,7 +40,7 @@ namespace SAF.Messaging.Cde
 
             _traceAction = traceAction;
 
-            _config = config ?? new CdeMessagingConfiguration();
+            _config = config;
         }
 
         public void Publish(Message message)
@@ -48,7 +48,7 @@ namespace SAF.Messaging.Cde
             _log.LogDebug($"Publish message \"{message.Topic}\" with RelayOptions={_config.RoutingOptions}.");
             _traceAction?.Invoke(message);
 
-            _publisher?.Publish(message, _config.RoutingOptions);
+            _publisher.Publish(message, _config.RoutingOptions);
         }
 
         public object Subscribe<TMessageHandler>() where TMessageHandler : IMessageHandler => Subscribe<TMessageHandler>("*");

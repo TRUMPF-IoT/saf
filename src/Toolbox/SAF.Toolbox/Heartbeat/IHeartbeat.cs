@@ -16,7 +16,7 @@ namespace SAF.Toolbox.Heartbeat
         /// <summary>
         /// Fired on heart beat.
         /// </summary>
-        event EventHandler<HeartbeatEventArgs> Beat;
+        event EventHandler<HeartbeatEventArgs>? Beat;
 
         /// <summary>
         /// Gets the beat cycle time in milliseconds.

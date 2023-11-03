@@ -95,9 +95,9 @@ namespace SAF.Messaging.Routing
             var factoryType = typeof(Func<,>).MakeGenericType(typeof(MessagingConfiguration), serviceType);
             if (serviceProvider.GetService(factoryType) is Delegate factoryFunc)
             {
-                return factoryFunc.DynamicInvoke(config) as IMessagingInfrastructure;
+                return (IMessagingInfrastructure)factoryFunc.DynamicInvoke(config)!;
             }
-            return serviceProvider.GetService(serviceType) as IMessagingInfrastructure;
+            return (IMessagingInfrastructure)serviceProvider.GetService(serviceType)!;
         }
 
         internal static IEnumerable<string> SearchMessagingAssemblies(string basePath, string searchPath, string fileNameFilterRegEx)

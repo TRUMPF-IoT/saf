@@ -9,10 +9,8 @@ namespace SAF.Communication.Cde
 {
     public static class TsmExtensions
     {
-        private static string _localNodeId;
-        private static string LocalNodeId => _localNodeId ??
-                                             (_localNodeId = TheBaseAssets.MyServiceHostInfo?.MyDeviceInfo?.DeviceID
-                                                 .ToString());
+        private static string? _localNodeId;
+        private static string? LocalNodeId => _localNodeId ??= TheBaseAssets.MyServiceHostInfo?.MyDeviceInfo?.DeviceID.ToString();
 
         public static bool IsLocalHost(this TSM tsm)
         {

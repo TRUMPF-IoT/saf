@@ -5,6 +5,7 @@
 using Microsoft.Extensions.DependencyInjection;
 using SAF.Common;
 using System;
+using System.Reflection;
 
 namespace SAF.Hosting;
 
@@ -12,7 +13,7 @@ public class HostInfo : IHostInfo
 {
     private readonly Func<string> _initializeId;
 
-    private string _id;
+    private string? _id;
 
     internal HostInfo(Func<string> initializeId)
     {
@@ -25,11 +26,12 @@ public class HostInfo : IHostInfo
         set => _id = value;
     }
 
-    public string ServiceHostType { get; set; }
+    public string ServiceHostType { get; set; } = "Unknown";
 
-    public string FileSystemUserBasePath { get; set; }
+    public string FileSystemUserBasePath { get; set; } = "tempfs";
 
-    public string FileSystemInstallationPath { get; set; }
+    public string FileSystemInstallationPath { get; set; } =
+        Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location)!;
 
     public DateTimeOffset UpSince { get; } = DateTimeOffset.Now;
 }

@@ -10,8 +10,6 @@ using SAF.Common;
 using SAF.Communication.Cde;
 using SAF.Communication.PubSub;
 using SAF.Communication.PubSub.Interfaces;
-using System;
-using System.Collections.Generic;
 using Xunit;
 
 namespace SAF.Messaging.Cde.Tests
@@ -38,11 +36,11 @@ namespace SAF.Messaging.Cde.Tests
             var publisher = Substitute.For<IPublisher>();
             var comLineSubscriber = Substitute.For<ComLine>();
             var subscriber = Substitute.For<ISubscriber>();
-            var test = Substitute.For<AbstractSubscription>(subscriber, RoutingOptions.All, new string[] { "*" });
+            var test = Substitute.For<AbstractSubscription>(subscriber, RoutingOptions.All, new[] { "*" });
             subscriber.Subscribe(Arg.Any<RoutingOptions>(), Arg.Any<string>()).Returns(test);
 
             Messaging messaging = new(null, smd, publisher, subscriber, null);
-            messaging.Unsubscribe(null);
+            messaging.Unsubscribe(null!);
             test.DidNotReceive().Unsubscribe();
             messaging.Unsubscribe("");
             test.DidNotReceive().Unsubscribe();
@@ -54,7 +52,7 @@ namespace SAF.Messaging.Cde.Tests
             var id = messaging.Subscribe<IMessageHandler>().ToString();
             Assert.Equal(test.Id.ToString(), id);
             Assert.Throws<ArgumentException>(() => messaging.Subscribe<IMessageHandler>("*"));
-            messaging.Unsubscribe(null);
+            messaging.Unsubscribe(null!);
             test.DidNotReceive().Unsubscribe();
             messaging.Unsubscribe("");
             test.DidNotReceive().Unsubscribe();
@@ -105,16 +103,14 @@ namespace SAF.Messaging.Cde.Tests
             applicationServices.AddLogging(l => l.AddConfiguration(cr.GetSection("Logging")).AddConsole());
 
             using var baseServiceProvider = applicationServices.BuildServiceProvider();
-            var mainLogger = baseServiceProvider.GetService<ILogger<TestMessagingCde>>();
+            var mainLogger = baseServiceProvider.GetRequiredService<ILogger<TestMessagingCde>>();
             mainLogger.LogInformation("Starting test runner console app...");
-            System.Threading.Thread.Sleep(3);
+            Thread.Sleep(3);
             applicationServices.AddCdeInfrastructure(cr.GetSection("Cde").Bind);
         }
 
         internal class TestConfigurationProvider : ConfigurationProvider
         {
-            public TestConfigurationProvider() : base()
-            { }
         }
     }
 }

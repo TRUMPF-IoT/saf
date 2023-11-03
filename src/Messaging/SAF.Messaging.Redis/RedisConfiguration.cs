@@ -7,7 +7,7 @@ namespace SAF.Messaging.Redis
 {
     public class RedisConfiguration
     {
-        public string ConnectionString { get; set; }
+        public string ConnectionString { get; set; } = default!;
         public int Timeout { get; set; }
     }
 }

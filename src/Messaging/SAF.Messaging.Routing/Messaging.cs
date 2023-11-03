@@ -30,7 +30,7 @@ namespace SAF.Messaging.Routing
 
         private readonly ConcurrentDictionary<Guid, (string pattern, IDisposable disposable)> _subscriptions = new();
 
-        public Messaging(ILogger<Messaging> log, IMessageRouting[] messageRoutings)
+        public Messaging(ILogger<Messaging>? log, IMessageRouting[] messageRoutings)
         {
             _log = log ?? NullLogger<Messaging>.Instance;
             _messageRoutings = messageRoutings;

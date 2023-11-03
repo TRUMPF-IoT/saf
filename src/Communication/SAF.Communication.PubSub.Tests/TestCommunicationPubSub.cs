@@ -5,6 +5,7 @@
 using System;
 using System.Threading;
 using NSubstitute;
+using SAF.Common;
 using SAF.Communication.PubSub.Interfaces;
 using Xunit;
 
@@ -20,12 +21,12 @@ namespace SAF.Communication.PubSub.Tests
             Assert.Equal("msgId", topi.MsgId);
             Assert.Equal("version", topi.Version);
             Assert.Equal("channel|msgId|version", topi.ToTsmTxt());
-            var topi2 = "channel|msgId|version".ToTopic();
+            var topi2 = "channel|msgId|version".ToTopic()!;
             Assert.Equal("channel", topi2.Channel);
             Assert.Equal("msgId", topi2.MsgId);
             Assert.Equal("version", topi2.Version);
 
-            topi2 = "channel|msgId".ToTopic();
+            topi2 = "channel|msgId".ToTopic()!;
             Assert.Equal("channel", topi2.Channel);
             Assert.Equal("msgId", topi2.MsgId);
             Assert.Equal("1.0.0", topi2.Version);
@@ -161,7 +162,7 @@ namespace SAF.Communication.PubSub.Tests
 
         public void InvokeHandler()
         {
-            Handler?.Invoke(new DateTimeOffset(DateTime.Now), null);
+            Handler?.Invoke(new DateTimeOffset(DateTime.Now), new Message());
         }
 
         public bool TestMatch(string topic)

@@ -9,11 +9,11 @@ namespace SAF.Communication.PubSub.Interfaces
 #pragma warning disable IDE1006 // naming convention
 #pragma warning disable 0649    // ignore as it will be set by JSON deserialization
         // ReSharper disable once InconsistentNaming
-        public string id;
+        public string id { get; set; } = default!;
         // ReSharper disable once InconsistentNaming
-        public string[] topics;
+        public string[] topics { get; set; } = Array.Empty<string>();
         // ReSharper disable once InconsistentNaming
-        public string version;
+        public string? version { get; set; } = default!;
 #pragma warning restore 0649
 #pragma warning restore IDE1006
     }

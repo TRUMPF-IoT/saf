@@ -28,7 +28,8 @@ namespace SAF.Hosting.Diagnostics
         {
             return serviceAssemblies
                 .Select(a => { try { return new SafServiceInfo(a); } catch { return null; } })
-                .Where(si => si != null);
+                .Where(si => si != null)
+                .Cast<SafServiceInfo>();
         }
     }
 }

@@ -14,8 +14,8 @@ namespace SAF.Services.SampleService2
 {
     internal class PingRequest
     {
-        public string ReplyTo { get; set; }
-        public string Id { get; set; }
+        public string ReplyTo { get; set; } = default!;
+        public string Id { get; set; } = default!;
     }
 
     public class MyService : IHostedServiceAsync
@@ -23,7 +23,7 @@ namespace SAF.Services.SampleService2
         private readonly ILogger<MyService> _log;
         private readonly IMessagingInfrastructure _messaging;
         private readonly List<object> _subscriptions = new();
-        private Timer _timer;
+        private Timer? _timer;
         private long _pingId;
 
         public MyService(ILogger<MyService> log,
@@ -41,11 +41,10 @@ namespace SAF.Services.SampleService2
 
         private void Start()
         {
-            void Handler
-                (Message m)
+            void Handler(Message m)
             {
-                var req = JsonSerializer.Deserialize<PingRequest>(m.Payload);
-                _log.LogInformation($"Received {m.Topic} ({req.Id}), Payload: {m.Payload}");
+                var req = m.Payload != null ? JsonSerializer.Deserialize<PingRequest>(m.Payload) : null;
+                _log.LogInformation($"Received {m.Topic} ({req?.Id}), Payload: {m.Payload}");
             }
 
             _subscriptions.AddRange(new[]

@@ -13,17 +13,17 @@ namespace SAF.Toolbox.FileTransfer
 {
     internal class FileSender : IFileSender
     {
-        private class SendRequest
+        private sealed class SendRequest
         {
-            public Action<Message> ReceiptAction { get; set; }
-        };
+            public Action<Message> ReceiptAction { get; set; } = default!;
+        }
 
         private readonly CancellationTokenSource _cancelTokenSource = new();
         private readonly IMessagingInfrastructure _messaging;
         private readonly ILogger<FileSender> _log;
 
         private readonly ConcurrentDictionary<string, SendRequest> _sendRequests = new();
-        private object _subscription;
+        private readonly object _subscription;
 
         internal const long MaxChunkSize = 204801; // roughly adding up to ~200KB
 
@@ -35,7 +35,7 @@ namespace SAF.Toolbox.FileTransfer
 
         public ulong Timeout { get; set; } = 10_000; // 10 sec.
 
-        public FileSender(IMessagingInfrastructure messaging, ILogger<FileSender> log)
+        public FileSender(IMessagingInfrastructure messaging, ILogger<FileSender>? log)
         {
             _messaging = messaging ?? throw new ArgumentNullException(nameof(messaging));
             _log = log ?? NullLogger<FileSender>.Instance;
@@ -126,12 +126,12 @@ namespace SAF.Toolbox.FileTransfer
             return result;
         }
 
-        public async Task<FileTransferStatus> SendInChunks(string topic, string filePath, IDictionary<string, string> properties = null)
+        public async Task<FileTransferStatus> SendInChunks(string topic, string filePath, IDictionary<string, string>? properties = null)
         {
             return await SendInChunks(topic, filePath, Timeout, properties);
         }
 
-        public async Task<FileTransferStatus> SendInChunks(string topic, string filePath, ulong timeoutMs, IDictionary<string, string> properties = null)
+        public async Task<FileTransferStatus> SendInChunks(string topic, string filePath, ulong timeoutMs, IDictionary<string, string>? properties = null)
         {
             try
             {
@@ -207,7 +207,7 @@ namespace SAF.Toolbox.FileTransfer
         private async Task<FileTransferStatus> TransferFileChunk(
             string topic,
             string filePath,
-            IDictionary<string, string> properties,
+            IDictionary<string, string>? properties,
             long offset,
             byte[] buffer,
             long fileSize,
@@ -234,8 +234,8 @@ namespace SAF.Toolbox.FileTransfer
             properties[FileTransferIdentifiers.TransferId] = $"{transferId}";
 
             var transFile = new TransportFile(name, properties: properties);
-            using(var ms = new MemoryStream(buffer))
-                transFile.ReadFrom(ms);
+            using var ms = new MemoryStream(buffer);
+            transFile.ReadFrom(ms);
 
             return transFile;
         }
@@ -256,11 +256,16 @@ namespace SAF.Toolbox.FileTransfer
 
         public void Dispose()
         {
-            _cancelTokenSource?.Dispose();
+            Dispose(true);
+            GC.SuppressFinalize(this);
+        }
 
-            if (_subscription == null) return;
+        protected virtual void Dispose(bool disposing)
+        {
+            if (!disposing) return;
+
+            _cancelTokenSource.Dispose();
             _messaging.Unsubscribe(_subscription);
-            _subscription = null;
         }
     }
 }

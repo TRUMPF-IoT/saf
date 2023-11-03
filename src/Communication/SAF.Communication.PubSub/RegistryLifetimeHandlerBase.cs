@@ -13,9 +13,9 @@ namespace SAF.Communication.PubSub
 {
     internal struct RemoteRegistry<TMessage>
     {
-        public TMessage Tsm;
-        public string InstanceId;
-        public DateTimeOffset LastActivity;
+        public TMessage Tsm { get; set; }
+        public string? InstanceId { get; set; }
+        public DateTimeOffset LastActivity { get; set; }
     }
 
     public class RegistryLifetimeHandlerBase<TMessage> : IRegistryLifetimeHandler<TMessage>, IDisposable
@@ -26,8 +26,8 @@ namespace SAF.Communication.PubSub
         private int _checkingLifetime;
         private readonly int _aliveIntervalSeconds;
 
-        public event Action<TMessage, string> RegistryUp;
-        public event Action<TMessage> RegistryDown;
+        public event Action<TMessage, string>? RegistryUp;
+        public event Action<TMessage>? RegistryDown;
 
         /// <summary>
         /// List with all nodes (each represented by a TSM) where the associated subscriber is registered.
@@ -47,7 +47,7 @@ namespace SAF.Communication.PubSub
             HandleMessage(registry, null, messageToken, tsm);
         }
 
-        protected void HandleMessage(string registry, string registryInstanceId, string messageToken, TMessage tsm)
+        protected void HandleMessage(string registry, string? registryInstanceId, string messageToken, TMessage tsm)
         {
             if (messageToken.StartsWith(MessageToken.RegistryAlive) ||
                 messageToken.StartsWith(MessageToken.SubscriberAlive) && !string.IsNullOrWhiteSpace(registryInstanceId) ||
@@ -69,12 +69,12 @@ namespace SAF.Communication.PubSub
                 RegistryDown?.Invoke(tsm);
         }
 
-        private void UpdateRegistries(string registry, string registryInstanceId, string messageToken, TMessage tsm)
+        private void UpdateRegistries(string registry, string? registryInstanceId, string messageToken, TMessage tsm)
         {
             var registryUp = true;
             _ = _knownRegistries.AddOrUpdate(registry,
-                key => new RemoteRegistry<TMessage> { Tsm = tsm, InstanceId = registryInstanceId, LastActivity = DateTimeOffset.UtcNow },
-                (key, value) =>
+                _ => new RemoteRegistry<TMessage> { Tsm = tsm, InstanceId = registryInstanceId, LastActivity = DateTimeOffset.UtcNow },
+                (_, value) =>
                 {
                     // instance id differs -> registry was down in between
                     registryUp = value.InstanceId != registryInstanceId;
@@ -89,7 +89,7 @@ namespace SAF.Communication.PubSub
             }
         }
 
-        private void OnRegistryLifetimeCheckTimer(object state)
+        private void OnRegistryLifetimeCheckTimer(object? state)
         {
             if (Interlocked.Exchange(ref _checkingLifetime, 1) == 1) return;
             try
@@ -112,7 +112,14 @@ namespace SAF.Communication.PubSub
 
         public void Dispose()
         {
-            _registryLifetimeCheckTimer?.Dispose();
+            Dispose(true);
+            GC.SuppressFinalize(this);
+        }
+
+        protected virtual void Dispose(bool disposing)
+        {
+            if (!disposing) return;
+            _registryLifetimeCheckTimer.Dispose();
         }
     }
 }

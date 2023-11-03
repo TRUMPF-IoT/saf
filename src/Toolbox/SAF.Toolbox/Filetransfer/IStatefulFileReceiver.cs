@@ -6,8 +6,8 @@ namespace SAF.Toolbox.FileTransfer
 {
     public interface IStatefulFileReceiver
     {
-        event Action<string> FileReceived;
-        event Action<string> StreamReceived;
+        event Action<string>? FileReceived;
+        event Action<string>? StreamReceived;
 
         void WriteFile(string folderPath, TransportFileDelivery delivery, bool overwrite);
     }

@@ -31,7 +31,7 @@ namespace SAF.Communication.Cde.ConnectionTypes
 
         public override string Address => $"{_thing.cdeN}:{_thing.cdeMID}";
 
-        public override event MessageReceivedHandler MessageReceived;
+        public override event MessageReceivedHandler? MessageReceived;
 
         /// <summary>
         /// Find the engine with the name passed by 'engineName' (in the C-DEngine environment always "ContentService",
@@ -55,7 +55,7 @@ namespace SAF.Communication.Cde.ConnectionTypes
             while(!baseEngine.EngineState.IsStarted)
                 await Task.Delay(300);
 
-            myEngine.RegisterEvent(eEngineEvents.IncomingMessage, HandleMessage);
+            myEngine!.RegisterEvent(eEngineEvents.IncomingMessage, HandleMessage);
         }
 
         public override void Broadcast(TSM message)

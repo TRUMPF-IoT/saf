@@ -5,6 +5,7 @@
 using System;
 using System.Diagnostics;
 using System.IO;
+using System.Runtime.CompilerServices;
 using System.Text.Json;
 using SAF.Common;
 
@@ -46,7 +47,7 @@ namespace SAF.DevToolbox.TestRunner
                 _writer.WriteLine($"> {firstNonInfrastructureFrame.GetFileName()}:{firstNonInfrastructureFrame.GetFileLineNumber()}  ");
                 _writer.WriteLine();
                 _writer.WriteLine($"Topic: {message.Topic}  ");
-                WritePayload(message.Payload);
+                WritePayload(message.Payload ?? string.Empty);
                 _writer.WriteLine("```json");
                 _writer.WriteLine();
                 _writer.WriteLine("```");
@@ -123,6 +124,14 @@ namespace SAF.DevToolbox.TestRunner
 
         public void Dispose()
         {
+            Dispose(true);
+            GC.SuppressFinalize(this);
+        }
+
+        protected virtual void Dispose(bool disposing)
+        {
+            if (!disposing) return;
+
             _writer.Close();
             _writer.Dispose();
         }
@@ -130,7 +139,9 @@ namespace SAF.DevToolbox.TestRunner
         private static string PrettyPrintJson(string json)
         {
             // wastes some time, but it's just for testing.
-            dynamic parsedJson = JsonSerializer.Deserialize<object>(json);
+            var parsedJson = JsonSerializer.Deserialize<object>(json);
+            if (parsedJson == null) return json;
+
             return JsonSerializer.Serialize(parsedJson, new JsonSerializerOptions{WriteIndented = true});
         }
     }

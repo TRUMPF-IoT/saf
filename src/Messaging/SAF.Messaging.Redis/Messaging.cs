@@ -21,20 +21,20 @@ namespace SAF.Messaging.Redis
 
     internal class RedisMessage
     {
-        public string Version { get; set; }
-        public Message Message { get; set; }
+        public string? Version { get; set; }
+        public Message? Message { get; set; }
     }
 
     internal sealed class Messaging : IRedisMessagingInfrastructure, IDisposable
     {
         private readonly IConnectionMultiplexer _redis;
         private readonly IServiceMessageDispatcher _serviceMessageDispatcher;
-        private readonly Action<Message> _traceAction;
-        private readonly ILogger _log;
+        private readonly Action<Message>? _traceAction;
+        private readonly ILogger<Messaging> _log;
 
         private readonly ConcurrentDictionary<Guid, (string routeFilterPattern, Action<RedisChannel, RedisValue> handler)> _subscriptions = new();
 
-        public Messaging(ILogger<Messaging> log, IConnectionMultiplexer redis, IServiceMessageDispatcher serviceMessageDispatcher, Action<Message> traceAction)
+        public Messaging(ILogger<Messaging>? log, IConnectionMultiplexer redis, IServiceMessageDispatcher serviceMessageDispatcher, Action<Message>? traceAction)
         {
             _log = log ?? NullLogger<Messaging>.Instance;
             _redis = redis;
@@ -82,7 +82,7 @@ namespace SAF.Messaging.Redis
                 }
             }
 
-            return SubscribeMessageHandler(routeFilterPattern, Handler);
+            return SubscribeMessageHandler(routeFilterPattern, Handler) ?? new object();
         }
 
         public object Subscribe(Action<Message> handler) => Subscribe(".*", handler);
@@ -104,7 +104,7 @@ namespace SAF.Messaging.Redis
                 }
             }
 
-            return SubscribeMessageHandler(routeFilterPattern, Handler);
+            return SubscribeMessageHandler(routeFilterPattern, Handler) ?? new object();
         }
 
         public void Unsubscribe(object subscription)
@@ -141,20 +141,20 @@ namespace SAF.Messaging.Redis
 
         public void Dispose()
         {
-            _redis?.Dispose();
+            _redis.Dispose();
         }
 
-        private object SubscribeMessageHandler(string routeFilterPattern, Action<Message> handler)
+        private object? SubscribeMessageHandler(string routeFilterPattern, Action<Message> handler)
         {
             try
             {
                 void InternalHandler(RedisChannel channel, RedisValue message)
                 {
-                    RedisMessage redisMessage;
+                    RedisMessage? redisMessage;
                     try
                     {
                         redisMessage = JsonSerializer.Deserialize<RedisMessage>(message.ToString());
-                        if (string.IsNullOrEmpty(redisMessage.Version) && redisMessage.Message == null)
+                        if (string.IsNullOrEmpty(redisMessage?.Version) && redisMessage?.Message == null)
                             redisMessage = null;
                     }
                     catch (Exception)

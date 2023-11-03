@@ -27,7 +27,7 @@ public sealed class ServiceHost : Microsoft.Extensions.Hosting.IHostedService, I
     private readonly IEnumerable<IServiceAssemblyManifest> _serviceAssemblies;
     private readonly IServiceMessageDispatcher _messageDispatcher;
 
-    private readonly IConfiguration _configuration;
+    private readonly IConfiguration? _configuration;
     private readonly ServiceHostEnvironment _environment;
     private readonly IServiceHostContext _context;
 
@@ -35,7 +35,7 @@ public sealed class ServiceHost : Microsoft.Extensions.Hosting.IHostedService, I
 
     public ServiceHost(
         IServiceProvider runtimeApplicationServiceProvider,
-        ILogger<ServiceHost> log,
+        ILogger<ServiceHost>? log,
         IServiceMessageDispatcher messageDispatcher,
         IEnumerable<IServiceAssemblyManifest> serviceAssemblies)
     {
@@ -219,9 +219,9 @@ public sealed class ServiceHost : Microsoft.Extensions.Hosting.IHostedService, I
     {
         return new ServiceHostContext
         {
-            Configuration = _runtimeApplicationServiceProvider.GetService<IConfiguration>(),
+            Configuration = _runtimeApplicationServiceProvider.GetRequiredService<IConfiguration>(),
             Environment = _environment,
-            HostInfo = _runtimeApplicationServiceProvider.GetService<IHostInfo>()
+            HostInfo = _runtimeApplicationServiceProvider.GetRequiredService<IHostInfo>()
         };
     }
 
@@ -257,16 +257,16 @@ public sealed class ServiceHost : Microsoft.Extensions.Hosting.IHostedService, I
 
     private void RedirectCommonServicesFromOuterContainer(IServiceCollection assemblyServices)
     {
-        assemblyServices.AddSingleton(sp => _runtimeApplicationServiceProvider.GetService<IConfiguration>());
+        assemblyServices.AddSingleton(_ => _runtimeApplicationServiceProvider.GetRequiredService<IConfiguration>());
                 
-        assemblyServices.AddSingleton(sp => _runtimeApplicationServiceProvider.GetService<IMessagingInfrastructure>());
-        assemblyServices.AddSingleton(sp => _runtimeApplicationServiceProvider.GetService<IStorageInfrastructure>());
+        assemblyServices.AddSingleton(_ => _runtimeApplicationServiceProvider.GetRequiredService<IMessagingInfrastructure>());
+        assemblyServices.AddSingleton(_ => _runtimeApplicationServiceProvider.GetRequiredService<IStorageInfrastructure>());
 
-        assemblyServices.AddTransient(sp => _runtimeApplicationServiceProvider.GetService<ILogger>());
+        assemblyServices.AddTransient(_ => _runtimeApplicationServiceProvider.GetRequiredService<ILogger>());
         assemblyServices.AddTransient(typeof(ILogger<>), typeof(Logger<>));
 
-        assemblyServices.AddSingleton(sp => _runtimeApplicationServiceProvider.GetService<ILoggerFactory>());
-        assemblyServices.AddSingleton(sp => _runtimeApplicationServiceProvider.GetService<IHostInfo>());
+        assemblyServices.AddSingleton(_ => _runtimeApplicationServiceProvider.GetRequiredService<ILoggerFactory>());
+        assemblyServices.AddSingleton(_ => _runtimeApplicationServiceProvider.GetRequiredService<IHostInfo>());
     }
 
     private void AddRuntimeMessageHandlersToDispatcher()
@@ -275,19 +275,20 @@ public sealed class ServiceHost : Microsoft.Extensions.Hosting.IHostedService, I
         {
             var type = runtimeApplicationMessageHandler.GetType();
             _log.LogDebug($"Add runtime message handler factory function to dispatcher: {type.FullName}.");
-            _messageDispatcher.AddHandler(type.FullName, () => runtimeApplicationMessageHandler);
+            _messageDispatcher.AddHandler(type.FullName!, () => runtimeApplicationMessageHandler);
         }
     }
 
     private string GetEnvironment()
     {
-        string environment = null;
+        string? environment = null;
 
         if (_configuration != null)
             environment = _configuration["environment"];
 
         if(string.IsNullOrWhiteSpace(environment))
-            environment = Environment.GetEnvironmentVariable("NETCORE_ENVIRONMENT");
+            environment = Environment.GetEnvironmentVariable("NETCORE_ENVIRONMENT")
+                          ?? Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT");
 
         return string.IsNullOrEmpty(environment) ? "Production" : environment;
     }

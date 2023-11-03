@@ -14,7 +14,7 @@ namespace SAF.Communication.PubSub.Cde.MessageHandler.Authorization
         private readonly AuthorizationService _authService;
         private static readonly string Key = $"cdepubsub:publish:{AuthorizationService.ChannelGetToken}";
 
-        public GetTokenHandler(AuthorizationService authService, MessageHandler successor) : base(successor)
+        public GetTokenHandler(AuthorizationService authService, MessageHandler? successor) : base(successor)
         {
             _authService = authService;
         }

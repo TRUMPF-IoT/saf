@@ -63,7 +63,7 @@ public class StatefulFileReceiverTest
         var n = 0;
 
         var receiver = new StatefulFileReceiver(new TestLogger<StatefulFileReceiver>(_testOutputHelper));
-        string receivedFile = null;
+        string? receivedFile = null;
         receiver.FileReceived += file => { receivedFile = file; };
 
         var parallelActions = new List<Task>();

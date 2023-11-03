@@ -18,19 +18,19 @@ namespace SAF.Toolbox.RequestClient
 
         private readonly IMessagingInfrastructure _messaging;
         private readonly IHeartbeat _heartbeat;
-        private readonly ILogger _log;
+        private readonly ILogger<RequestClient> _log;
 
         private readonly ConcurrentDictionary<string, OpenRequest> _openRequests = new();
         
         private string _defaultPrefix = "private/reply";
         private readonly string _postfix = $"requestclient/{Guid.NewGuid()}";
-        private object _subscriptionHandle;
+        private object? _subscriptionHandle;
 
-        public RequestClient(IMessagingInfrastructure messaging, IHeartbeat heartbeat, ILogger<RequestClient> log)
+        public RequestClient(IMessagingInfrastructure messaging, IHeartbeat heartbeat, ILogger<RequestClient>? log)
         {
             _messaging = messaging;
             _heartbeat = heartbeat;
-            _log = log as ILogger ?? NullLogger.Instance;
+            _log = log ?? NullLogger<RequestClient>.Instance;
 
             _heartbeat.Beat += CheckExpiringSubscriptions;
 
@@ -39,8 +39,8 @@ namespace SAF.Toolbox.RequestClient
 
         public void SetDefaultPrefix(string prefix) => _defaultPrefix = prefix.TrimEnd('/');
 
-        public Task<TResponse> SendRequestAwaitFirstAnswer<TRequest, TResponse>(string topic, TRequest request,
-            string replyTopicPrefix = null, double? millisecondsTimeoutTarget = null)
+        public Task<TResponse?> SendRequestAwaitFirstAnswer<TRequest, TResponse>(string topic, TRequest request,
+            string? replyTopicPrefix = null, double? millisecondsTimeoutTarget = null)
             where TRequest : MessageRequestBase
             where TResponse : class
         {
@@ -48,8 +48,8 @@ namespace SAF.Toolbox.RequestClient
                 replyTopicPrefix, millisecondsTimeoutTarget);
         }
 
-        public async Task<TResponse> SendRequestAwaitFirstAnswer<TRequest, TResponse>(string topic, TRequest request,
-            IJsonObjectConverter[] converters, string replyTopicPrefix = null, double? millisecondsTimeoutTarget = null)
+        public async Task<TResponse?> SendRequestAwaitFirstAnswer<TRequest, TResponse>(string topic, TRequest request,
+            IJsonObjectConverter[]? converters, string? replyTopicPrefix = null, double? millisecondsTimeoutTarget = null)
             where TRequest : MessageRequestBase
             where TResponse : class
         {
@@ -60,11 +60,11 @@ namespace SAF.Toolbox.RequestClient
                 : null;
         }
 
-        public Task<string> SendRequestAwaitFirstAnswer<TRequest>(string topic, TRequest request, IJsonObjectConverter[] converters,
-            string replyTopicPrefix = null, double? millisecondsTimeoutTarget = null) where TRequest : MessageRequestBase
+        public Task<string?> SendRequestAwaitFirstAnswer<TRequest>(string topic, TRequest request, IJsonObjectConverter[]? converters,
+            string? replyTopicPrefix = null, double? millisecondsTimeoutTarget = null) where TRequest : MessageRequestBase
         {
             if (string.IsNullOrEmpty(replyTopicPrefix))
-                replyTopicPrefix = _defaultPrefix ?? string.Empty;
+                replyTopicPrefix = _defaultPrefix;
             
             var replyTo = string.Join("/", replyTopicPrefix.TrimEnd('/'), Guid.NewGuid().ToString(), _postfix);
             request.ReplyTo = replyTo;
@@ -72,7 +72,7 @@ namespace SAF.Toolbox.RequestClient
             var heartbeatsUntilExpiry =
                 (long)Math.Ceiling((millisecondsTimeoutTarget ?? DefaultMillisecondsTimeoutTarget) / _heartbeat.BeatCycleTimeMillis);
 
-            var tcs = new TaskCompletionSource<string>();
+            var tcs = new TaskCompletionSource<string?>();
             try
             {
                 var currentBeat = _heartbeat.CurrentBeat;
@@ -129,7 +129,7 @@ namespace SAF.Toolbox.RequestClient
             request.RequestHandlerAction(message.Payload);
         }
 
-        private void CheckExpiringSubscriptions(object sender, HeartbeatEventArgs e)
+        private void CheckExpiringSubscriptions(object? sender, HeartbeatEventArgs e)
         {
             var requestsToCancel = _openRequests.Values.Where(r => r.ExpiresOnHeartbeat <= e.CurrentBeat);
 
@@ -147,11 +147,11 @@ namespace SAF.Toolbox.RequestClient
         private sealed class OpenRequest
         {
             public long ExpiresOnHeartbeat { get; set; }
-            public Action<string> RequestHandlerAction { get; set; }
-            public Action TimeoutAction { get; set; }
-            public Action CancelAction { get; set; }
-            public string ReplyToTopic { get; set; }
-            public string Topic { get; set; }
+            public Action<string?> RequestHandlerAction { get; set; } = default!;
+            public Action TimeoutAction { get; set; } = default!;
+            public Action CancelAction { get; set; } = default!;
+            public string ReplyToTopic { get; set; } = default!;
+            public string Topic { get; set; } = default!;
             public long PublishedOnHeartbeat { get; set; }
         }
 

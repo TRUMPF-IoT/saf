@@ -48,7 +48,11 @@ namespace SAF.Services.SampleService1
                 _messaging.Subscribe<PingMessageHandler>("ping/request"),
                 _messaging.Subscribe("ping/request", m =>
                     {
+                        if(m.Payload == null) return;
+
                         var req = JsonSerializer.Deserialize<PingRequest>(m.Payload);
+                        if(req == null) return;
+
                         _log.LogInformation($"Received {m.Topic} ({req.Id}), Payload: {m.Payload},\r\nanswering with pong/response regardless of the payload");
                         _messaging.Publish(new Message
                         {
@@ -80,7 +84,7 @@ namespace SAF.Services.SampleService1
             _subscriptions.Clear();
         }
 
-        private void OnServiceConfigurationChanged(MyServiceConfiguration newConfig, string optionName)
+        private void OnServiceConfigurationChanged(MyServiceConfiguration newConfig, string? optionName)
         {
             _log.LogInformation($"Service configuration changed: {newConfig.MyNumericSetting}, {newConfig.MyStringSetting}");
         }

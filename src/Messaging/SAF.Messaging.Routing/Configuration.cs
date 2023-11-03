@@ -18,16 +18,16 @@ namespace SAF.Messaging.Routing
         /// Example: "MyPrefix.Messaging.*.dll;|MyPrefix.Messaging.*Contracts.dll"
         /// The default value in case this option is not specified equals SAF.Messaging.*.dll.
         /// </remarks>
-        public string SearchPath { get; set; }
-        
-        public string BasePath { get; set; }
-        
+        public string SearchPath { get; set; } = "SAF.Messaging.*.dll";
+
+        public string BasePath { get; set; } = AppDomain.CurrentDomain.BaseDirectory;
+
         /// <summary>
         /// Optional filtering using a RegEx pattern. Matching is performed on filenames without the path (e.g. MyMessaging.dll).
         /// Input are the files found in <see cref="BasePath"/> using the <see cref="SearchPath"/>.
         /// </summary>
-        public string SearchFilenamePattern { get; set; }
+        public string SearchFilenamePattern { get; set; } = ".*";
 
-        public RoutingConfiguration[] Routings { get; set; }
+        public RoutingConfiguration[] Routings { get; set; } = Array.Empty<RoutingConfiguration>();
     }
 }

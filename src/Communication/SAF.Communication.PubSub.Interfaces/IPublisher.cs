@@ -12,5 +12,9 @@ namespace SAF.Communication.PubSub.Interfaces
         void Publish(string channel, string message, RoutingOptions routingOptions);
         void Publish(Message message);
         void Publish(Message message, RoutingOptions routingOptions);
+        void Publish(Message message, Guid userId);
+        void Publish(Message message, Guid userId, RoutingOptions routingOptions);
+        void Publish(Message message, string userId);
+        void Publish(Message message, string userId, RoutingOptions routingOptions);
     }
 }

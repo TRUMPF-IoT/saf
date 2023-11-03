@@ -16,8 +16,8 @@ namespace SAF.Messaging.Cde
 {
     internal class StorageEntry : TheDataBase
     {
-        public string Key { get; set; }
-        public string Value { get; set; }
+        public string Key { get; set; } = default!;
+        public string? Value { get; set; }
     }
 
     internal class Storage : IStorageInfrastructure, IDisposable
@@ -30,15 +30,12 @@ namespace SAF.Messaging.Cde
 
         private const int SaveStorageAreaIntervalSeconds = 5;
 
-        public Storage(ILogger<Storage> log)
+        public Storage(ILogger<Storage>? log)
         {
             _log = log ?? NullLogger<Storage>.Instance;
         }
 
-        public IStorageInfrastructure Set(string key, string value)
-        {
-            return Set(GlobalArea, key, value);
-        }
+        public IStorageInfrastructure Set(string key, string value) => Set(GlobalArea, key, value);
 
         public IStorageInfrastructure Set(string area, string key, string value)
         {
@@ -67,22 +64,13 @@ namespace SAF.Messaging.Cde
             return this;
         }
 
-        public IStorageInfrastructure Set(string key, byte[] value)
-        {
-            return Set(key, ByteArrayToString(value));
-        }
+        public IStorageInfrastructure Set(string key, byte[] value) => Set(key, ByteArrayToString(value));
 
-        public IStorageInfrastructure Set(string area, string key, byte[] value)
-        {
-            return Set(area, key, ByteArrayToString(value));
-        }
+        public IStorageInfrastructure Set(string area, string key, byte[] value) => Set(area, key, ByteArrayToString(value));
 
-        public string GetString(string key)
-        {
-            return GetString(GlobalArea, key);
-        }
+        public string? GetString(string key) => GetString(GlobalArea, key);
 
-        public string GetString(string area, string key)
+        public string? GetString(string area, string key)
         {
             _syncStorageAccess.EnterReadLock();
             try
@@ -98,18 +86,11 @@ namespace SAF.Messaging.Cde
             }
         }
 
-        public byte[] GetBytes(string key)
-        {
-            return GetBytes(GlobalArea, key);
-        }
+        public byte[]? GetBytes(string key) => GetBytes(GlobalArea, key);
 
-        public byte[] GetBytes(string area, string key)
-        {
-            return StringToByteArray(GetString(area, key));
-        }
+        public byte[]? GetBytes(string area, string key) => StringToByteArray(GetString(area, key));
 
-        public IStorageInfrastructure RemoveKey(string key)
-            => RemoveKey(GlobalArea, key);
+        public IStorageInfrastructure RemoveKey(string key) => RemoveKey(GlobalArea, key);
 
         public IStorageInfrastructure RemoveKey(string area, string key)
         {
@@ -162,6 +143,14 @@ namespace SAF.Messaging.Cde
 
         public void Dispose()
         {
+            Dispose(true);
+            GC.SuppressFinalize(this);
+        }
+
+        protected virtual void Dispose(bool disposing)
+        {
+            if(!disposing) return;
+
             lock (_openStorageAreas)
             {
                 foreach (var storage in _openStorageAreas.Values)
@@ -173,14 +162,9 @@ namespace SAF.Messaging.Cde
             }
         }
 
-        private static string ByteArrayToString(byte[] value)
-        {
-            return value != null ? Encoding.UTF8.GetString(value) : null;
-        }
-        private static byte[] StringToByteArray(string value)
-        {
-            return value != null ? Encoding.UTF8.GetBytes(value) : null;
-        }
+        private static string ByteArrayToString(byte[] value) => Encoding.UTF8.GetString(value);
+
+        private static byte[]? StringToByteArray(string? value) => value != null ? Encoding.UTF8.GetBytes(value) : null;
 
         private TheStorageMirror<StorageEntry> CreateOrGetStorageArea(string area)
         {

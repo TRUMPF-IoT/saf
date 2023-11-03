@@ -21,7 +21,7 @@ namespace SAF.Messaging.Redis
             _connection = connection;
 
             _database = connection.GetDatabase();
-            _server = connection.GetServer(options.EndPoints.FirstOrDefault());
+            _server = connection.GetServer(options.EndPoints.First());
         }
 
         public IStorageInfrastructure Set(string key, string value)
@@ -46,22 +46,22 @@ namespace SAF.Messaging.Redis
             return this;
         }
 
-        public string GetString(string key)
+        public string? GetString(string key)
         {
             return GetString(GlobalStorageArea, key);
         }
 
-        public string GetString(string area, string key)
+        public string? GetString(string area, string key)
         {
             return _database.StringGet(BuildRedisDbKey(area, key));
         }
 
-        public byte[] GetBytes(string key)
+        public byte[]? GetBytes(string key)
         {
             return GetBytes(GlobalStorageArea, key);
         }
 
-        public byte[] GetBytes(string area, string key)
+        public byte[]? GetBytes(string area, string key)
         {
             return _database.StringGet(BuildRedisDbKey(area, key));
         }

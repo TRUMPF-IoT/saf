@@ -33,7 +33,7 @@ namespace SAF.Messaging.Cde
                 });
         }
 
-        public static IServiceCollection AddCdeMessagingInfrastructure(this IServiceCollection collection, Action<Message> traceAction = null)
+        public static IServiceCollection AddCdeMessagingInfrastructure(this IServiceCollection collection, Action<Message>? traceAction = null)
             => collection.AddCdePubSubServices()
                 .AddTransient<ICdeMessagingInfrastructure>(sp =>
                     new Messaging(sp.GetService<ILogger<Messaging>>(),
@@ -49,7 +49,7 @@ namespace SAF.Messaging.Cde
                 return new Storage(sp.GetService<ILogger<Storage>>());
             });
 
-        public static IServiceCollection AddCdeInfrastructure(this IServiceCollection collection, Action<CdeConfiguration> configure, Action<Message> traceAction = null)
+        public static IServiceCollection AddCdeInfrastructure(this IServiceCollection collection, Action<CdeConfiguration> configure, Action<Message>? traceAction = null)
         {
             return collection.AddCde(configure)
                 .AddCdeMessagingInfrastructure(traceAction)
@@ -89,10 +89,15 @@ namespace SAF.Messaging.Cde
                 return engine.GetBaseThing();
             });
 
-            collection.AddSingleton(sp => new Publisher(Operator.GetLine(sp.GetRequiredService<TheThing>())).ConnectAsync().Result as Publisher)
-                .AddSingleton(sp => sp.GetRequiredService<Publisher>() as IPublisher);
-            collection.AddSingleton(sp => new Subscriber(Operator.GetLine(sp.GetRequiredService<TheThing>()), sp.GetRequiredService<Publisher>()))
-                .AddSingleton(sp => sp.GetRequiredService<Subscriber>() as ISubscriber);
+            collection.AddSingleton(sp =>
+                {
+                    var publisher = new Publisher(Operator.GetLine(sp.GetRequiredService<TheThing>()));
+                    publisher.ConnectAsync().Wait();
+                    return publisher;
+                })
+                .AddSingleton<IPublisher>(sp => sp.GetRequiredService<Publisher>());
+            collection.AddSingleton(sp => new Subscriber(Operator.GetLine(sp.GetRequiredService<TheThing>()), sp.GetRequiredService<IPublisher>()))
+                .AddSingleton<ISubscriber>(sp => sp.GetRequiredService<Subscriber>());
 
             return collection;
         }

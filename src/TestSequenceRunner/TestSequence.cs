@@ -27,12 +27,12 @@ namespace TestSequenceRunner
         public override void Run()
         {
             TraceTitle("Ping");
-            TraceDocumentation(null, "Sending a ping and write something to get some documentation.");
+            TraceDocumentation(string.Empty, "Sending a ping and write something to get some documentation.");
 
             _log.LogInformation("Publish \"ping\" message.");
 
             var pingReturnTopic = $"ping/{_myServiceId}/response";
-            string pingReturnValue = null;
+            var pingReturnValue = string.Empty;
             PayloadToVariable<TestSequence>(pingReturnTopic, payload => pingReturnValue = payload);
 
             _messaging.Publish(new Message
