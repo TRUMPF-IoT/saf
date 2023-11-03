@@ -11,5 +11,5 @@ internal class ServiceHostContext : IServiceHostContext
 {
     public IConfiguration? Configuration { get; set; }
     public IServiceHostEnvironment Environment { get; set; } = default!;
-    public IHostInfo? HostInfo { get; set; }
+    public IHostInfo HostInfo { get; set; } = default!;
 }

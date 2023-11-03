@@ -184,7 +184,7 @@ public class ServiceHostTests
 
     internal class CountingTestAssemblyManifest : IServiceAssemblyManifest
     {
-        private readonly CallCounters? _counters;
+        private readonly CallCounters _counters;
         private readonly bool _registerAsAsyncService;
         private readonly bool _registerAHandler;
 
