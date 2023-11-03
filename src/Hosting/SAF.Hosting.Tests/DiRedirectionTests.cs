@@ -19,6 +19,8 @@ public class DiRedirectionTests
     [Fact]
     public async Task OuterServicesRedirected()
     {
+        var hostInfo = Substitute.For<IHostInfo>();
+
         var dummyMessagingImplementation = new DummyMessaging();
         DummyMessagingHashCode = dummyMessagingImplementation.GetHashCode();
 
@@ -26,6 +28,7 @@ public class DiRedirectionTests
         DummyStorageHashCode = dummyStorageImplementation.GetHashCode();
 
         var serviceProvider = new ServiceCollection()
+            .AddSingleton(hostInfo)
             .AddSingleton<IMessagingInfrastructure>(r => dummyMessagingImplementation)
             .AddSingleton<IStorageInfrastructure>(r => dummyStorageImplementation)
             .BuildServiceProvider();

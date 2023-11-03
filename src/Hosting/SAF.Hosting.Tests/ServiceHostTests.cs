@@ -78,7 +78,10 @@ public class ServiceHostTests
     public async Task RegistersHandlersWithinDispatchers(bool asyncService)
     {
         // Arrange
-        var serviceProvider = new ServiceCollection().BuildServiceProvider();
+        var hostInfo = Substitute.For<IHostInfo>();
+        var serviceProvider = new ServiceCollection()
+            .AddSingleton(hostInfo)
+            .BuildServiceProvider();
         var serviceAssemblies = new List<IServiceAssemblyManifest> { new CountingTestAssemblyManifest(new CallCounters(), asyncService, true) };
         var dispatcher = new ServiceMessageDispatcher(null);
 
@@ -99,8 +102,11 @@ public class ServiceHostTests
     public async Task DispatcherCallsCorrectHandler(bool asyncService)
     {
         // Arrange
+        var hostInfo = Substitute.For<IHostInfo>();
         var callCounters = new CallCounters();
-        var serviceProvider = new ServiceCollection().BuildServiceProvider();
+        var serviceProvider = new ServiceCollection()
+            .AddSingleton(hostInfo)
+            .BuildServiceProvider();
         var serviceAssemblies = new List<IServiceAssemblyManifest> { new CountingTestAssemblyManifest(callCounters, asyncService, true) };
         var dispatcher = new ServiceMessageDispatcher(null);
 
@@ -165,8 +171,11 @@ public class ServiceHostTests
         
     private static ServiceHost SetupServiceHostWithCallCountersService(CallCounters callCounters, bool asyncService)
     {
+        var hostInfo = Substitute.For<IHostInfo>();
         var dispatcher = Substitute.For<IServiceMessageDispatcher>();
-        var serviceProvider = new ServiceCollection().BuildServiceProvider();
+        var serviceProvider = new ServiceCollection()
+            .AddSingleton(hostInfo)
+            .BuildServiceProvider();
         var serviceAssemblies = new List<IServiceAssemblyManifest> { new CountingTestAssemblyManifest(callCounters, asyncService) };
         return new ServiceHost(serviceProvider, null, dispatcher, serviceAssemblies);
     }
