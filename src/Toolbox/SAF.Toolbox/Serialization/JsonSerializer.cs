@@ -22,7 +22,7 @@ public static class JsonSerializer
     public static T? Deserialize<T>(string json)
     {
         if(json == null) throw new ArgumentNullException(nameof(json));
-        return string.IsNullOrEmpty(json) ? default : JsonTransformer.Deserialize<T>(json, DefaultOptions);
+        return string.IsNullOrWhiteSpace(json) ? default : JsonTransformer.Deserialize<T>(json, DefaultOptions);
     }
 
     public static object? Deserialize(string json, Type type)
