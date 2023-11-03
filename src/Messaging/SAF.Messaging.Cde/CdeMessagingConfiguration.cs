@@ -3,8 +3,6 @@
 // SPDX-License-Identifier: MPL-2.0
 
 using SAF.Common;
-using System;
-using System.Collections.Generic;
 using SAF.Communication.PubSub.Interfaces;
 
 namespace SAF.Messaging.Cde

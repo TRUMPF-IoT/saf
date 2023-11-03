@@ -4,9 +4,7 @@
 
 using SAF.Common;
 using SAF.Hosting.Diagnostics;
-using System;
 using System.Diagnostics;
-using System.Linq;
 using System.Reflection;
 using Xunit;
 

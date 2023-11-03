@@ -3,9 +3,6 @@
 // SPDX-License-Identifier: MPL-2.0
 
 
-using System;
-using System.Collections.Generic;
-using System.Linq;
 using nsCDEngine.BaseClasses;
 using SAF.Communication.Cde;
 using SAF.Communication.PubSub.Interfaces;

@@ -2,9 +2,6 @@
 //
 // SPDX-License-Identifier: MPL-2.0
 
-
-using System;
-
 namespace SAF.Communication.PubSub.Interfaces
 {
     public class MessageEventArgs : EventArgs

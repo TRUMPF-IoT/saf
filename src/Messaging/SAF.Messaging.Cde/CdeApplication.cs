@@ -8,11 +8,7 @@ using nsCDEngine.BaseClasses;
 using nsCDEngine.Engines;
 using nsCDEngine.Security;
 using nsCDEngine.ViewModels;
-using System;
-using System.Collections.Generic;
-using System.Linq;
 using System.Reflection;
-using System.Threading.Tasks;
 
 namespace SAF.Messaging.Cde
 {

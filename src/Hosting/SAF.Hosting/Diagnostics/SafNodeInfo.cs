@@ -3,9 +3,6 @@
 // SPDX-License-Identifier: MPL-2.0
 
 using SAF.Common;
-using System;
-using System.Collections.Generic;
-using System.Linq;
 
 namespace SAF.Hosting.Diagnostics
 {

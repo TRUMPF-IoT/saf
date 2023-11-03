@@ -2,9 +2,7 @@
 //
 // SPDX-License-Identifier: MPL-2.0
 
-using Microsoft.Extensions.DependencyInjection;
 using SAF.Common;
-using System;
 using System.Reflection;
 
 namespace SAF.Hosting;

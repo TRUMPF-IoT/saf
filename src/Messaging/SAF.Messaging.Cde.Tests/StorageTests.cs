@@ -2,8 +2,6 @@
 //
 // SPDX-License-Identifier: MPL-2.0
 
-using System;
-using System.Linq;
 using Xunit;
 
 namespace SAF.Messaging.Cde.Tests

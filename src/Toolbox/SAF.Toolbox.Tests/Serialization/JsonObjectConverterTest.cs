@@ -2,13 +2,11 @@
 //
 // SPDX-License-Identifier: MPL-2.0
 
-using System;
 using System.Text.Json;
 using SAF.Toolbox.Serialization;
 using NSubstitute;
 using Xunit;
 using System.Text;
-using System.IO;
 
 namespace SAF.Toolbox.Tests.Serialization
 {

@@ -2,9 +2,7 @@
 //
 // SPDX-License-Identifier: MPL-2.0
 
-using System;
 using System.Collections.Concurrent;
-using System.Threading;
 using SAF.Common;
 
 namespace SAF.DevToolbox.TestRunner;

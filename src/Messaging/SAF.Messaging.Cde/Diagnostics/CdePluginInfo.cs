@@ -2,8 +2,6 @@
 //
 // SPDX-License-Identifier: MPL-2.0
 
-using System;
-
 namespace SAF.Messaging.Cde.Diagnostics
 {
     public class CdePluginInfo

@@ -2,9 +2,6 @@
 //
 // SPDX-License-Identifier: MPL-2.0
 
-using System;
-using System.IO;
-
 namespace SAF.Toolbox.Tests.FileTransfer
 {
     internal class TemporaryFile : IDisposable

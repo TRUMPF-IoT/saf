@@ -6,11 +6,6 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using SAF.Common;
 using SAF.Toolbox.Serialization;
-using System;
-using System.Collections.Generic;
-using System.IO;
-using System.Threading;
-using System.Threading.Tasks;
 using IHostedService = Microsoft.Extensions.Hosting.IHostedService;
 
 namespace SAF.Hosting.Diagnostics;

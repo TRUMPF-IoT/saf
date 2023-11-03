@@ -2,9 +2,6 @@
 //
 // SPDX-License-Identifier: MPL-2.0
 
-using System;
-using System.Threading;
-using System.Threading.Tasks;
 using SAF.Common;
 using SAF.Communication.Cde;
 using SAF.Communication.PubSub.Interfaces;

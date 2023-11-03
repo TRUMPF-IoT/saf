@@ -5,8 +5,6 @@
 using NSubstitute;
 using SAF.Common;
 using StackExchange.Redis;
-using System;
-using System.Collections.Generic;
 using System.Net;
 using Xunit;
 

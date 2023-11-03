@@ -3,8 +3,6 @@
 // SPDX-License-Identifier: MPL-2.0
 
 using nsCDEngine.BaseClasses;
-using System;
-using System.IO;
 
 namespace SAF.Messaging.Cde.Diagnostics
 {

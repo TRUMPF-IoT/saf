@@ -5,9 +5,6 @@
 using Microsoft.Extensions.Logging.Abstractions;
 using SAF.Common;
 using SAF.Hosting;
-using System;
-using System.Threading;
-using System.Threading.Tasks;
 using TestUtilities;
 using Xunit;
 

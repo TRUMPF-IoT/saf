@@ -2,7 +2,6 @@
 //
 // SPDX-License-Identifier: MPL-2.0
 
-using System;
 using SAF.Common;
 using SAF.Toolbox.Serialization;
 using SAF.DevToolbox.TestRunner;

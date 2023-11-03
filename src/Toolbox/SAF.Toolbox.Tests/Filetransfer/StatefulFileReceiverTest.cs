@@ -2,13 +2,8 @@
 //
 // SPDX-License-Identifier: MPL-2.0
 
-using System;
-using System.Collections.Generic;
-using System.IO;
 using SAF.Toolbox.FileTransfer;
 using Xunit;
-using System.Linq;
-using System.Threading.Tasks;
 using Xunit.Abstractions;
 
 namespace SAF.Toolbox.Tests.FileTransfer;
