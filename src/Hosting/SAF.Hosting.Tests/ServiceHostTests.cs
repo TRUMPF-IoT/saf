@@ -3,6 +3,7 @@
 // SPDX-License-Identifier: MPL-2.0
 
 using System.Reflection;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using NSubstitute;
 using SAF.Common;
@@ -79,8 +80,10 @@ public class ServiceHostTests
     {
         // Arrange
         var hostInfo = Substitute.For<IHostInfo>();
+        var config = Substitute.For<IConfiguration>();
         var serviceProvider = new ServiceCollection()
             .AddSingleton(hostInfo)
+            .AddSingleton(config)
             .BuildServiceProvider();
         var serviceAssemblies = new List<IServiceAssemblyManifest> { new CountingTestAssemblyManifest(new CallCounters(), asyncService, true) };
         var dispatcher = new ServiceMessageDispatcher(null);
@@ -103,9 +106,11 @@ public class ServiceHostTests
     {
         // Arrange
         var hostInfo = Substitute.For<IHostInfo>();
+        var config = Substitute.For<IConfiguration>();
         var callCounters = new CallCounters();
         var serviceProvider = new ServiceCollection()
             .AddSingleton(hostInfo)
+            .AddSingleton(config)
             .BuildServiceProvider();
         var serviceAssemblies = new List<IServiceAssemblyManifest> { new CountingTestAssemblyManifest(callCounters, asyncService, true) };
         var dispatcher = new ServiceMessageDispatcher(null);
@@ -172,9 +177,11 @@ public class ServiceHostTests
     private static ServiceHost SetupServiceHostWithCallCountersService(CallCounters callCounters, bool asyncService)
     {
         var hostInfo = Substitute.For<IHostInfo>();
+        var config = Substitute.For<IConfiguration>();
         var dispatcher = Substitute.For<IServiceMessageDispatcher>();
         var serviceProvider = new ServiceCollection()
             .AddSingleton(hostInfo)
+            .AddSingleton(config)
             .BuildServiceProvider();
         var serviceAssemblies = new List<IServiceAssemblyManifest> { new CountingTestAssemblyManifest(callCounters, asyncService) };
         return new ServiceHost(serviceProvider, null, dispatcher, serviceAssemblies);

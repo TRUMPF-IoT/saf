@@ -214,7 +214,7 @@ public sealed class ServiceHost : Microsoft.Extensions.Hosting.IHostedService, I
     {
         return new ServiceHostContext
         {
-            Configuration = _runtimeApplicationServiceProvider.GetService<IConfiguration>(),
+            Configuration = _runtimeApplicationServiceProvider.GetRequiredService<IConfiguration>(),
             Environment = _environment,
             HostInfo = _runtimeApplicationServiceProvider.GetRequiredService<IHostInfo>()
         };

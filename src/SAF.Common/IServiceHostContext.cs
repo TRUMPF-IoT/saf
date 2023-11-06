@@ -8,7 +8,7 @@ namespace SAF.Common;
 
 public interface IServiceHostContext
 {
-    IConfiguration? Configuration { get; }
+    IConfiguration Configuration { get; }
     IServiceHostEnvironment Environment { get; }
     IHostInfo HostInfo { get; }
 }

@@ -2,6 +2,7 @@
 //
 // SPDX-License-Identifier: MPL-2.0
 
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging.Abstractions;
 using NSubstitute;
@@ -20,6 +21,7 @@ public class DiRedirectionTests
     public async Task OuterServicesRedirected()
     {
         var hostInfo = Substitute.For<IHostInfo>();
+        var config = Substitute.For<IConfiguration>();
 
         var dummyMessagingImplementation = new DummyMessaging();
         DummyMessagingHashCode = dummyMessagingImplementation.GetHashCode();
@@ -29,6 +31,7 @@ public class DiRedirectionTests
 
         var serviceProvider = new ServiceCollection()
             .AddSingleton(hostInfo)
+            .AddSingleton(config)
             .AddSingleton<IMessagingInfrastructure>(r => dummyMessagingImplementation)
             .AddSingleton<IStorageInfrastructure>(r => dummyStorageImplementation)
             .BuildServiceProvider();
