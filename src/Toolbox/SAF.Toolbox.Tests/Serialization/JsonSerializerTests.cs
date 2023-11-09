@@ -202,9 +202,9 @@ public class JsonSerializerTests
     }
 
     [Theory]
-    [InlineData("2023-11-09 01:02:03", DateTimeKind.Unspecified)]
-    [InlineData("2023-11-09T01:02:03Z", DateTimeKind.Utc)]
-    [InlineData("2023-11-09T01:02:03+02:00", DateTimeKind.Local)]
+    [InlineData("2023-11-09 06:07:08", DateTimeKind.Unspecified)]
+    [InlineData("2023-11-09T06:07:08Z", DateTimeKind.Utc)]
+    [InlineData("2023-11-09T06:07:08+02:00", DateTimeKind.Local)]
     public void DeserializeDateTimeFormats(string datetimeValue, DateTimeKind expectedKind)
     {
         var testObject = JsonSerializer.Deserialize<TestCaseFields>(
@@ -212,23 +212,32 @@ public class JsonSerializerTests
 
         Assert.NotNull(testObject);
 
+        var localTimeZoneDateTime = new DateTimeOffset(new DateTime(2023, 11, 9, 6, 7, 8));
+
         Assert.NotNull(testObject.DateTime);
         Assert.Equal(expectedKind, testObject.DateTime.Value.Kind);
         Assert.Equal(2023, testObject.DateTime.Value.Year);
         Assert.Equal(11, testObject.DateTime.Value.Month);
-        Assert.Equal(09, testObject.DateTime.Value.Day);
-        Assert.Equal(expectedKind == DateTimeKind.Local ? 0 : 1, testObject.DateTime.Value.Hour);
-        Assert.Equal(2, testObject.DateTime.Value.Minute);
-        Assert.Equal(3, testObject.DateTime.Value.Second);
+        Assert.Equal(9, testObject.DateTime.Value.Day);
+        Assert.Equal(expectedKind == DateTimeKind.Local
+            ? 6 - 2 + localTimeZoneDateTime.Offset.TotalMilliseconds / (1000 * 60 * 60)
+            : 6, testObject.DateTime.Value.Hour);
+        Assert.Equal(7, testObject.DateTime.Value.Minute);
+        Assert.Equal(8, testObject.DateTime.Value.Second);
 
         Assert.NotNull(testObject.DateTimeOffset);
         Assert.Equal(expectedKind, testObject.DateTime.Value.Kind);
         Assert.Equal(2023, testObject.DateTimeOffset.Value.Year);
         Assert.Equal(11, testObject.DateTimeOffset.Value.Month);
-        Assert.Equal(09, testObject.DateTimeOffset.Value.Day);
-        Assert.Equal(1, testObject.DateTimeOffset.Value.Hour);
-        Assert.Equal(2, testObject.DateTimeOffset.Value.Minute);
-        Assert.Equal(3, testObject.DateTimeOffset.Value.Second);
+        Assert.Equal(9, testObject.DateTimeOffset.Value.Day);
+        Assert.Equal(6, testObject.DateTimeOffset.Value.Hour);
+        Assert.Equal(7, testObject.DateTimeOffset.Value.Minute);
+        Assert.Equal(8, testObject.DateTimeOffset.Value.Second);
+        Assert.Equal(expectedKind == DateTimeKind.Utc
+            ? TimeSpan.Zero
+            : expectedKind == DateTimeKind.Unspecified
+                ? localTimeZoneDateTime.Offset
+                : TimeSpan.FromHours(2), testObject.DateTimeOffset.Value.Offset);
     }
 
     [Fact]
