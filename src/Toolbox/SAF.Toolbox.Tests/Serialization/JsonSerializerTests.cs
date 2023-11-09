@@ -174,7 +174,7 @@ public class JsonSerializerTests
         Assert.Equal(TimeSpan.FromHours(2), ((DateTimeOffset)objectDictionary["datetimeoffset"]).Offset);
         Assert.Equal(new DateTime(2023, 10, 19, 0, 0, 0, DateTimeKind.Unspecified), ((DateTimeOffset)objectDictionary["datetimeoffset"]).DateTime);
         Assert.True(objectDictionary["datetime"] is DateTimeOffset);
-        Assert.Equal(TimeSpan.FromHours(2), ((DateTimeOffset)objectDictionary["datetime"]).Offset);
+        Assert.Equal(new DateTimeOffset(new DateTime(2023, 10, 19, 0, 0, 0, DateTimeKind.Local)).Offset, ((DateTimeOffset)objectDictionary["datetime"]).Offset);
         Assert.True(objectDictionary["number"] is long);
         Assert.Equal(1234L, objectDictionary["number"]);
         Assert.True(objectDictionary["double"] is double);
