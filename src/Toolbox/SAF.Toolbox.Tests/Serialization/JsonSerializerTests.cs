@@ -164,7 +164,7 @@ public class JsonSerializerTests
     [Fact]
     public void ObjectToInferredTypesConverterDeserialization()
     {
-        const string json = "{\"boolean\":true,\"datetimeoffset\":\"2023-10-19T00:00:00+02:00\",\"datetime\":\"2023-10-19T00:00:00Z\",\"number\":1234,\"double\":12.34,\"string\":\"A string\"}";
+        const string json = "{\"boolean\":true,\"datetimeoffset\":\"2023-10-19T00:00:00+02:00\",\"datetime\":\"2023-10-19 00:00:00\",\"number\":1234,\"double\":12.34,\"string\":\"A string\"}";
 
         var objectDictionary = JsonSerializer.Deserialize<Dictionary<string, object>>(json)!;
 
@@ -172,9 +172,9 @@ public class JsonSerializerTests
         Assert.True(Convert.ToBoolean(objectDictionary["boolean"]));
         Assert.True(objectDictionary["datetimeoffset"] is DateTimeOffset);
         Assert.Equal(TimeSpan.FromHours(2), ((DateTimeOffset)objectDictionary["datetimeoffset"]).Offset);
-        Assert.Equal(new DateTime(2023, 10, 19, 0, 0, 0, DateTimeKind.Local), ((DateTimeOffset)objectDictionary["datetimeoffset"]).DateTime);
+        Assert.Equal(new DateTime(2023, 10, 19, 0, 0, 0, DateTimeKind.Unspecified), ((DateTimeOffset)objectDictionary["datetimeoffset"]).DateTime);
         Assert.True(objectDictionary["datetime"] is DateTimeOffset);
-        Assert.Equal(TimeSpan.FromHours(0), ((DateTimeOffset)objectDictionary["datetime"]).Offset);
+        Assert.Equal(TimeSpan.FromHours(2), ((DateTimeOffset)objectDictionary["datetime"]).Offset);
         Assert.True(objectDictionary["number"] is long);
         Assert.Equal(1234L, objectDictionary["number"]);
         Assert.True(objectDictionary["double"] is double);
@@ -188,6 +188,47 @@ public class JsonSerializerTests
     {
         var json = JsonSerializer.Serialize(new object());
         Assert.Equal("{}", json);
+    }
+
+    [Fact]
+    public void DeserializeNullDateTime()
+    {
+        var testObject = JsonSerializer.Deserialize<TestCaseFields>($"{{\"datetime\": null,\"datetimeoffset\": null}}");
+
+        Assert.NotNull(testObject);
+
+        Assert.Null(testObject.DateTime);
+        Assert.Null(testObject.DateTimeOffset);
+    }
+
+    [Theory]
+    [InlineData("2023-11-09 01:02:03", DateTimeKind.Unspecified)]
+    [InlineData("2023-11-09T01:02:03Z", DateTimeKind.Utc)]
+    [InlineData("2023-11-09T01:02:03+02:00", DateTimeKind.Local)]
+    public void DeserializeDateTimeFormats(string datetimeValue, DateTimeKind expectedKind)
+    {
+        var testObject = JsonSerializer.Deserialize<TestCaseFields>(
+            $"{{\"datetime\": \"{datetimeValue}\",\"datetimeoffset\": \"{datetimeValue}\"}}");
+
+        Assert.NotNull(testObject);
+
+        Assert.NotNull(testObject.DateTime);
+        Assert.Equal(expectedKind, testObject.DateTime.Value.Kind);
+        Assert.Equal(2023, testObject.DateTime.Value.Year);
+        Assert.Equal(11, testObject.DateTime.Value.Month);
+        Assert.Equal(09, testObject.DateTime.Value.Day);
+        Assert.Equal(expectedKind == DateTimeKind.Local ? 0 : 1, testObject.DateTime.Value.Hour);
+        Assert.Equal(2, testObject.DateTime.Value.Minute);
+        Assert.Equal(3, testObject.DateTime.Value.Second);
+
+        Assert.NotNull(testObject.DateTimeOffset);
+        Assert.Equal(expectedKind, testObject.DateTime.Value.Kind);
+        Assert.Equal(2023, testObject.DateTimeOffset.Value.Year);
+        Assert.Equal(11, testObject.DateTimeOffset.Value.Month);
+        Assert.Equal(09, testObject.DateTimeOffset.Value.Day);
+        Assert.Equal(1, testObject.DateTimeOffset.Value.Hour);
+        Assert.Equal(2, testObject.DateTimeOffset.Value.Minute);
+        Assert.Equal(3, testObject.DateTimeOffset.Value.Second);
     }
 
     [Fact]
@@ -261,8 +302,10 @@ public class JsonSerializerTests
 
     private class TestCaseFields
     {
-        public int AnInteger;
-        public string? aString;
+        public int AnInteger { get; set; }
+        public string? aString { get; set; }
+        public DateTime? DateTime { get; set; }
+        public DateTimeOffset? DateTimeOffset { get; set; }
     }
 
     private class TestCaseCustomConverterType

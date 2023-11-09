@@ -73,6 +73,8 @@ public static class JsonSerializer
         };
 
         options.Converters.Add(new ObjectToInferredTypesConverter());
+        options.Converters.Add(new DateTimeConverter());
+        options.Converters.Add(new DateTimeOffsetConverter());
 
         return options;
     }

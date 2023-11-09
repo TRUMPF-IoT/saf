@@ -10,16 +10,33 @@ namespace SAF.Toolbox.Serialization;
 internal class ObjectToInferredTypesConverter : JsonConverter<object>
 {
     public override object Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
-        => reader.TokenType switch
+    {
+        switch(reader.TokenType)
         {
-            JsonTokenType.True => true,
-            JsonTokenType.False => false,
-            JsonTokenType.Number when reader.TryGetInt64(out var l) => l,
-            JsonTokenType.Number => reader.GetDouble(),
-            JsonTokenType.String when reader.TryGetDateTimeOffset(out var datetime) => datetime,
-            JsonTokenType.String => reader.GetString()!,
-            _ => JsonDocument.ParseValue(ref reader).RootElement.Clone()
+            case JsonTokenType.True:
+                return true;
+            case JsonTokenType.False:
+                return false;
+            case JsonTokenType.Number:
+                {
+                    if(reader.TryGetInt64(out var l)) return l;
+                    return reader.GetDouble();
+                }
+            case JsonTokenType.String:
+                {
+                    if(reader.TryGetDateTimeOffset(out var datetime))
+                        return datetime;
+
+                    var stringValue = reader.GetString()!;
+                    if (DateTimeOffset.TryParse(stringValue, out var datetimeOffset))
+                        return datetimeOffset;
+
+                    return stringValue;
+                }
+            default:
+                return JsonDocument.ParseValue(ref reader).RootElement.Clone();
         };
+    }
 
     public override void Write(Utf8JsonWriter writer, object value, JsonSerializerOptions options)
     {
