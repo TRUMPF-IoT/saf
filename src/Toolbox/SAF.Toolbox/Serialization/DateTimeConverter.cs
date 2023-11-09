@@ -20,7 +20,7 @@ internal class DateTimeConverter : JsonConverter<DateTime>
     }
 
     public override void Write(Utf8JsonWriter writer, DateTime value, JsonSerializerOptions options)
-        => System.Text.Json.JsonSerializer.Serialize(writer, value, value.GetType(), options);
+        => writer.WriteStringValue(value);
 }
 
 internal class DateTimeOffsetConverter : JsonConverter<DateTimeOffset>
@@ -36,5 +36,5 @@ internal class DateTimeOffsetConverter : JsonConverter<DateTimeOffset>
     }
 
     public override void Write(Utf8JsonWriter writer, DateTimeOffset value, JsonSerializerOptions options)
-        => System.Text.Json.JsonSerializer.Serialize(writer, value, value.GetType(), options);
+        => writer.WriteStringValue(value);
 }
