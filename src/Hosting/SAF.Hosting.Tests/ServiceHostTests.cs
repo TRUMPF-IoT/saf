@@ -79,7 +79,7 @@ public class ServiceHostTests
     public async Task RegistersHandlersWithinDispatchers(bool asyncService)
     {
         // Arrange
-        var hostInfo = Substitute.For<IHostInfo>();
+        var hostInfo = Substitute.For<IServiceHostInfo>();
         var config = Substitute.For<IConfiguration>();
         var serviceProvider = new ServiceCollection()
             .AddSingleton(hostInfo)
@@ -105,7 +105,7 @@ public class ServiceHostTests
     public async Task DispatcherCallsCorrectHandler(bool asyncService)
     {
         // Arrange
-        var hostInfo = Substitute.For<IHostInfo>();
+        var hostInfo = Substitute.For<IServiceHostInfo>();
         var config = Substitute.For<IConfiguration>();
         var callCounters = new CallCounters();
         var serviceProvider = new ServiceCollection()
@@ -176,7 +176,7 @@ public class ServiceHostTests
         
     private static ServiceHost SetupServiceHostWithCallCountersService(CallCounters callCounters, bool asyncService)
     {
-        var hostInfo = Substitute.For<IHostInfo>();
+        var hostInfo = Substitute.For<IServiceHostInfo>();
         var config = Substitute.For<IConfiguration>();
         var dispatcher = Substitute.For<IServiceMessageDispatcher>();
         var serviceProvider = new ServiceCollection()

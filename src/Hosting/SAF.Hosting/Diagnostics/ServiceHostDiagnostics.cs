@@ -14,11 +14,11 @@ internal class ServiceHostDiagnostics : IHostedService
 {
     private readonly ILogger<ServiceHostDiagnostics> _log;
     private readonly IEnumerable<IServiceAssemblyManifest> _serviceAssemblies;
-    private readonly IHostInfo _hostInfo;
+    private readonly IServiceHostInfo _hostInfo;
 
     public ServiceHostDiagnostics(ILogger<ServiceHostDiagnostics> log,
         IEnumerable<IServiceAssemblyManifest> serviceAssemblies,
-        IHostInfo hostInfo)
+        IServiceHostInfo hostInfo)
     {
         _log = log ?? NullLogger<ServiceHostDiagnostics>.Instance;
         _serviceAssemblies = serviceAssemblies;

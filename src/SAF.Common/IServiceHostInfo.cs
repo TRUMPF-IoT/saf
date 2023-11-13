@@ -7,7 +7,7 @@ namespace SAF.Common;
 /// <summary>
 /// Provides information about the Smart Application Framework (SAF) host instance.
 /// </summary>
-public interface IHostInfo
+public interface IServiceHostInfo
 {
     /// <summary>
     /// Returns a unique-id for this SAF host instance.

@@ -7,13 +7,13 @@ using System.Reflection;
 
 namespace SAF.Hosting;
 
-public class HostInfo : IHostInfo
+public class ServiceHostInfo : IServiceHostInfo
 {
     private readonly Func<string> _initializeId;
 
     private string? _id;
 
-    internal HostInfo(Func<string> initializeId)
+    internal ServiceHostInfo(Func<string> initializeId)
     {
         _initializeId = initializeId;
     }

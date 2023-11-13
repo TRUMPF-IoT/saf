@@ -216,7 +216,7 @@ public sealed class ServiceHost : Microsoft.Extensions.Hosting.IHostedService, I
         {
             Configuration = _runtimeApplicationServiceProvider.GetRequiredService<IConfiguration>(),
             Environment = _environment,
-            HostInfo = _runtimeApplicationServiceProvider.GetRequiredService<IHostInfo>()
+            HostInfo = _runtimeApplicationServiceProvider.GetRequiredService<IServiceHostInfo>()
         };
     }
 
@@ -261,7 +261,7 @@ public sealed class ServiceHost : Microsoft.Extensions.Hosting.IHostedService, I
         assemblyServices.AddTransient(typeof(ILogger<>), typeof(Logger<>));
 
         assemblyServices.AddSingleton(_ => _runtimeApplicationServiceProvider.GetRequiredService<ILoggerFactory>());
-        assemblyServices.AddSingleton(_ => _runtimeApplicationServiceProvider.GetRequiredService<IHostInfo>());
+        assemblyServices.AddSingleton(_ => _runtimeApplicationServiceProvider.GetRequiredService<IServiceHostInfo>());
     }
 
     private void AddRuntimeMessageHandlersToDispatcher()

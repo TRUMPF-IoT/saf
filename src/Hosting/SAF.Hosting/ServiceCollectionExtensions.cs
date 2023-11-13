@@ -4,7 +4,6 @@
 
 using System.Diagnostics;
 using System.Reflection;
-using System.Runtime.CompilerServices;
 using System.Text.RegularExpressions;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -14,14 +13,34 @@ using Microsoft.Extensions.Logging.Abstractions;
 using SAF.Common;
 using SAF.Hosting.Diagnostics;
 
-[assembly: InternalsVisibleTo("SAF.Hosting.Tests")]
-[assembly: InternalsVisibleTo("DynamicProxyGenAssembly2")]
-
 namespace SAF.Hosting;
 
 public static class ServiceCollectionExtensions
 {
-    public static IServiceCollection AddHost(this IServiceCollection services, Action<Configuration> configure, ILogger? logger = null)
+    public static IServiceHostBuilder AddHost(this IServiceCollection services)
+        => services.AddHostCore();
+
+    public static IServiceHostBuilder AddHostCore(this IServiceCollection services)
+    {
+        services.AddSingleton<IServiceMessageDispatcher, ServiceMessageDispatcher>();
+        
+        services.AddSingleton<ServiceHost>();
+        services.AddHostedService(sp => sp.GetRequiredService<ServiceHost>());
+
+        return new ServiceHostBuilder(services);
+    }
+
+
+    //public static IServiceHostBuilder AddHost(this IServiceCollection services, Action<Configuration> configure)
+    //{
+    //    services.Configure(configure);
+    //    services.PostConfigure<Configuration>(ValidateConfiguration);
+
+
+    //}
+
+
+    public static IServiceCollection AddHost(this IServiceCollection services, Action<ServiceAssemblySearchOptions> configure, ILogger? logger = null)
         => services.AddHost(configure, hi =>
         {
             hi.ServiceHostType = "Unknown";
@@ -29,18 +48,18 @@ public static class ServiceCollectionExtensions
             hi.FileSystemInstallationPath = Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location)!;
         }, logger);
 
-    public static IServiceCollection AddHost(this IServiceCollection services, Action<Configuration> configure, Action<HostInfo>? configureHostInfo = null, ILogger? logger = null)
+    public static IServiceCollection AddHost(this IServiceCollection services, Action<ServiceAssemblySearchOptions> configure, Action<ServiceHostInfo>? configureHostInfo = null, ILogger? logger = null)
     {
         logger ??= NullLogger.Instance;
 
-        var config = new Configuration
+        var config = new ServiceAssemblySearchOptions
         {
             BasePath = AppDomain.CurrentDomain.BaseDirectory,
             SearchFilenamePattern = ".*"
         };
 
         configure(config);
-        ValidateConfiguration(logger, config);
+        ValidateConfiguration(config);
             
         logger.LogInformation($"Searching SAF service assemblies using BasePath: {config.BasePath}, SearchPath: {config.SearchPath}, SearchFilenamePattern: {config.SearchFilenamePattern}");
         var results = SearchServiceAssemblies(config.BasePath, config.SearchPath, config.SearchFilenamePattern).ToList();
@@ -69,9 +88,9 @@ public static class ServiceCollectionExtensions
 
         services.AddSingleton<IServiceMessageDispatcher, ServiceMessageDispatcher>();
 
-        services.AddSingleton<IHostInfo>(sp =>
+        services.AddSingleton<IServiceHostInfo>(sp =>
         {
-            var hi = new HostInfo(() => GetOrInitializeStoredHostId(sp));
+            var hi = new ServiceHostInfo(() => GetOrInitializeStoredHostId(sp));
             configureHostInfo?.Invoke(hi);
             return hi;
         });
@@ -139,9 +158,9 @@ public static class ServiceCollectionExtensions
         return id;
     }
 
-    private static void ValidateConfiguration(ILogger logger, Configuration config)
+    private static void ValidateConfiguration(ServiceAssemblySearchOptions config)
     {
-        const string errorLogFormat = "Configuration setting \"{0}\" not set!";
+        const string errorLogFormat = "ServiceAssemblySearchOptions.\"{0}\" not set!";
 
         string? missingConfig = null;
         if (string.IsNullOrWhiteSpace(config.BasePath))
@@ -154,7 +173,6 @@ public static class ServiceCollectionExtensions
         if (!string.IsNullOrWhiteSpace(missingConfig))
         {
             var error = string.Format(errorLogFormat, missingConfig);
-            logger.LogCritical(error);
             throw new InvalidOperationException(error);
         }
     }

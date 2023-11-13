@@ -15,9 +15,9 @@ internal class ServiceHostDiagnostics : IHostedService
 {
     private readonly ILogger<ServiceHostDiagnostics> _log;
     private readonly IServiceProvider _serviceProvider;
-    private readonly IHostInfo _hostInfo;
+    private readonly IServiceHostInfo _hostInfo;
 
-    public ServiceHostDiagnostics(ILogger<ServiceHostDiagnostics> log, IServiceProvider serviceProvider, IHostInfo hostInfo)
+    public ServiceHostDiagnostics(ILogger<ServiceHostDiagnostics> log, IServiceProvider serviceProvider, IServiceHostInfo hostInfo)
     {
         _log = log ?? NullLogger<ServiceHostDiagnostics>.Instance;
         _serviceProvider = serviceProvider;

@@ -8,9 +8,9 @@ namespace SAF.Hosting.Diagnostics;
 
 internal class SafNodeInfo
 {
-    private readonly IHostInfo _hostInfo;
+    private readonly IServiceHostInfo _hostInfo;
 
-    public SafNodeInfo(IHostInfo hostInfo, IEnumerable<IServiceAssemblyManifest> serviceAssemblies)
+    public SafNodeInfo(IServiceHostInfo hostInfo, IEnumerable<IServiceAssemblyManifest> serviceAssemblies)
     {
         _hostInfo = hostInfo;
         SafServices = ReadServiceInfos(serviceAssemblies);

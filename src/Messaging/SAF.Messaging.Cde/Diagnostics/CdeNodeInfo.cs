@@ -10,9 +10,9 @@ namespace SAF.Messaging.Cde.Diagnostics;
 
 internal class CdeNodeInfo
 {
-    private readonly IHostInfo _hostInfo;
+    private readonly IServiceHostInfo _hostInfo;
 
-    public CdeNodeInfo(IHostInfo hostInfo)
+    public CdeNodeInfo(IServiceHostInfo hostInfo)
     {
         _hostInfo = hostInfo;
     }

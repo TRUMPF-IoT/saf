@@ -20,7 +20,7 @@ public class DiRedirectionTests
     [Fact]
     public async Task OuterServicesRedirected()
     {
-        var hostInfo = Substitute.For<IHostInfo>();
+        var hostInfo = Substitute.For<IServiceHostInfo>();
         var config = Substitute.For<IConfiguration>();
 
         var dummyMessagingImplementation = new DummyMessaging();

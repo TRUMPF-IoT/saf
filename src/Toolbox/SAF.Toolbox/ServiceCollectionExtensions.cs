@@ -40,7 +40,7 @@ public static class ServiceCollectionExtensions
         => services.AddTransient<IFileSystem, FileSystem>()
             .AddTransient(sp =>
             {
-                var hi = sp.GetRequiredService<IHostInfo>();
+                var hi = sp.GetRequiredService<IServiceHostInfo>();
                 var fs = sp.GetRequiredService<IFileSystem>();
                 var di = fs.DirectoryInfo.New(hi.FileSystemUserBasePath);
                 if(!di.Exists) di.Create();

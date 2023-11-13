@@ -10,5 +10,5 @@ public interface IServiceHostContext
 {
     IConfiguration Configuration { get; }
     IServiceHostEnvironment Environment { get; }
-    IHostInfo HostInfo { get; }
+    IServiceHostInfo HostInfo { get; }
 }
