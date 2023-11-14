@@ -3,12 +3,11 @@
 // SPDX-License-Identifier: MPL-2.0
 
 
-namespace SAF.Toolbox.FileTransfer
+namespace SAF.Toolbox.FileTransfer;
+
+public enum FileTransferStatus
 {
-    public enum FileTransferStatus
-    {
-        Delivered,
-        TimedOut,
-        Error
-    }
+    Delivered,
+    TimedOut,
+    Error
 }

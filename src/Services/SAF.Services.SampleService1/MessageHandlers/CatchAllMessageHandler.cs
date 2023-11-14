@@ -5,23 +5,22 @@
 using Microsoft.Extensions.Logging;
 using SAF.Common;
 
-namespace SAF.Services.SampleService1.MessageHandlers
+namespace SAF.Services.SampleService1.MessageHandlers;
+
+public class CatchAllMessageHandler : IMessageHandler
 {
-    public class CatchAllMessageHandler : IMessageHandler
+    private readonly ILogger<CatchAllMessageHandler> _log;
+
+    public CatchAllMessageHandler(ILogger<CatchAllMessageHandler> log)
     {
-        private readonly ILogger<CatchAllMessageHandler> _log;
+        _log = log;
+    }
 
-        public CatchAllMessageHandler(ILogger<CatchAllMessageHandler> log)
-        {
-            _log = log;
-        }
+    public bool CanHandle(Message message)
+        => true;
 
-        public bool CanHandle(Message message)
-            => true;
-
-        public void Handle(Message message)
-        {
-            _log.LogInformation($"Message: {message.Topic}, Payload: {message.Payload}");
-        }
+    public void Handle(Message message)
+    {
+        _log.LogInformation($"Message: {message.Topic}, Payload: {message.Payload}");
     }
 }

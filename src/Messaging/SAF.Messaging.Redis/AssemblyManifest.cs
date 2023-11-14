@@ -5,13 +5,12 @@
 using Microsoft.Extensions.DependencyInjection;
 using SAF.Common;
 
-namespace SAF.Messaging.Redis
+namespace SAF.Messaging.Redis;
+
+public class AssemblyManifest : IMessagingAssemblyManifest
 {
-    public class AssemblyManifest : IMessagingAssemblyManifest
+    public void RegisterDependencies(IServiceCollection services, MessagingConfiguration config)
     {
-        public void RegisterDependencies(IServiceCollection services, MessagingConfiguration config)
-        {
-            services.AddRedisMessagingInfrastructure(config);
-        }
+        services.AddRedisMessagingInfrastructure(config);
     }
 }

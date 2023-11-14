@@ -2,17 +2,16 @@
 //
 // SPDX-License-Identifier: MPL-2.0
 
-namespace CdeLogSorter
+namespace CdeLogSorter;
+
+internal class Program
 {
-    internal class Program
+    static void Main(string[] args)
     {
-        static void Main(string[] args)
+        foreach (var v in args)
         {
-            foreach (var v in args)
-            {
-                Sorter sorter = new(v);
-                sorter.Sort();
-            }
+            Sorter sorter = new(v);
+            sorter.Sort();
         }
     }
 }

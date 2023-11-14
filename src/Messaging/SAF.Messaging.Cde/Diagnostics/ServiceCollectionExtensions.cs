@@ -4,11 +4,10 @@
 
 using Microsoft.Extensions.DependencyInjection;
 
-namespace SAF.Messaging.Cde.Diagnostics
+namespace SAF.Messaging.Cde.Diagnostics;
+
+public static class ServiceCollectionExtensions
 {
-    public static class ServiceCollectionExtensions
-    {
-        public static IServiceCollection AddCdeDiagnostics(this IServiceCollection collection)
-            => collection.AddHostedService<ServiceHostDiagnostics>();
-    }
+    public static IServiceCollection AddCdeDiagnostics(this IServiceCollection collection)
+        => collection.AddHostedService<ServiceHostDiagnostics>();
 }

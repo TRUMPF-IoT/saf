@@ -2,11 +2,10 @@
 //
 // SPDX-License-Identifier: MPL-2.0
 
-namespace SAF.Communication.PubSub.Interfaces
+namespace SAF.Communication.PubSub.Interfaces;
+
+public static class Engines
 {
-    public static class Engines
-    {
-        public const string PubSub = "ContentService";
-        public const string RemotePubSub = "CDEPUBSUB";
-    }
+    public const string PubSub = "ContentService";
+    public const string RemotePubSub = "CDEPUBSUB";
 }

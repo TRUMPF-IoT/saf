@@ -8,22 +8,21 @@ using SAF.Common;
 using SAF.Services.SampleService1.MessageHandlers;
 using Xunit;
 
-namespace SAF.Services.SampleService1.Tests
+namespace SAF.Services.SampleService1.Tests;
+
+public class CatchAllMessageHandlerTests
 {
-    public class CatchAllMessageHandlerTests
+    [Fact]
+    public void LogsEverything()
     {
-        [Fact]
-        public void LogsEverything()
-        {
-            // Arrange
-            var loggerMock = Substitute.For<ILogger<CatchAllMessageHandler>>();
-            var sut = new CatchAllMessageHandler(loggerMock);
+        // Arrange
+        var loggerMock = Substitute.For<ILogger<CatchAllMessageHandler>>();
+        var sut = new CatchAllMessageHandler(loggerMock);
 
-            // Act
-            sut.Handle(new Message { Topic = "Test topic", Payload = "{ }" });
+        // Act
+        sut.Handle(new Message { Topic = "Test topic", Payload = "{ }" });
 
-            // Assert
-            loggerMock.ReceivedWithAnyArgs().LogInformation("Message: Test topic"); // TODO: how is string comparison done with NSubstitute?
-        }
+        // Assert
+        loggerMock.ReceivedWithAnyArgs().LogInformation("Message: Test topic"); // TODO: how is string comparison done with NSubstitute?
     }
 }

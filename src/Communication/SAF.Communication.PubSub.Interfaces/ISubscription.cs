@@ -3,21 +3,19 @@
 // SPDX-License-Identifier: MPL-2.0
 
 
-using System;
 using SAF.Common;
 
-namespace SAF.Communication.PubSub.Interfaces
+namespace SAF.Communication.PubSub.Interfaces;
+
+public interface ISubscription : IDisposable
 {
-    public interface ISubscription : IDisposable
-    {
-        Guid Id { get; }
+    Guid Id { get; }
 
-        RoutingOptions RoutingOptions { get; }
+    RoutingOptions RoutingOptions { get; }
 
-        string[] Patterns { get; }
+    string[] Patterns { get; }
 
-        void SetHandler(Action<DateTimeOffset, Message> handler);
+    void SetHandler(Action<DateTimeOffset, Message> handler);
 
-        void Unsubscribe();
-    }
+    void Unsubscribe();
 }

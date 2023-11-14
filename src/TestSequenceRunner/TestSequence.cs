@@ -2,51 +2,49 @@
 //
 // SPDX-License-Identifier: MPL-2.0
 
-using System;
 using SAF.Common;
 using SAF.Toolbox.Serialization;
 using SAF.DevToolbox.TestRunner;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 
-namespace TestSequenceRunner
+namespace TestSequenceRunner;
+
+internal class TestSequence : TestSequenceBase
 {
-    internal class TestSequence : TestSequenceBase
+    private readonly ILogger _log;
+    private readonly IMessagingInfrastructure _messaging;
+
+    private readonly string _myServiceId = Guid.NewGuid().ToString().ToLowerInvariant();
+
+    public TestSequence(ILogger<TestSequence> log, IMessagingInfrastructure messaging) : base(messaging)
     {
-        private readonly ILogger _log;
-        private readonly IMessagingInfrastructure _messaging;
+        _log = log as ILogger ?? NullLogger.Instance;
+        _messaging = messaging;
+    }
 
-        private readonly string _myServiceId = Guid.NewGuid().ToString().ToLowerInvariant();
+    public override void Run()
+    {
+        TraceTitle("Ping");
+        TraceDocumentation(string.Empty, "Sending a ping and write something to get some documentation.");
 
-        public TestSequence(ILogger<TestSequence> log, IMessagingInfrastructure messaging) : base(messaging)
+        _log.LogInformation("Publish \"ping\" message.");
+
+        var pingReturnTopic = $"ping/{_myServiceId}/response";
+        var pingReturnValue = string.Empty;
+        PayloadToVariable<TestSequence>(pingReturnTopic, payload => pingReturnValue = payload);
+
+        _messaging.Publish(new Message
         {
-            _log = log as ILogger ?? NullLogger.Instance;
-            _messaging = messaging;
-        }
+            Topic = "ping/request",
+            Payload = JsonSerializer.Serialize(new { ReplyTo = pingReturnTopic })
+        });
 
-        public override void Run()
-        {
-            TraceTitle("Ping");
-            TraceDocumentation(null, "Sending a ping and write something to get some documentation.");
+        WaitForValueSet(ref pingReturnValue, 15);
 
-            _log.LogInformation("Publish \"ping\" message.");
+        TraceDocumentation("Answer received", "Seems to be OK.");
+        _log.LogInformation($"Got \"ping\" answer: {pingReturnValue}");
 
-            var pingReturnTopic = $"ping/{_myServiceId}/response";
-            string pingReturnValue = null;
-            PayloadToVariable<TestSequence>(pingReturnTopic, payload => pingReturnValue = payload);
-
-            _messaging.Publish(new Message
-            {
-                Topic = "ping/request",
-                Payload = JsonSerializer.Serialize(new { ReplyTo = pingReturnTopic })
-            });
-
-            WaitForValueSet(ref pingReturnValue, 15);
-
-            TraceDocumentation("Answer received", "Seems to be OK.");
-            _log.LogInformation($"Got \"ping\" answer: {pingReturnValue}");
-
-            _log.LogInformation("Test sequence successfully passed!");
-        }
+        _log.LogInformation("Test sequence successfully passed!");
     }
 }

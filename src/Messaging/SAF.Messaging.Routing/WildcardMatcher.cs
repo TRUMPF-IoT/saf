@@ -3,49 +3,48 @@
 // SPDX-License-Identifier: MPL-2.0
 
 
-namespace SAF.Messaging.Routing
+namespace SAF.Messaging.Routing;
+
+public static class WildcardMatcher
 {
-    public static class WildcardMatcher
+    internal const char Single = '?';
+    internal const char Multiple = '*';
+    private const char End = '\0';
+    private const string All = "*"; // Use for short-circuit
+
+    public static unsafe bool IsMatch(this string @string, string pattern)
     {
-        internal const char Single = '?';
-        internal const char Multiple = '*';
-        private const char End = '\0';
-        private const string All = "*"; // Use for short-circuit
+        // Optimize catch-all
+        if(pattern == All) return true;
 
-        public static unsafe bool IsMatch(this string @string, string pattern)
+        fixed(char* p = pattern)
         {
-            // Optimize catch-all
-            if(pattern == All) return true;
-
-            fixed(char* p = pattern)
-            {
-                fixed(char* s = @string)
-                    return IsMatch(p, s);
-            }
+            fixed(char* s = @string)
+                return IsMatch(p, s);
         }
+    }
 
-        private static unsafe bool IsMatch(char* pattern, char* @string)
-        {
-            // Check if content is at end.
-            if(*pattern == End)
-                return *@string == End;
+    private static unsafe bool IsMatch(char* pattern, char* @string)
+    {
+        // Check if content is at end.
+        if(*pattern == End)
+            return *@string == End;
 
-            // Check if pattern contains multiple as last.
-            if (*pattern == Multiple && *(pattern + 1) == End)
-                return true;
+        // Check if pattern contains multiple as last.
+        if (*pattern == Multiple && *(pattern + 1) == End)
+            return true;
 
-            // Check for single character missing or match.
-            if (*pattern == Single || *pattern == *@string)
-                return *@string != End
-                       && IsMatch(pattern + 1, @string + 1);
+        // Check for single character missing or match.
+        if (*pattern == Single || *pattern == *@string)
+            return *@string != End
+                   && IsMatch(pattern + 1, @string + 1);
 
-            // Check for multiple character missing.
-            if(*pattern == Multiple)
-                return IsMatch(pattern + 1, @string)
-                       || *@string != End
-                       && IsMatch(pattern, @string + 1);
+        // Check for multiple character missing.
+        if(*pattern == Multiple)
+            return IsMatch(pattern + 1, @string)
+                   || *@string != End
+                   && IsMatch(pattern, @string + 1);
 
-            return false;
-        }
+        return false;
     }
 }

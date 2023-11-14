@@ -2,11 +2,10 @@
 //
 // SPDX-License-Identifier: MPL-2.0
 
-namespace SAF.Services.SampleService1
+namespace SAF.Services.SampleService1;
+
+public class MyServiceConfiguration
 {
-    public class MyServiceConfiguration
-    {
-        public string MyStringSetting { get; set; }
-        public int MyNumericSetting { get; set; }
-    }
+    public string? MyStringSetting { get; set; }
+    public int MyNumericSetting { get; set; }
 }

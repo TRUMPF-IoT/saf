@@ -47,7 +47,9 @@ jobs:
     - name: Setup .NET
       uses: actions/setup-dotnet@v3
       with:
-        dotnet-version: '7.x'
+        dotnet-version: '8.x'
+        cache: true
+        cache-dependency-path: 'Directory.Packages.props'
 
     - name: Cache nuget Packages
       uses: actions/cache@v3
@@ -83,7 +85,10 @@ jobs:
 
     - name: Run minver
       id: minver
-      uses: thefringeninja/action-minver@2.0.0-preview1
+      shell: powershell
+      run: |
+        $version = .\.tools\minver\minver.exe
+        "version=$version" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
 
     - name: nuget restore
       run: dotnet restore './src/SmartApplicationFramework.sln'
@@ -95,9 +100,13 @@ jobs:
       shell: powershell
       run: |
         .\.tools\sonarscanner\dotnet-sonarscanner begin /k:"TRUMPF-IoT_saf" /o:"trumpf-iot" /d:sonar.token="${{ secrets.SONAR_TOKEN }}" /d:sonar.host.url="https://sonarcloud.io" /d:sonar.dotnet.excludeTestProjects=true /d:sonar.cs.vscoveragexml.reportsPaths=coverage.xml
+        if ( $LASTEXITCODE -ne 0 ) { exit $LASTEXITCODE }
         dotnet build './src/SmartApplicationFramework.sln' --configuration Release --no-restore
+        if ( $LASTEXITCODE -ne 0 ) { exit $LASTEXITCODE }
         .\.tools\coverage\dotnet-coverage collect -f xml -o coverage.xml 'dotnet test ./src/SmartApplicationFramework.sln --configuration Release --no-build --no-restore --verbosity normal'
+        if ( $LASTEXITCODE -ne 0 ) { exit $LASTEXITCODE }
         .\.tools\sonarscanner\dotnet-sonarscanner end /d:sonar.login="${{ secrets.SONAR_TOKEN }}"
+        if ( $LASTEXITCODE -ne 0 ) { exit $LASTEXITCODE }
       
     - name: Pack
       run: |
@@ -115,4 +124,3 @@ jobs:
       if: github.event_name == 'push' && contains(github.ref, 'refs/tags/')
       run: |
         dotnet nuget push ".\artifacts\*.nupkg" --api-key "${{secrets.SAF_NUGETORG_APIKEY}}" --source https://api.nuget.org/v3/index.json --skip-duplicate
-      

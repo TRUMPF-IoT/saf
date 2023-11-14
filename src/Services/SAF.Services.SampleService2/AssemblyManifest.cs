@@ -5,15 +5,14 @@
 using Microsoft.Extensions.DependencyInjection;
 using SAF.Common;
 
-namespace SAF.Services.SampleService2
-{
-    public class AssemblyManifest : IServiceAssemblyManifest
-    {
-        public string FriendlyName => "Meine zweite Assembly";
+namespace SAF.Services.SampleService2;
 
-        public void RegisterDependencies(IServiceCollection services, IServiceHostContext context)
-        {
-            services.AddHostedAsync<MyService>();
-        }
+public class AssemblyManifest : IServiceAssemblyManifest
+{
+    public string FriendlyName => "Meine zweite Assembly";
+
+    public void RegisterDependencies(IServiceCollection services, IServiceHostContext context)
+    {
+        services.AddHostedAsync<MyService>();
     }
 }

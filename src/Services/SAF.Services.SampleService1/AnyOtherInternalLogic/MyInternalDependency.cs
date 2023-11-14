@@ -4,20 +4,19 @@
 
 using Microsoft.Extensions.Logging;
 
-namespace SAF.Services.SampleService1.AnyOtherInternalLogic
+namespace SAF.Services.SampleService1.AnyOtherInternalLogic;
+
+internal class MyInternalDependency
 {
-    internal class MyInternalDependency
+    private readonly ILogger<MyInternalDependency> _log;
+
+    public MyInternalDependency(ILogger<MyInternalDependency> log)
     {
-        private readonly ILogger<MyInternalDependency> _log;
+        _log = log;
+    }
 
-        public MyInternalDependency(ILogger<MyInternalDependency> log)
-        {
-            _log = log;
-        }
-
-        public void SayHello()
-        {
-            _log.LogInformation("Hello world, i'm an internal dependency, only visible within the SampleService1 assembly.");
-        }
+    public void SayHello()
+    {
+        _log.LogInformation("Hello world, i'm an internal dependency, only visible within the SampleService1 assembly.");
     }
 }

@@ -19,8 +19,13 @@ public static class ServiceCollectionExtensions
     /// <param name="serviceCollection">The service collection to add the service.</param>
     /// <returns>The serviceCollection for chaining.</returns>
     public static IServiceCollection AddHosted<TService>(this IServiceCollection serviceCollection)
-        where TService : IHostedService
-        => serviceCollection.AddSingleton(typeof(IHostedServiceBase), typeof(TService));
+        where TService : class, IHostedService
+    {
+        serviceCollection.AddHostedServiceBase<TService>();
+        serviceCollection.AddSingleton<IHostedService>(sp => sp.GetRequiredService<TService>());
+
+        return serviceCollection;
+    }
 
     /// <summary>
     /// Adds a hosted service to the container that supports async Start/Stop.
@@ -29,6 +34,20 @@ public static class ServiceCollectionExtensions
     /// <param name="serviceCollection">The service collection to add the service.</param>
     /// <returns>The serviceCollection for chaining.</returns>
     public static IServiceCollection AddHostedAsync<TService>(this IServiceCollection serviceCollection)
-        where TService : IHostedServiceAsync
-        => serviceCollection.AddSingleton(typeof(IHostedServiceBase), typeof(TService));
+        where TService : class, IHostedServiceAsync
+    {
+        serviceCollection.AddHostedServiceBase<TService>();
+        serviceCollection.AddSingleton<IHostedServiceAsync>(sp => sp.GetRequiredService<TService>());
+
+        return serviceCollection;
+    }
+
+    private static IServiceCollection AddHostedServiceBase<TService>(this IServiceCollection serviceCollection)
+        where TService : class, IHostedServiceBase
+    {
+        serviceCollection.AddSingleton<TService>();
+        serviceCollection.AddSingleton<IHostedServiceBase>(sp => sp.GetRequiredService<TService>());
+
+        return serviceCollection;
+    }
 }

@@ -4,25 +4,24 @@
 
 using SAF.Communication.PubSub.Interfaces;
 
-namespace SAF.Communication.PubSub.Cde
+namespace SAF.Communication.PubSub.Cde;
+
+internal class RegistryIdentity
 {
-    internal class RegistryIdentity
+    public RegistryIdentity(string address, string instanceId)
     {
-        public RegistryIdentity(string address, string instanceId)
-        {
-            this.address = address;
-            this.instanceId = instanceId;
-        }
+        this.address = address;
+        this.instanceId = instanceId;
+    }
 
 #pragma warning disable IDE1006 // naming convention
 
-        // ReSharper disable once InconsistentNaming
-        public string address;
-        // ReSharper disable once InconsistentNaming
-        public string instanceId;
-        // ReSharper disable once InconsistentNaming
-        public string version => PubSubVersion.Latest;
+    // ReSharper disable once InconsistentNaming
+    public string address;
+    // ReSharper disable once InconsistentNaming
+    public string instanceId;
+    // ReSharper disable once InconsistentNaming
+    public string version => PubSubVersion.Latest;
 
 #pragma warning restore IDE1006
-    }
 }

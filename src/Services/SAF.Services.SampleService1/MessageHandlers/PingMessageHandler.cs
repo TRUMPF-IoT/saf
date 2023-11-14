@@ -7,37 +7,37 @@ using Microsoft.Extensions.Logging.Abstractions;
 using SAF.Common;
 using SAF.Toolbox.Serialization;
 
-namespace SAF.Services.SampleService1.MessageHandlers
+namespace SAF.Services.SampleService1.MessageHandlers;
+
+internal class PingRequest
 {
-    internal class PingRequest
+    public string ReplyTo { get; set; } = default!;
+    public string Id { get; set; } = default!;
+}
+
+public class PingMessageHandler : IMessageHandler
+{
+    private readonly ILogger<PingMessageHandler> _log;
+    private readonly IMessagingInfrastructure _messaging;
+
+    public PingMessageHandler(ILogger<PingMessageHandler>? log, IMessagingInfrastructure messaging)
     {
-        public string ReplyTo { get; set; }
-        public string Id { get; set; }
+        _log = log ?? NullLogger<PingMessageHandler>.Instance;
+        _messaging = messaging;
     }
 
-    public class PingMessageHandler : IMessageHandler
+    public bool CanHandle(Message message)
+        => true;
+
+    public void Handle(Message message)
     {
-        private readonly ILogger<PingMessageHandler> _log;
-        private readonly IMessagingInfrastructure _messaging;
+        if (string.IsNullOrEmpty(message.Payload)) return;
 
-        public PingMessageHandler(ILogger<PingMessageHandler> log, IMessagingInfrastructure messaging)
-        {
-            _log = log ?? NullLogger<PingMessageHandler>.Instance;
-            _messaging = messaging;
-        }
+        var req = JsonSerializer.Deserialize<PingRequest>(message.Payload);
+        if(req == null) return;
 
-        public bool CanHandle(Message message)
-            => true;
-
-        public void Handle(Message message)
-        {
-            var req = JsonSerializer.Deserialize<PingRequest>(message.Payload);
-            var replyTo = req.ReplyTo;
-            _log.LogInformation($"Message ping/request ({req.Id})" + (replyTo == null ? "" : $", answering with {replyTo}"));
-            if (replyTo != null)
-            {
-                _messaging.Publish(new Message { Topic = replyTo, Payload = JsonSerializer.Serialize(new { req.Id }) });
-            }
-        }
+        var replyTo = req.ReplyTo;
+        _log.LogInformation($"Message ping/request ({req.Id})" + $", answering with {replyTo}");
+        _messaging.Publish(new Message { Topic = replyTo, Payload = JsonSerializer.Serialize(new { req.Id }) });
     }
 }

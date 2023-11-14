@@ -2,28 +2,25 @@
 //
 // SPDX-License-Identifier: MPL-2.0
 
-using System;
 using System.Diagnostics;
-using System.IO;
 
-namespace SAF.Hosting.Diagnostics
+namespace SAF.Hosting.Diagnostics;
+
+internal class SafVersionInfo
 {
-    internal class SafVersionInfo
+    public SafVersionInfo()
     {
-        public SafVersionInfo()
+        var safType = typeof(SafVersionInfo);
+        var assembly = safType.Assembly;
+        BuildNumber = assembly.GetName().Version?.ToString() ?? string.Empty;
+        if(!string.IsNullOrEmpty(assembly.Location))
         {
-            var safType = typeof(SafVersionInfo);
-            var assembly = safType.Assembly;
-            BuildNumber = assembly.GetName().Version.ToString();
-            if(!string.IsNullOrEmpty(assembly.Location))
-            {
-                Version = FileVersionInfo.GetVersionInfo(assembly.Location).ProductVersion;
-                BuildDate = File.GetLastWriteTimeUtc(assembly.Location);
-            }
+            Version = FileVersionInfo.GetVersionInfo(assembly.Location).ProductVersion ?? string.Empty;
+            BuildDate = File.GetLastWriteTimeUtc(assembly.Location);
         }
-
-        public string Version { get; set; }
-        public string BuildNumber { get; set; }
-        public DateTimeOffset BuildDate { get; set; }
     }
+
+    public string Version { get; set; } = string.Empty;
+    public string BuildNumber { get; set; }
+    public DateTimeOffset BuildDate { get; set; }
 }

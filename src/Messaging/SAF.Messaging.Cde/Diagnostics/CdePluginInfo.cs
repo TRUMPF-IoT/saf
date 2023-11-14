@@ -2,15 +2,12 @@
 //
 // SPDX-License-Identifier: MPL-2.0
 
-using System;
+namespace SAF.Messaging.Cde.Diagnostics;
 
-namespace SAF.Messaging.Cde.Diagnostics
+public class CdePluginInfo
 {
-    public class CdePluginInfo
-    {
-        public string Name { get; set; }
-        public string Version { get; set; }
-        public string BuildNumber { get; set; }
-        public DateTimeOffset BuildDate { get; set; }
-    }
+    public string Name { get; set; } = default!;
+    public string Version { get; set; } = default!;
+    public string BuildNumber { get; set; } = default!;
+    public DateTimeOffset BuildDate { get; set; }
 }

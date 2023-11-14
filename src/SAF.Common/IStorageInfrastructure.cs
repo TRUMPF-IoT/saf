@@ -48,7 +48,7 @@ public interface IStorageInfrastructure
     /// </summary>
     /// <param name="key">The Key</param>
     /// <returns>The value as a string saved under the key. Null if not found.</returns>
-    string GetString(string key);
+    string? GetString(string key);
 
     /// <summary>
     /// Returns the value that is saved under the key in a specific area as a string. Returns null if not found.
@@ -56,14 +56,14 @@ public interface IStorageInfrastructure
     /// <param name="area">The area</param>
     /// <param name="key">The Key</param>
     /// <returns>The value as a string saved under the key. Null if not found.</returns>
-    string GetString(string area, string key);
+    string? GetString(string area, string key);
 
     /// <summary>
     /// Returns the value that is saved under the key as a byte array. Returns null if not found.
     /// </summary>
     /// <param name="key">The Key</param>
     /// <returns>The value as a byte array saved under the key. Null if not found.</returns>
-    byte[] GetBytes(string key);
+    byte[]? GetBytes(string key);
 
     /// <summary>
     /// Returns the value that is saved under the key in a specific area as a byte array. Returns null if not found.
@@ -71,7 +71,7 @@ public interface IStorageInfrastructure
     /// <param name="area">The area</param>
     /// <param name="key">The Key</param>
     /// <returns>The value as a byte array saved under the key. Null if not found.</returns>
-    byte[] GetBytes(string area, string key);
+    byte[]? GetBytes(string area, string key);
 
     /// <summary>
     /// Removes the key with its value from the global area. 

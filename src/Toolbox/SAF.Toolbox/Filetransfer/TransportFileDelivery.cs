@@ -3,15 +3,12 @@
 // SPDX-License-Identifier: MPL-2.0
 
 
-using System;
+namespace SAF.Toolbox.FileTransfer;
 
-namespace SAF.Toolbox.FileTransfer
+public class TransportFileDelivery
 {
-    public class TransportFileDelivery
-    {
-        public bool IsConsistent;
-        public DateTimeOffset Timestamp;
-        public string Channel;
-        public TransportFile TransportFile;
-    }
+    public bool IsConsistent { get; set; }
+    public DateTimeOffset Timestamp { get; set; }
+    public string Channel { get; set; } = default!;
+    public TransportFile TransportFile { get; set; } = default!;
 }

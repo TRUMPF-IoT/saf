@@ -2,19 +2,16 @@
 //
 // SPDX-License-Identifier: MPL-2.0
 
-using System;
+namespace SAF.Toolbox.Heartbeat;
 
-namespace SAF.Toolbox.Heartbeat
+public class HeartbeatEventArgs : EventArgs
 {
-    public class HeartbeatEventArgs : EventArgs
-    {
-        public int BeatCycleTimeMillis { get; }
-        public long CurrentBeat { get; }
+    public int BeatCycleTimeMillis { get; }
+    public long CurrentBeat { get; }
 
-        public HeartbeatEventArgs(int beatCycleTimeMillis, long currentBeat)
-        {
-            BeatCycleTimeMillis = beatCycleTimeMillis;
-            CurrentBeat = currentBeat;
-        }
+    public HeartbeatEventArgs(int beatCycleTimeMillis, long currentBeat)
+    {
+        BeatCycleTimeMillis = beatCycleTimeMillis;
+        CurrentBeat = currentBeat;
     }
 }

@@ -2,12 +2,7 @@
 //
 // SPDX-License-Identifier: MPL-2.0
 
-using System;
-using System.Collections.Generic;
 using System.Diagnostics;
-using System.Linq;
-using System.Threading;
-using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using SAF.Common;
@@ -15,21 +10,20 @@ using SAF.Communication.PubSub;
 
 namespace SAF.Messaging.InProcess;
 
-internal class InProcessMessaging : IInProcessMessagingInfrastructure
+internal class InProcessMessaging : IInProcessMessagingInfrastructure, IDisposable
 {
     private readonly ILogger<InProcessMessaging> _log;
     private readonly IServiceMessageDispatcher _messageDispatcher;
-    private readonly Action<Message> _traceAction;
+    private Action<Message>? _traceAction;
 
     private readonly ReaderWriterLockSlim _syncSubscriptionsByType = new(LockRecursionPolicy.SupportsRecursion);
     private readonly Dictionary<string, List<string>> _subscriptionsByType = new();
 
     private readonly ReaderWriterLockSlim _syncSubscriptionsByLambda = new(LockRecursionPolicy.SupportsRecursion);
     private readonly Dictionary<string, List<Action<Message>>> _subscriptionsByLambda = new();
-
     private const string MessagingKeySeparator = "###########";
 
-    public InProcessMessaging(ILogger<InProcessMessaging> log, IServiceMessageDispatcher messageDispatcher, Action<Message> traceAction = null)
+    public InProcessMessaging(ILogger<InProcessMessaging>? log, IServiceMessageDispatcher messageDispatcher, Action<Message>? traceAction = null)
     {
         _log = log ?? NullLogger<InProcessMessaging>.Instance;
         _messageDispatcher = messageDispatcher;
@@ -50,13 +44,13 @@ internal class InProcessMessaging : IInProcessMessagingInfrastructure
         _syncSubscriptionsByType.EnterWriteLock();
         try
         {
-            if (_subscriptionsByType.ContainsKey(routeFilterPattern))
+            if (_subscriptionsByType.TryGetValue(routeFilterPattern, out var handlerList))
             {
-                _subscriptionsByType[routeFilterPattern].Add(typeof(TMessageHandler).FullName);
+                handlerList.Add(typeof(TMessageHandler).FullName!);
             }
             else
             {
-                _subscriptionsByType.Add(routeFilterPattern, new List<string> { typeof(TMessageHandler).FullName });
+                _subscriptionsByType.Add(routeFilterPattern, new List<string> { typeof(TMessageHandler).FullName! });
             }
         }
         finally
@@ -74,9 +68,9 @@ internal class InProcessMessaging : IInProcessMessagingInfrastructure
         _syncSubscriptionsByLambda.EnterWriteLock();
         try
         {
-            if (_subscriptionsByLambda.ContainsKey(routeFilterPattern))
+            if (_subscriptionsByLambda.TryGetValue(routeFilterPattern, out var lambdaList))
             {
-                _subscriptionsByLambda[routeFilterPattern].Add(handler);
+                lambdaList.Add(handler);
             }
             else
             {
@@ -138,7 +132,7 @@ internal class InProcessMessaging : IInProcessMessagingInfrastructure
 
     public void Unsubscribe(object subscription)
     {
-        if (!(subscription is string subscriptionKey) || string.IsNullOrWhiteSpace(subscriptionKey))
+        if (subscription is not string subscriptionKey || string.IsNullOrWhiteSpace(subscriptionKey))
             return;
 
         var kvp = subscriptionKey.Split(new[] { MessagingKeySeparator }, StringSplitOptions.RemoveEmptyEntries);
@@ -199,4 +193,36 @@ internal class InProcessMessaging : IInProcessMessagingInfrastructure
                 Debugger.Break();
 
         }, TaskContinuationOptions.NotOnRanToCompletion);
+
+    protected virtual void Dispose(bool disposing)
+    {
+        if (!disposing) return;
+        _traceAction = null;
+
+        _syncSubscriptionsByLambda.EnterWriteLock();
+        try
+        {
+            _subscriptionsByLambda.Clear();
+        }
+        finally
+        {
+            _syncSubscriptionsByLambda.ExitWriteLock();
+        }
+
+        _syncSubscriptionsByType.EnterWriteLock();
+        try
+        {
+            _subscriptionsByType.Clear();
+        }
+        finally
+        {
+            _syncSubscriptionsByType.ExitWriteLock();
+        }
+    }
+
+    public void Dispose()
+    {
+        Dispose(true);
+        GC.SuppressFinalize(this);
+    }
 }

@@ -2,16 +2,12 @@
 //
 // SPDX-License-Identifier: MPL-2.0
 
-using System;
-using System.Collections.Generic;
+namespace SAF.Communication.PubSub.Interfaces;
 
-namespace SAF.Communication.PubSub.Interfaces
+public interface IRegistryLifetimeHandler<TMessage>
 {
-    public interface IRegistryLifetimeHandler<TMessage>
-    {
-        event Action<TMessage, string> RegistryUp;
-        event Action<TMessage> RegistryDown;
+    event Action<TMessage, string> RegistryUp;
+    event Action<TMessage> RegistryDown;
 
-        IList<TMessage> Registries { get; }
-    }
+    IList<TMessage> Registries { get; }
 }

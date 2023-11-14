@@ -2,14 +2,11 @@
 //
 // SPDX-License-Identifier: MPL-2.0
 
-using System;
+namespace SAF.Toolbox.FileTransfer;
 
-namespace SAF.Toolbox.FileTransfer
+public interface IFileReceiver
 {
-    public interface IFileReceiver
-    {
-        void Subscribe(string topic, Action<TransportFileDelivery> callback);
-        void Unsubscribe(string topic);
-        void Unsubscribe();
-    }
+    void Subscribe(string topic, Action<TransportFileDelivery> callback);
+    void Unsubscribe(string topic);
+    void Unsubscribe();
 }

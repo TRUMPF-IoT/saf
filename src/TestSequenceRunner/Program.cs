@@ -2,26 +2,23 @@
 //
 // SPDX-License-Identifier: MPL-2.0
 
-using System;
+namespace TestSequenceRunner;
 
-namespace TestSequenceRunner
+class Program
 {
-    class Program
+    static void Main(string[] args)
     {
-        static void Main(string[] args)
+        using(var runner = new SAF.DevToolbox.TestRunner.TestSequenceRunner())
         {
-            using(var runner = new SAF.DevToolbox.TestRunner.TestSequenceRunner())
-            {
-                // runner.UseRedisInfrastructure()
-                // runner.UseCdeInfrastructure()
-                runner.UseInProcessInfrastructure()
-                    .TraceTestSequences()
-                    .RegisterTestDependencies(new TestAssemblyManifest())
-                    .AddTestSequence<TestSequence>()
-                    .Run();
-            }
-
-            Console.ReadLine();
+            // runner.UseRedisInfrastructure()
+            // runner.UseCdeInfrastructure()
+            runner.UseInProcessInfrastructure()
+                .TraceTestSequences()
+                .RegisterTestDependencies(new TestAssemblyManifest())
+                .AddTestSequence<TestSequence>()
+                .Run();
         }
+
+        Console.ReadLine();
     }
 }

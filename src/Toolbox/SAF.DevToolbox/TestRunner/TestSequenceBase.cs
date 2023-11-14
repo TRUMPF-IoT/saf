@@ -2,9 +2,7 @@
 //
 // SPDX-License-Identifier: MPL-2.0
 
-using System;
 using System.Collections.Concurrent;
-using System.Threading;
 using SAF.Common;
 
 namespace SAF.DevToolbox.TestRunner;
@@ -12,10 +10,10 @@ namespace SAF.DevToolbox.TestRunner;
 public abstract class TestSequenceBase : IMessageHandler
 {
     private readonly IMessagingInfrastructure _messaging;
-    private readonly ConcurrentDictionary<string, Action<string>> _persistActions = new();
+    private readonly ConcurrentDictionary<string, Action<string?>> _persistActions = new();
 
-    internal Action<string> TraceTitleAction { get; set; }
-    internal Action<string, string> TraceDocumentationAction { get; set; }
+    internal Action<string>? TraceTitleAction { get; set; }
+    internal Action<string, string>? TraceDocumentationAction { get; set; }
         
     public bool CanHandle(Message message) => true;
 
@@ -32,7 +30,7 @@ public abstract class TestSequenceBase : IMessageHandler
         action(message.Payload);
     }
 
-    protected void WaitForValueSet(ref string value, int timeoutSeconds)
+    protected void WaitForValueSet(ref string? value, int timeoutSeconds)
     {
         var c = 0;
         while (value == null && ++c <= timeoutSeconds * 5)
@@ -42,14 +40,14 @@ public abstract class TestSequenceBase : IMessageHandler
             throw new TimeoutException();
     }
 
-    protected IDisposable PayloadToVariable<T>(string topic, Action<string> persistAction) where T : IMessageHandler
+    protected IDisposable PayloadToVariable<T>(string topic, Action<string?> persistAction) where T : IMessageHandler
     {
         _persistActions.AddOrUpdate(topic, persistAction, (_, _) => persistAction);
         var subscribeId = _messaging.Subscribe<T>(topic);
         return new DisposableMessagingSubscription(_messaging, subscribeId);
     }
 
-    protected IDisposable PayloadToVariable(string topic, Action<string> persistAction)
+    protected IDisposable PayloadToVariable(string topic, Action<string?> persistAction)
     {
         var subscribeId = _messaging.Subscribe(topic, msg => persistAction(msg.Payload));
         return new DisposableMessagingSubscription(_messaging, subscribeId);
@@ -72,10 +70,6 @@ public abstract class TestSequenceBase : IMessageHandler
             _subscriptionId = subscriptionId;
         }
 
-        public void Dispose()
-        {
-            if (_subscriptionId == null) return;
-            _messaging.Unsubscribe(_subscriptionId);
-        }
+        public void Dispose() => _messaging.Unsubscribe(_subscriptionId);
     }
 }

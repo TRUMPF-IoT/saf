@@ -3,10 +3,9 @@
 // SPDX-License-Identifier: MPL-2.0
 
 
-namespace SAF.Storage.LiteDb
+namespace SAF.Storage.LiteDb;
+
+public class LiteDbConfiguration
 {
-    public class LiteDbConfiguration
-    {
-        public string ConnectionString { get; set; }
-    }
+    public string ConnectionString { get; set; } = string.Empty;
 }
