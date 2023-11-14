@@ -22,6 +22,7 @@ SPDX-License-Identifier: MPL-2.0
   <ItemGroup>
     <ProjectReference Include="..\..\SAF.Common\SAF.Common.csproj" />
     <ProjectReference Include="..\..\Toolbox\SAF.Toolbox\SAF.Toolbox.csproj" />
+    <ProjectReference Include="..\SAF.Hosting.Abstractions\SAF.Hosting.Abstractions.csproj" />
   </ItemGroup>
 
   <ItemGroup>

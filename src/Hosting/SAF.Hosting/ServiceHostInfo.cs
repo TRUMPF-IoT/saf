@@ -24,7 +24,7 @@ public class ServiceHostInfo : IServiceHostInfo
         set => _id = value;
     }
 
-    public string ServiceHostType { get; set; } = "Unknown";
+    public string? ServiceHostType { get; set; }
 
     public string FileSystemUserBasePath { get; set; } = "tempfs";
 

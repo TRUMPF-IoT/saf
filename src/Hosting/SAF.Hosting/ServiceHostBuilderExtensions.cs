@@ -1,20 +1,37 @@
 ﻿using Microsoft.Extensions.DependencyInjection;
+using SAF.Common;
+using SAF.Hosting.Diagnostics;
 
 namespace SAF.Hosting;
 
 public static class ServiceHostBuilderExtensions
 {
+    public static IServiceHostBuilder AddServiceAssemblySearch(this IServiceHostBuilder builder)
+        => builder.AddServiceAssemblySearch(_ => { });
+
     public static IServiceHostBuilder AddServiceAssemblySearch(this IServiceHostBuilder builder, Action<ServiceAssemblySearchOptions> setupAction)
     {
         builder.Services.Configure(setupAction);
-        builder.Services.PostConfigure<ServiceAssemblySearchOptions>(ValidateAssemblySearchOptions);
+        builder.Services.PostConfigure<ServiceAssemblySearchOptions>(ValidateServiceAssemblySearchOptions);
 
         builder.Services.AddSingleton<IServiceAssemblySearch, ServiceAssemblySearch>();
 
         return builder;
     }
 
-    private static void ValidateAssemblySearchOptions(ServiceAssemblySearchOptions options)
+    public static IServiceHostBuilder AddServiceAssembly(this IServiceHostBuilder builder, IServiceAssemblyManifest serviceAssemblyManifest)
+    {
+        builder.Services.AddSingleton(serviceAssemblyManifest);
+        return builder;
+    }
+
+    public static IServiceHostBuilder AddHostDiagnostics(this IServiceHostBuilder builder)
+    {
+        builder.Services.AddHostedService<ServiceHostDiagnostics>();
+        return builder;
+    }
+
+    private static void ValidateServiceAssemblySearchOptions(ServiceAssemblySearchOptions options)
     {
         const string errorLogFormat = "Configuration setting \"{0}\" not set!";
 
