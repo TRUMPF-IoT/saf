@@ -35,7 +35,7 @@ public static class ServiceHostBuilderExtensions
     public static IServiceHostBuilder AddCommonSingletonService(this IServiceHostBuilder builder, Type serviceType, Type implementationType)
     {
         builder.Services.AddSingleton(serviceType, implementationType);
-        builder.CommonServices.AddSingleton(serviceType, implementationType);
+        builder.CommonServices.Services.AddSingleton(serviceType, implementationType);
         return builder;
     }
 

@@ -11,14 +11,12 @@ internal class ServiceHostBuilder : IServiceHostBuilder
     public ServiceHostBuilder(IServiceCollection services)
     {
         Services = services;
-
-        // TODO: use seperate type for adding registered common services (e.g. something like a CommonServicesRegistry)
-        services.AddSingleton<IServiceHostBuilder>(this);
+        services.AddSingleton(CommonServices);
     }
 
     public IServiceCollection Services { get; }
 
-    public IServiceCollection CommonServices { get; } = new ServiceCollection();
+    public ICommonServicesRegistry CommonServices { get; } = new CommonServicesRegistry();
 
     public IServiceHostBuilder ConfigureServiceHostInfo(Action<ServiceHostInfoOptions> setupAction)
     {

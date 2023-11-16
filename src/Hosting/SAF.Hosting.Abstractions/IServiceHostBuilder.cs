@@ -13,9 +13,9 @@ public interface IServiceHostBuilder
     IServiceCollection Services { get; }
 
     /// <summary>
-    /// Gets an IServiceCollection of common services that will be redirected to the SAF plug-in DI containers.
+    /// Gets the common services registry that contains services that will be redirected to the SAF plug-in DI containers.
     /// </summary>
-    IServiceCollection CommonServices { get; }
+    ICommonServicesRegistry CommonServices { get; }
 
     /// <summary>
     /// Configures the <see cref="IServiceHostInfo"/> used by the SAF service host.

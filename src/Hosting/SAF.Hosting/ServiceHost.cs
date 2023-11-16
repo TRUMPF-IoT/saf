@@ -18,7 +18,7 @@ namespace SAF.Hosting;
 public sealed class ServiceHost(
     ILogger<ServiceHost> logger,
     IServiceProvider applicationServiceProvider,
-    IServiceHostBuilder serviceHostBuilder,     // TODO: this dependency will be changed to another type (see ServiceHostBuilder-constructor for more details).
+    ICommonServicesRegistry commonServicesRegistry,
     IServiceAssemblyManager serviceAssemblyManager,
     IServiceMessageDispatcher messageDispatcher,
     IConfiguration configuration)
@@ -66,7 +66,7 @@ public sealed class ServiceHost(
             logger.LogInformation($"Stopping all services took {stopWatch.Elapsed.TotalMilliseconds * 1000000:N0} ns");
 
             _services.Clear();
-            _serviceAssemblyServiceProviders.ForEach(service => service.Dispose());
+            _serviceAssemblyServiceProviders.ForEach(sp => sp.Dispose());
             _serviceAssemblyServiceProviders.Clear();
         }
         catch (TaskCanceledException)
@@ -236,23 +236,7 @@ public sealed class ServiceHost(
         assemblyServices.AddSingleton(_ => applicationServiceProvider.GetRequiredService<IMessagingInfrastructure>());
         assemblyServices.AddSingleton(_ => applicationServiceProvider.GetRequiredService<IStorageInfrastructure>());
 
-        foreach (var serviceDescriptor in serviceHostBuilder.CommonServices)
-        {
-            switch (serviceDescriptor.Lifetime)
-            {
-                case ServiceLifetime.Singleton:
-                    assemblyServices.AddSingleton(serviceDescriptor.ServiceType, _ => applicationServiceProvider.GetRequiredService(serviceDescriptor.ServiceType));
-                    break;
-                case ServiceLifetime.Scoped:
-                    assemblyServices.AddScoped(serviceDescriptor.ServiceType, _ => applicationServiceProvider.GetRequiredService(serviceDescriptor.ServiceType));
-                    break;
-                case ServiceLifetime.Transient:
-                    assemblyServices.AddTransient(serviceDescriptor.ServiceType, _ => applicationServiceProvider.GetRequiredService(serviceDescriptor.ServiceType));
-                    break;
-                default:
-                    throw new InvalidOperationException($"Unknown lifetime {serviceDescriptor.Lifetime} of common service {serviceDescriptor.ServiceType.Name}");
-            }
-        }
+        commonServicesRegistry.RedirectServicesTo(applicationServiceProvider, assemblyServices);
     }
 
     private void AddGlobalMessageHandlersToDispatcher()
