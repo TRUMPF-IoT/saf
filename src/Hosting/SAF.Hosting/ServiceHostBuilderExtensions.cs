@@ -1,5 +1,6 @@
 ﻿using Microsoft.Extensions.DependencyInjection;
 using SAF.Common;
+using SAF.Hosting.Abstractions;
 using SAF.Hosting.Diagnostics;
 
 namespace SAF.Hosting;
@@ -30,6 +31,17 @@ public static class ServiceHostBuilderExtensions
         builder.Services.AddHostedService<ServiceHostDiagnostics>();
         return builder;
     }
+
+    public static IServiceHostBuilder AddCommonSingletonService(this IServiceHostBuilder builder, Type serviceType, Type implementationType)
+    {
+        builder.Services.AddSingleton(serviceType, implementationType);
+        builder.CommonServices.AddSingleton(serviceType, implementationType);
+        return builder;
+    }
+
+    public static IServiceHostBuilder AddCommonSingletonService<TService, TImplementation>(this IServiceHostBuilder builder)
+        where TService : class where TImplementation : class, TService
+        => builder.AddCommonSingletonService(typeof(TService), typeof(TImplementation));
 
     private static void ValidateServiceAssemblySearchOptions(ServiceAssemblySearchOptions options)
     {

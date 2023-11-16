@@ -5,8 +5,8 @@
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using nsCDEngine.BaseClasses;
-using SAF.Common;
 using Microsoft.Extensions.DependencyInjection;
+using SAF.Hosting.Abstractions;
 using IHostedService = Microsoft.Extensions.Hosting.IHostedService;
 
 namespace SAF.Messaging.Cde.Diagnostics;

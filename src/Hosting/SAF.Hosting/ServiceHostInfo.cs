@@ -2,34 +2,30 @@
 //
 // SPDX-License-Identifier: MPL-2.0
 
-using SAF.Common;
-using System.Reflection;
+using SAF.Hosting.Abstractions;
 
 namespace SAF.Hosting;
 
-public class ServiceHostInfo : IServiceHostInfo
+internal class ServiceHostInfo : IServiceHostInfo
 {
+    private readonly ServiceHostInfoOptions _options;
     private readonly Func<string> _initializeId;
 
     private string? _id;
 
-    internal ServiceHostInfo(Func<string> initializeId)
+    internal ServiceHostInfo(ServiceHostInfoOptions options, Func<string> initializeId)
     {
+        _id = options.Id;
+        _options = options;
+
         _initializeId = initializeId;
     }
 
-    public string Id
-    {
-        get => _id ??= _initializeId();
-        set => _id = value;
-    }
+    public string Id => _id ??= _initializeId();
 
-    public string? ServiceHostType { get; set; }
-
-    public string FileSystemUserBasePath { get; set; } = "tempfs";
-
-    public string FileSystemInstallationPath { get; set; } =
-        Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location)!;
+    public string ServiceHostType => _options.ServiceHostType;
+    public string FileSystemUserBasePath => _options.FileSystemUserBasePath;
+    public string FileSystemInstallationPath => _options.FileSystemInstallationPath;
 
     public DateTimeOffset UpSince { get; } = DateTimeOffset.Now;
 }

@@ -4,6 +4,7 @@
 
 using Microsoft.Extensions.DependencyInjection;
 using SAF.Common;
+using SAF.Hosting.Abstractions;
 
 namespace SAF.Hosting;
 
@@ -16,13 +17,13 @@ public static class ServiceCollectionExtensions
     public static IServiceHostBuilder AddHost(this IServiceCollection services, Action<ServiceAssemblySearchOptions> configure)
         => services.AddHost(configure, null);
 
-    public static IServiceHostBuilder AddHost(this IServiceCollection services, Action<ServiceAssemblySearchOptions> configure, Action<ServiceHostInfo>? configureHostInfo = null)
+    public static IServiceHostBuilder AddHost(this IServiceCollection services, Action<ServiceAssemblySearchOptions> configure, Action<ServiceHostInfoOptions>? configureHostInfo)
     {
         var builder = services.AddHostCore()
             .AddServiceAssemblySearch(configure);
 
         if(configureHostInfo != null)
-            builder.WithServiceHostInfo(configureHostInfo);
+            builder.ConfigureServiceHostInfo(configureHostInfo);
 
         return builder;
     }

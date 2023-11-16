@@ -50,13 +50,13 @@ public class TestSequenceRunner : IDisposable
         _mainLogger = baseServiceProvider.GetRequiredService<ILogger<TestSequenceRunner>>();
         _mainLogger.LogInformation("Starting test runner console app...");
 
-        _applicationServices.AddConfiguration(_config);
+        _applicationServices.AddSingleton(_config);
         _applicationServices.AddHost(_config.GetSection("ServiceHost").Bind, hi =>
         {
             hi.ServiceHostType = "Test Sequence Runner";
             hi.FileSystemUserBasePath = "tempfs";
             hi.FileSystemInstallationPath = Directory.GetCurrentDirectory();
-        }, _mainLogger);
+        });
     }
 
     public TestSequenceRunner() : this(string.Empty)

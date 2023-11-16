@@ -3,28 +3,17 @@
 // SPDX-License-Identifier: MPL-2.0
 
 using Microsoft.Extensions.Logging;
-using Microsoft.Extensions.Logging.Abstractions;
 using SAF.Common;
+using SAF.Hosting.Abstractions;
 using SAF.Toolbox.Serialization;
-using IHostedService = Microsoft.Extensions.Hosting.IHostedService;
 
 namespace SAF.Hosting.Diagnostics;
 
-internal class ServiceHostDiagnostics : IHostedService
-{
-    private readonly ILogger<ServiceHostDiagnostics> _log;
-    private readonly IEnumerable<IServiceAssemblyManifest> _serviceAssemblies;
-    private readonly IServiceHostInfo _hostInfo;
-
-    public ServiceHostDiagnostics(ILogger<ServiceHostDiagnostics> log,
+internal class ServiceHostDiagnostics(ILogger<ServiceHostDiagnostics> log,
         IEnumerable<IServiceAssemblyManifest> serviceAssemblies,
         IServiceHostInfo hostInfo)
-    {
-        _log = log ?? NullLogger<ServiceHostDiagnostics>.Instance;
-        _serviceAssemblies = serviceAssemblies;
-        _hostInfo = hostInfo;
-    }
-
+    : Microsoft.Extensions.Hosting.IHostedService
+{
     public Task StartAsync(CancellationToken cancellationToken)
         => Task.Run(CollectAndSaveDiagnostics, cancellationToken);
 
@@ -34,12 +23,12 @@ internal class ServiceHostDiagnostics : IHostedService
     {
         try
         {
-            var nodeInfo = new SafNodeInfo(_hostInfo, _serviceAssemblies);
+            var nodeInfo = new SafNodeInfo(hostInfo, serviceAssemblies);
 
-            var targetDir = Path.Combine(_hostInfo.FileSystemUserBasePath, "diagnostics");
+            var targetDir = Path.Combine(hostInfo.FileSystemUserBasePath, "diagnostics");
             if (!Directory.Exists(targetDir)) Directory.CreateDirectory(targetDir);
 
-            var file = $"SafServiceHost_{_hostInfo.Id}.json";
+            var file = $"SafServiceHost_{hostInfo.Id}.json";
             var targetFile = Path.Combine(targetDir, file);
             if (File.Exists(targetFile)) File.Delete(targetFile);
 
@@ -48,7 +37,7 @@ internal class ServiceHostDiagnostics : IHostedService
         }
         catch (Exception ex)
         {
-            _log.LogError(ex, "Failed to collect and save service host diagnostic information!");
+            log.LogError(ex, "Failed to collect and save service host diagnostic information!");
         }
     }
 }

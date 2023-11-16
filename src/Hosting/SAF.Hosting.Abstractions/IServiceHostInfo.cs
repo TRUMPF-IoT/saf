@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: MPL-2.0
 
-namespace SAF.Common;
+namespace SAF.Hosting.Abstractions;
 
 /// <summary>
 /// Provides information about the Smart Application Framework (SAF) host instance.
@@ -20,12 +20,7 @@ public interface IServiceHostInfo
     string ServiceHostType { get; }
 
     /// <summary>
-    /// Gets the service host startup time.
-    /// </summary>
-    DateTimeOffset UpSince { get; }
-
-    /// <summary>
-    /// Gets the file system base path in which user specific data is stored.
+    /// Gets the file system base path in which application specific data is stored.
     /// </summary>
     string FileSystemUserBasePath { get; }
 
@@ -33,4 +28,9 @@ public interface IServiceHostInfo
     /// Gets the file system base path representing the installation folder of the SAF host application.
     /// </summary>
     string FileSystemInstallationPath { get; }
+
+    /// <summary>
+    /// Gets the service host startup time.
+    /// </summary>
+    DateTimeOffset UpSince { get; }
 }

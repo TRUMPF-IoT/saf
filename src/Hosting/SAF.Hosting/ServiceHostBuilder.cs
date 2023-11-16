@@ -4,13 +4,23 @@ using SAF.Hosting.Abstractions;
 
 namespace SAF.Hosting;
 
-internal class ServiceHostBuilder(IServiceCollection services) : IServiceHostBuilder
+internal class ServiceHostBuilder : IServiceHostBuilder
 {
-    private Action<ServiceHostInfo>? _configureServiceHostInfoAction;
+    private Action<ServiceHostInfoOptions>? _configureServiceHostInfoAction;
 
-    public IServiceCollection Services { get; } = services;
+    public ServiceHostBuilder(IServiceCollection services)
+    {
+        Services = services;
 
-    public IServiceHostBuilder WithServiceHostInfo(Action<ServiceHostInfoOptions> setupAction)
+        // TODO: use seperate type for adding registered common services (e.g. something like a CommonServicesRegistry)
+        services.AddSingleton<IServiceHostBuilder>(this);
+    }
+
+    public IServiceCollection Services { get; }
+
+    public IServiceCollection CommonServices { get; } = new ServiceCollection();
+
+    public IServiceHostBuilder ConfigureServiceHostInfo(Action<ServiceHostInfoOptions> setupAction)
     {
         _configureServiceHostInfoAction = setupAction;
         return this;
@@ -20,8 +30,10 @@ internal class ServiceHostBuilder(IServiceCollection services) : IServiceHostBui
     {
         Services.AddSingleton<IServiceHostInfo>(sp =>
             {
-                var info = new ServiceHostInfo(() => GetOrInitializeHostId(sp.GetService<IStorageInfrastructure>()));
-                _configureServiceHostInfoAction?.Invoke(info);
+                var options = new ServiceHostInfoOptions();
+                _configureServiceHostInfoAction?.Invoke(options);
+
+                var info = new ServiceHostInfo(options, () => GetOrInitializeHostId(sp.GetService<IStorageInfrastructure>()));
                 return info;
             });
 

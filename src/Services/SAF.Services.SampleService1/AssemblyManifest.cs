@@ -4,6 +4,7 @@
 
 using Microsoft.Extensions.DependencyInjection;
 using SAF.Common;
+using SAF.Hosting.Abstractions;
 using SAF.Services.SampleService1.AnyOtherInternalLogic;
 using SAF.Services.SampleService1.MessageHandlers;
 using SAF.Toolbox;

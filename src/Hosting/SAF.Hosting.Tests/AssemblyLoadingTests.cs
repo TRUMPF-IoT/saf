@@ -23,7 +23,7 @@ public class AssemblyLoadingTests
 
         var t = tempFile;
         // Act
-        servicesMock.AddHost(settings => settings.SearchPath = $"./{t.TempFileName}", loggerMock);
+        servicesMock.AddHost(settings => settings.SearchPath = $"./{t.TempFileName}");
 
         // Assert
 
@@ -49,7 +49,7 @@ public class AssemblyLoadingTests
         {
             var t = tempFile;
             // Act
-            serviceCollectionMock.AddHost(settings => settings.SearchPath = $"./{t.TempFileName}", loggerMock);
+            serviceCollectionMock.AddHost(settings => settings.SearchPath = $"./{t.TempFileName}");
 
             // Assert
 

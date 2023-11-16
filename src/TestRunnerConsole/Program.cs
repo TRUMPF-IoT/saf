@@ -5,11 +5,9 @@
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
-using Microsoft.Extensions.Logging;
 using SAF.Common;
 using SAF.Hosting;
 using SAF.Messaging.InProcess;
-using System;
 
 Console.Title = "SAF InProcess Test Host";
 

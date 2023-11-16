@@ -15,7 +15,6 @@ public interface IServiceAssemblySearch
 
 internal class ServiceAssemblySearch(ILogger<ServiceAssemblySearch> logger, IOptions<ServiceAssemblySearchOptions> searchOptions) : IServiceAssemblySearch
 {
-    private readonly ILogger<ServiceAssemblySearch> _logger = logger;
     private readonly ServiceAssemblySearchOptions _options = searchOptions.Value;
 
     public IEnumerable<IServiceAssemblyManifest> LoadServiceAssemblyManifests()
@@ -45,7 +44,11 @@ internal class ServiceAssemblySearch(ILogger<ServiceAssemblySearch> logger, IOpt
                 continue;
             }
 
-            var manifest = (IServiceAssemblyManifest)Activator.CreateInstance(assemblyManifests[0]);
+            if (Activator.CreateInstance(assemblyManifests[0]) is not IServiceAssemblyManifest manifest)
+            {
+                logger.LogError("Assembly {assemblyFullName} skipped: failed to create manifest instance.", loadedAssembly.FullName);
+                continue;
+            }
             manifests.Add(manifest);
         }
 
@@ -68,7 +71,7 @@ internal class ServiceAssemblySearch(ILogger<ServiceAssemblySearch> logger, IOpt
         if (searchPath == null) throw new ArgumentNullException(nameof(searchPath));
         if (fileNameFilterRegEx == null) throw new ArgumentNullException(nameof(fileNameFilterRegEx));
 
-        _logger.LogInformation("Searching SAF service assemblies using BasePath: {basePath}, SearchPath: {searchPath}, SearchFilenamePattern: {searchFilenamePattern}",
+        logger.LogInformation("Searching SAF service assemblies using BasePath: {basePath}, SearchPath: {searchPath}, SearchFilenamePattern: {searchFilenamePattern}",
             _options.BasePath, _options.SearchPath, _options.SearchFilenamePattern);
 
         // Use matcher to find service  assemblies
@@ -85,7 +88,7 @@ internal class ServiceAssemblySearch(ILogger<ServiceAssemblySearch> logger, IOpt
         var serviceAssemblyNameRegEx = new Regex(fileNameFilterRegEx, RegexOptions.IgnoreCase, Timeout.InfiniteTimeSpan);
         results = results.Where(assembly => serviceAssemblyNameRegEx.IsMatch(Path.GetFileName(assembly))).ToList();
 
-        _logger.LogInformation("Found {serviceAssemblyCount} possible SAF service assemblies [{serviceAssemblies}]",
+        logger.LogInformation("Found {serviceAssemblyCount} possible SAF service assemblies [{serviceAssemblies}]",
             results.Count, string.Join(", ", results.Select(Path.GetFileName)));
 
         return results;

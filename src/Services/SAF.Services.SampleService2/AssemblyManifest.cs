@@ -4,6 +4,7 @@
 
 using Microsoft.Extensions.DependencyInjection;
 using SAF.Common;
+using SAF.Hosting.Abstractions;
 
 namespace SAF.Services.SampleService2;
 

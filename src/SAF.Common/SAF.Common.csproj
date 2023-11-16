@@ -19,4 +19,8 @@ SPDX-License-Identifier: MPL-2.0
     <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" />
   </ItemGroup>
 
+  <ItemGroup>
+    <ProjectReference Include="..\Hosting\SAF.Hosting.Abstractions\SAF.Hosting.Abstractions.csproj" />
+  </ItemGroup>
+
 </Project>

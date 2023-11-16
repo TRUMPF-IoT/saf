@@ -8,21 +8,16 @@ public interface IServiceAssemblyManager
     IEnumerable<IServiceAssemblyManifest> GetServiceAssemblyManifests();
 }
 
-internal class ServiceAssemblyManager(
-    ILogger<ServiceAssemblyManager> logger,
-    IServiceAssemblySearch? assemblySearch,
-    IEnumerable<IServiceAssemblyManifest> serviceAssemblies)
+internal class ServiceAssemblyManager(ILogger<ServiceAssemblyManager> logger,
+        IServiceAssemblySearch? assemblySearch,
+        IEnumerable<IServiceAssemblyManifest> serviceAssemblies)
     : IServiceAssemblyManager
 {
-    private readonly ILogger<ServiceAssemblyManager> _logger = logger;
-    private readonly IServiceAssemblySearch? _assemblySearch = assemblySearch;
-    private readonly IEnumerable<IServiceAssemblyManifest> _serviceAssemblies = serviceAssemblies;
-
     public IEnumerable<IServiceAssemblyManifest> GetServiceAssemblyManifests()
     {
-        var loadedAssemblies = _assemblySearch?.LoadServiceAssemblyManifests();
+        var loadedAssemblies = assemblySearch?.LoadServiceAssemblyManifests();
 
-        _logger.LogInformation("Registered {assembliesRegisteredCount} assemblies.", _serviceAssemblies.Count());
-        return _serviceAssemblies.Concat(loadedAssemblies).ToList();
+        logger.LogInformation("Registered {assembliesRegisteredCount} assemblies.", serviceAssemblies.Count());
+        return serviceAssemblies.Concat(loadedAssemblies ?? Array.Empty<IServiceAssemblyManifest>()).ToList();
     }
 }
