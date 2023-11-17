@@ -8,6 +8,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using SAF.Common;
 using SAF.Hosting;
+using SAF.Hosting.Abstractions;
 using SAF.Messaging.Cde;
 using SAF.Messaging.InProcess;
 using SAF.Messaging.Redis;

@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: MPL-2.0
 
-namespace SAF.Common;
+namespace SAF.Hosting.Abstractions;
 
 /// <summary>
 /// Represents the base interface for hosted "microservice" within the SAF infrastructure.

@@ -7,6 +7,7 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using SAF.Common;
+using SAF.Hosting.Abstractions;
 using SAF.Services.SampleService1.AnyOtherInternalLogic;
 using SAF.Services.SampleService1.MessageHandlers;
 using SAF.Toolbox.Serialization;

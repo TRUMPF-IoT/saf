@@ -6,6 +6,7 @@ using SAF.Common;
 using SAF.Hosting.Diagnostics;
 using System.Diagnostics;
 using System.Reflection;
+using SAF.Hosting.Abstractions;
 using Xunit;
 
 namespace SAF.Hosting.Tests.Diagnostics;

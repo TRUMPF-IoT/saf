@@ -1,5 +1,6 @@
 ﻿using Microsoft.Extensions.Logging;
 using SAF.Common;
+using SAF.Hosting.Abstractions;
 
 namespace SAF.Hosting;
 

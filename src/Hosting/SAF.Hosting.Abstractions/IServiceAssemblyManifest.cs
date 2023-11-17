@@ -3,9 +3,8 @@
 // SPDX-License-Identifier: MPL-2.0
 
 using Microsoft.Extensions.DependencyInjection;
-using SAF.Hosting.Abstractions;
 
-namespace SAF.Common;
+namespace SAF.Hosting.Abstractions;
 
 /// <summary>
 ///     Describes a service assembly and provides a method where the services are registered to the hosted DI container.

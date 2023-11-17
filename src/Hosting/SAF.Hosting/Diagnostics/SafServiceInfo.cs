@@ -4,6 +4,7 @@
 
 using SAF.Common;
 using System.Diagnostics;
+using SAF.Hosting.Abstractions;
 
 namespace SAF.Hosting.Diagnostics;
 

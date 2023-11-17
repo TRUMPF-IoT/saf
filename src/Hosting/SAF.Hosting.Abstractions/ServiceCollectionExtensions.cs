@@ -2,13 +2,12 @@
 //
 // SPDX-License-Identifier: MPL-2.0
 
-
 using Microsoft.Extensions.DependencyInjection;
 
-namespace SAF.Common;
+namespace SAF.Hosting.Abstractions;
 
 /// <summary>
-///     Some extension methods to simplify service registration.
+/// Some extension methods to simplify service registration.
 /// </summary>
 public static class ServiceCollectionExtensions
 {

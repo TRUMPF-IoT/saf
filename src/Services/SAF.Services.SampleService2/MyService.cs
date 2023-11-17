@@ -4,6 +4,7 @@
 
 using Microsoft.Extensions.Logging;
 using SAF.Common;
+using SAF.Hosting.Abstractions;
 using SAF.Toolbox.Serialization;
 
 namespace SAF.Services.SampleService2;
