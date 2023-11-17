@@ -32,17 +32,6 @@ public static class ServiceHostBuilderExtensions
         return builder;
     }
 
-    public static IServiceHostBuilder AddCommonSingletonService(this IServiceHostBuilder builder, Type serviceType, Type implementationType)
-    {
-        builder.Services.AddSingleton(serviceType, implementationType);
-        builder.CommonServices.Services.AddSingleton(serviceType, implementationType);
-        return builder;
-    }
-
-    public static IServiceHostBuilder AddCommonSingletonService<TService, TImplementation>(this IServiceHostBuilder builder)
-        where TService : class where TImplementation : class, TService
-        => builder.AddCommonSingletonService(typeof(TService), typeof(TImplementation));
-
     private static void ValidateServiceAssemblySearchOptions(ServiceAssemblySearchOptions options)
     {
         const string errorLogFormat = "Configuration setting \"{0}\" not set!";

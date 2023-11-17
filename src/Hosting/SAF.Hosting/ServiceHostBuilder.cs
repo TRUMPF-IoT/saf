@@ -7,16 +7,17 @@ namespace SAF.Hosting;
 internal class ServiceHostBuilder : IServiceHostBuilder
 {
     private Action<ServiceHostInfoOptions>? _configureServiceHostInfoAction;
+    private readonly SharedServiceRegistry _sharedServices = new();
 
     public ServiceHostBuilder(IServiceCollection services)
     {
         Services = services;
-        services.AddSingleton(CommonServices);
+        services.AddSingleton(SharedServices);
     }
 
     public IServiceCollection Services { get; }
 
-    public ICommonServicesRegistry CommonServices { get; } = new CommonServicesRegistry();
+    public ISharedServiceRegistry SharedServices => _sharedServices;
 
     public IServiceHostBuilder ConfigureServiceHostInfo(Action<ServiceHostInfoOptions> setupAction)
     {
@@ -37,6 +38,16 @@ internal class ServiceHostBuilder : IServiceHostBuilder
 
         return this;
     }
+
+    public IServiceHostBuilder AddSharedSingleton(Type serviceType, Type implementationType)
+    {
+        Services.AddSingleton(serviceType, implementationType);
+        _sharedServices.SharedServices.AddSingleton(serviceType, implementationType);
+        return this;
+    }
+
+    public IServiceHostBuilder AddSharedSingleton<TService, TImplementation>() where TService : class where TImplementation : class, TService
+        => AddSharedSingleton(typeof(TService), typeof(TImplementation));
 
     /// <summary>
     /// Default behavior for determining the SAF host id. This method is used, if the host id is not set in the configuration callback.

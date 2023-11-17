@@ -18,7 +18,7 @@ namespace SAF.Hosting;
 public sealed class ServiceHost(
     ILogger<ServiceHost> logger,
     IServiceProvider applicationServiceProvider,
-    ICommonServicesRegistry commonServicesRegistry,
+    ISharedServiceRegistry sharedServiceRegistry,
     IServiceAssemblyManager serviceAssemblyManager,
     IServiceMessageDispatcher messageDispatcher,
     IConfiguration configuration)
@@ -232,11 +232,11 @@ public sealed class ServiceHost(
 
         assemblyServices.AddSingleton(_ => applicationServiceProvider.GetRequiredService<IConfiguration>());
 
-        // TODO: decide whether to keep this or let those services be registered as common services
+        // TODO: decide whether to keep this or let those services be registered as shared services
         assemblyServices.AddSingleton(_ => applicationServiceProvider.GetRequiredService<IMessagingInfrastructure>());
         assemblyServices.AddSingleton(_ => applicationServiceProvider.GetRequiredService<IStorageInfrastructure>());
 
-        commonServicesRegistry.RedirectServicesTo(applicationServiceProvider, assemblyServices);
+        sharedServiceRegistry.RedirectServicesTo(applicationServiceProvider, assemblyServices);
     }
 
     private void AddGlobalMessageHandlersToDispatcher()

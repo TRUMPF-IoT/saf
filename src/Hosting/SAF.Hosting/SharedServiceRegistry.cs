@@ -3,14 +3,16 @@ using SAF.Hosting.Abstractions;
 
 namespace SAF.Hosting;
 
-internal class CommonServicesRegistry : ICommonServicesRegistry
+internal class SharedServiceRegistry : ISharedServiceRegistry
 {
-    public IServiceCollection Services { get; } = new ServiceCollection();
+    internal IServiceCollection SharedServices { get; } = new ServiceCollection();
+
+    public IEnumerable<ServiceDescriptor> Services => SharedServices;
 }
 
 internal static class CommonServicesRegistryExtensions
 {
-    public static void RedirectServicesTo(this ICommonServicesRegistry registry, IServiceProvider source, IServiceCollection target)
+    public static void RedirectServicesTo(this ISharedServiceRegistry registry, IServiceProvider source, IServiceCollection target)
     {
         foreach (var serviceDescriptor in registry.Services)
         {

@@ -13,9 +13,9 @@ public interface IServiceHostBuilder
     IServiceCollection Services { get; }
 
     /// <summary>
-    /// Gets the common services registry that contains services that will be redirected to the SAF plug-in DI containers.
+    /// Gets the shared service registry that contains services that will be redirected to the SAF plug-in DI containers.
     /// </summary>
-    ICommonServicesRegistry CommonServices { get; }
+    ISharedServiceRegistry SharedServices { get; }
 
     /// <summary>
     /// Configures the <see cref="IServiceHostInfo"/> used by the SAF service host.
@@ -23,4 +23,7 @@ public interface IServiceHostBuilder
     /// <param name="setupAction">The configuration action.</param>
     /// <returns>The <see cref="IServiceHostBuilder"></see></returns>
     IServiceHostBuilder ConfigureServiceHostInfo(Action<ServiceHostInfoOptions> setupAction);
+
+    IServiceHostBuilder AddSharedSingleton(Type serviceType, Type implementationType);
+    IServiceHostBuilder AddSharedSingleton<TService, TImplementation>() where TService : class where TImplementation : class, TService;
 }
