@@ -1,13 +1,7 @@
 ﻿using Microsoft.Extensions.Logging;
-using SAF.Common;
 using SAF.Hosting.Abstractions;
 
 namespace SAF.Hosting;
-
-public interface IServiceAssemblyManager
-{
-    IEnumerable<IServiceAssemblyManifest> GetServiceAssemblyManifests();
-}
 
 internal class ServiceAssemblyManager(ILogger<ServiceAssemblyManager> logger,
         IServiceAssemblySearch? assemblySearch,
@@ -19,6 +13,8 @@ internal class ServiceAssemblyManager(ILogger<ServiceAssemblyManager> logger,
         var loadedAssemblies = assemblySearch?.LoadServiceAssemblyManifests();
 
         logger.LogInformation("Registered {assembliesRegisteredCount} assemblies.", serviceAssemblies.Count());
-        return serviceAssemblies.Concat(loadedAssemblies ?? Array.Empty<IServiceAssemblyManifest>()).ToList();
+        return serviceAssemblies
+            .Concat(loadedAssemblies ?? Array.Empty<IServiceAssemblyManifest>())
+            .ToList();
     }
 }

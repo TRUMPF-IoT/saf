@@ -1,9 +1,9 @@
 ﻿using Microsoft.Extensions.FileSystemGlobbing;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
-using SAF.Common;
 using System.Diagnostics;
 using System.Reflection;
+using System.Runtime.Loader;
 using System.Text.RegularExpressions;
 using SAF.Hosting.Abstractions;
 
@@ -30,7 +30,7 @@ internal class ServiceAssemblySearch(ILogger<ServiceAssemblySearch> logger, IOpt
 
         foreach (var assembly in assemblies)
         {
-            var loadedAssembly = Assembly.LoadFrom(assembly);
+            var loadedAssembly = AssemblyLoadContext.Default.LoadFromAssemblyPath(assembly);
             var versionInfo = FileVersionInfo.GetVersionInfo(loadedAssembly.Location);
 
             logger.LogInformation("Loading assembly: {assembly}, FileVersion: {fileVersion}, ProductVersion: {productVersion}, Version: {version}",

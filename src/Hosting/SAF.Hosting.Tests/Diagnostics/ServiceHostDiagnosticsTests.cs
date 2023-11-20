@@ -2,12 +2,12 @@
 //
 // SPDX-License-Identifier: MPL-2.0
 
-using SAF.Common;
 using SAF.Hosting.Diagnostics;
 using System.Diagnostics;
 using System.Reflection;
 using SAF.Hosting.Abstractions;
 using Xunit;
+using System.Runtime.Loader;
 
 namespace SAF.Hosting.Tests.Diagnostics;
 
@@ -27,7 +27,7 @@ public class ServiceHostDiagnosticsTests
     [Fact]
     public void SafServiceInfoFilledOk()
     {
-        var loadedAssembly = Assembly.LoadFrom("SAF.Hosting.TestServices.dll");
+        var loadedAssembly = AssemblyLoadContext.Default.LoadFromAssemblyPath("SAF.Hosting.TestServices.dll");
         var manifest = loadedAssembly.GetExportedTypes().SingleOrDefault(t => t.IsClass && typeof(IServiceAssemblyManifest).IsAssignableFrom(t));
         Assert.NotNull(manifest);
 

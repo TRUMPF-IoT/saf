@@ -31,6 +31,7 @@ SPDX-License-Identifier: MPL-2.0
     <PackageVersion Include="StackExchange.Redis" Version="2.7.4" />
     <PackageVersion Include="System.Data.SQLite.Core" Version="1.0.118" />
     <PackageVersion Include="System.IO.Abstractions" Version="19.2.87" />
+    <PackageVersion Include="System.Runtime.Loader" Version="4.3.0" />
     <PackageVersion Include="System.Text.Json" Version="8.0.0" />
     <PackageVersion Include="xunit" Version="2.6.1" />
     <PackageVersion Include="xunit.runner.visualstudio" Version="2.5.3" />

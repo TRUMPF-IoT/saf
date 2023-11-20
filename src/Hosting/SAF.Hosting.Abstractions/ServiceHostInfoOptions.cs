@@ -1,6 +1,4 @@
-﻿using System.Reflection;
-
-namespace SAF.Hosting.Abstractions;
+﻿namespace SAF.Hosting.Abstractions;
 
 /// <summary>
 /// Provides options to be used for the <see cref="IServiceHostInfo"/>.
