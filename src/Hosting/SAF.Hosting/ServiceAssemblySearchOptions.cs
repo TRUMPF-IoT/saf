@@ -23,7 +23,7 @@ public class ServiceAssemblySearchOptions
     /// Defines the base path to search for SAF plug-in assemblies using the globbing pattern specified in the property <see cref="SearchPath"/>.
     /// </summary>
     /// <remarks>In case no BasePath is specified SAF will use the current AppDomains base directory.</remarks>
-    public string BasePath { get; set; } = AppDomain.CurrentDomain.BaseDirectory;
+    public string BasePath { get; set; } = AppContext.BaseDirectory;
 
     /// <summary>
     /// Optional filtering using a RegEx pattern. Matching is performed on filenames without the path (e.g. MyService.dll).

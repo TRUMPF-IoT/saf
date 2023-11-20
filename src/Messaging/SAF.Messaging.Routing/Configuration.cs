@@ -20,7 +20,7 @@ public class Configuration
     /// </remarks>
     public string SearchPath { get; set; } = "SAF.Messaging.*.dll";
 
-    public string BasePath { get; set; } = AppDomain.CurrentDomain.BaseDirectory;
+    public string BasePath { get; set; } = AppContext.BaseDirectory;
 
     /// <summary>
     /// Optional filtering using a RegEx pattern. Matching is performed on filenames without the path (e.g. MyMessaging.dll).

@@ -25,6 +25,5 @@ public class ServiceHostInfoOptions
     /// <summary>
     /// File system base path representing the installation folder of the SAF host application.
     /// </summary>
-    public string FileSystemInstallationPath { get; set; } =
-        Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location)!;
+    public string FileSystemInstallationPath { get; set; } = AppContext.BaseDirectory;
 }

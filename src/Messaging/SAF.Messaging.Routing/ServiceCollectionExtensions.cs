@@ -38,7 +38,7 @@ public static class ServiceCollectionExtensions
 
     private static IServiceCollection AddRoutingMessagingInfrastructure(this IServiceCollection serviceCollection, Configuration config)
     {
-        var basePath = string.IsNullOrEmpty(config.BasePath) ? AppDomain.CurrentDomain.BaseDirectory : config.BasePath;
+        var basePath = string.IsNullOrEmpty(config.BasePath) ? AppContext.BaseDirectory : config.BasePath;
         var searchFilenamePattern = string.IsNullOrEmpty(config.SearchFilenamePattern) ? ".*" : config.SearchFilenamePattern;
         var searchPath = string.IsNullOrEmpty(config.SearchPath) ? "SAF.Messaging.*.dll" : config.SearchPath;
 
