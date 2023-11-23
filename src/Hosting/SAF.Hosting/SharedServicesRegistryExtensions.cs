@@ -21,7 +21,7 @@ internal static class SharedServicesRegistryExtensions
                     target.AddTransient(serviceDescriptor.ServiceType, _ => source.GetRequiredService(serviceDescriptor.ServiceType));
                     break;
                 default:
-                    throw new InvalidOperationException($"Unknown lifetime {serviceDescriptor.Lifetime} of common service {serviceDescriptor.ServiceType.Name}");
+                    throw new InvalidOperationException($"Unknown lifetime {serviceDescriptor.Lifetime} of shared service {serviceDescriptor.ServiceType.Name}");
             }
         }
     }
