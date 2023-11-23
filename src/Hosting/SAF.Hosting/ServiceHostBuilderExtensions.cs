@@ -19,9 +19,9 @@ public static class ServiceHostBuilderExtensions
         return builder;
     }
 
-    public static IServiceHostBuilder AddServiceAssembly(this IServiceHostBuilder builder, IServiceAssemblyManifest serviceAssemblyManifest)
+    public static IServiceHostBuilder AddServiceAssembly<T>(this IServiceHostBuilder builder) where T : class, IServiceAssemblyManifest
     {
-        builder.Services.AddSingleton(serviceAssemblyManifest);
+        builder.Services.AddSingleton<IServiceAssemblyManifest, T>();
         return builder;
     }
 

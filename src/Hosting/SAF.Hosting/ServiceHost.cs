@@ -22,7 +22,7 @@ public sealed class ServiceHost(
     IServiceAssemblyManager serviceAssemblyManager,
     IServiceMessageDispatcher messageDispatcher,
     IConfiguration configuration)
-    : Microsoft.Extensions.Hosting.IHostedService, IDisposable
+    : Microsoft.Extensions.Hosting.IHostedService
 {
     private readonly List<ServiceProvider> _serviceAssemblyServiceProviders = [];
     private readonly List<IHostedServiceBase> _services = [];
@@ -81,11 +81,6 @@ public sealed class ServiceHost(
         {
             linkedCts.Dispose();
         }
-    }
-
-    public void Dispose()
-    {
-        StopAsync(CancellationToken.None).Wait();
     }
 
     private async Task StartInternalAsync(CancellationToken token)
@@ -215,7 +210,7 @@ public sealed class ServiceHost(
             {
                 // keep a reference to the providing service provider within the message dispatcher for every registered message handler
                 logger.LogDebug("Add message handler factory function to dispatcher: {messageHandlerType}.", messageHandlerServiceType.FullName);
-                messageDispatcher.AddHandler(messageHandlerServiceType.FullName,
+                messageDispatcher.AddHandler(messageHandlerServiceType.FullName!,
                     () => (IMessageHandler) assemblyServiceProvider.GetRequiredService(messageHandlerServiceType));
             }
         }

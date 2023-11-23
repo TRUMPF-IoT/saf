@@ -128,52 +128,6 @@
 //        // TODO: await host.StopAsync(CancellationToken.None);
 //    }
 
-//    [Fact]
-//    public void SearchingServiceAssembliesWithWrongParameters()
-//    {
-//        //TODO: Assert.Throws<ArgumentNullException>(() => ServiceCollectionExtensions.SearchServiceAssemblies(null!, "**/*.txt", ".*"));
-//        //Assert.Throws<ArgumentNullException>(() => ServiceCollectionExtensions.SearchServiceAssemblies(Path.Combine(TestDataPath, "FilePatterns1"), null!, ".*"));
-//        //Assert.Throws<ArgumentNullException>(() => ServiceCollectionExtensions.SearchServiceAssemblies(Path.Combine(TestDataPath, "FilePatterns1"), "**/*.txt", null!));
-//    }
-
-//    [Fact]
-//    public void SearchingServiceAssembliesWithSubdirectoryWorks()
-//    {
-//        var result = ServiceCollectionExtensions.SearchServiceAssemblies(Path.Combine(TestDataPath, "FilePatterns1"), "**/*.txt", ".*").ToList();
-//        // All should match -> just compare count
-//        Assert.Equal(6, result.Count());
-//    }
-
-//    [Fact]
-//    public void SearchingServiceAssembliesWithoutSubdirectoryWorksCorrectly()
-//    {
-//        var result = ServiceCollectionExtensions.SearchServiceAssemblies(Path.Combine(TestDataPath, "FilePatterns1"), "*.txt", ".*").ToList();
-            
-//        Assert.Equal(2, result.Count());
-//        Assert.Contains(Path.Combine(TestDataPath, "FilePatterns1", "My.Service3.txt"), result);
-//        Assert.Contains(Path.Combine(TestDataPath, "FilePatterns1", "My.Service3.Contracts.txt"), result);
-//    }
-
-//    [Fact]
-//    public void SearchingServiceAssembliesWithExclusionGlobWorksCorrectly()
-//    {
-//        var result = ServiceCollectionExtensions.SearchServiceAssemblies(Path.Combine(TestDataPath, "FilePatterns1"), "**/My.Service*.txt;|**/*Contracts*.txt", ".*").ToList();
-
-//        Assert.Equal(3, result.Count());
-//        Assert.Contains(Path.Combine(TestDataPath, "FilePatterns1", "My.Service3.txt"), result);
-//        Assert.Contains(Path.Combine(TestDataPath, "FilePatterns1", "SubDir", "My.Service1.txt"), result);
-//        Assert.Contains(Path.Combine(TestDataPath, "FilePatterns1", "SubDir", "My.Service2.txt"), result);
-//    }
-
-//    [Fact]
-//    public void SearchingServiceAssembliesWithFilterPatternWorksCorrectly()
-//    {
-//        var result = ServiceCollectionExtensions.SearchServiceAssemblies(Path.Combine(TestDataPath, "FilePatterns1"), "*.txt", "^((?!Contracts).)*$");
-
-//        Assert.Single(result);
-//        Assert.Contains(Path.Combine(TestDataPath, "FilePatterns1", "My.Service3.txt"), result);
-//    }
-        
 //    private static ServiceHost SetupServiceHostWithCallCountersService(CallCounters callCounters, bool asyncService)
 //    {
 //        var hostInfo = Substitute.For<IServiceHostInfo>();

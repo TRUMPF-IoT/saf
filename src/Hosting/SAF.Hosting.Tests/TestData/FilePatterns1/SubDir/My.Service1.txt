@@ -1,2 +1,0 @@
-﻿File used for pattern tests.
-The file is required, because file system use in SAF.Hosting cannot be stubbed (easily).

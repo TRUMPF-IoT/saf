@@ -27,7 +27,7 @@ public class ServiceHostDiagnosticsTests
     [Fact]
     public void SafServiceInfoFilledOk()
     {
-        var loadedAssembly = AssemblyLoadContext.Default.LoadFromAssemblyPath("SAF.Hosting.TestServices.dll");
+        var loadedAssembly = AssemblyLoadContext.Default.LoadFromAssemblyPath(Path.Combine(AppContext.BaseDirectory, "SAF.Hosting.TestServices.dll"));
         var manifest = loadedAssembly.GetExportedTypes().SingleOrDefault(t => t.IsClass && typeof(IServiceAssemblyManifest).IsAssignableFrom(t));
         Assert.NotNull(manifest);
 

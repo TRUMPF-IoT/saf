@@ -13,8 +13,21 @@ public class TemporaryFileCopy : IDisposable
     {
         var curDir = Directory.GetCurrentDirectory();
         var originalFilePath = Path.Combine(curDir, originalFileRelativePath);
-        TempFileName = $"{Path.GetFileNameWithoutExtension(originalFilePath)}_{Guid.NewGuid()}_.{Path.GetExtension(originalFilePath)}";
+
+        TempFileName = $"{Path.GetFileNameWithoutExtension(originalFilePath)}_{Guid.NewGuid()}{Path.GetExtension(originalFilePath)}";
         TempFilePath = Path.Combine(curDir, TempFileName);
+
+        File.Copy(originalFilePath, TempFilePath);
+    }
+
+    public TemporaryFileCopy(string originalFileRelativePath, string relativeTargetDirectory)
+    {
+        var curDir = Directory.GetCurrentDirectory();
+        var originalFilePath = Path.Combine(curDir, originalFileRelativePath);
+        
+        TempFileName = $"{Path.GetFileNameWithoutExtension(originalFilePath)}_{Guid.NewGuid()}{Path.GetExtension(originalFilePath)}";
+        TempFilePath = Path.Combine(curDir, relativeTargetDirectory, TempFileName);
+
         File.Copy(originalFilePath, TempFilePath);
     }
 

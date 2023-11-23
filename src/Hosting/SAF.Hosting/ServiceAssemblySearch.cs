@@ -2,7 +2,6 @@
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using System.Diagnostics;
-using System.Reflection;
 using System.Runtime.Loader;
 using System.Text.RegularExpressions;
 using SAF.Hosting.Abstractions;
