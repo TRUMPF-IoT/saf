@@ -52,30 +52,6 @@ public class ServiceHostTests
     [Theory]
     [InlineData(false)]
     [InlineData(true)]
-    public async Task StopsLoadedServicesOnDispose(bool asyncService)
-    {
-        // Arrange
-        var callCounters = new CallCounters();
-        using (var sut = SetupServiceHostWithCallCountersService(callCounters, asyncService))
-        {
-            // Act
-            await sut.StartAsync(CancellationToken.None);
-
-            // Assert
-            Assert.Equal(1, callCounters.StartCalled);
-            Assert.Equal(0, callCounters.StopCalled);
-            Assert.Equal(0, callCounters.KillCalled);
-        }
-
-        // Assert
-        Assert.Equal(1, callCounters.StartCalled);
-        Assert.Equal(1, callCounters.StopCalled);
-        Assert.Equal(0, callCounters.KillCalled);
-    }
-
-    [Theory]
-    [InlineData(false)]
-    [InlineData(true)]
     public async Task RegistersHandlersWithinDispatchers(bool asyncService)
     {
         // Arrange

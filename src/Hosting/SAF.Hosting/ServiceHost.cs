@@ -66,21 +66,6 @@ public sealed class ServiceHost : Microsoft.Extensions.Hosting.IHostedService, I
             }
         }, cancellationToken);
 
-    private async Task StartInternalAsync(CancellationToken token)
-    {
-        var stopWatch = new Stopwatch();
-        stopWatch.Start();
-
-        InitializeServices();
-        AddRuntimeMessageHandlersToDispatcher();
-
-        await StartServicesAsync(_services, token);
-
-        stopWatch.Stop();
-
-        _log.LogInformation($"Starting all services took {stopWatch.Elapsed.TotalMilliseconds * 1000000:N0} ns");
-    }
-
     public async Task StopAsync(CancellationToken cancellationToken)
     {
         if (_services.Count == 0)
@@ -115,7 +100,22 @@ public sealed class ServiceHost : Microsoft.Extensions.Hosting.IHostedService, I
 
     public void Dispose()
     {
-        StopAsync(CancellationToken.None).Wait();
+        // intentionally left blank
+    }
+
+    private async Task StartInternalAsync(CancellationToken token)
+    {
+        var stopWatch = new Stopwatch();
+        stopWatch.Start();
+
+        InitializeServices();
+        AddRuntimeMessageHandlersToDispatcher();
+
+        await StartServicesAsync(_services, token);
+
+        stopWatch.Stop();
+
+        _log.LogInformation($"Starting all services took {stopWatch.Elapsed.TotalMilliseconds * 1000000:N0} ns");
     }
 
     private async Task StartServicesAsync(IEnumerable<IHostedServiceBase> services, CancellationToken cancelToken)
