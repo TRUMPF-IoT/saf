@@ -2,7 +2,7 @@
 
 ![License](https://img.shields.io/github/license/trumpf-iot/saf)
 ![Nuget](https://img.shields.io/nuget/v/SAF.Common)
-![.NET Core](https://github.com/TRUMPF-IoT/saf/workflows/.NET%20Core/badge.svg)
+![.NET Core](https://github.com/trumpf-iot/saf/actions/workflows/dotnet-core.yml/badge.svg?branch=master)
 
 The Smart Application Framework (SAF) is an open-source and cross-plattform framework for building distributed applications across cloud and edge. It allows developers to build resilient, stateless and stateful plug-ins that run on cloud and edge.
 
