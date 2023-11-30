@@ -89,7 +89,7 @@ public sealed class ServiceHost(
         stopWatch.Start();
 
         InitializeServices();
-        AddGlobalMessageHandlersToDispatcher();
+        AddApplicationMessageHandlersToDispatcher();
 
         await StartServicesAsync(_services, token);
 
@@ -205,8 +205,8 @@ public sealed class ServiceHost(
 
             var messageHandlerType = typeof(IMessageHandler);
             foreach (var messageHandlerServiceType in assemblyServiceCollection
-                         .Where(s => messageHandlerType.IsAssignableFrom(s.ServiceType))
-                         .Select(s => s.ServiceType))
+                         .Where(sd => messageHandlerType.IsAssignableFrom(sd.ServiceType))
+                         .Select(sd => sd.ServiceType))
             {
                 // keep a reference to the providing service provider within the message dispatcher for every registered message handler
                 logger.LogDebug("Add message handler factory function to dispatcher: {messageHandlerType}.", messageHandlerServiceType.FullName);
@@ -234,8 +234,10 @@ public sealed class ServiceHost(
         sharedServiceRegistry.RedirectServicesTo(applicationServiceProvider, assemblyServices);
     }
 
-    private void AddGlobalMessageHandlersToDispatcher()
+    private void AddApplicationMessageHandlersToDispatcher()
     {
+        // TODO: this should be reworked as with the current approach there is only one instance of each message handler type
+        // for the lifetime of this ServiceHost instance (which is usually the lifetime of the application itself).
         foreach(var runtimeApplicationMessageHandler in applicationServiceProvider.GetServices<IMessageHandler>())
         {
             var type = runtimeApplicationMessageHandler.GetType();
@@ -256,21 +258,17 @@ public sealed class ServiceHost(
     }
 
     private ServiceHostEnvironment BuildServiceHostEnvironment()
-    {
-        return new()
+        => new()
         {
             ApplicationName = Assembly.GetEntryAssembly()?.GetName().Name,
             EnvironmentName = GetEnvironment()
         };
-    }
 
     private IServiceHostContext BuildServiceHostContext()
-    {
-        return new ServiceHostContext
+        => new ServiceHostContext
         {
             Configuration = applicationServiceProvider.GetRequiredService<IConfiguration>(),
             Environment = BuildServiceHostEnvironment(),
             HostInfo = applicationServiceProvider.GetRequiredService<IServiceHostInfo>()
         };
-    }
 }
