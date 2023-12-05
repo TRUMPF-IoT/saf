@@ -15,6 +15,7 @@ public class TransportFile
 
     internal string Content { get; set; } = string.Empty;
     internal long OriginalLength { get; set; }
+    internal string? Fingerprint { get; set; }
 
     public string Name { get; }
     public string? MimeType { get; }
@@ -27,7 +28,7 @@ public class TransportFile
         Properties = properties;
     }
 
-    public void ReadFrom(Stream stream) => (Content, OriginalLength) = Encode(stream);
+    public void ReadFrom(Stream stream) => (Content, OriginalLength, Fingerprint) = Encode(stream);
 
     public void WriteTo(Stream stream) => Decode(stream, Content);
 
@@ -45,9 +46,14 @@ public class TransportFile
         properties["Content"] = Content;
         properties["OriginalLength"] = $"{OriginalLength}";
 
-        using var ms = new MemoryStream();
-        Decode(ms, Content);
-        properties["Fingerprint"] = GenerateFingerprint(ms);
+        if (string.IsNullOrEmpty(Fingerprint))
+        {
+            using var ms = new MemoryStream();
+            Decode(ms, Content);
+            Fingerprint = GenerateFingerprint(ms);
+        }
+
+        properties["Fingerprint"] = Fingerprint;
 
         return properties;
     }
@@ -68,18 +74,26 @@ public class TransportFile
         return StringComparer.OrdinalIgnoreCase.Compare(hash, fingerprint) == 0;
     }
 
-    private static (string encodedContent, long originalLength) Encode(Stream stream)
+    private (string encodedContent, long originalLength, string fingerprint) Encode(Stream stream)
+    {
+        var fingerprint = GenerateFingerprint(stream);
+        var originalLength = stream.Position;
+        stream.Seek(0, SeekOrigin.Begin);
+
+        var encodedContent = EncodeStream(stream);
+        return (encodedContent, originalLength, fingerprint);
+    }
+
+    private static string EncodeStream(Stream stream)
     {
         using var ms = new MemoryStream();
         using var cs = new CryptoStream(ms, new ToBase64Transform(), CryptoStreamMode.Write);
         stream.CopyTo(cs);
-        var originalLength = stream.Position;
-
         cs.FlushFinalBlock();
         ms.Flush();
         ms.Seek(0, SeekOrigin.Begin);
         var reader = new StreamReader(ms);
-        return (reader.ReadToEnd(), originalLength);
+        return reader.ReadToEnd();
     }
 
     private static void Decode(Stream stream, string content)
