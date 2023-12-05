@@ -57,7 +57,7 @@ public class MessageRoutingTest
         var routing = new MessageRouting(messaging);
 
         var sub = routing.Subscribe(pattern, testHandler)!;
-        messaging.Received().Subscribe(Arg.Is(pattern), Arg.Is(testHandler));
+        messaging.Received(1).Subscribe(Arg.Is(pattern), Arg.Is(testHandler));
 
         sub.Dispose();
         messaging.Received().Unsubscribe(subId);
@@ -80,7 +80,7 @@ public class MessageRoutingTest
             SubscriptionPatterns = Array.Empty<string>()
         };
         var sub = routing.Subscribe(pattern, testHandler)!;
-        messaging.Received().Subscribe(Arg.Is(pattern), Arg.Is(testHandler));
+        messaging.Received(1).Subscribe(Arg.Is(pattern), Arg.Is(testHandler));
 
         sub.Dispose();
         messaging.Received().Unsubscribe(subId);
@@ -107,7 +107,7 @@ public class MessageRoutingTest
             SubscriptionPatterns = new []{ routingPattern }
         };
         var sub = routing.Subscribe(pattern, testHandler)!;
-        messaging.Received().Subscribe(Arg.Is(pattern), Arg.Is(testHandler));
+        messaging.Received(1).Subscribe(Arg.Is(pattern), Arg.Is(testHandler));
 
         sub.Dispose();
         messaging.Received().Unsubscribe(subId);
@@ -133,7 +133,30 @@ public class MessageRoutingTest
             SubscriptionPatterns = new[] { routingPattern }
         };
         var sub = routing.Subscribe(pattern, testHandler)!;
-        messaging.Received().Subscribe(Arg.Is(routingPattern), Arg.Is(testHandler));
+        messaging.Received(1).Subscribe(Arg.Is(routingPattern), Arg.Is(testHandler));
+
+        sub.Dispose();
+        messaging.Received().Unsubscribe(subId);
+    }
+
+    [Theory]
+    [InlineData("*", "*")]
+    [InlineData("test/this/subtopic/*", "test/this/subtopic/*")]
+    [InlineData("*/this/topic", "*/this/topic")]
+    public void ExactMatchingRoutingPatternIsOnlySubscribedOnce(string pattern, string routingPattern)
+    {
+        var testHandler = (Message msg) => { };
+        var subId = new object();
+
+        var messaging = Substitute.For<IMessagingInfrastructure>();
+        messaging.Subscribe(Arg.Is(pattern), Arg.Is(testHandler)).Returns(subId);
+
+        var routing = new MessageRouting(messaging)
+        {
+            SubscriptionPatterns = [routingPattern]
+        };
+        var sub = routing.Subscribe(pattern, testHandler)!;
+        messaging.Received(1).Subscribe(Arg.Is(pattern), Arg.Is(testHandler));
 
         sub.Dispose();
         messaging.Received().Unsubscribe(subId);

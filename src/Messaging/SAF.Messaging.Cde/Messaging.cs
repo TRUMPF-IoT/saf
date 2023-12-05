@@ -74,7 +74,8 @@ internal class Messaging : ICdeMessagingInfrastructure
 
     public object Subscribe(string routeFilterPattern, Action<Message> handler)
     {
-        _log.LogDebug($"Subscribe \"lambda handler\" for route \"{routeFilterPattern}\", RelayOptions={_config.RoutingOptions}.");
+        _log.LogDebug("Subscribe lambda handler of type {targetType} for route {routeFilterPattern}, RelayOptions={routingOptions}.",
+            handler.Target?.ToString(), routeFilterPattern, _config.RoutingOptions);
 
         return InternalSubscribe(routeFilterPattern, message =>
         {
