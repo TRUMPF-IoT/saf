@@ -3,6 +3,7 @@
 // SPDX-License-Identifier: MPL-2.0
 
 using SAF.Common;
+using SAF.Communication.PubSub;
 
 namespace SAF.Messaging.Routing;
 
@@ -42,7 +43,7 @@ internal class MessageRouting : IMessageRouting
     public void Publish(Message message)
     {
         if (!MessageNeedsPublication(message.Topic)) return;
-        Messaging?.Publish(message);
+        Messaging.Publish(message);
     }
 
     /// <summary>
@@ -84,6 +85,9 @@ internal class MessageRouting : IMessageRouting
     }
 
     private IEnumerable<string> DetermineSubscriptionPatterns(string routeFilterPattern)
+        => SearchMatchingSubscriptionPatterns(routeFilterPattern).Distinct();
+
+    private IEnumerable<string> SearchMatchingSubscriptionPatterns(string routeFilterPattern)
     {
         if (SubscriptionPatterns == null || SubscriptionPatterns.Length == 0)
         {

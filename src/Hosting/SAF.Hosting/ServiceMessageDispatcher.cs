@@ -65,14 +65,16 @@ public class ServiceMessageDispatcher : IServiceMessageDispatcher
 
     public void DispatchMessage(Action<Message> handler, Message message)
     {
-        _log.LogDebug($"Dispatching message {message.Topic} with lambda handler.");
+        _log.LogDebug("Dispatching message {messageTopic} with lambda handler of target {targetType}.",
+            message.Topic, handler.Target?.ToString());
         try
         {
-            handler?.Invoke(message);
+            handler(message);
         }
         catch(Exception e)
         {
-            _log.LogError(e, $"Error while processing message {message.Topic} with lambda handler.");
+            _log.LogError(e, "Error while processing message {messageTopic} with lambda handler of target {targetType}",
+                message.Topic, handler.Target?.ToString());
         }
     }
 
