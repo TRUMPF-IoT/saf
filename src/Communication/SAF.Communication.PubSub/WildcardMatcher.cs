@@ -7,8 +7,8 @@ namespace SAF.Communication.PubSub
 {
     public static class WildcardMatcher
     {
-        private const char Single = '?';
-        private const char Multiple = '*';
+        internal const char Single = '?';
+        internal const char Multiple = '*';
         private const char End = '\0';
         private const string All = "*"; // Use for short-circuit
 
@@ -30,8 +30,12 @@ namespace SAF.Communication.PubSub
             if(*pattern == End)
                 return *@string == End;
 
+            // Check if pattern contains multiple as last.
+            if (*pattern == Multiple && *(pattern + 1) == End)
+                return true;
+
             // Check for single character missing or match.
-            if(*pattern == Single || *pattern == *@string)
+            if (*pattern == Single || *pattern == *@string)
                 return *@string != End
                        && IsMatch(pattern + 1, @string + 1);
 
