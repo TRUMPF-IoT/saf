@@ -3,10 +3,9 @@
 // SPDX-License-Identifier: MPL-2.0
 
 
-using SAF.Common;
-using SAF.Communication.PubSub.Interfaces;
-
 namespace SAF.Communication.PubSub;
+using Common;
+using Interfaces;
 
 public abstract class AbstractSubscription : ISubscription
 {

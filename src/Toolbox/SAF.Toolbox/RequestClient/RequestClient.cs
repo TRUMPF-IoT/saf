@@ -2,15 +2,14 @@
 //
 // SPDX-License-Identifier: MPL-2.0
 
+namespace SAF.Toolbox.RequestClient;
 using System.Collections.Concurrent;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
-using SAF.Common;
-using SAF.Common.Contracts;
-using SAF.Toolbox.Heartbeat;
-using SAF.Toolbox.Serialization;
-
-namespace SAF.Toolbox.RequestClient;
+using Common;
+using Common.Contracts;
+using Heartbeat;
+using Serialization;
 
 internal sealed class RequestClient : IRequestClient, IDisposable
 {

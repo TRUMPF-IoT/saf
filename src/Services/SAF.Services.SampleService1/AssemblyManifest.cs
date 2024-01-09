@@ -2,13 +2,12 @@
 //
 // SPDX-License-Identifier: MPL-2.0
 
-using Microsoft.Extensions.DependencyInjection;
-using SAF.Hosting.Abstractions;
-using SAF.Services.SampleService1.AnyOtherInternalLogic;
-using SAF.Services.SampleService1.MessageHandlers;
-using SAF.Toolbox;
-
 namespace SAF.Services.SampleService1;
+using Microsoft.Extensions.DependencyInjection;
+using Hosting.Abstractions;
+using AnyOtherInternalLogic;
+using MessageHandlers;
+using Toolbox;
 
 public class AssemblyManifest : IServiceAssemblyManifest
 {

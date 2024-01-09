@@ -2,11 +2,10 @@
 //
 // SPDX-License-Identifier: MPL-2.0
 
-using Microsoft.Extensions.Logging;
-using SAF.Hosting.Abstractions;
-using SAF.Toolbox.Serialization;
-
 namespace SAF.Hosting.Diagnostics;
+using Microsoft.Extensions.Logging;
+using Abstractions;
+using Toolbox.Serialization;
 
 internal class ServiceHostDiagnostics(ILogger<ServiceHostDiagnostics> log,
         IEnumerable<IServiceAssemblyManifest> serviceAssemblies,

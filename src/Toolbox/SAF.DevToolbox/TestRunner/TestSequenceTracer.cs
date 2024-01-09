@@ -2,11 +2,10 @@
 //
 // SPDX-License-Identifier: MPL-2.0
 
+namespace SAF.DevToolbox.TestRunner;
 using System.Diagnostics;
 using System.Text.Json;
-using SAF.Common;
-
-namespace SAF.DevToolbox.TestRunner;
+using Common;
 
 internal class TestSequenceTracer : IDisposable
 {

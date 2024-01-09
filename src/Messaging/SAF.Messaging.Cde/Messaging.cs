@@ -3,13 +3,12 @@
 // SPDX-License-Identifier: MPL-2.0
 
 
+namespace SAF.Messaging.Cde;
 using System.Collections.Concurrent;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
-using SAF.Common;
-using SAF.Communication.PubSub.Interfaces;
-
-namespace SAF.Messaging.Cde;
+using Common;
+using Communication.PubSub.Interfaces;
 
 /// <summary>
 /// Coordinates the publishing and receiving of messages via the C-DEngine.

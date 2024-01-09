@@ -2,10 +2,9 @@
 //
 // SPDX-License-Identifier: MPL-2.0
 
-using SAF.Common.Contracts;
-using SAF.Toolbox.Serialization;
-
 namespace SAF.Toolbox.RequestClient;
+using Common.Contracts;
+using Serialization;
 
 public interface IRequestClient
 {

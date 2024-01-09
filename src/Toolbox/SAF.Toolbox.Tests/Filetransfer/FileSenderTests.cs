@@ -2,13 +2,12 @@
 //
 // SPDX-License-Identifier: MPL-2.0
 
+namespace SAF.Toolbox.Tests.FileTransfer;
 using NSubstitute;
-using SAF.Common;
+using Common;
 using SAF.Toolbox.FileTransfer;
 using SAF.Toolbox.Serialization;
 using Xunit;
-
-namespace SAF.Toolbox.Tests.FileTransfer;
 
 public class FileSenderTests
 {

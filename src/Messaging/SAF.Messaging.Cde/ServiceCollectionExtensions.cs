@@ -2,16 +2,15 @@
 //
 // SPDX-License-Identifier: MPL-2.0
 
+namespace SAF.Messaging.Cde;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using nsCDEngine.Engines;
 using nsCDEngine.Engines.ThingService;
-using SAF.Common;
+using Common;
 using SAF.Communication.Cde;
 using SAF.Communication.PubSub.Cde;
-using SAF.Communication.PubSub.Interfaces;
-
-namespace SAF.Messaging.Cde;
+using Communication.PubSub.Interfaces;
 
 public static class ServiceCollectionExtensions
 {

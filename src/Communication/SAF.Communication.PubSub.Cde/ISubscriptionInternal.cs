@@ -2,10 +2,9 @@
 //
 // SPDX-License-Identifier: MPL-2.0
 
-using nsCDEngine.ViewModels;
-using SAF.Communication.PubSub.Interfaces;
-
 namespace SAF.Communication.PubSub.Cde;
+using nsCDEngine.ViewModels;
+using Interfaces;
 
 internal interface ISubscriptionInternal : ISubscription
 {

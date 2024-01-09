@@ -2,9 +2,8 @@
 //
 // SPDX-License-Identifier: MPL-2.0
 
-using System.Diagnostics;
-
 namespace SAF.Hosting.Diagnostics;
+using System.Diagnostics;
 
 internal class SafVersionInfo
 {

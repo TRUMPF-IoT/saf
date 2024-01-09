@@ -2,10 +2,9 @@
 //
 // SPDX-License-Identifier: MPL-2.0
 
-using System.Collections.Concurrent;
-using SAF.Communication.PubSub.Interfaces;
-
 namespace SAF.Communication.PubSub;
+using System.Collections.Concurrent;
+using Interfaces;
 
 internal struct RemoteRegistry<TMessage>
 {

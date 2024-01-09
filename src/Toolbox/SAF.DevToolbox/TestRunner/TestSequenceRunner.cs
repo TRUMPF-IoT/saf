@@ -2,18 +2,17 @@
 //
 // SPDX-License-Identifier: MPL-2.0
 
+namespace SAF.DevToolbox.TestRunner;
 using System.Diagnostics;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
-using SAF.Common;
-using SAF.Hosting;
-using SAF.Hosting.Abstractions;
-using SAF.Messaging.Cde;
-using SAF.Messaging.InProcess;
-using SAF.Messaging.Redis;
-
-namespace SAF.DevToolbox.TestRunner;
+using Common;
+using Hosting;
+using Hosting.Abstractions;
+using Messaging.Cde;
+using Messaging.InProcess;
+using Messaging.Redis;
 
 public class TestSequenceRunner : IDisposable
 {

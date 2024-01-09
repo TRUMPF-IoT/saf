@@ -1,17 +1,16 @@
-// SPDX-FileCopyrightText: 2017-2020 TRUMPF Laser GmbH
+// SPDX-FileCopyrightText: 2017-2024 TRUMPF Laser GmbH
 //
 // SPDX-License-Identifier: MPL-2.0
 
+namespace SAF.Hosting.Tests;
 using System.Reflection;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging.Abstractions;
 using NSubstitute;
-using SAF.Common;
-using SAF.Hosting.Abstractions;
+using Common;
+using Abstractions;
 using Xunit;
-
-namespace SAF.Hosting.Tests;
 
 public class ServiceHostTests
 {

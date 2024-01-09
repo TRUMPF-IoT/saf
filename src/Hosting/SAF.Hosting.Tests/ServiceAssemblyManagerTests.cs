@@ -1,9 +1,12 @@
-﻿using Microsoft.Extensions.Logging;
-using NSubstitute;
-using SAF.Hosting.Abstractions;
-using Xunit;
+﻿// SPDX-FileCopyrightText: 2017-2024 TRUMPF Laser GmbH
+//
+// SPDX-License-Identifier: MPL-2.0
 
 namespace SAF.Hosting.Tests;
+using Microsoft.Extensions.Logging;
+using NSubstitute;
+using Abstractions;
+using Xunit;
 
 public class ServiceAssemblyManagerTests
 {

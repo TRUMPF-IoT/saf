@@ -2,11 +2,11 @@
 //
 // SPDX-License-Identifier: MPL-2.0
 
-using Microsoft.Extensions.DependencyInjection;
-using SAF.Hosting.Abstractions;
-
 namespace SAF.Hosting.TestServices
 {
+    using Microsoft.Extensions.DependencyInjection;
+    using Abstractions;
+
     public class AssemblyManifest : IServiceAssemblyManifest
     {
         public string FriendlyName => "Test Assembly";

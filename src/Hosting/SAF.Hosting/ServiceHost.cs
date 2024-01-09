@@ -2,15 +2,14 @@
 //
 // SPDX-License-Identifier: MPL-2.0
 
+namespace SAF.Hosting;
 using System.Diagnostics;
 using System.Reflection;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
-using SAF.Common;
-using SAF.Hosting.Abstractions;
-
-namespace SAF.Hosting;
+using Common;
+using Abstractions;
 
 /// <summary>
 /// Central entry point for initializing and starting the services used.
@@ -236,8 +235,8 @@ public sealed class ServiceHost(
 
     private void AddApplicationMessageHandlersToDispatcher()
     {
-        // TODO: this should be reworked as with the current approach there is only one instance of each message handler type
-        // for the lifetime of this ServiceHost instance (which is usually the lifetime of the application itself).
+        // TODO: this should be reworked as with the current approach only one single instance of each message handler type
+        // TODO: for the lifetime of this ServiceHost instance is created (which is usually the lifetime of the application itself).
         foreach(var runtimeApplicationMessageHandler in applicationServiceProvider.GetServices<IMessageHandler>())
         {
             var type = runtimeApplicationMessageHandler.GetType();
@@ -257,8 +256,8 @@ public sealed class ServiceHost(
         return string.IsNullOrEmpty(environment) ? "Production" : environment;
     }
 
-    private ServiceHostEnvironment BuildServiceHostEnvironment()
-        => new()
+    private IServiceHostEnvironment BuildServiceHostEnvironment()
+        => new ServiceHostEnvironment
         {
             ApplicationName = Assembly.GetEntryAssembly()?.GetName().Name,
             EnvironmentName = GetEnvironment()

@@ -2,12 +2,11 @@
 //
 // SPDX-License-Identifier: MPL-2.0
 
+namespace SAF.Communication.PubSub.Cde;
 using nsCDEngine.BaseClasses;
 using nsCDEngine.ViewModels;
-using SAF.Common;
-using SAF.Communication.PubSub.Interfaces;
-
-namespace SAF.Communication.PubSub.Cde;
+using Common;
+using Interfaces;
 
 /// <summary>
 /// Defines the pattern and the handler to be executed for a subscription. 

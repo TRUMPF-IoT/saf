@@ -3,11 +3,10 @@
 // SPDX-License-Identifier: MPL-2.0
 
 
+namespace SAF.Toolbox.FileTransfer;
 using System.Security.Cryptography;
 using System.Text;
-using SAF.Toolbox.Serialization;
-
-namespace SAF.Toolbox.FileTransfer;
+using Serialization;
 
 public class TransportFile
 {

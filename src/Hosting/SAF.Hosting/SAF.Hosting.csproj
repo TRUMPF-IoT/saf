@@ -31,4 +31,8 @@ SPDX-License-Identifier: MPL-2.0
     <InternalsVisibleTo Include="DynamicProxyGenAssembly2" />
   </ItemGroup>
 
+  <ItemGroup>
+    <EditorConfigFiles Remove="D:\Repos\GitHub\TRUMPF-IoT\saf\src\Hosting\SAF.Hosting\.editorconfig" />
+  </ItemGroup>
+
 </Project>

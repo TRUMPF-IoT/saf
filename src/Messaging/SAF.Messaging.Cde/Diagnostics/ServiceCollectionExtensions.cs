@@ -2,9 +2,8 @@
 //
 // SPDX-License-Identifier: MPL-2.0
 
-using Microsoft.Extensions.DependencyInjection;
-
 namespace SAF.Messaging.Cde.Diagnostics;
+using Microsoft.Extensions.DependencyInjection;
 
 public static class ServiceCollectionExtensions
 {

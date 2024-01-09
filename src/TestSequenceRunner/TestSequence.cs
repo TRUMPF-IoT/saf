@@ -2,13 +2,12 @@
 //
 // SPDX-License-Identifier: MPL-2.0
 
+namespace TestSequenceRunner;
 using SAF.Common;
 using SAF.Toolbox.Serialization;
 using SAF.DevToolbox.TestRunner;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
-
-namespace TestSequenceRunner;
 
 internal class TestSequence : TestSequenceBase
 {

@@ -2,10 +2,10 @@
 //
 // SPDX-License-Identifier: MPL-2.0
 
-using SAF.Hosting.Abstractions;
-
 namespace SAF.Hosting.TestServices
 {
+    using Abstractions;
+
     public class DummyService : IHostedService
     {
         public void Start()

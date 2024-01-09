@@ -2,10 +2,9 @@
 //
 // SPDX-License-Identifier: MPL-2.0
 
-using System.Collections.Concurrent;
-using SAF.Common;
-
 namespace SAF.DevToolbox.TestRunner;
+using System.Collections.Concurrent;
+using Common;
 
 public abstract class TestSequenceBase : IMessageHandler
 {

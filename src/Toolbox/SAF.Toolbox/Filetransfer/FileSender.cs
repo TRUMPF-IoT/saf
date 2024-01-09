@@ -2,14 +2,13 @@
 //
 // SPDX-License-Identifier: MPL-2.0
 
+namespace SAF.Toolbox.FileTransfer;
 using System.Collections.Concurrent;
 using System.IO.MemoryMappedFiles;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
-using SAF.Common;
-using SAF.Toolbox.Serialization;
-
-namespace SAF.Toolbox.FileTransfer;
+using Common;
+using Serialization;
 
 internal class FileSender : IFileSender
 {

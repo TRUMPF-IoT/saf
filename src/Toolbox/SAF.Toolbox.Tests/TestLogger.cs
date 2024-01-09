@@ -2,10 +2,9 @@
 //
 // SPDX-License-Identifier: MPL-2.0
 
+namespace SAF.Toolbox.Tests;
 using Microsoft.Extensions.Logging;
 using Xunit.Abstractions;
-
-namespace SAF.Toolbox.Tests;
 
 internal class TestLogger : ILogger
 {

@@ -2,12 +2,11 @@
 //
 // SPDX-License-Identifier: MPL-2.0
 
-using Microsoft.Extensions.Logging;
-using SAF.Common;
-using SAF.Hosting.Abstractions;
-using SAF.Toolbox.Serialization;
-
 namespace SAF.Services.SampleService2;
+using Microsoft.Extensions.Logging;
+using Common;
+using Hosting.Abstractions;
+using Toolbox.Serialization;
 
 internal class PingRequest
 {

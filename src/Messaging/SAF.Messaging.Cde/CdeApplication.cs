@@ -2,6 +2,7 @@
 //
 // SPDX-License-Identifier: MPL-2.0
 
+namespace SAF.Messaging.Cde;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using nsCDEngine.BaseClasses;
@@ -9,8 +10,6 @@ using nsCDEngine.Engines;
 using nsCDEngine.Security;
 using nsCDEngine.ViewModels;
 using System.Reflection;
-
-namespace SAF.Messaging.Cde;
 
 internal sealed class CdeApplication : IDisposable
 {

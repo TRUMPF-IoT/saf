@@ -2,11 +2,10 @@
 //
 // SPDX-License-Identifier: MPL-2.0
 
-using SAF.Communication.PubSub.Cde.Authorization;
-using SAF.Communication.PubSub.Cde.MessageHandler.Authorization;
-using SAF.Communication.PubSub.Interfaces;
-
 namespace SAF.Communication.PubSub.Cde.MessageHandler;
+using SAF.Communication.PubSub.Cde.Authorization;
+using Authorization;
+using Interfaces;
 
 internal class MessageListener : IDisposable
 {

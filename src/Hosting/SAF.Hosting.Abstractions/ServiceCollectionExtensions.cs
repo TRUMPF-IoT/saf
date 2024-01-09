@@ -2,9 +2,8 @@
 //
 // SPDX-License-Identifier: MPL-2.0
 
-using Microsoft.Extensions.DependencyInjection;
-
 namespace SAF.Hosting.Abstractions;
+using Microsoft.Extensions.DependencyInjection;
 
 /// <summary>
 /// Some extension methods to simplify service registration.
@@ -27,7 +26,7 @@ public static class ServiceCollectionExtensions
     }
 
     /// <summary>
-    /// Adds a hosted service to the container that supports async Start/Stop.
+    /// Adds a hosted service to the container that supports async start/stop.
     /// </summary>
     /// <typeparam name="TService">The type of the service.</typeparam>
     /// <param name="serviceCollection">The service collection to add the service.</param>

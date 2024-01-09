@@ -2,9 +2,8 @@
 //
 // SPDX-License-Identifier: MPL-2.0
 
-using Xunit;
-
 namespace SAF.Communication.PubSub.Tests;
+using Xunit;
 
 public class WildcardMatcherTests
 {

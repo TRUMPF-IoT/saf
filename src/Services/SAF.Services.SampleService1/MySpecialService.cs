@@ -2,17 +2,16 @@
 //
 // SPDX-License-Identifier: MPL-2.0
 
+namespace SAF.Services.SampleService1;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
-using SAF.Common;
-using SAF.Hosting.Abstractions;
-using SAF.Services.SampleService1.AnyOtherInternalLogic;
-using SAF.Services.SampleService1.MessageHandlers;
-using SAF.Toolbox.Serialization;
-
-namespace SAF.Services.SampleService1;
+using Common;
+using Hosting.Abstractions;
+using AnyOtherInternalLogic;
+using MessageHandlers;
+using Toolbox.Serialization;
 
 internal class MySpecialService : IHostedService
 {

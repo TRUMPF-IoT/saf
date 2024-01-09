@@ -1,14 +1,13 @@
 ﻿// SPDX-FileCopyrightText: 2017-2021 TRUMPF Laser GmbH
 //
 // SPDX-License-Identifier: MPL-2.0
+namespace SAF.Toolbox.Tests;
 using Microsoft.Extensions.DependencyInjection;
 using NSubstitute;
-using SAF.Common;
-using SAF.Toolbox.Heartbeat;
-using SAF.Toolbox.RequestClient;
+using Common;
+using Heartbeat;
+using RequestClient;
 using Xunit;
-
-namespace SAF.Toolbox.Tests;
 
 public class ServiceCollectionExtensionsTests
 {

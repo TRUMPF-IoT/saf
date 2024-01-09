@@ -2,14 +2,13 @@
 //
 // SPDX-License-Identifier: MPL-2.0
 
+namespace SAF.Hosting.Tests;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using NSubstitute;
-using SAF.Common;
-using SAF.Hosting.Abstractions;
+using Common;
+using Abstractions;
 using Xunit;
-
-namespace SAF.Hosting.Tests;
 
 [CollectionDefinition("DiRedirectionTests", DisableParallelization = true)] // uses static stuff...
 public class DiRedirectionTests

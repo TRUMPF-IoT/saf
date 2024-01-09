@@ -3,15 +3,14 @@
 // SPDX-License-Identifier: MPL-2.0
 
 
+namespace SAF.Communication.PubSub.Cde.Authorization;
 using System.Collections.Concurrent;
 using System.Diagnostics;
 using nsCDEngine.BaseClasses;
 using nsCDEngine.Security;
 using nsCDEngine.ViewModels;
-using SAF.Common;
-using SAF.Communication.PubSub.Interfaces;
-
-namespace SAF.Communication.PubSub.Cde.Authorization;
+using Common;
+using Interfaces;
 
 public class AuthorizationService
 {

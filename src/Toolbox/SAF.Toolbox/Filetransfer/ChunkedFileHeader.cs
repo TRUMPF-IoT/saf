@@ -2,9 +2,8 @@
 //
 // SPDX-License-Identifier: MPL-2.0
 
-using System.IO.MemoryMappedFiles;
-
 namespace SAF.Toolbox.FileTransfer;
+using System.IO.MemoryMappedFiles;
 
 internal struct ChunkedFileHeader
 {

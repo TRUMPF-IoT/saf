@@ -2,9 +2,8 @@
 //
 // SPDX-License-Identifier: MPL-2.0
 
-using Microsoft.Extensions.Configuration;
-
 namespace SAF.Hosting.Abstractions;
+using Microsoft.Extensions.Configuration;
 
 /// <summary>
 /// Provides information about the hosting context a plug-in is running in.

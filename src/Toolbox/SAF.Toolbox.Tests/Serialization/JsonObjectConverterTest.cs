@@ -2,13 +2,12 @@
 //
 // SPDX-License-Identifier: MPL-2.0
 
+namespace SAF.Toolbox.Tests.Serialization;
 using System.Text.Json;
 using SAF.Toolbox.Serialization;
 using NSubstitute;
 using Xunit;
 using System.Text;
-
-namespace SAF.Toolbox.Tests.Serialization;
 
 public class JsonObjectConverterTest
 {

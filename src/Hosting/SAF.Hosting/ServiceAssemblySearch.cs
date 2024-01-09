@@ -1,17 +1,16 @@
-﻿using Microsoft.Extensions.FileSystemGlobbing;
+﻿// SPDX-FileCopyrightText: 2017-2024 TRUMPF Laser GmbH
+//
+// SPDX-License-Identifier: MPL-2.0
+
+namespace SAF.Hosting;
+
+using Microsoft.Extensions.FileSystemGlobbing;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using System.Diagnostics;
 using System.Runtime.Loader;
 using System.Text.RegularExpressions;
-using SAF.Hosting.Abstractions;
-
-namespace SAF.Hosting;
-
-public interface IServiceAssemblySearch
-{
-    IEnumerable<IServiceAssemblyManifest> LoadServiceAssemblyManifests();
-}
+using Abstractions;
 
 internal class ServiceAssemblySearch(ILogger<ServiceAssemblySearch> logger, IOptions<ServiceAssemblySearchOptions> searchOptions) : IServiceAssemblySearch
 {

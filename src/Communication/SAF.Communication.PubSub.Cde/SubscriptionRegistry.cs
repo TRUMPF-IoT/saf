@@ -2,15 +2,14 @@
 //
 // SPDX-License-Identifier: MPL-2.0
 
+namespace SAF.Communication.PubSub.Cde;
 using nsCDEngine.BaseClasses;
 using nsCDEngine.Engines.ThingService;
 using nsCDEngine.ViewModels;
-using SAF.Common;
+using Common;
 using SAF.Communication.Cde;
 using SAF.Communication.Cde.Utils;
-using SAF.Communication.PubSub.Interfaces;
-
-namespace SAF.Communication.PubSub.Cde;
+using Interfaces;
 
 /// <summary>
 /// Contains the data required for the registration of a subscriber.

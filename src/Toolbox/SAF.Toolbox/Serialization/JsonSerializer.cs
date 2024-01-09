@@ -2,12 +2,11 @@
 //
 // SPDX-License-Identifier: MPL-2.0
 
+namespace SAF.Toolbox.Serialization;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using JsonTransformer = System.Text.Json.JsonSerializer;
 using JsonConverter = System.Text.Json.Serialization.JsonConverter<object>;
-
-namespace SAF.Toolbox.Serialization;
 
 public static class JsonSerializer
 {

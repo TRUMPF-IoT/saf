@@ -2,14 +2,13 @@
 //
 // SPDX-License-Identifier: MPL-2.0
 
+namespace SAF.Hosting.Tests.Diagnostics;
 using SAF.Hosting.Diagnostics;
 using System.Diagnostics;
 using System.Reflection;
-using SAF.Hosting.Abstractions;
+using Abstractions;
 using Xunit;
 using System.Runtime.Loader;
-
-namespace SAF.Hosting.Tests.Diagnostics;
 
 public class ServiceHostDiagnosticsTests
 {

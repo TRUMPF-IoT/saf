@@ -73,7 +73,7 @@ public class Sorter
         var takenOverUntil = 0;
         while(takenOverUntil < lines.Count - 1)
         {
-            takenOverUntil = this.SortStep1(lines.ToArray(), takenOverUntil, result);
+            takenOverUntil = SortStep1(lines.ToArray(), takenOverUntil, result);
         }
         FileInfo fi = new(_filename);
         File.WriteAllLines(_filename.Replace(fi.Extension, ".sort" + fi.Extension), result.ToArray());
@@ -97,7 +97,7 @@ public class Sorter
                 break;
             }
         }
-        return this.SortStep2(lines, takenOverUntil, result);
+        return SortStep2(lines, takenOverUntil, result);
     }
 
     /// <summary>

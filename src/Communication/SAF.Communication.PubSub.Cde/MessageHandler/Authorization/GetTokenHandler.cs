@@ -3,10 +3,9 @@
 // SPDX-License-Identifier: MPL-2.0
 
 
+namespace SAF.Communication.PubSub.Cde.MessageHandler.Authorization;
 using SAF.Communication.PubSub.Cde.Authorization;
 using nsCDEngine.ViewModels;
-
-namespace SAF.Communication.PubSub.Cde.MessageHandler.Authorization;
 
 internal class GetTokenHandler : MessageHandler
 {

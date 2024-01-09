@@ -2,10 +2,9 @@
 //
 // SPDX-License-Identifier: MPL-2.0
 
+namespace SAF.Storage.LiteDb.Test;
 using Xunit;
 using LiteDB;
-
-namespace SAF.Storage.LiteDb.Test;
 
 public class StorageTests : IDisposable
 {
