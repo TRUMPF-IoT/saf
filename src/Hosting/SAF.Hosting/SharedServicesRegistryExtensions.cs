@@ -8,7 +8,7 @@ using Abstractions;
 
 internal static class SharedServicesRegistryExtensions
 {
-    public static void RedirectServicesTo(this ISharedServiceRegistry registry, IServiceProvider source, IServiceCollection target)
+    public static void RedirectServices(this ISharedServiceRegistry registry, IServiceProvider source, IServiceCollection target)
     {
         foreach (var serviceDescriptor in registry.Services)
         {

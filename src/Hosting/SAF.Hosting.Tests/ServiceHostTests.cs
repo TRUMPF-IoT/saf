@@ -20,6 +20,7 @@ public class ServiceHostTests
     private readonly ISharedServiceRegistry _sharedServiceRegistry = Substitute.For<ISharedServiceRegistry>();
     private readonly IServiceAssemblyManager _serviceAssemblyManager = Substitute.For<IServiceAssemblyManager>();
     private readonly IServiceAssemblyManifest _assemblyManifest = Substitute.For<IServiceAssemblyManifest>();
+    private readonly IServiceMessageHandlerTypes _messageHandlerTypes = Substitute.For<IServiceMessageHandlerTypes>();
 
     private string TestAssemblyPath => Path.GetDirectoryName(new Uri(Assembly.GetExecutingAssembly().Location).LocalPath)!;
 
@@ -70,7 +71,7 @@ public class ServiceHostTests
         
         await host.StartAsync(CancellationToken.None);
 
-        _dispatcher.Received(1).AddHandler(Arg.Is(messageHandler.GetType().FullName!), Arg.Any<Func<IMessageHandler>>());
+        _dispatcher.Received(1).AddHandler(Arg.Is(messageHandler.GetType()), Arg.Any<Func<IMessageHandler>>());
     }
 
     //[Theory]
@@ -120,7 +121,9 @@ public class ServiceHostTests
         var serviceAssemblies = new List<IServiceAssemblyManifest> { _assemblyManifest };
         _serviceAssemblyManager.GetServiceAssemblyManifests().Returns(serviceAssemblies);
 
-        return new ServiceHost(NullLogger<ServiceHost>.Instance, serviceProvider, _sharedServiceRegistry, _serviceAssemblyManager, _dispatcher, _configuration);
+        _messageHandlerTypes.GetMessageHandlerTypes().Returns([]);
+
+        return new ServiceHost(NullLogger<ServiceHost>.Instance, serviceProvider, _messageHandlerTypes, _sharedServiceRegistry, _serviceAssemblyManager, _dispatcher, _configuration);
     }
 
     private class DummyMessageHandler : IMessageHandler

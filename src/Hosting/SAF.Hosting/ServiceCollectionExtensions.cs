@@ -53,6 +53,7 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<IServiceAssemblyManager, ServiceAssemblyManager>();
         services.AddSingleton<IServiceMessageDispatcher, ServiceMessageDispatcher>();
 
+        services.AddSingleton<IServiceMessageHandlerTypes, ServiceMessageHandlerTypes>(_ => new ServiceMessageHandlerTypes(services));
         services.AddSingleton<ServiceHost>();
         services.AddHostedService(sp => sp.GetRequiredService<ServiceHost>());
 

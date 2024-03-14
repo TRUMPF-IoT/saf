@@ -14,9 +14,10 @@ using Abstractions;
 /// <summary>
 /// Central entry point for initializing and starting the services used.
 /// </summary>
-public sealed class ServiceHost(
+public class ServiceHost(
     ILogger<ServiceHost> logger,
     IServiceProvider applicationServiceProvider,
+    IServiceMessageHandlerTypes hostMessageHandlerTypes,
     ISharedServiceRegistry sharedServiceRegistry,
     IServiceAssemblyManager serviceAssemblyManager,
     IServiceMessageDispatcher messageDispatcher,
@@ -202,16 +203,8 @@ public sealed class ServiceHost(
             var servicesToAdd = assemblyServiceProvider.GetServices<IHostedServiceBase>();
             _services.AddRange(servicesToAdd);
 
-            var messageHandlerType = typeof(IMessageHandler);
-            foreach (var messageHandlerServiceType in assemblyServiceCollection
-                         .Where(sd => messageHandlerType.IsAssignableFrom(sd.ServiceType))
-                         .Select(sd => sd.ServiceType))
-            {
-                // keep a reference to the providing service provider within the message dispatcher for every registered message handler
-                logger.LogDebug("Add message handler factory function to dispatcher: {messageHandlerType}.", messageHandlerServiceType.FullName);
-                messageDispatcher.AddHandler(messageHandlerServiceType.FullName!,
-                    () => (IMessageHandler) assemblyServiceProvider.GetRequiredService(messageHandlerServiceType));
-            }
+            var assemblyMessageHandlerTypes = new ServiceMessageHandlerTypes(assemblyServiceCollection);
+            AddMessageHandlersToDispatcher(assemblyMessageHandlerTypes.GetMessageHandlerTypes(), assemblyServiceProvider);
         }
     }
 
@@ -230,18 +223,18 @@ public sealed class ServiceHost(
         assemblyServices.AddSingleton(_ => applicationServiceProvider.GetRequiredService<IMessagingInfrastructure>());
         assemblyServices.AddSingleton(_ => applicationServiceProvider.GetRequiredService<IStorageInfrastructure>());
 
-        sharedServiceRegistry.RedirectServicesTo(applicationServiceProvider, assemblyServices);
+        sharedServiceRegistry.RedirectServices(applicationServiceProvider, assemblyServices);
     }
 
     private void AddApplicationMessageHandlersToDispatcher()
+        => AddMessageHandlersToDispatcher(hostMessageHandlerTypes.GetMessageHandlerTypes(), applicationServiceProvider);
+
+    private void AddMessageHandlersToDispatcher(IEnumerable<Type> messageHandlerTypes, IServiceProvider serviceProvider)
     {
-        // TODO: this should be reworked as with the current approach only one single instance of each message handler type
-        // TODO: for the lifetime of this ServiceHost instance is created (which is usually the lifetime of the application itself).
-        foreach(var runtimeApplicationMessageHandler in applicationServiceProvider.GetServices<IMessageHandler>())
+        foreach (var type in messageHandlerTypes)
         {
-            var type = runtimeApplicationMessageHandler.GetType();
-            logger.LogDebug($"Add runtime message handler factory function to dispatcher: {type.FullName}.");
-            messageDispatcher.AddHandler(type.FullName!, () => runtimeApplicationMessageHandler);
+            logger.LogDebug($"Add message handler factory function to dispatcher: {type.FullName}.");
+            messageDispatcher.AddHandler(type, () => (IMessageHandler)serviceProvider.GetRequiredService(type));
         }
     }
 

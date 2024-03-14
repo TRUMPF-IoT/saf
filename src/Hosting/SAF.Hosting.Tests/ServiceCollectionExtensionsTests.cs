@@ -23,6 +23,7 @@ public class ServiceCollectionExtensionsTests
         Assert.Contains(services, s => s.ServiceType == typeof(ServiceHost));
         Assert.Contains(services, s => s.ServiceType == typeof(Microsoft.Extensions.Hosting.IHostedService));
         Assert.Contains(services, s => s.ServiceType == typeof(IServiceHostInfo));
+        Assert.Contains(services, s => s.ServiceType == typeof(IServiceMessageHandlerTypes));
 
         Assert.Equal(services, builder.Services);
     }
