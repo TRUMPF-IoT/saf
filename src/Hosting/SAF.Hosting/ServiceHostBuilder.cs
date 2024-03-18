@@ -42,16 +42,6 @@ internal class ServiceHostBuilder : IServiceHostBuilder
         return this;
     }
 
-    public IServiceHostBuilder AddSharedSingleton(Type serviceType, Type implementationType)
-    {
-        Services.AddSingleton(serviceType, implementationType);
-        _sharedServices.SharedServices.AddSingleton(serviceType, implementationType);
-        return this;
-    }
-
-    public IServiceHostBuilder AddSharedSingleton<TService, TImplementation>() where TService : class where TImplementation : class, TService
-        => AddSharedSingleton(typeof(TService), typeof(TImplementation));
-
     /// <summary>
     /// Default behavior for determining the SAF host id. This method is used, if the host id is not set in the configuration callback.
     /// - Read host id from storage key "saf/hostid"

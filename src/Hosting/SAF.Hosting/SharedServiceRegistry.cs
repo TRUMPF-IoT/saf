@@ -8,7 +8,5 @@ using Abstractions;
 
 internal class SharedServiceRegistry : ISharedServiceRegistry
 {
-    internal IServiceCollection SharedServices { get; } = new ServiceCollection();
-
-    public IEnumerable<ServiceDescriptor> Services => SharedServices;
+    public IServiceCollection Services { get; } = new ServiceCollection();
 }

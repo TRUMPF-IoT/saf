@@ -26,7 +26,4 @@ public interface IServiceHostBuilder
     /// <param name="setupAction">The configuration action.</param>
     /// <returns>The <see cref="IServiceHostBuilder"></see></returns>
     IServiceHostBuilder ConfigureServiceHostInfo(Action<ServiceHostInfoOptions> setupAction);
-
-    IServiceHostBuilder AddSharedSingleton(Type serviceType, Type implementationType);
-    IServiceHostBuilder AddSharedSingleton<TService, TImplementation>() where TService : class where TImplementation : class, TService;
 }

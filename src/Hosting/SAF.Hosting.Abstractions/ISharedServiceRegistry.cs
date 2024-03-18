@@ -7,12 +7,12 @@ using Microsoft.Extensions.DependencyInjection;
 
 /// <summary>
 /// An interface for accessing SAF shared services like infrastructure services.
-/// Such services will be registered using IServiceHostBuilder.AddSharedSingleton.
+/// Shared services will be redirected to the SAF plug-in DI containers.
 /// </summary>
 public interface ISharedServiceRegistry
 {
     /// <summary>
-    /// Gets the shared services registered with this instance.
+    /// Gets the IServiceCollection containing shared services that are registered with this instance.
     /// </summary>
-    IEnumerable<ServiceDescriptor> Services { get; }
+    IServiceCollection Services { get; }
 }
