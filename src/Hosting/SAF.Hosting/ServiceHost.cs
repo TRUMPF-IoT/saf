@@ -191,9 +191,8 @@ public class ServiceHost(
 
             var assemblyServiceCollection = new ServiceCollection();
 
-            RedirectCommonServicesFromOuterContainer(assemblyServiceCollection, context);
-
-            //TODO: redirect toolbox services
+            RedirectCommonServices(assemblyServiceCollection, context);
+            sharedServiceRegistry.RedirectServices(applicationServiceProvider, assemblyServiceCollection);
 
             manifest.RegisterDependencies(assemblyServiceCollection, context);
 
@@ -208,7 +207,7 @@ public class ServiceHost(
         }
     }
 
-    private void RedirectCommonServicesFromOuterContainer(IServiceCollection assemblyServices, IServiceHostContext context)
+    private void RedirectCommonServices(IServiceCollection assemblyServices, IServiceHostContext context)
     {
         assemblyServices.AddSingleton(_ => applicationServiceProvider.GetRequiredService<ILoggerFactory>());
         assemblyServices.AddTransient(_ => applicationServiceProvider.GetRequiredService<ILogger>());
@@ -219,11 +218,8 @@ public class ServiceHost(
 
         assemblyServices.AddSingleton(_ => applicationServiceProvider.GetRequiredService<IConfiguration>());
 
-        // TODO: decide whether to keep this or let those services be registered as shared services
         assemblyServices.AddSingleton(_ => applicationServiceProvider.GetRequiredService<IMessagingInfrastructure>());
         assemblyServices.AddSingleton(_ => applicationServiceProvider.GetRequiredService<IStorageInfrastructure>());
-
-        sharedServiceRegistry.RedirectServices(applicationServiceProvider, assemblyServices);
     }
 
     private void AddApplicationMessageHandlersToDispatcher()
@@ -242,9 +238,11 @@ public class ServiceHost(
     {
         var environment = configuration["environment"];
 
-        if(string.IsNullOrWhiteSpace(environment))
+        if (string.IsNullOrWhiteSpace(environment))
+        {
             environment = Environment.GetEnvironmentVariable("NETCORE_ENVIRONMENT")
                           ?? Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT");
+        }
 
         return string.IsNullOrEmpty(environment) ? "Production" : environment;
     }

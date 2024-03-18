@@ -10,6 +10,7 @@ using Microsoft.Extensions.Logging.Abstractions;
 using NSubstitute;
 using Common;
 using Abstractions;
+using Microsoft.Extensions.Logging;
 using Xunit;
 
 public class ServiceHostTests
@@ -20,7 +21,6 @@ public class ServiceHostTests
     private readonly ISharedServiceRegistry _sharedServiceRegistry = Substitute.For<ISharedServiceRegistry>();
     private readonly IServiceAssemblyManager _serviceAssemblyManager = Substitute.For<IServiceAssemblyManager>();
     private readonly IServiceAssemblyManifest _assemblyManifest = Substitute.For<IServiceAssemblyManifest>();
-    private readonly IServiceMessageHandlerTypes _messageHandlerTypes = Substitute.For<IServiceMessageHandlerTypes>();
 
     private string TestAssemblyPath => Path.GetDirectoryName(new Uri(Assembly.GetExecutingAssembly().Location).LocalPath)!;
 
@@ -29,11 +29,11 @@ public class ServiceHostTests
     [Theory]
     [InlineData(false)]
     [InlineData(true)]
-    public async Task StartAsyncInitializesStartsAndStopsHostedServices(bool asyncService)
+    public async Task StartAsyncInitializesAndStartsHostedServices(bool asyncService)
     {
         var service = asyncService ? (IHostedServiceBase)Substitute.For<IHostedServiceAsync>() : Substitute.For<IHostedService>();
 
-        var host = SetupServiceHost(services => services.AddSingleton(service));
+        var host = SetupServiceHost(_ => { }, services => services.AddSingleton(service));
 
         await host.StartAsync(CancellationToken.None);
 
@@ -63,15 +63,87 @@ public class ServiceHostTests
         }
     }
 
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task StopAsyncStopsHostedServices(bool asyncService)
+    {
+        var service = asyncService ? (IHostedServiceBase)Substitute.For<IHostedServiceAsync>() : Substitute.For<IHostedService>();
+
+        var host = SetupServiceHost(_ => { }, services => services.AddSingleton(service));
+        await host.StartAsync(CancellationToken.None);
+
+        await host.StopAsync(CancellationToken.None);
+
+        if (asyncService)
+        {
+            await ((IHostedServiceAsync)service).Received(1).StopAsync(Arg.Any<CancellationToken>());
+        }
+        else
+        {
+            ((IHostedService)service).Received(1).Stop();
+        }
+    }
+
+    [Fact]
+    public async Task StartAsyncAddsApplicationMessageHandlerToMessageDispatcher()
+    {
+        var host = SetupServiceHost(appServices => appServices.AddTransient<DummyMessageHandler>(), _ => { });
+
+        await host.StartAsync(CancellationToken.None);
+
+        _dispatcher.Received(1).AddHandler(Arg.Is(typeof(DummyMessageHandler)), Arg.Any<Func<IMessageHandler>>());
+    }
+
     [Fact]
     public async Task StartAsyncAddsServiceMessageHandlerToMessageDispatcher()
     {
-        var messageHandler = new DummyMessageHandler();
-        var host = SetupServiceHost(services => services.AddSingleton(messageHandler));
+        var host = SetupServiceHost(_ => { }, services => services.AddTransient<DummyMessageHandler>());
         
         await host.StartAsync(CancellationToken.None);
 
-        _dispatcher.Received(1).AddHandler(Arg.Is(messageHandler.GetType()), Arg.Any<Func<IMessageHandler>>());
+        _dispatcher.Received(1).AddHandler(Arg.Is(typeof(DummyMessageHandler)), Arg.Any<Func<IMessageHandler>>());
+    }
+
+    [Fact]
+    public async Task StartAsyncRedirectsCommonServices()
+    {
+        var host = SetupServiceHost(_ => { }, _ => { });
+
+       IServiceCollection? assemblyServices = null;
+        _assemblyManifest.When(m => m.RegisterDependencies(Arg.Any<IServiceCollection>(), Arg.Any<IServiceHostContext>()))
+            .Do(ci => assemblyServices = ci.Arg<IServiceCollection>());
+
+        await host.StartAsync(CancellationToken.None);
+
+        Assert.NotNull(assemblyServices);
+        Assert.Contains(assemblyServices, sd => sd.ServiceType == typeof(IMessagingInfrastructure));
+        Assert.Contains(assemblyServices, sd => sd.ServiceType == typeof(IStorageInfrastructure));
+        Assert.Contains(assemblyServices, sd => sd.ServiceType == typeof(ILogger));
+        Assert.Contains(assemblyServices, sd => sd.ServiceType == typeof(ILogger<>));
+        Assert.Contains(assemblyServices, sd => sd.ServiceType == typeof(ILoggerFactory));
+        Assert.Contains(assemblyServices, sd => sd.ServiceType == typeof(IServiceHostInfo));
+        Assert.Contains(assemblyServices, sd => sd.ServiceType == typeof(IConfiguration));
+        Assert.Contains(assemblyServices, sd => sd.ServiceType == typeof(IServiceHostEnvironment));
+    }
+
+    [Fact]
+    public async Task StartAsyncRedirectsSharedServices()
+    {
+        var host = SetupServiceHost(_ => { }, _ => { });
+
+        var sharedServices = new ServiceCollection();
+        sharedServices.AddSingleton(Substitute.For<IDummySharedService>());
+        _sharedServiceRegistry.Services.Returns(sharedServices);
+
+        IServiceCollection? assemblyServices = null;
+        _assemblyManifest.When(m => m.RegisterDependencies(Arg.Any<IServiceCollection>(), Arg.Any<IServiceHostContext>()))
+            .Do(ci => assemblyServices = ci.Arg<IServiceCollection>());
+
+        await host.StartAsync(CancellationToken.None);
+
+        Assert.NotNull(assemblyServices);
+        Assert.Contains(assemblyServices, sd => sd.ServiceType == typeof(IDummySharedService));
     }
 
     //[Theory]
@@ -103,27 +175,30 @@ public class ServiceHostTests
     //    // TODO: await host.StopAsync(CancellationToken.None);
     //}
 
-    private ServiceHost SetupServiceHost(Action<IServiceCollection> registerDependencies)
+    private ServiceHost SetupServiceHost(Action<IServiceCollection> registerApplicationDependencies, Action<IServiceCollection> registerServiceDependencies)
     {
-        var serviceProvider = new ServiceCollection()
+        var appServices = new ServiceCollection()
             .AddSingleton(_hostInfo)
-            .AddSingleton(_configuration)
-            .BuildServiceProvider();
+            .AddSingleton(_configuration);
+
+        registerApplicationDependencies(appServices);
+            
+        var serviceProvider = appServices.BuildServiceProvider();
 
         _assemblyManifest
             .When(m => m.RegisterDependencies(Arg.Any<IServiceCollection>(), Arg.Any<IServiceHostContext>()))
             .Do(ci =>
             {
                 var services = ci.Arg<IServiceCollection>();
-                registerDependencies(services);
+                registerServiceDependencies(services);
             });
 
         var serviceAssemblies = new List<IServiceAssemblyManifest> { _assemblyManifest };
         _serviceAssemblyManager.GetServiceAssemblyManifests().Returns(serviceAssemblies);
 
-        _messageHandlerTypes.GetMessageHandlerTypes().Returns([]);
+        var messageHandlerTypes = new ServiceMessageHandlerTypes(appServices);
 
-        return new ServiceHost(NullLogger<ServiceHost>.Instance, serviceProvider, _messageHandlerTypes, _sharedServiceRegistry, _serviceAssemblyManager, _dispatcher, _configuration);
+        return new ServiceHost(NullLogger<ServiceHost>.Instance, serviceProvider, messageHandlerTypes, _sharedServiceRegistry, _serviceAssemblyManager, _dispatcher, _configuration);
     }
 
     private class DummyMessageHandler : IMessageHandler
@@ -131,4 +206,6 @@ public class ServiceHostTests
         public bool CanHandle(Message message) => true;
         public void Handle(Message message) { }
     }
+
+    public interface IDummySharedService;
 }

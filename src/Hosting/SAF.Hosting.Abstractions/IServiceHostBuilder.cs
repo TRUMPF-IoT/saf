@@ -6,7 +6,7 @@ namespace SAF.Hosting.Abstractions;
 using Microsoft.Extensions.DependencyInjection;
 
 /// <summary>
-/// An interface for configuring SAF service host services.
+/// An interface for configuring a SAF service host.
 /// </summary>
 public interface IServiceHostBuilder
 {

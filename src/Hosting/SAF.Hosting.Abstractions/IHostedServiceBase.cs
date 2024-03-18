@@ -7,7 +7,4 @@ namespace SAF.Hosting.Abstractions;
 /// <summary>
 /// Represents the base interface for hosted "microservice" within the SAF infrastructure.
 /// </summary>
-public interface IHostedServiceBase
-{
-    
-}
+public interface IHostedServiceBase;
