@@ -30,16 +30,4 @@ SPDX-License-Identifier: MPL-2.0
     <ProjectReference Include="..\SAF.Communication.Cde\SAF.Communication.Cde.csproj" />
     <ProjectReference Include="..\SAF.Communication.PubSub.Cde\SAF.Communication.PubSub.Cde.csproj" />
   </ItemGroup>
-
-  <ItemGroup>
-    <PackageVersion Update="MinVer" Version="5.0.0" />
-  </ItemGroup>
-
-  <ItemGroup>
-    <PackageReference Update="MinVer">
-      <PrivateAssets>all</PrivateAssets>
-      <IncludeAssets>runtime; build; native; contentfiles; analyzers</IncludeAssets>
-    </PackageReference>
-  </ItemGroup>
-
 </Project>

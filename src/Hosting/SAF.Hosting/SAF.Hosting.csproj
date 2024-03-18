@@ -35,15 +35,4 @@ SPDX-License-Identifier: MPL-2.0
     <EditorConfigFiles Remove="D:\Repos\GitHub\TRUMPF-IoT\saf\src\Hosting\SAF.Hosting\.editorconfig" />
   </ItemGroup>
 
-  <ItemGroup>
-    <PackageVersion Update="MinVer" Version="5.0.0" />
-  </ItemGroup>
-
-  <ItemGroup>
-    <PackageReference Update="MinVer">
-      <PrivateAssets>all</PrivateAssets>
-      <IncludeAssets>runtime; build; native; contentfiles; analyzers</IncludeAssets>
-    </PackageReference>
-  </ItemGroup>
-
 </Project>
