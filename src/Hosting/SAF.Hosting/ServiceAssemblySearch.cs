@@ -22,7 +22,7 @@ internal class ServiceAssemblySearch(ILogger<ServiceAssemblySearch> logger, IOpt
         return LoadServiceAssemblyManifests(serviceAssemblies);
     }
 
-    private IEnumerable<IServiceAssemblyManifest> LoadServiceAssemblyManifests(IList<string> assemblies)
+    private List<IServiceAssemblyManifest> LoadServiceAssemblyManifests(IList<string> assemblies)
     {
         var manifests = new List<IServiceAssemblyManifest>();
 
@@ -63,7 +63,7 @@ internal class ServiceAssemblySearch(ILogger<ServiceAssemblySearch> logger, IOpt
     /// <param name="searchPath">Search path (glob pattern). The ';' character is used as delimiter for multiple patterns and '|' as prefix for exclusions</param>
     /// <param name="fileNameFilterRegEx">Filter regex that each filename must satisfy (if in doubt use ".*")</param>
     /// <returns></returns>
-    private IList<string> SearchServiceAssemblies(string basePath, string searchPath, string fileNameFilterRegEx)
+    private List<string> SearchServiceAssemblies(string basePath, string searchPath, string fileNameFilterRegEx)
     {
         // This function probably should be moved somewhere else
         if (basePath == null) throw new ArgumentNullException(nameof(basePath));

@@ -22,10 +22,6 @@ public class ServiceHostTests
     private readonly IServiceAssemblyManager _serviceAssemblyManager = Substitute.For<IServiceAssemblyManager>();
     private readonly IServiceAssemblyManifest _assemblyManifest = Substitute.For<IServiceAssemblyManifest>();
 
-    private string TestAssemblyPath => Path.GetDirectoryName(new Uri(Assembly.GetExecutingAssembly().Location).LocalPath)!;
-
-    private string TestDataPath => Path.Combine(TestAssemblyPath, "TestData");
-
     [Theory]
     [InlineData(false)]
     [InlineData(true)]

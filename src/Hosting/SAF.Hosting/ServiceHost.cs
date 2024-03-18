@@ -63,7 +63,8 @@ public class ServiceHost(
             await StopServicesAsync(_services, linkedCts.Token);
 
             stopWatch.Stop();
-            logger.LogInformation($"Stopping all services took {stopWatch.Elapsed.TotalMilliseconds * 1000000:N0} ns");
+            logger.LogInformation("Stopping all services took {serviceShutdownTime:N0} ns",
+                stopWatch.Elapsed.TotalMilliseconds * 1000000);
 
             _services.Clear();
             _serviceAssemblyServiceProviders.ForEach(sp => sp.Dispose());
@@ -95,7 +96,8 @@ public class ServiceHost(
 
         stopWatch.Stop();
 
-        logger.LogInformation("Starting all services took {serviceStartUpTime:N0} ms", stopWatch.Elapsed.TotalMilliseconds);
+        logger.LogInformation("Starting all services took {serviceStartUpTime:N0} ns",
+            stopWatch.Elapsed.TotalMilliseconds * 1000000);
     }
 
     private async Task StartServicesAsync(IEnumerable<IHostedServiceBase> services, CancellationToken cancelToken)
@@ -105,7 +107,7 @@ public class ServiceHost(
         {
             foreach (var service in services.TakeWhile(_ => !linkedCts.Token.IsCancellationRequested))
             {
-                logger.LogDebug($"Starting service: {service.GetType().Name}");
+                logger.LogDebug("Starting service: {serviceName}", service.GetType().Name);
 
                 var serviceStopWatch = new Stopwatch();
                 serviceStopWatch.Start();
@@ -123,7 +125,8 @@ public class ServiceHost(
                 serviceStopWatch.Stop();
 
                 logger.LogInformation(
-                    $"Started service: {service.GetType().Name}, start-up took {serviceStopWatch.Elapsed.TotalMilliseconds * 1000000:N0} ns");
+                    "Started service: {serviceName}, start-up took {serviceStartUpTime:N0} ns",
+                        service.GetType().Name, serviceStopWatch.Elapsed.TotalMilliseconds * 1000000);
             }
         }
         catch (TaskCanceledException)
@@ -147,7 +150,7 @@ public class ServiceHost(
         {
             foreach (var service in services.TakeWhile(_ => !cancelToken.IsCancellationRequested))
             {
-                logger.LogDebug($"Stopping service: {service.GetType().Name}");
+                logger.LogDebug("Stopping service: {serviceName}", service.GetType().Name);
 
                 var serviceStopWatch = new Stopwatch();
                 serviceStopWatch.Start();
@@ -164,7 +167,8 @@ public class ServiceHost(
 
                 serviceStopWatch.Stop();
 
-                logger.LogInformation($"Stopped service: {service.GetType().Name}, shutdown took {serviceStopWatch.Elapsed.TotalMilliseconds * 1000000:N0} ns");
+                logger.LogInformation("Stopped service: {serviceName}, shutdown took {serviceShutdownTime:N0} ns",
+                    service.GetType().Name, serviceStopWatch.Elapsed.TotalMilliseconds * 1000000);
             }
         }
         catch (TaskCanceledException)
@@ -229,7 +233,7 @@ public class ServiceHost(
     {
         foreach (var type in messageHandlerTypes)
         {
-            logger.LogDebug($"Add message handler factory function to dispatcher: {type.FullName}.");
+            logger.LogDebug("Add message handler factory function to dispatcher: {messageHandlerType}.", type.FullName);
             messageDispatcher.AddHandler(type, () => (IMessageHandler)serviceProvider.GetRequiredService(type));
         }
     }
@@ -247,8 +251,8 @@ public class ServiceHost(
         return string.IsNullOrEmpty(environment) ? "Production" : environment;
     }
 
-    private IServiceHostEnvironment BuildServiceHostEnvironment()
-        => new ServiceHostEnvironment
+    private ServiceHostEnvironment BuildServiceHostEnvironment()
+        => new()
         {
             ApplicationName = Assembly.GetEntryAssembly()?.GetName().Name,
             EnvironmentName = GetEnvironment()
