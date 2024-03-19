@@ -56,7 +56,7 @@ public class ServiceMessageDispatcher(ILogger<ServiceMessageDispatcher> log) : I
         catch (ObjectDisposedException ex)
         {
             // on system shutdown a handler, or even the handlerFactory() may throw an ObjectDisposedException, which we accept and log here.
-            log.LogWarning("Object {objectName} disposed while processing message {messageTopic} with handler {handlerTypeFullName}.",
+            log.LogWarning(ex, "Object {objectName} disposed while processing message {messageTopic} with handler {handlerTypeFullName}.",
                 ex.ObjectName, message.Topic, handlerTypeFullName);
         }
         catch (Exception e)
