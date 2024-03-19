@@ -84,7 +84,7 @@ jobs:
       id: minver
       shell: powershell
       run: |
-        $version = minver.exe
+        $version = dotnet minver
         "version=$version" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
 
     - name: nuget restore
