@@ -56,8 +56,7 @@ jobs:
       with:
         path: ~/.nuget/packages
         key: ${{ runner.os }}-nuget-${{ hashFiles('Directory.Packages.props') }}
-        restore-keys: |
-          ${{ runner.os }}-nuget-
+        restore-keys: ${{ runner.os }}-nuget-
       
     - name: Cache SonarCloud packages
       uses: actions/cache@v3
@@ -70,24 +69,22 @@ jobs:
       id: cache-dotnet-tools
       uses: actions/cache@v3
       with:
-        path: .\.tools
-        key: ${{ runner.os }}-dotnet-tools-${{ hashFiles('.\.tools\**\*') }}
+        path: ~/.dotnet/tools
+        key: ${{ runner.os }}-dotnet-tools-${{ hashFiles('./.config/dotnet-tools.json') }}
         restore-keys: ${{ runner.os }}-dotnet-tools-
 
-    - name: Install dotnet tools
+    - name: Install/upgrade dotnet tools
       if: steps.cache-dotnet-tools.outputs.cache-hit != 'true'
       shell: powershell
       run: |
         New-Item -Path .\.tools -ItemType Directory
-        dotnet tool update minver-cli --tool-path .\.tools\minver
-        dotnet tool update dotnet-coverage --tool-path .\.tools\coverage
-        dotnet tool update dotnet-sonarscanner --tool-path .\.tools\sonarscanner
+        dotnet tool restore
 
     - name: Run minver
       id: minver
       shell: powershell
       run: |
-        $version = .\.tools\minver\minver.exe
+        $version = minver.exe
         "version=$version" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
 
     - name: nuget restore
@@ -99,13 +96,13 @@ jobs:
         SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
       shell: powershell
       run: |
-        .\.tools\sonarscanner\dotnet-sonarscanner begin /k:"TRUMPF-IoT_saf" /o:"trumpf-iot" /d:sonar.token="${{ secrets.SONAR_TOKEN }}" /d:sonar.host.url="https://sonarcloud.io" /d:sonar.dotnet.excludeTestProjects=true /d:sonar.cs.vscoveragexml.reportsPaths=coverage.xml
+        dotnet dotnet-sonarscanner begin /k:"TRUMPF-IoT_saf" /o:"trumpf-iot" /d:sonar.token="${{ secrets.SONAR_TOKEN }}" /d:sonar.host.url="https://sonarcloud.io" /d:sonar.dotnet.excludeTestProjects=true /d:sonar.cs.vscoveragexml.reportsPaths=coverage.xml
         if ( $LASTEXITCODE -ne 0 ) { exit $LASTEXITCODE }
         dotnet build './src/SmartApplicationFramework.sln' --configuration Release --no-restore
         if ( $LASTEXITCODE -ne 0 ) { exit $LASTEXITCODE }
-        .\.tools\coverage\dotnet-coverage collect -f xml -o coverage.xml 'dotnet test ./src/SmartApplicationFramework.sln --configuration Release --no-build --no-restore --verbosity normal'
+        dotnet dotnet-coverage collect -f xml -o coverage.xml 'dotnet test ./src/SmartApplicationFramework.sln --configuration Release --no-build --no-restore --verbosity normal'
         if ( $LASTEXITCODE -ne 0 ) { exit $LASTEXITCODE }
-        .\.tools\sonarscanner\dotnet-sonarscanner end /d:sonar.login="${{ secrets.SONAR_TOKEN }}"
+        dotnet dotnet-sonarscanner end /d:sonar.login="${{ secrets.SONAR_TOKEN }}"
         if ( $LASTEXITCODE -ne 0 ) { exit $LASTEXITCODE }
       
     - name: Pack
