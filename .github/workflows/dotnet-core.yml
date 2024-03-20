@@ -74,10 +74,8 @@ jobs:
         restore-keys: ${{ runner.os }}-dotnet-tools-
 
     - name: Install/upgrade dotnet tools
-      if: steps.cache-dotnet-tools.outputs.cache-hit != 'true'
       shell: powershell
       run: |
-        New-Item -Path .\.tools -ItemType Directory
         dotnet tool restore
 
     - name: Run minver
