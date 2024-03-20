@@ -3,7 +3,7 @@
 // SPDX-License-Identifier: MPL-2.0
 
 namespace SAF.Hosting.Tests;
-using System.Reflection;
+
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -141,35 +141,6 @@ public class ServiceHostTests
         Assert.NotNull(assemblyServices);
         Assert.Contains(assemblyServices, sd => sd.ServiceType == typeof(IDummySharedService));
     }
-
-    //[Theory]
-    //[InlineData(false)]
-    //[InlineData(true)]
-    //public async Task DispatcherCallsCorrectHandler(bool asyncService)
-    //{
-    //    // Arrange
-    //    var hostInfo = Substitute.For<IServiceHostInfo>();
-    //    var config = Substitute.For<IConfiguration>();
-    //    var callCounters = new CallCounters();
-    //    var serviceProvider = new ServiceCollection()
-    //        .AddSingleton(hostInfo)
-    //        .AddSingleton(config)
-    //        .BuildServiceProvider();
-    //    var serviceAssemblies = new List<IServiceAssemblyManifest> { new CountingTestAssemblyManifest(callCounters, asyncService, true) };
-    //    var dispatcher = new ServiceMessageDispatcher(null);
-
-    //    // TODO: using var host = new ServiceHost(serviceProvider, null, dispatcher, serviceAssemblies);
-    //    //await host.StartAsync(CancellationToken.None);
-
-    //    // Act
-    //    dispatcher.DispatchMessage("SAF.Hosting.Tests.ServiceHostTests+CountingTestHandler", new Message());
-
-    //    // Assert
-    //    Assert.Equal(1, callCounters.CanHandleCalled);
-    //    Assert.Equal(1, callCounters.HandleCalled);
-
-    //    // TODO: await host.StopAsync(CancellationToken.None);
-    //}
 
     private ServiceHost SetupServiceHost(Action<IServiceCollection> registerApplicationDependencies, Action<IServiceCollection> registerServiceDependencies)
     {
