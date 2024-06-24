@@ -6,6 +6,7 @@
 using nsCDEngine.BaseClasses;
 using SAF.Communication.Cde;
 using SAF.Communication.PubSub.Interfaces;
+using SAF.Common;
 
 namespace SAF.Communication.PubSub.Cde;
 

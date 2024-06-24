@@ -3,7 +3,6 @@
 // SPDX-License-Identifier: MPL-2.0
 
 using SAF.Common;
-using SAF.Communication.PubSub;
 
 namespace SAF.Messaging.Routing;
 

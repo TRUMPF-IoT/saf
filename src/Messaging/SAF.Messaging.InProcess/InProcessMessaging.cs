@@ -6,7 +6,6 @@ using System.Diagnostics;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using SAF.Common;
-using SAF.Communication.PubSub;
 
 namespace SAF.Messaging.InProcess;
 
@@ -127,7 +126,7 @@ internal class InProcessMessaging : IInProcessMessagingInfrastructure, IDisposab
         }
 
         _ = Task.WhenAll(subscriptionsToRun.Select(t => t()))
-            .ContinueWith(t => _log.LogTrace("Finished invoking {0} handlers.", subscriptionsToRun.Count));
+            .ContinueWith(_ => _log.LogTrace("Finished invoking {0} handlers.", subscriptionsToRun.Count));
     }
 
     public void Unsubscribe(object subscription)

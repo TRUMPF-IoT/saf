@@ -12,7 +12,7 @@ SPDX-License-Identifier: MPL-2.0
   </PropertyGroup>
 
   <PropertyGroup>
-    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <AllowUnsafeBlocks>False</AllowUnsafeBlocks>
   </PropertyGroup>
 
   <ItemGroup>
