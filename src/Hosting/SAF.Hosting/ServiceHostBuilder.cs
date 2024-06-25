@@ -5,7 +5,7 @@
 namespace SAF.Hosting;
 using Microsoft.Extensions.DependencyInjection;
 using Common;
-using Abstractions;
+using Contracts;
 
 internal class ServiceHostBuilder : IServiceHostBuilder
 {

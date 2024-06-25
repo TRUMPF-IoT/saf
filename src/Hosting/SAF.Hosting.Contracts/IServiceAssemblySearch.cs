@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: MPL-2.0
 
-namespace SAF.Hosting.Abstractions;
+namespace SAF.Hosting.Contracts;
 
 /// <summary>
 /// Interface that is used to search for service assemblies and to load their service assembly manifests.

@@ -9,7 +9,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging.Abstractions;
 using NSubstitute;
 using Common;
-using Abstractions;
+using Contracts;
 using Microsoft.Extensions.Logging;
 using Xunit;
 

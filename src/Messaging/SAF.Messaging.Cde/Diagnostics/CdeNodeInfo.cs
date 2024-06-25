@@ -5,7 +5,7 @@
 namespace SAF.Messaging.Cde.Diagnostics;
 using nsCDEngine.BaseClasses;
 using System.Diagnostics;
-using Hosting.Abstractions;
+using Hosting.Contracts;
 
 internal class CdeNodeInfo
 {

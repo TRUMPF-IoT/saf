@@ -4,7 +4,7 @@
 
 namespace SAF.Hosting;
 using Microsoft.Extensions.DependencyInjection;
-using Abstractions;
+using Contracts;
 
 internal static class SharedServicesRegistryExtensions
 {

@@ -3,7 +3,7 @@
 // SPDX-License-Identifier: MPL-2.0
 
 namespace SAF.Hosting.Diagnostics;
-using Abstractions;
+using Contracts;
 
 internal class SafNodeInfo
 {
@@ -20,11 +20,9 @@ internal class SafNodeInfo
     public IEnumerable<SafServiceInfo> SafServices { get; }
     public DateTimeOffset UpSince => _hostInfo.UpSince;
 
-    private IEnumerable<SafServiceInfo> ReadServiceInfos(IEnumerable<IServiceAssemblyManifest> serviceAssemblies)
-    {
-        return serviceAssemblies
+    private static IEnumerable<SafServiceInfo> ReadServiceInfos(IEnumerable<IServiceAssemblyManifest> serviceAssemblies) =>
+        serviceAssemblies
             .Select(a => { try { return new SafServiceInfo(a); } catch { return null; } })
             .Where(si => si != null)
             .Cast<SafServiceInfo>();
-    }
 }

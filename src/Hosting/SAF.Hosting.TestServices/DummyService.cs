@@ -4,7 +4,7 @@
 
 namespace SAF.Hosting.TestServices
 {
-    using Abstractions;
+    using Contracts;
 
     public class DummyService : IHostedService
     {

@@ -8,7 +8,7 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using Common;
-using Hosting.Abstractions;
+using Hosting.Contracts;
 using AnyOtherInternalLogic;
 using MessageHandlers;
 using Toolbox.Serialization;

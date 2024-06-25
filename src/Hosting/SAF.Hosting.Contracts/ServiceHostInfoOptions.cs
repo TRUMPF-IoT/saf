@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: MPL-2.0
 
-namespace SAF.Hosting.Abstractions;
+namespace SAF.Hosting.Contracts;
 
 /// <summary>
 /// Provides options to be used for the <see cref="IServiceHostInfo"/>.

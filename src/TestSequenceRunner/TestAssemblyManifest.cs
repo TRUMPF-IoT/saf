@@ -4,7 +4,7 @@
 
 namespace TestSequenceRunner;
 using Microsoft.Extensions.DependencyInjection;
-using SAF.Hosting.Abstractions;
+using SAF.Hosting.Contracts;
 
 public class TestAssemblyManifest : IServiceAssemblyManifest
 {

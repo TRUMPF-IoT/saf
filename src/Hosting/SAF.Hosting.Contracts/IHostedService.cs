@@ -2,10 +2,10 @@
 //
 // SPDX-License-Identifier: MPL-2.0
 
-namespace SAF.Hosting.Abstractions;
+namespace SAF.Hosting.Contracts;
 
 /// <summary>
-/// Represents a hosted "microservice" within the SAF infrastructure.
+/// Represents a hosted plug-in service within the SAF infrastructure.
 /// </summary>
 public interface IHostedService : IHostedServiceBase
 {

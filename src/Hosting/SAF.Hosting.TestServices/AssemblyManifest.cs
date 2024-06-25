@@ -5,16 +5,13 @@
 namespace SAF.Hosting.TestServices
 {
     using Microsoft.Extensions.DependencyInjection;
-    using Abstractions;
+    using Contracts;
 
     public class AssemblyManifest : IServiceAssemblyManifest
     {
         public string FriendlyName => "Test Assembly";
 
-        public void RegisterDependencies(IServiceCollection services)
-        {
-            services.AddHosted<DummyService>();
-        }
+        public void RegisterDependencies(IServiceCollection services) => services.AddHosted<DummyService>();
 
         public void RegisterDependencies(IServiceCollection services, IServiceHostContext context)
             => RegisterDependencies(services);

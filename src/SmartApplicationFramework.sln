@@ -102,7 +102,7 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "SAF.Messaging.Redis.Tests",
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "SAF.DevToolbox.Tests", "Toolbox\SAF.DevToolbox.Tests\SAF.DevToolbox.Tests.csproj", "{76E45858-11E0-4DBE-93C9-B64BCF312359}"
 EndProject
-Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "SAF.Hosting.Abstractions", "Hosting\SAF.Hosting.Abstractions\SAF.Hosting.Abstractions.csproj", "{59D6F7B1-3E2A-4566-91EA-117BDAE394CA}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "SAF.Hosting.Contracts", "Hosting\SAF.Hosting.Contracts\SAF.Hosting.Contracts.csproj", "{59D6F7B1-3E2A-4566-91EA-117BDAE394CA}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution

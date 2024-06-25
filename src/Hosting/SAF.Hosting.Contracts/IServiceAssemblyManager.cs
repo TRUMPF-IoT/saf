@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: MPL-2.0
 
-namespace SAF.Hosting.Abstractions;
+namespace SAF.Hosting.Contracts;
 
 /// <summary>
 /// Interface that is used to discover service assemblies that where added using the service assembly search or by directly adding them to the service assembly manager.

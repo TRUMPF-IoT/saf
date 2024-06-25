@@ -21,7 +21,7 @@ SPDX-License-Identifier: MPL-2.0
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\Hosting\SAF.Hosting.Abstractions\SAF.Hosting.Abstractions.csproj" />
+    <ProjectReference Include="..\Hosting\SAF.Hosting.Contracts\SAF.Hosting.Contracts.csproj" />
   </ItemGroup>
 
 </Project>

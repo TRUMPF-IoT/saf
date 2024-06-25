@@ -5,7 +5,7 @@
 namespace SAF.Services.SampleService2;
 using Microsoft.Extensions.Logging;
 using Common;
-using Hosting.Abstractions;
+using Hosting.Contracts;
 using Toolbox.Serialization;
 
 internal class PingRequest

@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: MPL-2.0
 
-namespace SAF.Toolbox.FileTransfer;
+namespace SAF.Toolbox.Filetransfer;
 
 public static class FileTransferIdentifiers
 {

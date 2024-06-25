@@ -4,7 +4,7 @@
 
 namespace SAF.Services.SampleService2;
 using Microsoft.Extensions.DependencyInjection;
-using Hosting.Abstractions;
+using Hosting.Contracts;
 
 public class AssemblyManifest : IServiceAssemblyManifest
 {

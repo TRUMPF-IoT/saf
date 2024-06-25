@@ -4,7 +4,7 @@
 
 namespace SAF.Hosting;
 using Microsoft.Extensions.Logging;
-using Abstractions;
+using Contracts;
 
 internal class ServiceAssemblyManager(ILogger<ServiceAssemblyManager> logger,
         IServiceAssemblySearch? assemblySearch,

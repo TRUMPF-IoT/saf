@@ -4,7 +4,7 @@
 
 namespace SAF.Services.SampleService1;
 using Microsoft.Extensions.DependencyInjection;
-using Hosting.Abstractions;
+using Hosting.Contracts;
 using AnyOtherInternalLogic;
 using MessageHandlers;
 using Toolbox;

@@ -3,11 +3,12 @@
 // SPDX-License-Identifier: MPL-2.0
 
 
-namespace SAF.Toolbox.FileTransfer;
+namespace SAF.Toolbox.Filetransfer;
+
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
-using Common;
-using Serialization;
+using SAF.Common;
+using SAF.Toolbox.Serialization;
 
 internal class FileReceiver : IFileReceiver
 {

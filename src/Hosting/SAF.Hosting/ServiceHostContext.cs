@@ -4,7 +4,7 @@
 
 namespace SAF.Hosting;
 using Microsoft.Extensions.Configuration;
-using Abstractions;
+using Contracts;
 
 internal class ServiceHostContext : IServiceHostContext
 {

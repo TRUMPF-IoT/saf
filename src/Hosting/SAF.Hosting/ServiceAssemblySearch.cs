@@ -10,7 +10,7 @@ using Microsoft.Extensions.Options;
 using System.Diagnostics;
 using System.Runtime.Loader;
 using System.Text.RegularExpressions;
-using Abstractions;
+using Contracts;
 
 internal class ServiceAssemblySearch(ILogger<ServiceAssemblySearch> logger, IOptions<ServiceAssemblySearchOptions> searchOptions) : IServiceAssemblySearch
 {

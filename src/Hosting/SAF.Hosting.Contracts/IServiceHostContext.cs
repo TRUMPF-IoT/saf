@@ -2,7 +2,8 @@
 //
 // SPDX-License-Identifier: MPL-2.0
 
-namespace SAF.Hosting.Abstractions;
+namespace SAF.Hosting.Contracts;
+
 using Microsoft.Extensions.Configuration;
 
 /// <summary>

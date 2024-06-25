@@ -4,7 +4,7 @@
 
 namespace SAF.Hosting.Diagnostics;
 using System.Diagnostics;
-using Abstractions;
+using Contracts;
 
 public class SafServiceInfo
 {

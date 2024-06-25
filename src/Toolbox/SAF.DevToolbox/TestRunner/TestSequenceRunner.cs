@@ -9,7 +9,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Common;
 using Hosting;
-using Hosting.Abstractions;
+using Hosting.Contracts;
 using Messaging.Cde;
 using Messaging.InProcess;
 using Messaging.Redis;

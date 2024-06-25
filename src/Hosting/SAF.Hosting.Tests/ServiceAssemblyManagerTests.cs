@@ -5,7 +5,7 @@
 namespace SAF.Hosting.Tests;
 using Microsoft.Extensions.Logging;
 using NSubstitute;
-using Abstractions;
+using Contracts;
 using Xunit;
 
 public class ServiceAssemblyManagerTests

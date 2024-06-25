@@ -4,7 +4,7 @@
 
 namespace SAF.Hosting.Diagnostics;
 using Microsoft.Extensions.Logging;
-using Abstractions;
+using Contracts;
 using Toolbox.Serialization;
 
 internal class ServiceHostDiagnostics(ILogger<ServiceHostDiagnostics> log,

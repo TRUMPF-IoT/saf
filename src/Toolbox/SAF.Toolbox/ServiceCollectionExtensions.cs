@@ -10,8 +10,7 @@ using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using SAF.Common;
-using SAF.Hosting.Abstractions;
-using SAF.Toolbox.FileTransfer;
+using SAF.Hosting.Contracts;
 using SAF.Toolbox.Heartbeat;
 using SAF.Toolbox.RequestClient;
 
@@ -19,6 +18,8 @@ using SAF.Toolbox.RequestClient;
 [assembly: InternalsVisibleTo("DynamicProxyGenAssembly2")]
 
 namespace SAF.Toolbox;
+
+using Filetransfer;
 
 public static class ServiceCollectionExtensions
 {

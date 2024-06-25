@@ -9,7 +9,7 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Common;
-using Abstractions;
+using Contracts;
 
 /// <summary>
 /// Central entry point for initializing and starting the services used.

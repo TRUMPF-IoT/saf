@@ -3,7 +3,7 @@
 // SPDX-License-Identifier: MPL-2.0
 
 namespace SAF.Hosting;
-using Abstractions;
+using Contracts;
 
 internal class ServiceHostInfo : IServiceHostInfo
 {

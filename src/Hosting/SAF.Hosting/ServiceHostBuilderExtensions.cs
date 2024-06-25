@@ -4,7 +4,7 @@
 
 namespace SAF.Hosting;
 using Microsoft.Extensions.DependencyInjection;
-using Abstractions;
+using Contracts;
 using Diagnostics;
 
 public static class ServiceHostBuilderExtensions

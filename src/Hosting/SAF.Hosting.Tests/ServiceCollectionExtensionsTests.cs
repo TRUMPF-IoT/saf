@@ -4,7 +4,7 @@
 
 namespace SAF.Hosting.Tests;
 
-using Abstractions;
+using Contracts;
 using Common;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;

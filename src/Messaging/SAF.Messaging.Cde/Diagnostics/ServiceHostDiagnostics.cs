@@ -7,7 +7,7 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using nsCDEngine.BaseClasses;
 using Microsoft.Extensions.DependencyInjection;
-using Hosting.Abstractions;
+using Hosting.Contracts;
 using IHostedService = Microsoft.Extensions.Hosting.IHostedService;
 
 internal class ServiceHostDiagnostics : IHostedService

@@ -6,7 +6,7 @@ namespace SAF.Hosting.Tests.Diagnostics;
 using SAF.Hosting.Diagnostics;
 using System.Diagnostics;
 using System.Reflection;
-using Abstractions;
+using Contracts;
 using Xunit;
 using System.Runtime.Loader;
 
