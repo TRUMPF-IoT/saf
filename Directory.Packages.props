@@ -9,7 +9,7 @@ SPDX-License-Identifier: MPL-2.0
     <CentralPackageTransitivePinningEnabled>false</CentralPackageTransitivePinningEnabled>
   </PropertyGroup>
   <ItemGroup>
-    <PackageVersion Include="C-DEngine" Version="5.182.0" />
+    <PackageVersion Include="C-DEngine" Version="6.104.0" />
     <PackageVersion Include="coverlet.collector" Version="6.0.2" />
     <PackageVersion Include="LiteDB" Version="5.0.17" />
     <PackageVersion Include="Microsoft.Extensions.Configuration.Abstractions" Version="8.0.0" />
@@ -28,9 +28,9 @@ SPDX-License-Identifier: MPL-2.0
     <PackageVersion Include="Microsoft.Extensions.Options.ConfigurationExtensions" Version="8.0.0" />
     <PackageVersion Include="Microsoft.NET.Test.Sdk" Version="17.10.0" />
     <PackageVersion Include="NSubstitute" Version="5.1.0" />
-    <PackageVersion Include="StackExchange.Redis" Version="2.7.33" />
+    <PackageVersion Include="StackExchange.Redis" Version="2.8.0" />
     <PackageVersion Include="System.Data.SQLite.Core" Version="1.0.118" />
-    <PackageVersion Include="System.IO.Abstractions" Version="21.0.2" />
+    <PackageVersion Include="System.IO.Abstractions" Version="21.0.22" />
     <PackageVersion Include="System.Runtime.Loader" Version="4.3.0" />
     <PackageVersion Include="System.Text.Json" Version="8.0.3" />
     <PackageVersion Include="xunit" Version="2.8.1" />
