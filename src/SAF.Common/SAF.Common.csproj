@@ -11,6 +11,7 @@ SPDX-License-Identifier: MPL-2.0
     <Description>Common interface and type definitions for the Smart Application Framework (SAF).</Description>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
+    <AllowUnsafeBlocks>True</AllowUnsafeBlocks>
   </PropertyGroup>
 
   <ItemGroup>

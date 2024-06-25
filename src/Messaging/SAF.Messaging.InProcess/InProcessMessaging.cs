@@ -7,7 +7,6 @@ using System.Diagnostics;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using Common;
-using Communication.PubSub;
 
 internal class InProcessMessaging : IInProcessMessagingInfrastructure, IDisposable
 {
@@ -126,7 +125,7 @@ internal class InProcessMessaging : IInProcessMessagingInfrastructure, IDisposab
         }
 
         _ = Task.WhenAll(subscriptionsToRun.Select(t => t()))
-            .ContinueWith(t => _log.LogTrace("Finished invoking {0} handlers.", subscriptionsToRun.Count));
+            .ContinueWith(_ => _log.LogTrace("Finished invoking {subscriptionCount} handlers.", subscriptionsToRun.Count));
     }
 
     public void Unsubscribe(object subscription)

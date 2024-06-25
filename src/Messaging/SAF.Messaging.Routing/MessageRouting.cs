@@ -4,7 +4,6 @@
 
 namespace SAF.Messaging.Routing;
 using Common;
-using Communication.PubSub;
 
 /// <summary>
 /// Describes a Pub/Sub message route for use with IServiceCollection.AddRoutingMessagingInfrastructure.

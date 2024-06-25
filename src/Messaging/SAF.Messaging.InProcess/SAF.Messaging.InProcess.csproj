@@ -9,12 +9,8 @@ SPDX-License-Identifier: MPL-2.0
   <PropertyGroup>
     <TargetFrameworks>netstandard2.1;net6.0;net7.0;net8.0</TargetFrameworks>
     <Description>Smart Application Framework (SAF) messaging infrastructure for in-process communication.</Description>
-    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <AllowUnsafeBlocks>False</AllowUnsafeBlocks>
   </PropertyGroup>
-
-  <ItemGroup>
-    <Compile Include="..\..\Communication\SAF.Communication.PubSub\WildcardMatcher.cs" Link="WildcardMatcher.cs" />
-  </ItemGroup>
 
   <ItemGroup>
     <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" />
