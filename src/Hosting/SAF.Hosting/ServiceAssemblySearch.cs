@@ -65,15 +65,18 @@ internal class ServiceAssemblySearch(ILogger<ServiceAssemblySearch> logger, IOpt
     /// <returns></returns>
     private List<string> SearchServiceAssemblies(string basePath, string searchPath, string fileNameFilterRegEx)
     {
-        // This function probably should be moved somewhere else
-        if (basePath == null) throw new ArgumentNullException(nameof(basePath));
-        if (searchPath == null) throw new ArgumentNullException(nameof(searchPath));
-        if (fileNameFilterRegEx == null) throw new ArgumentNullException(nameof(fileNameFilterRegEx));
-
         logger.LogInformation("Searching SAF service assemblies using BasePath: {basePath}, SearchPath: {searchPath}, SearchFilenamePattern: {searchFilenamePattern}",
-            _options.BasePath, _options.SearchPath, _options.SearchFilenamePattern);
+            basePath, searchPath, fileNameFilterRegEx);
 
-        // Use matcher to find service  assemblies
+        if (string.IsNullOrWhiteSpace(basePath) ||
+            string.IsNullOrWhiteSpace(searchPath) ||
+            string.IsNullOrWhiteSpace(fileNameFilterRegEx))
+        {
+            logger.LogError("BasePath, SearchPath or SearchFilenamePattern are not configured. Returning empty SAF service assembly collection.");
+            return [];
+        }
+
+        // use matcher to find service assemblies
         var serviceMatcher = new Matcher();
         foreach (var pattern in searchPath.Split(';'))
         {
