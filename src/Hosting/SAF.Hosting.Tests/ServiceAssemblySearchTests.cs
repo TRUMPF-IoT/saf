@@ -135,7 +135,7 @@ public class ServiceAssemblySearchTests
     [InlineData(null, "**/*.txt", ".*")]
     [InlineData("FilePatterns1", null, ".*")]
     [InlineData("FilePatterns1", "**/*.txt", null)]
-    public void LoadServiceAssemblyManifestsThrowsForInvalidOptions(string? basePath, string? searchPath, string? searchFilenamePattern)
+    public void LoadServiceAssemblyManifestsReturnsEmptySearchResultForInvalidOptions(string? basePath, string? searchPath, string? searchFilenamePattern)
     {
         var loggerMock = Substitute.For<MockLogger<ServiceAssemblySearch>>();
         var optionsMock = Substitute.For<IOptions<ServiceAssemblySearchOptions>>();
@@ -143,6 +143,8 @@ public class ServiceAssemblySearchTests
         optionsMock.Value.Returns(new ServiceAssemblySearchOptions { BasePath = basePath!, SearchPath = searchPath!, SearchFilenamePattern = searchFilenamePattern! });
         var search = new ServiceAssemblySearch(loggerMock, optionsMock);
         
-        Assert.Throws<ArgumentNullException>(search.LoadServiceAssemblyManifests);
+        var manifests = search.LoadServiceAssemblyManifests();
+        Assert.Empty(manifests);
+        loggerMock.AssertLogged(LogLevel.Error);
     }
 }
