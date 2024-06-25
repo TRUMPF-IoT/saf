@@ -126,7 +126,7 @@ internal class InProcessMessaging : IInProcessMessagingInfrastructure, IDisposab
         }
 
         _ = Task.WhenAll(subscriptionsToRun.Select(t => t()))
-            .ContinueWith(_ => _log.LogTrace("Finished invoking {0} handlers.", subscriptionsToRun.Count));
+            .ContinueWith(_ => _log.LogTrace("Finished invoking {subscriptionCount} handlers.", subscriptionsToRun.Count));
     }
 
     public void Unsubscribe(object subscription)
