@@ -30,8 +30,11 @@ public class ServiceHostBuilderExtensionsTests
         Assert.Contains(services, sd => sd.ServiceType == typeof(IPostConfigureOptions<ServiceAssemblySearchOptions>));
     }
 
-    [Fact]
-    public void ServiceAssemblySearchOptionsGetsValidatedOnServiceRequest()
+    [Theory]
+    [InlineData("", "pattern", "searchPath")]
+    [InlineData("basePath", "", "searchPath")]
+    [InlineData("basePath", "pattern", "")]
+    public void ServiceAssemblySearchOptionsGetsValidatedOnServiceRequest(string basePath, string filenamePattern, string searchPath)
     {
         // Arrange
         var services = new ServiceCollection();
@@ -40,11 +43,23 @@ public class ServiceHostBuilderExtensionsTests
         var builder = new ServiceHostBuilder(services);
 
         // Act
-        builder.AddServiceAssemblySearch(options => options.BasePath = string.Empty);
+        builder.AddServiceAssemblySearch(options =>
+        {
+            options.BasePath = basePath;
+            options.SearchFilenamePattern = filenamePattern;
+            options.SearchPath = searchPath;
+        });
         var sp = builder.Services.BuildServiceProvider();
 
         // Assert
-        Assert.Throws<InvalidOperationException>(() => _ = sp.GetService<IServiceAssemblySearch>());
+        var ex = Assert.Throws<InvalidOperationException>(() => _ = sp.GetService<IServiceAssemblySearch>());
+
+        if(string.IsNullOrEmpty(basePath))
+            Assert.Contains("BasePath", ex.Message);
+        if (string.IsNullOrEmpty(filenamePattern))
+            Assert.Contains("SearchFilenamePattern", ex.Message);
+        if (string.IsNullOrEmpty(searchPath))
+            Assert.Contains("SearchPath", ex.Message);
     }
 
     [Fact]

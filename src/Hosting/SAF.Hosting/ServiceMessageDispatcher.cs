@@ -24,7 +24,7 @@ public class ServiceMessageDispatcher(ILogger<ServiceMessageDispatcher> log) : I
     }
 
     public void DispatchMessage<TMessageHandler>(Message message) where TMessageHandler : IMessageHandler
-        => DispatchMessage(typeof(TMessageHandler).FullName!, message);
+        => DispatchMessage(typeof(TMessageHandler), message);
 
     public void DispatchMessage(Type handlerType, Message message)
         => DispatchMessage(handlerType.FullName!, message);

@@ -18,8 +18,7 @@ internal static class SharedServicesRegistryExtensions
                     target.AddSingleton(serviceDescriptor.ServiceType, _ => source.GetRequiredService(serviceDescriptor.ServiceType));
                     break;
                 case ServiceLifetime.Scoped:
-                    target.AddScoped(serviceDescriptor.ServiceType, _ => source.GetRequiredService(serviceDescriptor.ServiceType));
-                    break;
+                    throw new InvalidOperationException($"Scoped service is not supported. Service: {serviceDescriptor.ServiceType.Name}");
                 case ServiceLifetime.Transient:
                     target.AddTransient(serviceDescriptor.ServiceType, _ => source.GetRequiredService(serviceDescriptor.ServiceType));
                     break;

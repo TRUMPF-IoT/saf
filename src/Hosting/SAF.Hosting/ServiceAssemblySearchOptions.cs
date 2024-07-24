@@ -5,7 +5,7 @@
 namespace SAF.Hosting;
 
 /// <summary>
-/// Provides options to be used for the <see cref="Abstractions.IServiceAssemblySearch"/>.
+/// Provides options to be used for the <see cref="Contracts.IServiceAssemblySearch"/>.
 /// </summary>
 public class ServiceAssemblySearchOptions
 {
