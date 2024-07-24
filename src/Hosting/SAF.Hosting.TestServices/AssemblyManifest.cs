@@ -11,7 +11,7 @@ namespace SAF.Hosting.TestServices
     {
         public string FriendlyName => "Test Assembly";
 
-        public void RegisterDependencies(IServiceCollection services) => services.AddHosted<DummyService>();
+        public void RegisterDependencies(IServiceCollection services) => services.AddHostedAsync<DummyService>();
 
         public void RegisterDependencies(IServiceCollection services, IServiceHostContext context)
             => RegisterDependencies(services);

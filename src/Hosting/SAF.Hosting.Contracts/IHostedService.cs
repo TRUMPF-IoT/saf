@@ -7,7 +7,8 @@ namespace SAF.Hosting.Contracts;
 /// <summary>
 /// Represents a hosted plug-in service within the SAF infrastructure.
 /// </summary>
-public interface IHostedService : IHostedServiceBase
+[Obsolete("IHostedService will be removed in a future release. Use IHostedServiceAsync instead.")]
+public interface IHostedService
 {
     /// <summary>
     /// Starts the service.

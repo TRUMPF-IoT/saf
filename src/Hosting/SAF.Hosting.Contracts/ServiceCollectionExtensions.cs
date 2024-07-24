@@ -17,11 +17,11 @@ public static class ServiceCollectionExtensions
     /// <typeparam name="TService">The type of the service.</typeparam>
     /// <param name="serviceCollection">The service collection to add the service.</param>
     /// <returns>The serviceCollection for chaining.</returns>
+    [Obsolete("AddHosted will be removed in a future release. Use AddHostedAsync instead.")]
     public static IServiceCollection AddHosted<TService>(this IServiceCollection serviceCollection)
         where TService : class, IHostedService
     {
-        serviceCollection.AddHostedServiceBase<TService>();
-        serviceCollection.AddSingleton<IHostedService>(sp => sp.GetRequiredService<TService>());
+        serviceCollection.AddSingleton<IHostedService, TService>();
 
         return serviceCollection;
     }
@@ -35,17 +35,7 @@ public static class ServiceCollectionExtensions
     public static IServiceCollection AddHostedAsync<TService>(this IServiceCollection serviceCollection)
         where TService : class, IHostedServiceAsync
     {
-        serviceCollection.AddHostedServiceBase<TService>();
-        serviceCollection.AddSingleton<IHostedServiceAsync>(sp => sp.GetRequiredService<TService>());
-
-        return serviceCollection;
-    }
-
-    private static IServiceCollection AddHostedServiceBase<TService>(this IServiceCollection serviceCollection)
-        where TService : class, IHostedServiceBase
-    {
-        serviceCollection.AddSingleton<TService>();
-        serviceCollection.AddSingleton<IHostedServiceBase>(sp => sp.GetRequiredService<TService>());
+        serviceCollection.AddSingleton<IHostedServiceAsync, TService>();
 
         return serviceCollection;
     }

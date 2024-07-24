@@ -24,6 +24,6 @@ public class AssemblyManifest : IServiceAssemblyManifest
         services.AddServiceConfiguration<MyServiceConfiguration>(context.Configuration, nameof(MySpecialService));
 
         // "microservices"
-        services.AddHosted<MySpecialService>();
+        services.AddHostedAsync<MySpecialService>();
     }
 }

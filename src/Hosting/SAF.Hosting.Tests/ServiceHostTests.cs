@@ -22,12 +22,11 @@ public class ServiceHostTests
     private readonly IServiceAssemblyManager _serviceAssemblyManager = Substitute.For<IServiceAssemblyManager>();
     private readonly IServiceAssemblyManifest _assemblyManifest = Substitute.For<IServiceAssemblyManifest>();
 
-    [Theory]
-    [InlineData(false)]
-    [InlineData(true)]
-    public async Task StartAsyncInitializesAndStartsHostedServices(bool asyncService)
+    [Fact]
+    [Obsolete("Is obsolete when IHostedService will be removed")]
+    public async Task StartAsyncInitializesAndStartsHostedServices()
     {
-        var service = asyncService ? (IHostedServiceBase)Substitute.For<IHostedServiceAsync>() : Substitute.For<IHostedService>();
+        var service = Substitute.For<IHostedService>();
 
         var host = SetupServiceHost(_ => { }, services => services.AddSingleton(service));
 
@@ -38,47 +37,59 @@ public class ServiceHostTests
             Arg.Any<IServiceCollection>(), 
             Arg.Is<IServiceHostContext>(c => c.HostInfo == _hostInfo && c.Configuration == _configuration));
 
-        if (asyncService)
-        {
-            await ((IHostedServiceAsync) service).Received(1).StartAsync(Arg.Any<CancellationToken>());
-        }
-        else
-        {
-            ((IHostedService) service).Received(1).Start();
-        }
+        service.Received(1).Start();
 
         await host.StopAsync(CancellationToken.None);
 
-        if (asyncService)
-        {
-            await ((IHostedServiceAsync)service).Received(1).StopAsync(Arg.Any<CancellationToken>());
-        }
-        else
-        {
-            ((IHostedService)service).Received(1).Stop();
-        }
+        service.Received(1).Stop();
     }
 
-    [Theory]
-    [InlineData(false)]
-    [InlineData(true)]
-    public async Task StopAsyncStopsHostedServices(bool asyncService)
+    [Fact]
+    public async Task StartAsyncInitializesAndStartsHostedAsyncServices()
     {
-        var service = asyncService ? (IHostedServiceBase)Substitute.For<IHostedServiceAsync>() : Substitute.For<IHostedService>();
+        var service = Substitute.For<IHostedServiceAsync>();
+
+        var host = SetupServiceHost(_ => { }, services => services.AddSingleton(service));
+
+        await host.StartAsync(CancellationToken.None);
+
+        _serviceAssemblyManager.Received(1).GetServiceAssemblyManifests();
+        _assemblyManifest.Received(1).RegisterDependencies(
+            Arg.Any<IServiceCollection>(),
+            Arg.Is<IServiceHostContext>(c => c.HostInfo == _hostInfo && c.Configuration == _configuration));
+
+        await service.Received(1).StartAsync(Arg.Any<CancellationToken>());
+
+        await host.StopAsync(CancellationToken.None);
+
+        await service.Received(1).StopAsync(Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    [Obsolete("Is obsolete when IHostedService will be removed")]
+    public async Task StopAsyncStopsHostedServices()
+    {
+        var service = Substitute.For<IHostedService>();
 
         var host = SetupServiceHost(_ => { }, services => services.AddSingleton(service));
         await host.StartAsync(CancellationToken.None);
 
         await host.StopAsync(CancellationToken.None);
 
-        if (asyncService)
-        {
-            await ((IHostedServiceAsync)service).Received(1).StopAsync(Arg.Any<CancellationToken>());
-        }
-        else
-        {
-            ((IHostedService)service).Received(1).Stop();
-        }
+        service.Received(1).Stop();
+    }
+
+    [Fact]
+    public async Task StopAsyncStopsHostedAsyncServices()
+    {
+        var service = Substitute.For<IHostedServiceAsync>();
+
+        var host = SetupServiceHost(_ => { }, services => services.AddSingleton(service));
+        await host.StartAsync(CancellationToken.None);
+
+        await host.StopAsync(CancellationToken.None);
+
+        await service.Received(1).StopAsync(Arg.Any<CancellationToken>());
     }
 
     [Fact]

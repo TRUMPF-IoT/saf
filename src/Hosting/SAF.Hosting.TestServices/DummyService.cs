@@ -5,22 +5,14 @@
 namespace SAF.Hosting.TestServices
 {
     using Contracts;
+    using System.Threading;
+    using System.Threading.Tasks;
 
-    public class DummyService : IHostedService
+    // DummyService used for hosting tests only
+    public class DummyService : IHostedServiceAsync
     {
-        public void Start()
-        {
-            // DummyService used for hosting tests only
-        }
+        public Task StartAsync(CancellationToken cancelToken) => Task.CompletedTask;
 
-        public void Stop()
-        {
-            // DummyService used for hosting tests only
-        }
-
-        public void Kill()
-        {
-            // DummyService used for hosting tests only
-        }
+        public Task StopAsync(CancellationToken cancelToken) => Task.CompletedTask;
     }
 }

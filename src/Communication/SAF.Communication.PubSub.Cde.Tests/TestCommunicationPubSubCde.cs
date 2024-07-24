@@ -181,7 +181,7 @@ public class TestCommunicationPubSubCde
     }
 
     [Fact]
-    public async void RunSubscriptionRegistryWithSubstitute()
+    public async Task RunSubscriptionRegistryWithSubstitute()
     {
         var comLineSubscriptionRegistry = Substitute.For<ComLine>();
         comLineSubscriptionRegistry.Address.Returns("NOT RUNNING");
