@@ -7,7 +7,7 @@ SPDX-License-Identifier: MPL-2.0
 <Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <TargetFrameworks>netstandard2.1;net8.0;net9.0</TargetFrameworks>
+    <TargetFrameworks>net8.0;net9.0</TargetFrameworks>
     <Description>Smart Application Framework (SAF) Toolbox Services.</Description>
     <EnableNullable>enable</EnableNullable>
     <ImplicitUsings>enable</ImplicitUsings>
