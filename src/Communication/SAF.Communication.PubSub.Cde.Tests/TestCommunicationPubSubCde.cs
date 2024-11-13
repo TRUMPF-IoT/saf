@@ -40,9 +40,11 @@ public class TestCommunicationPubSubCde
         CheckRegistry(rrlh, MessageToken.SubscribeTrigger);
         CheckRegistryShutdown(rrlh);
 
-        RegistrySubscriptionResponse rsr = new();
-        rsr.id = "id";
-        rsr.instanceId = "instanceID";
+        RegistrySubscriptionResponse rsr = new()
+        {
+            id = "id",
+            instanceId = "instanceID"
+        };
         TSM tsm = new(Engines.PubSub, MessageToken.SubscribeResponse, TheCommonUtils.SerializeObjectToJSONString<RegistrySubscriptionResponse>(rsr));
         TheProcessMessage tpm = new(tsm);
         rrlh.HandleMessage(tpm);
@@ -58,7 +60,7 @@ public class TestCommunicationPubSubCde
         CheckNoRegistry(rrlh, MessageToken.Unsubscribe);
     }
 
-    private void CheckRegistry(RemoteRegistryLifetimeHandler rrlh, string messageToken)
+    private static void CheckRegistry(RemoteRegistryLifetimeHandler rrlh, string messageToken)
     {
         TSM tsm = new(Engines.PubSub, messageToken, "{\"address\":\"\",\"instanceId\":\"fee034c582a34e18afc248b82932034d\",\"version\":\"3.0.0\"}");
         TheProcessMessage tpm = new(tsm);
@@ -67,7 +69,7 @@ public class TestCommunicationPubSubCde
         Assert.Equal(tsm, rrlh.Registries[0]);
     }
 
-    private void CheckNoRegistry(RemoteRegistryLifetimeHandler rrlh, string messageToken)
+    private static void CheckNoRegistry(RemoteRegistryLifetimeHandler rrlh, string messageToken)
     {
         TSM tsm = new(Engines.PubSub, messageToken);
         TheProcessMessage tpm = new(tsm);
@@ -75,7 +77,7 @@ public class TestCommunicationPubSubCde
         Assert.Empty(rrlh.Registries);
     }
 
-    private void CheckRegistryShutdown(RemoteRegistryLifetimeHandler rrlh)
+    private static void CheckRegistryShutdown(RemoteRegistryLifetimeHandler rrlh)
     {
         TSM tsm = new(Engines.PubSub, MessageToken.RegistryShutdown);
         TheProcessMessage tpm = new(tsm);
@@ -88,10 +90,11 @@ public class TestCommunicationPubSubCde
     public void RunRemoteSubscriber()
     {
         TSM tsm = new(Engines.PubSub, MessageToken.SubscribeRequest);
-        List<string> lstPattern = new();
-        lstPattern.Add("pattern");
-        RegistrySubscriptionRequest rsr = new();
-        rsr.isRegistry = false;
+        List<string> lstPattern = ["pattern"];
+        RegistrySubscriptionRequest rsr = new()
+        {
+            isRegistry = false
+        };
         RemoteSubscriber resu = new(tsm, lstPattern, rsr);
         Assert.Equal(tsm, resu.Tsm);
         Assert.True(resu.IsAlive);
@@ -101,9 +104,9 @@ public class TestCommunicationPubSubCde
         rsr.version = PubSubVersion.Latest;
         Assert.Equal(PubSubVersion.Latest, resu.Version);
         Assert.True(resu.HasPatterns);
-        resu.RemovePatterns(new List<string> { "pattern" });
+        resu.RemovePatterns(["pattern"]);
         Assert.False(resu.HasPatterns);
-        resu.AddPatterns(new List<string> { "patt*" });
+        resu.AddPatterns(["patt*"]);
         Assert.True(resu.HasPatterns);
         Assert.True(resu.IsMatch("pattern"));
         Assert.False(resu.IsMatch("patern"));
@@ -144,7 +147,7 @@ public class TestCommunicationPubSubCde
         CheckBroadcast(subscriptionRegistry, RoutingOptions.Local, guid.ToString());
     }
 
-    private void CheckBroadcast(ISubscriptionRegistry subscriptionRegistry,
+    private static void CheckBroadcast(ISubscriptionRegistry subscriptionRegistry,
         RoutingOptions routingOptions = RoutingOptions.All,
         string guidString = "00000000-0000-0000-0000-000000000000")
     {
@@ -182,7 +185,7 @@ public class TestCommunicationPubSubCde
     }
 
     [Fact]
-    public async void RunSubscriptionRegistryWithSubstitute()
+    public async Task RunSubscriptionRegistryWithSubstitute()
     {
         var comLineSubscriptionRegistry = Substitute.For<ComLine>();
         comLineSubscriptionRegistry.Address.Returns("NOT RUNNING");
@@ -208,7 +211,7 @@ public class TestCommunicationPubSubCde
             Arg.Is<TSM>(t => t.TXT == MessageToken.SubscribeTrigger && t.PLS.Equals(registryIdent)));
         comLineSubscriptionRegistry.ClearReceivedCalls();
 
-        var tpmRegistry = this.CheckSubscribe(comLineSubscriptionRegistry);
+        var tpmRegistry = CheckSubscribe(comLineSubscriptionRegistry);
 
         // Send a subcribe alive request with registryIdentity and receive no registry alive request.
         tsm = new(Engines.PubSub, MessageToken.SubscriberAlive, registryIdent);
@@ -252,7 +255,7 @@ public class TestCommunicationPubSubCde
         comLineSubscriptionRegistry.DidNotReceive<ComLine>().AnswerToSender(Arg.Any<TSM>(), Arg.Any<TSM>());
     }
 
-    private TheProcessMessage CheckSubscribe(ComLine comLineSubscriptionRegistry)
+    private static TheProcessMessage CheckSubscribe(ComLine comLineSubscriptionRegistry)
     {
         // Send a subscribe request and receive a subscribe response with the given GUID
         // and the latest version (use this subscription in the next step to publish a message).
@@ -260,7 +263,7 @@ public class TestCommunicationPubSubCde
         RegistrySubscriptionRequest rsr = new()
         {
             id = guid.ToString("N"),
-            topics = new string[] { "topic" },
+            topics = ["topic"],
             isRegistry = true,
             version = PubSubVersion.Latest
         };
@@ -275,7 +278,7 @@ public class TestCommunicationPubSubCde
         return tpm;
     }
 
-    private TheProcessMessage CheckPublish(ComLine comLineSubscriptionRegistry)
+    private static TheProcessMessage CheckPublish(ComLine comLineSubscriptionRegistry)
     {
         // Sende a publish request and receive a publish request with the given
         // topic and payload.
