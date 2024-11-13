@@ -15,9 +15,9 @@ internal class ServiceAssemblyManager(ILogger<ServiceAssemblyManager> logger,
     {
         var loadedAssemblies = assemblySearch?.LoadServiceAssemblyManifests();
 
-        logger.LogInformation("Registered {assembliesRegisteredCount} assemblies.", serviceAssemblies.Count());
+        logger.LogInformation("Registered {AssemblyCount} assemblies.", serviceAssemblies.Count());
         return serviceAssemblies
-            .Concat(loadedAssemblies ?? Array.Empty<IServiceAssemblyManifest>())
+            .Concat(loadedAssemblies ?? [])
             .ToList();
     }
 }
