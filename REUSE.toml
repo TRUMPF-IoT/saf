@@ -1,0 +1,58 @@
+version = 1
+SPDX-PackageName = "Smart Application Framework"
+SPDX-PackageSupplier = "TRUMPF Laser GmbH <support.tls560@trumpf.com>"
+SPDX-PackageDownloadLocation = "https://github.com/TRUMPF-IoT/saf"
+
+[[annotations]]
+path = ".github/**/**"
+precedence = "aggregate"
+SPDX-FileCopyrightText = "2017-2021 TRUMPF Laser GmbH"
+SPDX-License-Identifier = "MPL-2.0"
+
+[[annotations]]
+path = "**.md"
+precedence = "aggregate"
+SPDX-FileCopyrightText = "2017-2021 TRUMPF Laser GmbH"
+SPDX-License-Identifier = "MPL-2.0"
+
+[[annotations]]
+path = "docs/_config.yml"
+precedence = "aggregate"
+SPDX-FileCopyrightText = "2017-2021 TRUMPF Laser GmbH"
+SPDX-License-Identifier = "MPL-2.0"
+
+[[annotations]]
+path = "docs/**/**"
+precedence = "aggregate"
+SPDX-FileCopyrightText = "2017-2021 TRUMPF Laser GmbH"
+SPDX-License-Identifier = "MPL-2.0"
+
+[[annotations]]
+path = "src/**/**.txt"
+precedence = "aggregate"
+SPDX-FileCopyrightText = "2017-2021 TRUMPF Laser GmbH"
+SPDX-License-Identifier = "MPL-2.0"
+
+[[annotations]]
+path = "src/**.sln"
+precedence = "aggregate"
+SPDX-FileCopyrightText = "2017-2021 TRUMPF Laser GmbH"
+SPDX-License-Identifier = "MPL-2.0"
+
+[[annotations]]
+path = "src/**/**.sln"
+precedence = "aggregate"
+SPDX-FileCopyrightText = "2017-2021 TRUMPF Laser GmbH"
+SPDX-License-Identifier = "MPL-2.0"
+
+[[annotations]]
+path = "src/**/**.json"
+precedence = "aggregate"
+SPDX-FileCopyrightText = "2017-2021 TRUMPF Laser GmbH"
+SPDX-License-Identifier = "MPL-2.0"
+
+[[annotations]]
+path = "src/**/app.config"
+precedence = "aggregate"
+SPDX-FileCopyrightText = "2017-2021 TRUMPF Laser GmbH"
+SPDX-License-Identifier = "MPL-2.0"
