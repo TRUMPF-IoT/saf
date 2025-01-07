@@ -1,12 +1,18 @@
-﻿// SPDX-FileCopyrightText: 2017-2021 TRUMPF Laser GmbH
+// SPDX-FileCopyrightText: 2017-2021 TRUMPF Laser GmbH
 //
 // SPDX-License-Identifier: MPL-2.0
+
 namespace SAF.Toolbox.Tests;
+
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 using NSubstitute;
 using Common;
 using Heartbeat;
 using RequestClient;
+using Toolbox.Filetransfer;
 using Xunit;
 
 public class ServiceCollectionExtensionsTests
@@ -46,7 +52,7 @@ public class ServiceCollectionExtensionsTests
     [Fact]
     public void AddRequestClientAddsServiceAndRequiredServicesOk()
     {
-        _services.AddSingleton(sp => Substitute.For<IMessagingInfrastructure>());
+        _services.AddSingleton(_ => Substitute.For<IMessagingInfrastructure>());
         _services.AddRequestClient();
 
         using var provider = _services.BuildServiceProvider();
@@ -57,7 +63,7 @@ public class ServiceCollectionExtensionsTests
     [Fact]
     public void AddRequestClientAddsServiceAfterAddHeartbeatPoolOk()
     {
-        _services.AddSingleton(sp => Substitute.For<IMessagingInfrastructure>());
+        _services.AddSingleton(_ => Substitute.For<IMessagingInfrastructure>());
         _services.AddHeartbeatPool();
         _services.AddRequestClient();
 
@@ -69,7 +75,7 @@ public class ServiceCollectionExtensionsTests
     [Fact]
     public void AddRequestClientAddsServiceOnlyOnceOk()
     {
-        _services.AddSingleton(sp => Substitute.For<IMessagingInfrastructure>());
+        _services.AddSingleton(_ => Substitute.For<IMessagingInfrastructure>());
             
         _services.AddRequestClient();
         _services.AddRequestClient();
@@ -80,5 +86,51 @@ public class ServiceCollectionExtensionsTests
         Assert.NotNull(provider.GetServices<IRequestClient>());
         Assert.Single(provider.GetServices<IRequestClient>());
         Assert.NotNull(provider.GetService<IRequestClient>());
+    }
+    
+    [Fact]
+    public void AddFileSenderWithoutConfigAddsServiceWithDefaultConfigOk()
+    {
+        // Arrange
+        _services.AddSingleton(_ => Substitute.For<IMessagingInfrastructure>());
+        _services.AddSingleton(_ => Substitute.For<ILogger<FileSender>>());
+        
+        // Act
+        _services.AddFileSender();
+
+        using var provider = _services.BuildServiceProvider();
+        var fileSender = provider.GetService<IFileSender>();
+        var options = provider.GetService<IOptions<FileSenderConfiguration>>();
+        
+        // Assert
+        Assert.NotNull(fileSender);
+        Assert.NotNull(options);
+        Assert.NotNull(options.Value);
+        Assert.Equal(0, options.Value.RetryAttemptsForFailedChunks);
+    }
+
+    [Fact]
+    public void AddFileSenderWithConfigAddsServiceWithSpecificConfigOk()
+    {
+        // Arrange
+        _services.AddSingleton(_ => Substitute.For<IMessagingInfrastructure>());
+        _services.AddSingleton(_ => Substitute.For<ILogger<FileSender>>());
+        var config = new ConfigurationBuilder().AddInMemoryCollection(new Dictionary<string, string>
+        {
+            { "FileSender:RetryAttemptsForFailedChunks", "5" }
+        }!).Build();
+        
+        // Act
+        _services.AddFileSender(config);
+
+        using var provider = _services.BuildServiceProvider();
+        var fileSender = provider.GetService<IFileSender>();
+        var options = provider.GetService<IOptions<FileSenderConfiguration>>();
+        
+        // Assert
+        Assert.NotNull(fileSender);
+        Assert.NotNull(options);
+        Assert.NotNull(options.Value);
+        Assert.Equal(5, options.Value.RetryAttemptsForFailedChunks);
     }
 }

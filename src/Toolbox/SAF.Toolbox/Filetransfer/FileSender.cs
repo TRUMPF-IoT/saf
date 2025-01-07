@@ -6,6 +6,7 @@ namespace SAF.Toolbox.Filetransfer;
 
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
+using Microsoft.Extensions.Options;
 using SAF.Common;
 using SAF.Toolbox.Serialization;
 using System.Collections.Concurrent;
@@ -21,6 +22,7 @@ internal class FileSender : IFileSender
     private readonly CancellationTokenSource _cancelTokenSource = new();
     private readonly IMessagingInfrastructure _messaging;
     private readonly ILogger<FileSender> _log;
+    private readonly FileSenderConfiguration _options;
 
     private readonly ConcurrentDictionary<string, SendRequest> _sendRequests = new();
     private readonly object _subscription;
@@ -35,10 +37,11 @@ internal class FileSender : IFileSender
 
     public ulong Timeout { get; set; } = 10_000; // 10 sec.
 
-    public FileSender(IMessagingInfrastructure messaging, ILogger<FileSender>? log)
+    public FileSender(IMessagingInfrastructure messaging, ILogger<FileSender>? log, IOptions<FileSenderConfiguration> options)
     {
         _messaging = messaging ?? throw new ArgumentNullException(nameof(messaging));
         _log = log ?? NullLogger<FileSender>.Instance;
+        _options = options.Value;
 
         _subscription = _messaging.Subscribe($"{ReplyToPrefix}/*", msg =>
         {
@@ -157,7 +160,12 @@ internal class FileSender : IFileSender
                 for (; pos < length - chunkSize; pos += chunkSize, n += 1)
                 {
                     await ReadChunkFromFile(mmf, offset, buffer);
-                    status = await TransferFileChunk(topic, filePath, properties, offset, buffer, length, n, false, uniqueTransferId, timeoutMs);
+                    status = await RetryAsync(
+                        action: () => TransferFileChunk(topic, filePath, properties, offset, buffer, length, n, false,
+                            uniqueTransferId, timeoutMs),
+                        isDesiredResult: s => s == FileTransferStatus.Delivered,
+                        intervalFactory: attempt => TimeSpan.FromSeconds(Math.Pow(2, attempt)),
+                        retryAttempts: _options.RetryAttemptsForFailedChunks);
                     if (status != FileTransferStatus.Delivered)
                     {
                         _log.LogError($"File {filePath} could not be sent. Status: {status}, chunk no. {n}");
@@ -174,7 +182,12 @@ internal class FileSender : IFileSender
             }
 
             // Send last chunk 
-            status = await TransferFileChunk(topic, filePath, properties, offset, buffer, length, n, true, uniqueTransferId, timeoutMs);
+            status = await RetryAsync(
+                action: () => TransferFileChunk(topic, filePath, properties, offset, buffer, length, n, true,
+                    uniqueTransferId, timeoutMs),
+                isDesiredResult: s => s == FileTransferStatus.Delivered,
+                intervalFactory: attempt => TimeSpan.FromSeconds(Math.Pow(2, attempt)),
+                retryAttempts: _options.RetryAttemptsForFailedChunks);
             if (status != FileTransferStatus.Delivered)
             {
                 _log.LogError($"File {filePath} could not be sent. Status: {status}, last chunk no. {n}");
@@ -186,6 +199,38 @@ internal class FileSender : IFileSender
             _log.LogError($"Could not open file {filePath}", e);
             return FileTransferStatus.Error;
         }
+    }
+
+    private static async Task<TResult> RetryAsync<TResult>(
+        Func<Task<TResult>> action,
+        Predicate<TResult> isDesiredResult,
+        Func<int, TimeSpan> intervalFactory,
+        int retryAttempts = 0)
+    {
+        // Perform the action once before retrying
+        var result = await action();
+
+        if (isDesiredResult(result))
+        {
+            return result;
+        }
+
+        for (var attempted = 0; attempted < retryAttempts; attempted++)
+        {
+            result = await action();
+
+            if (isDesiredResult(result))
+            {
+                return result;
+            }
+
+            var retryInterval = intervalFactory(attempted);
+            // Wait before retrying
+            await Task.Delay(retryInterval);
+        }
+
+        // Return the last result, even if it is not the desired one
+        return result;
     }
 
     private long GenerateUniqueTransferId()

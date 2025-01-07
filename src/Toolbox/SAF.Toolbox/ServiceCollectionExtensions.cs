@@ -24,7 +24,7 @@ using Filetransfer;
 public static class ServiceCollectionExtensions
 {
     public static IServiceCollection AddHeartbeat(this IServiceCollection services, int heartbeatMillis = 1000)
-        => services.AddSingleton<IHeartbeat>(sp => new Heartbeat.Heartbeat(heartbeatMillis));
+        => services.AddSingleton<IHeartbeat>(_ => new Heartbeat.Heartbeat(heartbeatMillis));
 
     public static IServiceCollection AddHeartbeatPool(this IServiceCollection services)
     {
@@ -64,10 +64,25 @@ public static class ServiceCollectionExtensions
 
         return services;
     }
-
+    
     public static IServiceCollection AddFileSender(this IServiceCollection services)
     {
+        services.AddFileSender(null);
+        return services;
+    }
+
+    public static IServiceCollection AddFileSender(this IServiceCollection services, IConfiguration? hostConfig)
+    {
         services.AddTransient<IFileSender, FileSender>();
+        
+        if (hostConfig == null)
+        {
+            // Assure default configuration
+            services.Configure<FileSenderConfiguration>(_ => { });
+            return services;
+        }
+
+        services.AddServiceConfiguration<FileSenderConfiguration>(hostConfig, nameof(FileSender));
         return services;
     }
 

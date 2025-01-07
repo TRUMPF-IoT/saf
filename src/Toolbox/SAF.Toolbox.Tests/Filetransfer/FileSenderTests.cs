@@ -4,8 +4,9 @@
 
 namespace SAF.Toolbox.Tests.Filetransfer;
 
+using Microsoft.Extensions.Options;
 using NSubstitute;
-using SAF.Common;
+using Common;
 using SAF.Toolbox.Serialization;
 using Toolbox.Filetransfer;
 using Xunit;
@@ -15,9 +16,9 @@ public class FileSenderTests
     [Theory]
     [InlineData(1)] // 1 byte
     [InlineData(1024)] // 1 kByte
-    [InlineData(1024 * 3)]  // 3 kByte
+    [InlineData(1024 * 3)] // 3 kByte
     [InlineData(1024 * 1024)] // 1 MByte
-    [InlineData(1024 * 1024 * 3)]  // 3 MByte
+    [InlineData(1024 * 1024 * 3)] // 3 MByte
     [InlineData(FileSender.MaxChunkSize - 1)] // excact chunk size - 1
     [InlineData(FileSender.MaxChunkSize)] // excact chunk size
     [InlineData(FileSender.MaxChunkSize + 1)] // excact chunk size + 1
@@ -30,7 +31,9 @@ public class FileSenderTests
         Action<Message>? senderHandler = null;
         var messaging = Substitute.For<IMessagingInfrastructure>();
         messaging.When(m => m.Subscribe(Arg.Any<string>(), Arg.Any<Action<Message>>()))
-            .Do(args => senderHandler = args.Arg<Action<Message>>());                
+            .Do(args => senderHandler = args.Arg<Action<Message>>());
+        var options = Substitute.For<IOptions<FileSenderConfiguration>>();
+        options.Value.Returns(new FileSenderConfiguration());
 
         var testChannel = $"tests/fileSender/{fileSizeInBytes}";
         var buffer = new byte[fileSizeInBytes];
@@ -43,7 +46,7 @@ public class FileSenderTests
             });
         using (var tempFile = new TemporaryFile($"file{fileSizeInBytes}.tmp", buffer))
         {
-            var fileSender = new FileSender(messaging, null);
+            var fileSender = new FileSender(messaging, null, options);
             var sendResult = await fileSender.SendInChunks(testChannel, tempFile.TempFilePath);
             Assert.Equal(FileTransferStatus.Delivered, sendResult);
         }
@@ -56,9 +59,9 @@ public class FileSenderTests
     [Theory]
     [InlineData(1)] // 1 byte
     [InlineData(1024)] // 1 kByte
-    [InlineData(1024 * 3)]  // 3 kByte
+    [InlineData(1024 * 3)] // 3 kByte
     [InlineData(1024 * 1024)] // 1 MByte
-    [InlineData(1024 * 1024 * 3)]  // 3 MByte
+    [InlineData(1024 * 1024 * 3)] // 3 MByte
     [InlineData(FileSender.MaxChunkSize - 1)] // excact chunk size - 1
     [InlineData(FileSender.MaxChunkSize)] // excact chunk size
     [InlineData(FileSender.MaxChunkSize + 1)] // excact chunk size + 1
@@ -71,6 +74,8 @@ public class FileSenderTests
         var messaging = Substitute.For<IMessagingInfrastructure>();
         messaging.When(m => m.Subscribe(Arg.Any<string>(), Arg.Any<Action<Message>>()))
             .Do(args => senderHandler = args.Arg<Action<Message>>());
+        var options = Substitute.For<IOptions<FileSenderConfiguration>>();
+        options.Value.Returns(new FileSenderConfiguration());
 
         var testChannel = $"tests/fileSender/{fileSizeInBytes}";
         var buffer = new byte[fileSizeInBytes];
@@ -93,7 +98,7 @@ public class FileSenderTests
                     senderHandler?.Invoke(new Message { Topic = req.ReplyTo, Payload = "OK" });
                 });
 
-            var fileSender = new FileSender(messaging, null);
+            var fileSender = new FileSender(messaging, null, options);
             var sendResult = await fileSender.SendInChunks(testChannel, tempFile.TempFilePath);
             Assert.Equal(FileTransferStatus.Delivered, sendResult);
         }
@@ -121,6 +126,8 @@ public class FileSenderTests
         var messaging = Substitute.For<IMessagingInfrastructure>();
         messaging.When(m => m.Subscribe(Arg.Any<string>(), Arg.Any<Action<Message>>()))
             .Do(args => senderHandler = args.Arg<Action<Message>>());
+        var options = Substitute.For<IOptions<FileSenderConfiguration>>();
+        options.Value.Returns(new FileSenderConfiguration());
 
         var testChannel = $"tests/fileSender/{fileSizeInBytes}";
         var buffer = new byte[fileSizeInBytes];
@@ -139,7 +146,7 @@ public class FileSenderTests
             });
         using (var tempFile = new TemporaryFile($"file{fileSizeInBytes}.tmp", buffer))
         {
-            var fileSender = new FileSender(messaging, null);
+            var fileSender = new FileSender(messaging, null, options);
             var sendResult = await fileSender.SendInChunks(testChannel, tempFile.TempFilePath);
             Assert.Equal(FileTransferStatus.Delivered, sendResult);
         }
@@ -149,23 +156,30 @@ public class FileSenderTests
         messaging.Received(Convert.ToInt32(expectedCalls)).Publish(Arg.Is<Message>(msg => msg.Topic == testChannel));
     }
 
-    [Fact]
-    public async Task SendInChunksWithMissingAnswerReturnsTimedOutOk()
+    [Theory]
+    [InlineData(1)]
+    [InlineData(4)]
+    public async Task SendInChunksWithMissingAnswerReturnsTimedOutOk(int expectedCalls)
     {
         const int fileSizeInBytes = 1024;
 
         var messaging = Substitute.For<IMessagingInfrastructure>();
+        var options = Substitute.For<IOptions<FileSenderConfiguration>>();
+        options.Value.Returns(new FileSenderConfiguration
+        {
+            RetryAttemptsForFailedChunks = expectedCalls - 1
+        });
 
         var testChannel = $"tests/fileSender/{fileSizeInBytes}";
         var buffer = new byte[fileSizeInBytes];
         using (var tempFile = new TemporaryFile($"file{fileSizeInBytes}.tst", buffer))
         {
-            var fileSender = new FileSender(messaging, null);
+            var fileSender = new FileSender(messaging, null, options);
+            fileSender.Timeout = 2000;
             var sendResult = await fileSender.SendInChunks(testChannel, tempFile.TempFilePath);
             Assert.Equal(FileTransferStatus.TimedOut, sendResult);
         }
 
-        var expectedCalls = 1;
         messaging.Received(expectedCalls).Publish(Arg.Is<Message>(msg => msg.Topic == testChannel));
     }
 }
