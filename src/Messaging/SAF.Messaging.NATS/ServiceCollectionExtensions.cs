@@ -1,4 +1,5 @@
-﻿using System.Runtime.CompilerServices;
+﻿using System.Net;
+using System.Runtime.CompilerServices;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using NATS.Client.Core;
@@ -13,7 +14,8 @@ namespace SAF.Messaging.Nats;
 
 public static class ServiceCollectionExtensions
 {
-    public static IServiceCollection AddNatsMessagingInfrastructure(this IServiceCollection serviceCollection, Action<NatsConfiguration> configure, Action<Message>? traceAction = null)
+    public static IServiceCollection AddNatsMessagingInfrastructure(this IServiceCollection serviceCollection,
+        Action<NatsConfiguration> configure, Action<Message>? traceAction = null)
     {
         var config = new NatsConfiguration();
         configure(config);
@@ -21,7 +23,8 @@ public static class ServiceCollectionExtensions
         return serviceCollection.AddNatsMessagingInfrastructure(config, traceAction);
     }
 
-    public static IServiceCollection AddNatsStorageInfrastructure(this IServiceCollection serviceCollection, Action<NatsConfiguration> configure)
+    public static IServiceCollection AddNatsStorageInfrastructure(this IServiceCollection serviceCollection,
+        Action<NatsConfiguration> configure)
     {
         var config = new NatsConfiguration();
         configure(config);
@@ -30,7 +33,8 @@ public static class ServiceCollectionExtensions
     }
 
 
-    public static IServiceCollection AddNatsInfrastructure(this IServiceCollection serviceCollection, Action<NatsConfiguration> configure, Action<Message>? traceAction = null)
+    public static IServiceCollection AddNatsInfrastructure(this IServiceCollection serviceCollection,
+        Action<NatsConfiguration> configure, Action<Message>? traceAction = null)
     {
         var config = new NatsConfiguration();
         configure.Invoke(config);
@@ -41,7 +45,8 @@ public static class ServiceCollectionExtensions
     }
 
 
-    internal static IServiceCollection AddNatsMessagingInfrastructure(this IServiceCollection serviceCollection, MessagingConfiguration config)
+    internal static IServiceCollection AddNatsMessagingInfrastructure(this IServiceCollection serviceCollection,
+        MessagingConfiguration config)
     {
         serviceCollection
             .AddTransient(sp => new Func<MessagingConfiguration, INatsMessagingInfrastructure>(cfg =>
@@ -53,7 +58,8 @@ public static class ServiceCollectionExtensions
                     sp.GetRequiredService<IServiceMessageDispatcher>(),
                     null);
             }))
-            .AddTransient(sp => sp.GetRequiredService<Func<MessagingConfiguration, INatsMessagingInfrastructure>>().Invoke(config));
+            .AddTransient(sp =>
+                sp.GetRequiredService<Func<MessagingConfiguration, INatsMessagingInfrastructure>>().Invoke(config));
 
         return serviceCollection;
     }
@@ -104,6 +110,26 @@ public static class ServiceCollectionExtensions
                 Seed = config.AuthOpts.Seed,
                 CredsFile = config.AuthOpts.CredsFile,
                 NKeyFile = config.AuthOpts.NKeyFile
+            },
+            TlsOpts = new NatsTlsOpts
+            {
+                CertFile = config.TlsOpts.CertFile,
+                KeyFile = config.TlsOpts.KeyFile,
+                KeyFilePassword = config.TlsOpts.KeyFilePassword,
+                CertBundleFile = config.TlsOpts.CertBundleFile,
+                CertBundleFilePassword = config.TlsOpts.CertBundleFilePassword,
+                CaFile = config.TlsOpts.CaFile,
+                ConfigureClientAuthentication = null,
+                InsecureSkipVerify = config.TlsOpts.InsecureSkipVerify,
+                Mode = Enum.Parse<TlsMode>(config.TlsOpts.Mode.ToString())
+            },
+            WebSocketOpts = new NatsWebSocketOpts()
+            {
+                ConfigureClientWebSocketOptions = (_, options, _) =>
+                {
+                    options.Proxy = CreateWebProxyOrNullFromNatsConfig(config);
+                    return ValueTask.CompletedTask;
+                }
             }
         };
 
@@ -120,7 +146,25 @@ public static class ServiceCollectionExtensions
         return natsClient;
     }
 
-    private static IServiceCollection AddNatsMessagingInfrastructure(this IServiceCollection serviceCollection, NatsConfiguration config, Action<Message>? traceAction)
+    private static IWebProxy? CreateWebProxyOrNullFromNatsConfig(NatsConfiguration config)
+    {
+        if (string.IsNullOrWhiteSpace(config.ProxyUrl))
+        {
+            return null;
+        }
+
+        return string.IsNullOrWhiteSpace(config.ProxyUser)
+            ? new WebProxy(config.ProxyUrl)
+            : new WebProxy(
+                config.ProxyUrl,
+                true,
+                null,
+                new NetworkCredential(config.ProxyUser,
+                    config.ProxyPassword));
+    }
+
+    private static IServiceCollection AddNatsMessagingInfrastructure(this IServiceCollection serviceCollection,
+        NatsConfiguration config, Action<Message>? traceAction)
     {
         return serviceCollection.AddTransient<INatsMessagingInfrastructure>(r =>
             new Messaging(r.GetRequiredService<ILogger<Messaging>>(),
@@ -130,7 +174,8 @@ public static class ServiceCollectionExtensions
                 traceAction));
     }
 
-    private static IServiceCollection AddNatsStorageInfrastructure(this IServiceCollection serviceCollection, NatsConfiguration config)
+    private static IServiceCollection AddNatsStorageInfrastructure(this IServiceCollection serviceCollection,
+        NatsConfiguration config)
     {
         return serviceCollection.AddTransient<IStorageInfrastructure>(r =>
         {

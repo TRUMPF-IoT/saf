@@ -69,7 +69,6 @@ public class TestMessagingNats
         Assert.Null(nmc.CredsFile);
         Assert.Null(nmc.NKeyFile);
 
-
         MessagingConfiguration mc = new();
         mc.Config = new Dictionary<string, string>();
         mc.Config.Add("url", "nats://localhost:2222");
@@ -78,15 +77,27 @@ public class TestMessagingNats
         mc.Config.Add("requestTimeoutInSeconds", "50");
         mc.Config.Add("commandTimeoutInSeconds", "40");
         mc.Config.Add("maxReconnectRetry", "15");
-        mc.Config.Add("authOpt:username", "natsUser");
-        mc.Config.Add("authOpt:password", "HighSecretPassword");
-        mc.Config.Add("authOpt:token", "Token123456789");
-        mc.Config.Add("authOpt:jwt", "alongjwttoken");
-        mc.Config.Add("authOpt:nkey", "AABBCCDDEEFF");
-        mc.Config.Add("authOpt:seed", "FFEEDDCCBBAA");
-        mc.Config.Add("authOpt:credsFile", "C:\\myCredFile.key");
-        mc.Config.Add("authOpt:nkeyFile", "C:\\myNKeyFile.nkey");
+        mc.Config.Add("proxyUrl", "http://proxy.mynet");
+        mc.Config.Add("proxyUser", "ProxyUser");
+        mc.Config.Add("proxyPassword", "ProxyPassword");
 
+        mc.Config.Add("authOpts:username", "natsUser");
+        mc.Config.Add("authOpts:password", "HighSecretPassword");
+        mc.Config.Add("authOpts:token", "Token123456789");
+        mc.Config.Add("authOpts:jwt", "alongjwttoken");
+        mc.Config.Add("authOpts:nkey", "AABBCCDDEEFF");
+        mc.Config.Add("authOpts:seed", "FFEEDDCCBBAA");
+        mc.Config.Add("authOpts:credsFile", "C:\\myCredFile.key");
+        mc.Config.Add("authOpts:nkeyFile", "C:\\myNKeyFile.nkey");
+
+        mc.Config.Add("tlsOpts:certFile", "C:\\certFile");
+        mc.Config.Add("tlsOpts:keyFile", "C:\\keyFile.key");
+        mc.Config.Add("tlsOpts:keyFilePassword", "KeyFilePassword");
+        mc.Config.Add("tlsOpts:certBundleFile", "C:\\certBundleFile.pfx");
+        mc.Config.Add("tlsOpts:certBundleFilePassword", "certBundleFilePasswordPassword");
+        mc.Config.Add("tlsOpts:caFile", "C:\\caFile.ca");
+        mc.Config.Add("tlsOpts:insecureSkipVerify", "true");
+        mc.Config.Add("tlsOpts:mode", "Implicit");
 
         nmc = new(mc);
         Assert.Equal("nats://localhost:2222", nmc.Url);
@@ -95,6 +106,10 @@ public class TestMessagingNats
         Assert.StrictEqual(50, nmc.RequestTimeout);
         Assert.StrictEqual(40, nmc.CommandTimeout);
         Assert.StrictEqual(15, nmc.MaxReconnectRetry);
+        Assert.Equal("http://proxy.mynet", nmc.ProxyUrl);
+        Assert.Equal("ProxyUser", nmc.ProxyUser);
+        Assert.Equal("ProxyPassword", nmc.ProxyPassword);
+
         Assert.Equal("natsUser", nmc.Username);
         Assert.Equal("HighSecretPassword", nmc.Password);
         Assert.Equal("Token123456789", nmc.Token);
@@ -103,6 +118,15 @@ public class TestMessagingNats
         Assert.Equal("FFEEDDCCBBAA", nmc.Seed);
         Assert.Equal("C:\\myCredFile.key", nmc.CredsFile);
         Assert.Equal("C:\\myNKeyFile.nkey", nmc.NKeyFile);
+
+        Assert.Equal("C:\\certFile", nmc.CertFile);
+        Assert.Equal("C:\\keyFile.key", nmc.KeyFile);
+        Assert.Equal("KeyFilePassword", nmc.KeyFilePassword);
+        Assert.Equal("C:\\certBundleFile.pfx", nmc.CertBundleFile);
+        Assert.Equal("certBundleFilePasswordPassword", nmc.CertBundleFilePassword);
+        Assert.Equal("C:\\caFile.ca", nmc.CaFile);
+        Assert.True(nmc.InsecureSkipVerify);
+        Assert.Equal(TlsMode.Implicit, nmc.Mode);
     }
 
     [Fact]
