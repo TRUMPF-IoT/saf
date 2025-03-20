@@ -1,21 +1,17 @@
 ﻿using System.Text;
-using NATS.Client.Core;
 using NATS.Client.ObjectStore;
-using NATS.Net;
 using SAF.Common;
 
 namespace SAF.Messaging.Nats;
 
 public class Storage : IStorageInfrastructure, IDisposable
 {
-    private readonly INatsClient _natsClient;
     private const string GlobalStorageArea = "global";
     private readonly INatsObjContext _natsObjContext;
 
-    public Storage(INatsClient natsClient)
+    public Storage(INatsObjContext natsObjContext)
     {
-        _natsClient = natsClient;
-        _natsObjContext = natsClient.CreateObjectStoreContext();
+        _natsObjContext = natsObjContext;
     }
 
     public IStorageInfrastructure Set(string key, string value)
@@ -36,7 +32,7 @@ public class Storage : IStorageInfrastructure, IDisposable
     public IStorageInfrastructure Set(string area, string key, byte[] value)
     {
         var store = _natsObjContext.CreateObjectStoreAsync(area).Result;
-        store.PutAsync(key, value);
+        _ = store.PutAsync(key, value).AsTask().Result;
         return this;
     }
 
@@ -76,12 +72,12 @@ public class Storage : IStorageInfrastructure, IDisposable
 
     public IStorageInfrastructure RemoveArea(string area)
     {
-        _natsObjContext.DeleteObjectStore(GlobalStorageArea, CancellationToken.None);
+        _natsObjContext.DeleteObjectStore(area, CancellationToken.None);
         return this;
     }
 
     public void Dispose()
     {
-        _natsClient.DisposeAsync();
+        _natsObjContext.JetStreamContext.Connection.DisposeAsync().AsTask().Wait();
     }
 }

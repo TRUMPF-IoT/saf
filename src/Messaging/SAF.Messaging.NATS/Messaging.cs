@@ -1,5 +1,4 @@
-﻿using System.Collections.Concurrent;
-using Microsoft.Extensions.Logging;
+﻿using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using NATS.Client.Core;
 using SAF.Common;
@@ -9,17 +8,18 @@ namespace SAF.Messaging.Nats;
 public class Messaging : INatsMessagingInfrastructure, IDisposable
 {
     private readonly INatsClient _natsClient;
+    private readonly INatsSubscriptionManager _subscriptionManager;
     private readonly IServiceMessageDispatcher _serviceMessageDispatcher;
     private readonly Action<Message>? _traceAction;
     private readonly ILogger<Messaging> _logger;
 
-    private readonly ConcurrentDictionary<Guid, (string routeFilterPattern, CancellationTokenSource cancellationTokenSource, Task)> _subscriptions = new();
-
     public Messaging(ILogger<Messaging>? logger, INatsClient natsClient,
+        INatsSubscriptionManager subscriptionManager,
         IServiceMessageDispatcher serviceMessageDispatcher, Action<Message>? traceAction)
     {
         _logger = logger ?? NullLogger<Messaging>.Instance;
         _natsClient = natsClient;
+        _subscriptionManager = subscriptionManager;
         _serviceMessageDispatcher = serviceMessageDispatcher;
         _traceAction = traceAction;
     }
@@ -100,7 +100,7 @@ public class Messaging : INatsMessagingInfrastructure, IDisposable
             return;
         }
 
-        if(!_subscriptions.TryRemove(subscriptionGuid, out var storedSubscription))
+        if(!_subscriptionManager.TryRemove(subscriptionGuid, out var storedSubscription))
         {
             _logger.LogWarning($"Unsubscribe failed. Subscription not active anymore: \"{subscriptionGuid}\".");
             return;
@@ -156,7 +156,7 @@ public class Messaging : INatsMessagingInfrastructure, IDisposable
             }, cts.Token);
 
             var subscriptionId = Guid.NewGuid();
-            _subscriptions.TryAdd(subscriptionId, (routeFilterPattern, cts, subscriptionTask));
+            _subscriptionManager.TryAdd(subscriptionId, (routeFilterPattern, cts, subscriptionTask));
 
             return subscriptionId;
         }

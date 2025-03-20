@@ -1,8 +1,13 @@
-﻿using Microsoft.Extensions.DependencyInjection;
+﻿using System.Runtime.CompilerServices;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using NATS.Client.Core;
 using NATS.Net;
 using SAF.Common;
+
+[assembly: InternalsVisibleTo("SAF.Messaging.Nats.Tests")]
+[assembly: InternalsVisibleTo("DynamicProxyGenAssembly2")]
+
 
 namespace SAF.Messaging.Nats;
 
@@ -43,7 +48,8 @@ public static class ServiceCollectionExtensions
             {
                 var natsCfg = CreateNatsConfiguration(cfg);
                 return new Messaging(sp.GetRequiredService<ILogger<Messaging>>(),
-                    CreateNatsConnection(natsCfg, sp.GetRequiredService<ILogger<Messaging>>()),
+                    CreateNatsClient(natsCfg, sp.GetRequiredService<ILogger<Messaging>>()),
+                    new NatsSubscriptionManager(),
                     sp.GetRequiredService<IServiceMessageDispatcher>(),
                     null);
             }))
@@ -79,7 +85,7 @@ public static class ServiceCollectionExtensions
         return natsCfg;
     }
 
-    private static INatsClient CreateNatsConnection(NatsConfiguration config, ILogger logger)
+    private static INatsClient CreateNatsClient(NatsConfiguration config, ILogger logger)
     {
         var natsConfiguration = new NatsOpts()
         {
@@ -118,13 +124,18 @@ public static class ServiceCollectionExtensions
     {
         return serviceCollection.AddTransient<INatsMessagingInfrastructure>(r =>
             new Messaging(r.GetRequiredService<ILogger<Messaging>>(),
-                CreateNatsConnection(config, r.GetRequiredService<ILogger<Messaging>>()),
+                CreateNatsClient(config, r.GetRequiredService<ILogger<Messaging>>()),
+                new NatsSubscriptionManager(),
                 r.GetRequiredService<IServiceMessageDispatcher>(),
                 traceAction));
     }
 
     private static IServiceCollection AddNatsStorageInfrastructure(this IServiceCollection serviceCollection, NatsConfiguration config)
     {
-        return serviceCollection;
+        return serviceCollection.AddTransient<IStorageInfrastructure>(r =>
+        {
+            var natsClient = CreateNatsClient(config, r.GetRequiredService<ILogger<Storage>>());
+            return new Storage(natsClient.CreateObjectStoreContext());
+        });
     }
 }
