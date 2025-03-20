@@ -31,7 +31,7 @@ public class Storage : IStorageInfrastructure, IDisposable
 
     public IStorageInfrastructure Set(string area, string key, byte[] value)
     {
-        var store = _natsObjContext.CreateObjectStoreAsync(area).Result;
+        var store = _natsObjContext.CreateObjectStoreAsync(area).AsTask().Result;
         _ = store.PutAsync(key, value).AsTask().Result;
         return this;
     }
@@ -54,8 +54,15 @@ public class Storage : IStorageInfrastructure, IDisposable
 
     public byte[]? GetBytes(string area, string key)
     {
-        var store = _natsObjContext.CreateObjectStoreAsync(area).Result;
-        return store.GetBytesAsync(key).Result;
+        try
+        {
+            var store = _natsObjContext.CreateObjectStoreAsync(area).Result;
+            return store.GetBytesAsync(key).AsTask().Result;
+        }
+        catch (Exception)
+        {
+            return null;
+        }
     }
 
     public IStorageInfrastructure RemoveKey(string key)
@@ -66,13 +73,13 @@ public class Storage : IStorageInfrastructure, IDisposable
     public IStorageInfrastructure RemoveKey(string area, string key)
     {
         var store = _natsObjContext.CreateObjectStoreAsync(area).Result;
-        store.DeleteAsync(key);
+        store.DeleteAsync(key).AsTask().Wait();
         return this;
     }
 
     public IStorageInfrastructure RemoveArea(string area)
     {
-        _natsObjContext.DeleteObjectStore(area, CancellationToken.None);
+        _natsObjContext.DeleteObjectStore(area, CancellationToken.None).AsTask().Wait();
         return this;
     }
 
