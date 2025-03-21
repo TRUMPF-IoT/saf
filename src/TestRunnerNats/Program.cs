@@ -23,7 +23,8 @@ class Program
 
                 services.AddHost(context.Configuration.GetSection("ServiceHost").Bind, mainLogger);
                 services.AddHostDiagnostics();
-                services.AddNatsInfrastructure(context.Configuration.GetSection("Nats").Bind);
+                services.AddNatsInfrastructure(context.Configuration.GetSection("Nats").Bind)
+                    .AddNatsRoutingTranslator();
             })
             .Build();
 

@@ -14,6 +14,12 @@ namespace SAF.Messaging.Nats;
 
 public static class ServiceCollectionExtensions
 {
+    public static IServiceCollection AddNatsRoutingTranslator(this IServiceCollection services)
+    {
+        services.AddSingleton<IRouteTranslator, NatsRouteTranslator>();
+        return services;
+    }
+
     public static IServiceCollection AddNatsMessagingInfrastructure(this IServiceCollection serviceCollection,
         Action<NatsConfiguration> configure, Action<Message>? traceAction = null)
     {
@@ -55,6 +61,7 @@ public static class ServiceCollectionExtensions
                 return new Messaging(sp.GetRequiredService<ILogger<Messaging>>(),
                     CreateNatsClient(natsCfg, sp.GetRequiredService<ILogger<Messaging>>()),
                     new NatsSubscriptionManager(),
+                    sp.GetService<IRouteTranslator>() ?? new DefaultRouteTranslator(),
                     sp.GetRequiredService<IServiceMessageDispatcher>(),
                     null);
             }))
@@ -85,7 +92,21 @@ public static class ServiceCollectionExtensions
                 Seed = msgCfg.Seed,
                 CredsFile = msgCfg.CredsFile,
                 NKeyFile = msgCfg.NKeyFile
-            }
+            },
+            TlsOpts = new NatsConfigurationTlsOpts
+            {
+                CertFile = msgCfg.CertFile,
+                KeyFile = msgCfg.KeyFile,
+                KeyFilePassword = msgCfg.KeyFilePassword,
+                CertBundleFile = msgCfg.CertBundleFile,
+                CertBundleFilePassword = msgCfg.CertBundleFilePassword,
+                CaFile = msgCfg.CaFile,
+                InsecureSkipVerify = msgCfg.InsecureSkipVerify,
+                Mode = Enum.Parse<NatsTlsMode>(msgCfg.Mode.ToString())
+            },
+            ProxyUrl = msgCfg.ProxyUrl,
+            ProxyUser = msgCfg.ProxyUser,
+            ProxyPassword = msgCfg.ProxyPassword
         };
 
         return natsCfg;
@@ -170,6 +191,7 @@ public static class ServiceCollectionExtensions
             new Messaging(r.GetRequiredService<ILogger<Messaging>>(),
                 CreateNatsClient(config, r.GetRequiredService<ILogger<Messaging>>()),
                 new NatsSubscriptionManager(),
+                r.GetService<IRouteTranslator>() ?? new DefaultRouteTranslator(),
                 r.GetRequiredService<IServiceMessageDispatcher>(),
                 traceAction));
     }

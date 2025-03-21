@@ -9,17 +9,20 @@ public class Messaging : INatsMessagingInfrastructure, IDisposable
 {
     private readonly INatsClient _natsClient;
     private readonly INatsSubscriptionManager _subscriptionManager;
+    private readonly IRouteTranslator _routeTranslator;
     private readonly IServiceMessageDispatcher _serviceMessageDispatcher;
     private readonly Action<Message>? _traceAction;
     private readonly ILogger<Messaging> _logger;
 
     public Messaging(ILogger<Messaging>? logger, INatsClient natsClient,
         INatsSubscriptionManager subscriptionManager,
+        IRouteTranslator routeTranslator,
         IServiceMessageDispatcher serviceMessageDispatcher, Action<Message>? traceAction)
     {
         _logger = logger ?? NullLogger<Messaging>.Instance;
         _natsClient = natsClient;
         _subscriptionManager = subscriptionManager;
+        _routeTranslator = routeTranslator;
         _serviceMessageDispatcher = serviceMessageDispatcher;
         _traceAction = traceAction;
     }
@@ -30,7 +33,8 @@ public class Messaging : INatsMessagingInfrastructure, IDisposable
 
         try
         {
-            _natsClient.PublishAsync(message.Topic, message.Payload);
+            var topic = _routeTranslator.TranslateRoute(message.Topic);
+            _natsClient.PublishAsync(topic, message.Payload);
         }
         catch (NullReferenceException nre)
         {
@@ -133,10 +137,11 @@ public class Messaging : INatsMessagingInfrastructure, IDisposable
     {
         try
         {
+            var subject = _routeTranslator.TranslateRoute(routeFilterPattern);
             var cts = new CancellationTokenSource();
             var subscriptionTask = Task.Run(async () =>
             {
-                await foreach (var msg in _natsClient.SubscribeAsync<string>(subject: routeFilterPattern, cancellationToken: cts.Token))
+                await foreach (var msg in _natsClient.SubscribeAsync<string>(subject: subject, cancellationToken: cts.Token))
                 {
                     try
                     {
