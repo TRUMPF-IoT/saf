@@ -14,12 +14,6 @@ namespace SAF.Messaging.Nats;
 
 public static class ServiceCollectionExtensions
 {
-    public static IServiceCollection AddNatsRoutingTranslator(this IServiceCollection services)
-    {
-        services.AddSingleton<IRouteTranslator, NatsRouteTranslator>();
-        return services;
-    }
-
     public static IServiceCollection AddNatsMessagingInfrastructure(this IServiceCollection serviceCollection,
         Action<NatsConfiguration> configure, Action<Message>? traceAction = null)
     {
@@ -61,7 +55,7 @@ public static class ServiceCollectionExtensions
                 return new Messaging(sp.GetRequiredService<ILogger<Messaging>>(),
                     CreateNatsClient(natsCfg, sp.GetRequiredService<ILogger<Messaging>>()),
                     new NatsSubscriptionManager(),
-                    sp.GetService<IRouteTranslator>() ?? new DefaultRouteTranslator(),
+                    sp.GetService<IRouteTranslator>() ?? new NatsRouteTranslator(),
                     sp.GetRequiredService<IServiceMessageDispatcher>(),
                     null);
             }))
@@ -191,7 +185,7 @@ public static class ServiceCollectionExtensions
             new Messaging(r.GetRequiredService<ILogger<Messaging>>(),
                 CreateNatsClient(config, r.GetRequiredService<ILogger<Messaging>>()),
                 new NatsSubscriptionManager(),
-                r.GetService<IRouteTranslator>() ?? new DefaultRouteTranslator(),
+                r.GetService<IRouteTranslator>() ?? new NatsRouteTranslator(),
                 r.GetRequiredService<IServiceMessageDispatcher>(),
                 traceAction));
     }
