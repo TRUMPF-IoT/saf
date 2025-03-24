@@ -5,7 +5,7 @@ using SAF.Common;
 
 namespace SAF.Messaging.Nats;
 
-public class Messaging : INatsMessagingInfrastructure, IDisposable
+internal sealed class Messaging : INatsMessagingInfrastructure, IDisposable
 {
     private readonly INatsClient _natsClient;
     private readonly INatsSubscriptionManager _subscriptionManager;

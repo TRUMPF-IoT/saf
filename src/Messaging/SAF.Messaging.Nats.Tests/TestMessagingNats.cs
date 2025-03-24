@@ -12,7 +12,7 @@ public class TestMessagingNats
     public void RunMessaging()
     {
         var smd = Substitute.For<IServiceMessageDispatcher>();
-        var routeTranslator = Substitute.For<IRouteTranslator>();
+        var routeTranslator = new NatsRouteTranslator();
         var subscriptionManager = Substitute.For<INatsSubscriptionManager>();
         var natsClient = Substitute.For<INatsClient>();
 
@@ -72,33 +72,33 @@ public class TestMessagingNats
 
         MessagingConfiguration mc = new();
         mc.Config = new Dictionary<string, string>();
-        mc.Config.Add("url", "nats://localhost:2222");
-        mc.Config.Add("verbose", "true");
-        mc.Config.Add("connectionTimeoutInSeconds", "60");
-        mc.Config.Add("requestTimeoutInSeconds", "50");
-        mc.Config.Add("commandTimeoutInSeconds", "40");
-        mc.Config.Add("maxReconnectRetry", "15");
-        mc.Config.Add("proxyUrl", "http://proxy.mynet");
-        mc.Config.Add("proxyUser", "ProxyUser");
-        mc.Config.Add("proxyPassword", "ProxyPassword");
+        mc.Config.Add("Url", "nats://localhost:2222");
+        mc.Config.Add("Verbose", "true");
+        mc.Config.Add("ConnectionTimeoutInSeconds", "60");
+        mc.Config.Add("RequestTimeoutInSeconds", "50");
+        mc.Config.Add("CommandTimeoutInSeconds", "40");
+        mc.Config.Add("MaxReconnectRetry", "15");
+        mc.Config.Add("ProxyUrl", "http://proxy.mynet");
+        mc.Config.Add("ProxyUser", "ProxyUser");
+        mc.Config.Add("ProxyPassword", "ProxyPassword");
 
-        mc.Config.Add("authOpts:username", "natsUser");
-        mc.Config.Add("authOpts:password", "HighSecretPassword");
-        mc.Config.Add("authOpts:token", "Token123456789");
-        mc.Config.Add("authOpts:jwt", "alongjwttoken");
-        mc.Config.Add("authOpts:nkey", "AABBCCDDEEFF");
-        mc.Config.Add("authOpts:seed", "FFEEDDCCBBAA");
-        mc.Config.Add("authOpts:credsFile", "C:\\myCredFile.key");
-        mc.Config.Add("authOpts:nkeyFile", "C:\\myNKeyFile.nkey");
+        mc.Config.Add("AuthOpts_Username", "natsUser");
+        mc.Config.Add("AuthOpts_Password", "HighSecretPassword");
+        mc.Config.Add("AuthOpts_Token", "Token123456789");
+        mc.Config.Add("AuthOpts_Jwt", "alongjwttoken");
+        mc.Config.Add("AuthOpts_Nkey", "AABBCCDDEEFF");
+        mc.Config.Add("AuthOpts_Seed", "FFEEDDCCBBAA");
+        mc.Config.Add("AuthOpts_CredsFile", "C:\\myCredFile.key");
+        mc.Config.Add("AuthOpts_NkeyFile", "C:\\myNKeyFile.nkey");
 
-        mc.Config.Add("tlsOpts:certFile", "C:\\certFile");
-        mc.Config.Add("tlsOpts:keyFile", "C:\\keyFile.key");
-        mc.Config.Add("tlsOpts:keyFilePassword", "KeyFilePassword");
-        mc.Config.Add("tlsOpts:certBundleFile", "C:\\certBundleFile.pfx");
-        mc.Config.Add("tlsOpts:certBundleFilePassword", "certBundleFilePasswordPassword");
-        mc.Config.Add("tlsOpts:caFile", "C:\\caFile.ca");
-        mc.Config.Add("tlsOpts:insecureSkipVerify", "true");
-        mc.Config.Add("tlsOpts:mode", "Implicit");
+        mc.Config.Add("TlsOpts_CertFile", "C:\\certFile");
+        mc.Config.Add("TlsOpts_KeyFile", "C:\\keyFile.key");
+        mc.Config.Add("TlsOpts_KeyFilePassword", "KeyFilePassword");
+        mc.Config.Add("TlsOpts_CertBundleFile", "C:\\certBundleFile.pfx");
+        mc.Config.Add("TlsOpts_CertBundleFilePassword", "certBundleFilePasswordPassword");
+        mc.Config.Add("TlsOpts_CaFile", "C:\\caFile.ca");
+        mc.Config.Add("TlsOpts_InsecureSkipVerify", "true");
+        mc.Config.Add("TlsOpts_Mode", "Implicit");
 
         nmc = new(mc);
         Assert.Equal("nats://localhost:2222", nmc.Url);
