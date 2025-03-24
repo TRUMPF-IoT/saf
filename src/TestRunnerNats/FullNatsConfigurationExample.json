@@ -1,0 +1,31 @@
+﻿{
+  "url": "",
+  "verbose": false,
+  "authOpts": {
+    "username": "",
+    "password": "",
+    "token": "",
+    "jwt": "",
+    "nkey": "",
+    "seed": "",
+    "credsFile": "",
+    "nkeyFile": ""
+  },
+  "tlsOpts": {
+    "certFile": "",
+    "keyFile": "",
+    "keyFilePassword": "",
+    "certBundleFile": "",
+    "certBundleFilePassword": "",
+    "caFile": "",
+    "insecureSkipVerify": "",
+    "mode": "Auto"
+  },
+  "connectionTimeout": 30,
+  "requestTimeout": 30,
+  "commandTimeout": 30,
+  "maxReconnectRetry": -1,
+  "proxyUrl": "",
+  "proxyUser": "",
+  "proxyPassword": ""
+}
