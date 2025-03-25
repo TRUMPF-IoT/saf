@@ -1,4 +1,8 @@
-﻿using NATS.Client.Core;
+﻿// SPDX-FileCopyrightText: 2017-2025 TRUMPF Laser GmbH
+//
+// SPDX-License-Identifier: MPL-2.0
+
+using NATS.Client.Core;
 using NATS.Client.ObjectStore;
 using NSubstitute;
 using SAF.Common;

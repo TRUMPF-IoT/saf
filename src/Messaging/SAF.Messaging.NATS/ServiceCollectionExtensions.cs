@@ -1,4 +1,8 @@
-﻿using System.Net;
+﻿// SPDX-FileCopyrightText: 2017-2025 TRUMPF Laser GmbH
+//
+// SPDX-License-Identifier: MPL-2.0
+
+using System.Net;
 using System.Runtime.CompilerServices;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;

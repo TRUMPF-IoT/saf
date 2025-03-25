@@ -1,4 +1,8 @@
-﻿using Microsoft.Extensions.DependencyInjection;
+﻿// SPDX-FileCopyrightText: 2017-2025 TRUMPF Laser GmbH
+//
+// SPDX-License-Identifier: MPL-2.0
+
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;

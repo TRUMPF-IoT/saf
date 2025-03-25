@@ -1,4 +1,8 @@
-﻿using Microsoft.Extensions.Logging;
+﻿// SPDX-FileCopyrightText: 2017-2025 TRUMPF Laser GmbH
+//
+// SPDX-License-Identifier: MPL-2.0
+
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using NATS.Client.Core;
 using SAF.Common;
