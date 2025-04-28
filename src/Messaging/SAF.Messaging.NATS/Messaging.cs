@@ -167,7 +167,7 @@ internal sealed class Messaging : INatsMessagingInfrastructure, IDisposable
                 }
             }, cts.Token);
 
-            WaitUtils.WaitUntil(() => isSynchronized, cts.Token).Wait(cts.Token);
+            WaitUtilities.WaitUntil(() => isSynchronized, cts.Token).Wait(cts.Token);
 
             var subscriptionId = Guid.NewGuid();
             _subscriptionManager.TryAdd(subscriptionId, (routeFilterPattern, cts, subscriptionTask));

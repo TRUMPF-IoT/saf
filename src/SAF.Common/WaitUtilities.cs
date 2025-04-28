@@ -1,6 +1,6 @@
 ﻿namespace SAF.Common;
 
-public static class WaitUtils
+public static class WaitUtilities
 {
     public static async Task WaitUntil(Func<bool> condition, CancellationToken cancellationToken = default, TimeSpan frequency = default, TimeSpan timeout = default)
     {
