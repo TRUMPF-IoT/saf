@@ -141,11 +141,14 @@ internal sealed class Messaging : INatsMessagingInfrastructure, IDisposable
     {
         try
         {
+            var isSynchronized = false;
             var subject = _routeTranslator.TranslateRoute(routeFilterPattern);
             var cts = new CancellationTokenSource();
             var subscriptionTask = Task.Run(async () =>
             {
-                await foreach (var msg in _natsClient.SubscribeAsync<string>(subject: subject, cancellationToken: cts.Token))
+                var subscription = await _natsClient.Connection.SubscribeCoreAsync<string>(subject: subject, cancellationToken: cts.Token);
+                isSynchronized = true;
+                await foreach (var msg in subscription.Msgs.ReadAllAsync(cts.Token))
                 {
                     try
                     {
@@ -163,6 +166,8 @@ internal sealed class Messaging : INatsMessagingInfrastructure, IDisposable
                     }
                 }
             }, cts.Token);
+
+            WaitUtilities.WaitUntil(() => isSynchronized, cts.Token).Wait(cts.Token);
 
             var subscriptionId = Guid.NewGuid();
             _subscriptionManager.TryAdd(subscriptionId, (routeFilterPattern, cts, subscriptionTask));
