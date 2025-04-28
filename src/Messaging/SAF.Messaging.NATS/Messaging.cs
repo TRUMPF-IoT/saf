@@ -146,9 +146,9 @@ internal sealed class Messaging : INatsMessagingInfrastructure, IDisposable
             var cts = new CancellationTokenSource();
             var subscriptionTask = Task.Run(async () =>
             {
-                var subscription = _natsClient.SubscribeAsync<string>(subject: subject, cancellationToken: cts.Token);
+                var subscription = await _natsClient.Connection.SubscribeCoreAsync<string>(subject: subject, cancellationToken: cts.Token);
                 isSynchronized = true;
-                await foreach (var msg in subscription)
+                await foreach (var msg in subscription.Msgs.ReadAllAsync(cts.Token))
                 {
                     try
                     {
