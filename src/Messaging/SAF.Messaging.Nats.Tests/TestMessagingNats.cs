@@ -16,11 +16,12 @@ public class TestMessagingNats
     public void RunMessaging()
     {
         var smd = Substitute.For<IServiceMessageDispatcher>();
-        var routeTranslator = new NatsRouteTranslator();
+        var inputRouteTranslator = new NatsInputRouteTranslator();
+        var outputRouteTranslator = new NatsOutputRouteTranslator();
         var subscriptionManager = Substitute.For<INatsSubscriptionManager>();
         var natsClient = Substitute.For<INatsClient>();
 
-        var messaging = new Messaging(null, natsClient, subscriptionManager, routeTranslator, smd, null);
+        var messaging = new Messaging(null, natsClient, subscriptionManager, inputRouteTranslator, outputRouteTranslator, smd, null);
         messaging.Unsubscribe(null!);
         subscriptionManager.DidNotReceive().TryRemove(Arg.Any<Guid>(), out _);
 

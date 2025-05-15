@@ -4,7 +4,7 @@
 
 namespace SAF.Common;
 
-public interface IRouteTranslator
+public interface IInputRouteTranslator
 {
     string TranslateRoute(string routePattern);
 }
