@@ -13,20 +13,23 @@ internal sealed class Messaging : INatsMessagingInfrastructure, IDisposable
 {
     private readonly INatsClient _natsClient;
     private readonly INatsSubscriptionManager _subscriptionManager;
-    private readonly IRouteTranslator _routeTranslator;
+    private readonly IInputRouteTranslator _inputRouteTranslator;
+    private readonly IOutputRouteTranslator _outputRouteTranslator;
     private readonly IServiceMessageDispatcher _serviceMessageDispatcher;
     private readonly Action<Message>? _traceAction;
     private readonly ILogger<Messaging> _logger;
 
     public Messaging(ILogger<Messaging>? logger, INatsClient natsClient,
         INatsSubscriptionManager subscriptionManager,
-        IRouteTranslator routeTranslator,
+        IInputRouteTranslator inputRouteTranslator,
+        IOutputRouteTranslator outputRouteTranslator,
         IServiceMessageDispatcher serviceMessageDispatcher, Action<Message>? traceAction)
     {
         _logger = logger ?? NullLogger<Messaging>.Instance;
         _natsClient = natsClient;
         _subscriptionManager = subscriptionManager;
-        _routeTranslator = routeTranslator;
+        _inputRouteTranslator = inputRouteTranslator;
+        _outputRouteTranslator = outputRouteTranslator;
         _serviceMessageDispatcher = serviceMessageDispatcher;
         _traceAction = traceAction;
     }
@@ -37,7 +40,7 @@ internal sealed class Messaging : INatsMessagingInfrastructure, IDisposable
 
         try
         {
-            var topic = _routeTranslator.TranslateRoute(message.Topic);
+            var topic = _inputRouteTranslator.TranslateRoute(message.Topic);
             _natsClient.PublishAsync(topic, message.Payload);
         }
         catch (NullReferenceException nre)
@@ -141,17 +144,20 @@ internal sealed class Messaging : INatsMessagingInfrastructure, IDisposable
     {
         try
         {
-            var subject = _routeTranslator.TranslateRoute(routeFilterPattern);
+            var isSynchronized = false;
+            var subject = _inputRouteTranslator.TranslateRoute(routeFilterPattern);
             var cts = new CancellationTokenSource();
             var subscriptionTask = Task.Run(async () =>
             {
-                await foreach (var msg in _natsClient.SubscribeAsync<string>(subject: subject, cancellationToken: cts.Token))
+                var subscription = await _natsClient.Connection.SubscribeCoreAsync<string>(subject: subject, cancellationToken: cts.Token);
+                isSynchronized = true;
+                await foreach (var msg in subscription.Msgs.ReadAllAsync(cts.Token))
                 {
                     try
                     {
                         var message = new Message
                         {
-                            Topic = msg.Subject,
+                            Topic = _outputRouteTranslator.TranslateRoute(msg.Subject),
                             Payload = msg.Data
                         };
 
@@ -163,6 +169,8 @@ internal sealed class Messaging : INatsMessagingInfrastructure, IDisposable
                     }
                 }
             }, cts.Token);
+
+            WaitUtilities.WaitUntil(() => isSynchronized, cts.Token).Wait(cts.Token);
 
             var subscriptionId = Guid.NewGuid();
             _subscriptionManager.TryAdd(subscriptionId, (routeFilterPattern, cts, subscriptionTask));

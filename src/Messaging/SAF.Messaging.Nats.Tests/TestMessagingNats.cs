@@ -16,11 +16,12 @@ public class TestMessagingNats
     public void RunMessaging()
     {
         var smd = Substitute.For<IServiceMessageDispatcher>();
-        var routeTranslator = new NatsRouteTranslator();
+        var inputRouteTranslator = new NatsInputRouteTranslator();
+        var outputRouteTranslator = new NatsOutputRouteTranslator();
         var subscriptionManager = Substitute.For<INatsSubscriptionManager>();
         var natsClient = Substitute.For<INatsClient>();
 
-        var messaging = new Messaging(null, natsClient, subscriptionManager, routeTranslator, smd, null);
+        var messaging = new Messaging(null, natsClient, subscriptionManager, inputRouteTranslator, outputRouteTranslator, smd, null);
         messaging.Unsubscribe(null!);
         subscriptionManager.DidNotReceive().TryRemove(Arg.Any<Guid>(), out _);
 
@@ -35,8 +36,8 @@ public class TestMessagingNats
         var messageHandler = Substitute.For<IMessageHandler>();
         messageHandler.CanHandle(Arg.Any<Message>()).Returns(true);
         var id = (Guid)messaging.Subscribe<IMessageHandler>();
-        natsClient.SubscribeAsync<string>(subject: Arg.Any<string>(), cancellationToken: Arg.Any<CancellationToken>());
-        natsClient.Received().SubscribeAsync<string>(subject: Arg.Any<string>(), cancellationToken: Arg.Any<CancellationToken>());
+        natsClient.Connection.SubscribeCoreAsync<string>(subject: Arg.Any<string>(), cancellationToken: Arg.Any<CancellationToken>());
+        natsClient.Connection.Received().SubscribeCoreAsync<string>(subject: Arg.Any<string>(), cancellationToken: Arg.Any<CancellationToken>());
         subscriptionManager.Received().TryAdd(Arg.Is<Guid>(id), Arg.Any<(string routeFilterPattern, CancellationTokenSource cancellationTokenSource, Task)>());
         subscriptionManager.ClearReceivedCalls();
         natsClient.ClearReceivedCalls();

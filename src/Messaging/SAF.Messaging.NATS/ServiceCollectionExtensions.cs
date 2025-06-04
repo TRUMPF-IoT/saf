@@ -59,7 +59,8 @@ public static class ServiceCollectionExtensions
                 return new Messaging(sp.GetRequiredService<ILogger<Messaging>>(),
                     CreateNatsClient(natsCfg, sp.GetRequiredService<ILogger<Messaging>>()),
                     new NatsSubscriptionManager(),
-                    sp.GetService<IRouteTranslator>() ?? new NatsRouteTranslator(),
+                    sp.GetService<IInputRouteTranslator>() ?? new NatsInputRouteTranslator(),
+                    sp.GetService<IOutputRouteTranslator>() ?? new NatsOutputRouteTranslator(),
                     sp.GetRequiredService<IServiceMessageDispatcher>(),
                     null);
             }))
@@ -185,12 +186,13 @@ public static class ServiceCollectionExtensions
     private static IServiceCollection AddNatsMessagingInfrastructure(this IServiceCollection serviceCollection,
         NatsConfiguration config, Action<Message>? traceAction)
     {
-        return serviceCollection.AddTransient<INatsMessagingInfrastructure>(r =>
-            new Messaging(r.GetRequiredService<ILogger<Messaging>>(),
-                CreateNatsClient(config, r.GetRequiredService<ILogger<Messaging>>()),
+        return serviceCollection.AddTransient<INatsMessagingInfrastructure>(sp =>
+            new Messaging(sp.GetRequiredService<ILogger<Messaging>>(),
+                CreateNatsClient(config, sp.GetRequiredService<ILogger<Messaging>>()),
                 new NatsSubscriptionManager(),
-                r.GetService<IRouteTranslator>() ?? new NatsRouteTranslator(),
-                r.GetRequiredService<IServiceMessageDispatcher>(),
+                sp.GetService<IInputRouteTranslator>() ?? new NatsInputRouteTranslator(),
+                sp.GetService<IOutputRouteTranslator>() ?? new NatsOutputRouteTranslator(),
+                sp.GetRequiredService<IServiceMessageDispatcher>(),
                 traceAction));
     }
 
