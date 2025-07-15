@@ -59,7 +59,6 @@ public class StatefulFileReceiver : IStatefulFileReceiver
     {
         var fileName = delivery.TransportFile.Name;
         var filePath = GenerateUniqueFileName(Path.Combine(directory.FullName, fileName), overwrite);
-        if (filePath == null) return; // only to make static code analysis happy.
 
         var uniqueTransferId = props.TransferId ?? 0;
         var tmpName = Path.ChangeExtension(filePath, $".{uniqueTransferId}.temp");

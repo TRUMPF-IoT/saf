@@ -16,7 +16,7 @@ internal class FileSender : IFileSender
 {
     private sealed class SendRequest
     {
-        public Action<Message> ReceiptAction { get; set; } = default!;
+        public Action<Message> ReceiptAction { get; init; } = null!;
     }
 
     private readonly CancellationTokenSource _cancelTokenSource = new();
@@ -81,49 +81,49 @@ internal class FileSender : IFileSender
         // Publish with reply-to and wait for response ...
         FileTransferStatus result;
         var replyTo = $"{ReplyToPrefix}/{Guid.NewGuid():N}";
-        using (var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(_cancelTokenSource.Token))
+
+        using var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(_cancelTokenSource.Token);
+        
+        var tcs = new TaskCompletionSource<FileTransferStatus>();
+        linkedCts.Token.Register(() => tcs.TrySetCanceled());
+
+        try
         {
-            var tcs = new TaskCompletionSource<FileTransferStatus>();
-            linkedCts.Token.Register(() => tcs.TrySetCanceled());
-
-            try
+            var request = new SendRequest
             {
-                var request = new SendRequest
+                ReceiptAction = message =>
                 {
-                    ReceiptAction = message =>
-                    {
-                        tcs.TrySetResult((message.Payload ?? string.Empty).Equals("OK", StringComparison.OrdinalIgnoreCase)
-                            ? FileTransferStatus.Delivered
-                            : FileTransferStatus.Error);
-                    }
-                };
-                _sendRequests.TryAdd(replyTo, request);
-
-                // Send
-                SendTransportFile(topic, file, replyTo);
-
-                var waitResult = await Task.WhenAny(tcs.Task, Task.Delay(TimeSpan.FromMilliseconds(timeoutMs), linkedCts.Token));
-                if (waitResult.IsCanceled || waitResult.IsFaulted || waitResult.Status != TaskStatus.RanToCompletion)
-                {
-                    result = FileTransferStatus.Error;
-                    _log.LogInformation("Cancelled transfer of file {fileName}. {replyTo}", file.Name, replyTo);
+                    tcs.TrySetResult((message.Payload ?? string.Empty).Equals("OK", StringComparison.OrdinalIgnoreCase)
+                        ? FileTransferStatus.Delivered
+                        : FileTransferStatus.Error);
                 }
-                else
-                {
-                    result = waitResult == tcs.Task ? tcs.Task.Result : FileTransferStatus.TimedOut;
-                    if(result != FileTransferStatus.Delivered)
-                        _log.LogWarning("Transfer of file {fileName} timed out. {replyTo}", file.Name, replyTo);
-                }
-            }
-            catch (OperationCanceledException)
+            };
+            _sendRequests.TryAdd(replyTo, request);
+
+            // Send
+            SendTransportFile(topic, file, replyTo);
+
+            var waitResult = await Task.WhenAny(tcs.Task, Task.Delay(TimeSpan.FromMilliseconds(timeoutMs), linkedCts.Token));
+            if (waitResult.IsCanceled || waitResult.IsFaulted || waitResult.Status != TaskStatus.RanToCompletion)
             {
                 result = FileTransferStatus.Error;
                 _log.LogInformation("Cancelled transfer of file {fileName}. {replyTo}", file.Name, replyTo);
             }
-            finally
+            else
             {
-                _sendRequests.TryRemove(replyTo, out _);
+                result = waitResult == tcs.Task ? tcs.Task.Result : FileTransferStatus.TimedOut;
+                if(result != FileTransferStatus.Delivered)
+                    _log.LogWarning("Transfer of file {fileName} timed out. {replyTo}", file.Name, replyTo);
             }
+        }
+        catch (OperationCanceledException)
+        {
+            result = FileTransferStatus.Error;
+            _log.LogInformation("Cancelled transfer of file {fileName}. {replyTo}", file.Name, replyTo);
+        }
+        finally
+        {
+            _sendRequests.TryRemove(replyTo, out _);
         }
 
         return result;
