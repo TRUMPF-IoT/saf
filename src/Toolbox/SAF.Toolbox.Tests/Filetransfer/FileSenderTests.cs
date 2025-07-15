@@ -5,7 +5,6 @@
 using Microsoft.Extensions.Options;
 using NSubstitute;
 using SAF.Common;
-using SAF.Toolbox.FileTransfer;
 using SAF.Toolbox.Serialization;
 using Xunit;
 
@@ -19,12 +18,12 @@ public class FileSenderTests
     [InlineData(1024 * 3)] // 3 kByte
     [InlineData(1024 * 1024)] // 1 MByte
     [InlineData(1024 * 1024 * 3)] // 3 MByte
-    [InlineData(FileSender.MaxChunkSize - 1)] // excact chunk size - 1
-    [InlineData(FileSender.MaxChunkSize)] // excact chunk size
-    [InlineData(FileSender.MaxChunkSize + 1)] // excact chunk size + 1
-    [InlineData(FileSender.MaxChunkSize * 3 - 1)] // multiple of chunk size - 1
-    [InlineData(FileSender.MaxChunkSize * 3)] // multiple of chunk size
-    [InlineData(FileSender.MaxChunkSize * 3 + 1)] // multiple of chunk size + 1
+    [InlineData(1024 * 200 - 1)] // excact chunk size - 1
+    [InlineData(1024 * 200)] // excact chunk size
+    [InlineData(1024 * 200 + 1)] // excact chunk size + 1
+    [InlineData(1024 * 200 * 3 - 1)] // multiple of chunk size - 1
+    [InlineData(1024 * 200 * 3)] // multiple of chunk size
+    [InlineData(1024 * 200 * 3 + 1)] // multiple of chunk size + 1
     [InlineData(134217728)] // 128 MByte
     public async Task SendInChunksCallsPublishOk(int fileSizeInBytes)
     {

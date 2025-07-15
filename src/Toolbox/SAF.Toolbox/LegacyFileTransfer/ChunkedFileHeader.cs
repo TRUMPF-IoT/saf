@@ -4,7 +4,7 @@
 
 using System.IO.MemoryMappedFiles;
 
-namespace SAF.Toolbox.FileTransfer;
+namespace SAF.Toolbox.LegacyFileTransfer;
 
 internal struct ChunkedFileHeader
 {

@@ -3,7 +3,9 @@
 // SPDX-License-Identifier: MPL-2.0
 
 
-namespace SAF.Toolbox.FileTransfer;
+namespace SAF.Toolbox.LegacyFileTransfer;
+
+using SAF.Toolbox.FileTransfer;
 
 public interface IFileSender : IDisposable
 {

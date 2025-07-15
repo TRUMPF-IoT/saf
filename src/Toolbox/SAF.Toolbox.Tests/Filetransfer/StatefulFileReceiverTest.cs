@@ -2,7 +2,6 @@
 //
 // SPDX-License-Identifier: MPL-2.0
 
-using SAF.Toolbox.FileTransfer;
 using Xunit;
 using Xunit.Abstractions;
 

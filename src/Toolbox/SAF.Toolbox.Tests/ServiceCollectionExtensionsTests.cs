@@ -8,7 +8,6 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using NSubstitute;
 using SAF.Common;
-using SAF.Toolbox.FileTransfer;
 using SAF.Toolbox.Heartbeat;
 using SAF.Toolbox.RequestClient;
 using Xunit;

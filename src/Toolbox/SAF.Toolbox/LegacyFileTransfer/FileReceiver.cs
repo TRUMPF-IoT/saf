@@ -8,7 +8,7 @@ using Microsoft.Extensions.Logging.Abstractions;
 using SAF.Common;
 using SAF.Toolbox.Serialization;
 
-namespace SAF.Toolbox.FileTransfer;
+namespace SAF.Toolbox.LegacyFileTransfer;
 
 internal class FileReceiver : IFileReceiver
 {

@@ -7,7 +7,7 @@ using System.Security.Cryptography;
 using System.Text;
 using SAF.Toolbox.Serialization;
 
-namespace SAF.Toolbox.FileTransfer;
+namespace SAF.Toolbox.LegacyFileTransfer;
 
 public class TransportFile
 {

@@ -10,8 +10,8 @@ using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using SAF.Common;
-using SAF.Toolbox.FileTransfer;
 using SAF.Toolbox.Heartbeat;
+using SAF.Toolbox.LegacyFileTransfer;
 using SAF.Toolbox.RequestClient;
 
 [assembly: InternalsVisibleTo("SAF.Toolbox.Tests")]
@@ -37,15 +37,17 @@ public static class ServiceCollectionExtensions
     }
 
     public static IServiceCollection AddFileHandling(this IServiceCollection services)
-        => services.AddTransient<IFileSystem, FileSystem>()
-            .AddTransient(sp =>
+    {
+        services.TryAddTransient<IFileSystem, FileSystem>();
+        return services.AddTransient(sp =>
             {
                 var hi = sp.GetRequiredService<IHostInfo>();
                 var fs = sp.GetRequiredService<IFileSystem>();
                 var di = fs.DirectoryInfo.New(hi.FileSystemUserBasePath);
-                if(!di.Exists) di.Create();
+                if (!di.Exists) di.Create();
                 return di;
             });
+    }
 
     public static IServiceCollection AddRequestClient(this IServiceCollection services)
     {
@@ -71,6 +73,9 @@ public static class ServiceCollectionExtensions
 
     public static IServiceCollection AddFileSender(this IServiceCollection services, IConfiguration? hostConfig)
     {
+        services.TryAddTransient<IFileSystem, FileSystem>();
+        services.AddRequestClient();
+
         services.AddTransient<IFileSender, FileSender>();
         
         if (hostConfig == null)

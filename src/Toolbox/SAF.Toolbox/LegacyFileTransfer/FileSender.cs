@@ -8,9 +8,10 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using SAF.Common;
+using SAF.Toolbox.FileTransfer;
 using SAF.Toolbox.Serialization;
 
-namespace SAF.Toolbox.FileTransfer;
+namespace SAF.Toolbox.LegacyFileTransfer;
 
 internal class FileSender : IFileSender
 {

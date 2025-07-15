@@ -6,7 +6,7 @@ using System.IO.MemoryMappedFiles;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 
-namespace SAF.Toolbox.FileTransfer;
+namespace SAF.Toolbox.LegacyFileTransfer;
 
 public class StatefulFileReceiver : IStatefulFileReceiver
 {

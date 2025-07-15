@@ -3,7 +3,7 @@
 // SPDX-License-Identifier: MPL-2.0
 
 
-namespace SAF.Toolbox.FileTransfer;
+namespace SAF.Toolbox.LegacyFileTransfer;
 
 internal class TransportFileEnvelope
 {
