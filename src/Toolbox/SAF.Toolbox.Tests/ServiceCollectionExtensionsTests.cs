@@ -8,6 +8,7 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using NSubstitute;
 using SAF.Common;
+using SAF.Toolbox.FileTransfer;
 using SAF.Toolbox.Heartbeat;
 using SAF.Toolbox.RequestClient;
 using Xunit;
@@ -98,14 +99,15 @@ public class ServiceCollectionExtensionsTests
         _services.AddFileSender();
 
         using var provider = _services.BuildServiceProvider();
-        var fileSender = provider.GetService<IFileSender>();
-        var options = provider.GetService<IOptions<FileSenderConfiguration>>();
+        var fileSender = provider.GetRequiredService<IFileSender>();
+        var options = provider.GetService<IOptions<FileSenderOptions>>();
         
         // Assert
         Assert.NotNull(fileSender);
         Assert.NotNull(options);
         Assert.NotNull(options.Value);
         Assert.Equal(0, options.Value.RetryAttemptsForFailedChunks);
+        Assert.Equal(200 * 1024u, options.Value.MaxChunkSizeInBytes);
     }
 
     [Fact]
@@ -116,7 +118,8 @@ public class ServiceCollectionExtensionsTests
         _services.AddSingleton(_ => Substitute.For<ILogger<FileSender>>());
         var config = new ConfigurationBuilder().AddInMemoryCollection(new Dictionary<string, string>
         {
-            { "FileSender:RetryAttemptsForFailedChunks", "5" }
+            { "FileSender:RetryAttemptsForFailedChunks", "5" },
+            { "FileSender:MaxChunkSizeInBytes", "1024" }
         }!).Build();
         
         // Act
@@ -124,12 +127,33 @@ public class ServiceCollectionExtensionsTests
 
         using var provider = _services.BuildServiceProvider();
         var fileSender = provider.GetService<IFileSender>();
-        var options = provider.GetService<IOptions<FileSenderConfiguration>>();
+        var options = provider.GetService<IOptions<FileSenderOptions>>();
         
         // Assert
         Assert.NotNull(fileSender);
         Assert.NotNull(options);
         Assert.NotNull(options.Value);
         Assert.Equal(5, options.Value.RetryAttemptsForFailedChunks);
+        Assert.Equal(1024u, options.Value.MaxChunkSizeInBytes);
+    }
+
+    [Fact]
+    public void AddFileReceiverAddsServiceAndRequiredServicesOk()
+    {
+        // Arrange
+        _services.AddSingleton(_ => Substitute.For<IMessagingInfrastructure>());
+        _services.AddSingleton(_ => Substitute.For<ILogger<FileReceiver>>());
+        _services.AddSingleton(_ => Substitute.For<ILogger<StatefulFileReceiver>>());
+
+        // Act
+        _services.AddFileReceiver();
+
+        using var provider = _services.BuildServiceProvider();
+        var fileReceiver = provider.GetService<IFileReceiver>();
+        var statefulFileReceiver = provider.GetService<IStatefulFileReceiver>();
+
+        // Assert
+        Assert.NotNull(fileReceiver);
+        Assert.NotNull(statefulFileReceiver);
     }
 }

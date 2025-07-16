@@ -12,6 +12,13 @@ SPDX-License-Identifier: MPL-2.0
   </PropertyGroup>
 
   <ItemGroup>
+    <Compile Remove="LegacyFileTransfer\FileSenderTests.cs" />
+    <Compile Remove="LegacyFileTransfer\StatefulFileReceiverTest.cs" />
+    <Compile Remove="LegacyFileTransfer\TemporaryFile.cs" />
+    <Compile Remove="LegacyFileTransfer\TransportFileTests.cs" />
+  </ItemGroup>
+
+  <ItemGroup>
     <PackageReference Include="Microsoft.Extensions.Configuration" />
     <PackageReference Include="Microsoft.Extensions.DependencyInjection" />
     <PackageReference Include="Microsoft.NET.Test.Sdk" />
@@ -22,6 +29,13 @@ SPDX-License-Identifier: MPL-2.0
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
     </PackageReference>
     <DotNetCliToolReference Include="dotnet-xunit" Version="2.3.1" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Include="LegacyFileTransfer\FileSenderTests.cs" />
+    <None Include="LegacyFileTransfer\StatefulFileReceiverTest.cs" />
+    <None Include="LegacyFileTransfer\TemporaryFile.cs" />
+    <None Include="LegacyFileTransfer\TransportFileTests.cs" />
   </ItemGroup>
 
   <ItemGroup>

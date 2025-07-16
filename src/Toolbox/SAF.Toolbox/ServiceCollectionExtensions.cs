@@ -74,6 +74,8 @@ public static class ServiceCollectionExtensions
         services.TryAddTransient<IFileSystem, FileSystem>();
         services.AddRequestClient();
 
+        services.TryAddTransient<IFileSender, FileSender>();
+
         if (hostConfig == null)
         {
             // Assure default configuration
@@ -81,8 +83,6 @@ public static class ServiceCollectionExtensions
             return services;
         }
         services.AddServiceConfiguration<FileSenderOptions>(hostConfig, nameof(FileSender));
-        
-        services.TryAddTransient<IFileSender, FileSender>();
 
         return services;
     }
