@@ -7,12 +7,12 @@ internal static class RequestClientExtensions
 {
     private const string ReplyToPrefix = "private/data/transfer/receipt";
 
-    public static async Task<FileReceiverState?> GetReceiverStateAsync(this IRequestClient requestClient, string topic, TransportFile file, uint totalChunks, FileSenderOptions options)
+    public static async Task<FileReceiverState?> GetReceiverStateAsync(this IRequestClient requestClient, string topic, TransportFile file, FileSenderOptions options)
     {
         var response = await RetryAsync(
             () => requestClient.SendRequestAwaitFirstAnswer<GetReceiverStateRequest, GetReceiverStateResponse>(
                 $"{topic}/state/get",
-                new GetReceiverStateRequest { File = file, TotalChunks = totalChunks },
+                new GetReceiverStateRequest { File = file },
                 [], ReplyToPrefix),
             result => result != null,
             intervalFactory: attempt => TimeSpan.FromSeconds(Math.Pow(2, attempt)),

@@ -3,7 +3,6 @@
 // SPDX-License-Identifier: MPL-2.0
 
 using System.IO.Abstractions;
-using System.Runtime.CompilerServices;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
@@ -11,11 +10,8 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using SAF.Common;
 using SAF.Toolbox.Heartbeat;
-using SAF.Toolbox.LegacyFileTransfer;
+using SAF.Toolbox.FileTransfer;
 using SAF.Toolbox.RequestClient;
-
-[assembly: InternalsVisibleTo("SAF.Toolbox.Tests")]
-[assembly: InternalsVisibleTo("DynamicProxyGenAssembly2")]
 
 namespace SAF.Toolbox;
 
@@ -39,7 +35,7 @@ public static class ServiceCollectionExtensions
     public static IServiceCollection AddFileHandling(this IServiceCollection services)
     {
         services.TryAddTransient<IFileSystem, FileSystem>();
-        return services.AddTransient(sp =>
+        services.TryAddTransient(sp =>
             {
                 var hi = sp.GetRequiredService<IHostInfo>();
                 var fs = sp.GetRequiredService<IFileSystem>();
@@ -47,6 +43,8 @@ public static class ServiceCollectionExtensions
                 if (!di.Exists) di.Create();
                 return di;
             });
+
+        return services;
     }
 
     public static IServiceCollection AddRequestClient(this IServiceCollection services)
@@ -76,23 +74,25 @@ public static class ServiceCollectionExtensions
         services.TryAddTransient<IFileSystem, FileSystem>();
         services.AddRequestClient();
 
-        services.AddTransient<IFileSender, FileSender>();
-        
         if (hostConfig == null)
         {
             // Assure default configuration
-            services.Configure<FileSenderConfiguration>(_ => { });
+            services.Configure<FileSenderOptions>(_ => { });
             return services;
         }
+        services.AddServiceConfiguration<FileSenderOptions>(hostConfig, nameof(FileSender));
+        
+        services.TryAddTransient<IFileSender, FileSender>();
 
-        services.AddServiceConfiguration<FileSenderConfiguration>(hostConfig, nameof(FileSender));
         return services;
     }
 
     public static IServiceCollection AddFileReceiver(this IServiceCollection services)
     {
-        services.AddTransient<IFileReceiver, FileReceiver>();
-        services.AddTransient<IStatefulFileReceiver, StatefulFileReceiver>();
+        services.TryAddTransient<IFileReceiver, FileReceiver>();
+
+        services.TryAddTransient<IFileSystem, FileSystem>();
+        services.TryAddTransient<IStatefulFileReceiver, StatefulFileReceiver>();
         return services;
     }
 

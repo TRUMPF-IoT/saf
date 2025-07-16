@@ -44,14 +44,14 @@ internal class FileSender(
                 Properties = properties
             };
 
-            var receiverState = await requestClient.GetReceiverStateAsync(topic, transportFile, totalChunks, _options);
+            var receiverState = await requestClient.GetReceiverStateAsync(topic, transportFile, _options);
             if (receiverState == null)
             {
                 log.LogError("Failed to retrieve transmitted chunk information for file {FullFilePath} on topic {ReceiverTopic}", fullFilePath, topic);
                 return FileTransferStatus.Error;
             }
 
-            if (receiverState.TransmittedChunks.Count == totalChunks)
+            if (receiverState.FileExists || receiverState.TransmittedChunks.Count == totalChunks)
             {
                 log.LogInformation("File {FullFilePath} already transferred on topic {ReceiverTopic}, skip sending and report success", fullFilePath, topic);
                 return FileTransferStatus.Delivered;

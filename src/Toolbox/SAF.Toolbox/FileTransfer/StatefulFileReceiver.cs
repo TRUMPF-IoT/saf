@@ -9,31 +9,43 @@ using System.Runtime.CompilerServices;
 
 public class StatefulFileReceiver(ILogger<StatefulFileReceiver> log, IFileSystem fileSystem) : IStatefulFileReceiver
 {
-    private readonly ConditionalWeakTable<string, object> _locks = new();
+    private readonly ConditionalWeakTable<string, object> _locks = [];
 
     public event Action<string>? FileReceived;
 
     public FileReceiverState GetState(string folderPath, TransportFile file)
     {
-        var targetFileInfo = fileSystem.FileInfo.New(file.GetTargetFilePath(folderPath));
-        if (targetFileInfo.Exists)
+        lock (GetFileTransferLock(file.FileId))
         {
-            if(file.ContentHash == targetFileInfo.GetContentHash())
+            var targetFileInfo = fileSystem.FileInfo.New(file.GetTargetFilePath(folderPath));
+            if (targetFileInfo.Exists)
             {
-                log.LogDebug("File {FileName} already exists with matching content hash, signal sender to skip transfer.", targetFileInfo.Name);
-                return new FileReceiverState { FileExists = true };
+                if (file.ContentHash == targetFileInfo.GetContentHash())
+                {
+                    log.LogDebug(
+                        "File {FileName} already exists with matching content hash, signal sender to skip transfer.",
+                        targetFileInfo.FullName);
+                    return new FileReceiverState {FileExists = true};
+                }
             }
-        }
 
-        var tempTargetFileInfo = fileSystem.FileInfo.New(file.GetTempTargetFilePath(folderPath));
-        if(!tempTargetFileInfo.Exists)
-        {
-            log.LogDebug("Temporary file {FileName} does not exist, signal sender to transfer all chunks.", tempTargetFileInfo.Name);
-            return new FileReceiverState();
-        }
+            var tempTargetFileInfo = fileSystem.FileInfo.New(file.GetTempTargetFilePath(folderPath));
+            if (!tempTargetFileInfo.Exists)
+            {
+                log.LogDebug("Temporary file {FileName} does not exist, signal sender to transfer all chunks.", tempTargetFileInfo.FullName);
+                return new FileReceiverState();
+            }
 
-        var metadata = ReadFileMetadata(file.GetMetadataTargetFilePath(folderPath));
-        return new FileReceiverState {TransmittedChunks = metadata.ReceivedChunks};
+            var metadata = ReadFileMetadata(file.GetMetadataTargetFilePath(folderPath));
+            if (metadata.ReceivedChunks.Count == file.TotalChunks)
+            {
+                log.LogDebug("All chunks of file {FileName} already received, signal sender to skip transfer.", file.FileName);
+                CompleteFileTransfer(folderPath, file);
+
+                return new FileReceiverState {FileExists = true, TransmittedChunks = metadata.ReceivedChunks};
+            }
+            return new FileReceiverState {TransmittedChunks = metadata.ReceivedChunks};
+        }
     }
 
     public FileReceiverStatus WriteFile(string folderPath, TransportFile file, FileChunk fileChunk)
@@ -58,11 +70,7 @@ public class StatefulFileReceiver(ILogger<StatefulFileReceiver> log, IFileSystem
 
                 if (metadata.ReceivedChunks.Count == file.TotalChunks)
                 {
-                    var targetFileInfo = fileSystem.FileInfo.New(file.GetTargetFilePath(folderPath));
-                    fileSystem.File.Move(tempTargetFile.FullName, targetFileInfo.FullName, true);
-                    fileSystem.File.Delete(file.GetMetadataTargetFilePath(folderPath));
-
-                    FileReceived?.Invoke(targetFileInfo.FullName);
+                    CompleteFileTransfer(folderPath, file);
                 }
 
                 return FileReceiverStatus.Ok;
@@ -73,6 +81,15 @@ public class StatefulFileReceiver(ILogger<StatefulFileReceiver> log, IFileSystem
             log.LogError(e, "Failed to write file");
             return FileReceiverStatus.Failed;
         }
+    }
+
+    private void CompleteFileTransfer(string folderPath, TransportFile file)
+    {
+        var targetFilePath = file.GetTargetFilePath(folderPath);
+        fileSystem.File.Move(file.GetTempTargetFilePath(folderPath), targetFilePath, true);
+        fileSystem.File.Delete(file.GetMetadataTargetFilePath(folderPath));
+
+        FileReceived?.Invoke(file.GetTargetFilePath(folderPath));
     }
 
     private class FileMetadata

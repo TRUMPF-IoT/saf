@@ -14,7 +14,7 @@ internal class FileReceiver(ILogger<FileReceiver> log, IMessagingInfrastructure 
         public required object GetReceiverState { get; init; }
     }
 
-    private readonly Dictionary<string, SubscriptionEntry> _subscriptions = new();
+    private readonly Dictionary<string, SubscriptionEntry> _subscriptions = [];
 
     public void Subscribe(string topic, IStatefulFileReceiver statefulFileReceiver, string folderPath)
     {
@@ -28,6 +28,7 @@ internal class FileReceiver(ILogger<FileReceiver> log, IMessagingInfrastructure 
                 throw new ArgumentException($"An element with the same key already exists: {topic}");
             }
 
+            log.LogDebug("Subscribing stateful receiver on {ReceiverTopic} for folder {ReceiverFolderPath}", topic, folderPath);
             _subscriptions.Add(topic,
                 new SubscriptionEntry
                 {
@@ -66,7 +67,11 @@ internal class FileReceiver(ILogger<FileReceiver> log, IMessagingInfrastructure 
 
     private void HandleGetReceiverState(Message message, IStatefulFileReceiver statefulFileReceiver, string folderPath)
     {
-        if (message.Payload == null) return;
+        if (message.Payload == null)
+        {
+            log.LogWarning("Missing payload in {MethodName}", nameof(HandleGetReceiverState));
+            return;
+        }
 
         var request = JsonSerializer.Deserialize<GetReceiverStateRequest>(message.Payload);
         if (request?.ReplyTo == null) return;
@@ -82,12 +87,21 @@ internal class FileReceiver(ILogger<FileReceiver> log, IMessagingInfrastructure 
 
     private void HandleSendFileChunks(Message message, IStatefulFileReceiver statefulFileReceiver, string folderPath)
     {
-        if (message.Payload == null) return;
+        if (message.Payload == null)
+        {
+            log.LogWarning("Missing payload in {MethodName}", nameof(HandleSendFileChunks));
+            return;
+        }
 
         var request = JsonSerializer.Deserialize<SendFileChunkRequest>(message.Payload);
         if (request?.ReplyTo == null || request.FileChunk == null) return;
 
         var receiverStatus = statefulFileReceiver.WriteFile(folderPath, request.File, request.FileChunk);
+        if(receiverStatus != FileReceiverStatus.Ok)
+        {
+            log.LogWarning("Failed to write file chunk {ChunkIndex} of file {FileName}. Status: {Status}",
+                request.FileChunk.Index, request.File.FileName, receiverStatus);
+        }
 
         messaging.Publish(new Message
         {
