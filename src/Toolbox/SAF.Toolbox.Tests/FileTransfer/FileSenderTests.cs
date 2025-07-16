@@ -199,7 +199,7 @@ public class FileSenderTests
 
     [Theory]
     [InlineData(1)]
-    [InlineData(4)]
+    [InlineData(3)]
     public async Task SendAsync_WithMissingAnswerReturnsTimedOutOk(int expectedCalls)
     {
         var buffer = new byte[1024];

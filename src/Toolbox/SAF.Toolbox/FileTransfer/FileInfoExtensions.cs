@@ -15,10 +15,10 @@ internal static class FileInfoExtensions
         ArgumentNullException.ThrowIfNull(fileInfo);
         if (!fileInfo.Exists) throw new FileNotFoundException("File does not exist", fileInfo.FullName);
 
-        var meta = $"{fileInfo.Name}|{fileInfo.Length}|{chunkSize}|{Convert.ToHexString(HashContent(fileInfo))}";
+        var meta = $"{fileInfo.Name}|{chunkSize}|{GetContentHash(fileInfo)}";
         var metaHash = SHA256.HashData(System.Text.Encoding.UTF8.GetBytes(meta));
 
-        return Convert.ToBase64String(metaHash);
+        return Convert.ToHexString(metaHash).ToLowerInvariant();
     }
 
     public static string GetContentHash(this IFileInfo fileInfo)
