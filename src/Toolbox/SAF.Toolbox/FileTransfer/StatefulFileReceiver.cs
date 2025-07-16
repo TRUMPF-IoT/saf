@@ -1,4 +1,8 @@
-﻿using SAF.Toolbox.Serialization;
+﻿// SPDX-FileCopyrightText: 2017-2025 TRUMPF Laser GmbH
+//
+// SPDX-License-Identifier: MPL-2.0
+
+using SAF.Toolbox.Serialization;
 using System.IO.Abstractions;
 
 namespace SAF.Toolbox.FileTransfer;

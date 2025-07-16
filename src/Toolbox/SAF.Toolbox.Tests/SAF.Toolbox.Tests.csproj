@@ -12,10 +12,7 @@ SPDX-License-Identifier: MPL-2.0
   </PropertyGroup>
 
   <ItemGroup>
-    <Compile Remove="LegacyFileTransfer\FileSenderTests.cs" />
-    <Compile Remove="LegacyFileTransfer\StatefulFileReceiverTest.cs" />
-    <Compile Remove="LegacyFileTransfer\TemporaryFile.cs" />
-    <Compile Remove="LegacyFileTransfer\TransportFileTests.cs" />
+    <Compile Remove="FileTransfer\StatefulFileReceiverTest.cs" />
   </ItemGroup>
 
   <ItemGroup>
@@ -23,7 +20,9 @@ SPDX-License-Identifier: MPL-2.0
     <PackageReference Include="Microsoft.Extensions.DependencyInjection" />
     <PackageReference Include="Microsoft.NET.Test.Sdk" />
     <PackageReference Include="NSubstitute" />
+    <PackageReference Include="TestableIO.System.IO.Abstractions.TestingHelpers" />
     <PackageReference Include="xunit" />
+    <PackageReference Include="Xunit.Extensions.Logging" />
     <PackageReference Include="xunit.runner.visualstudio">
       <PrivateAssets>all</PrivateAssets>
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
@@ -32,10 +31,7 @@ SPDX-License-Identifier: MPL-2.0
   </ItemGroup>
 
   <ItemGroup>
-    <None Include="LegacyFileTransfer\FileSenderTests.cs" />
-    <None Include="LegacyFileTransfer\StatefulFileReceiverTest.cs" />
-    <None Include="LegacyFileTransfer\TemporaryFile.cs" />
-    <None Include="LegacyFileTransfer\TransportFileTests.cs" />
+    <None Include="FileTransfer\StatefulFileReceiverTest.cs" />
   </ItemGroup>
 
   <ItemGroup>

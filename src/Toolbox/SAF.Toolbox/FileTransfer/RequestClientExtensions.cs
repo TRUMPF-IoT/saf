@@ -1,4 +1,8 @@
-﻿using SAF.Toolbox.FileTransfer.Messages;
+﻿// SPDX-FileCopyrightText: 2017-2025 TRUMPF Laser GmbH
+//
+// SPDX-License-Identifier: MPL-2.0
+
+using SAF.Toolbox.FileTransfer.Messages;
 using SAF.Toolbox.RequestClient;
 
 namespace SAF.Toolbox.FileTransfer;
@@ -21,10 +25,10 @@ internal static class RequestClientExtensions
         return response?.State;
     }
 
-    public static async Task<FileTransferStatus> SendFileChunkAsync(this IRequestClient requestClient, string topic, SendFileChunkRequest request, FileSenderOptions options)
+    public static async Task<FileTransferStatus> SendFileChunkAsync(this IRequestClient requestClient, string topic, SendFileChunkRequest request, FileSenderOptions options, uint timeoutMs)
     {
         var response = await RetryAsync(
-            () => requestClient.SendRequestAwaitFirstAnswer<SendFileChunkRequest, SendFileChunkResponse>(topic, request, [], ReplyToPrefix),
+            () => requestClient.SendRequestAwaitFirstAnswer<SendFileChunkRequest, SendFileChunkResponse>(topic, request, [], ReplyToPrefix, timeoutMs),
             result => result is {Status: FileReceiverStatus.Ok},
             intervalFactory: attempt => TimeSpan.FromSeconds(Math.Pow(2, attempt)),
             retryAttempts: options.RetryAttemptsForFailedChunks);

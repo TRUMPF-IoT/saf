@@ -18,10 +18,10 @@ internal class FileSender(
 {
     private readonly FileSenderOptions _options = options.Value;
 
-    public Task<FileTransferStatus> SendAsync(string topic, string fullFilePath, ulong timeoutMs)
+    public Task<FileTransferStatus> SendAsync(string topic, string fullFilePath, uint timeoutMs)
         => SendAsync(topic, fullFilePath, timeoutMs, new Dictionary<string, string>());
 
-    public async Task<FileTransferStatus> SendAsync(string topic, string fullFilePath, ulong timeoutMs, IDictionary<string, string> properties)
+    public async Task<FileTransferStatus> SendAsync(string topic, string fullFilePath, uint timeoutMs, IDictionary<string, string> properties)
     {
         try
         {
@@ -60,7 +60,7 @@ internal class FileSender(
             log.LogInformation("Sending {FullFilePath} with {MissingChunks} of {TotalChunks} chunks to {ReceiverTopic}",
                 fullFilePath, totalChunks - receiverState.TransmittedChunks.Count, totalChunks, topic);
 
-            await using var fileStream = fi.OpenRead();
+            await using var fileStream = fi.Open(FileMode.Open, FileAccess.Read, FileShare.Read);
             
             var buffer = new byte[_options.MaxChunkSizeInBytes];
             for (uint chunk = 0; chunk < totalChunks; chunk++)
@@ -75,7 +75,7 @@ internal class FileSender(
 
                 var transferStatus = await requestClient.SendFileChunkAsync(topic,
                     new SendFileChunkRequest { File = transportFile, FileChunk = fileChunk },
-                    _options);
+                    _options, timeoutMs);
                 if(transferStatus != FileTransferStatus.Delivered)
                 {
                     log.LogError("Failed to send chunk {ChunkIndex} of file {FullFilePath} to topic {ReceiverTopic}", chunk, fullFilePath, topic);

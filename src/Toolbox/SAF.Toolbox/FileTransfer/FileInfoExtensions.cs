@@ -1,4 +1,8 @@
-﻿using System.IO.Abstractions;
+﻿// SPDX-FileCopyrightText: 2017-2025 TRUMPF Laser GmbH
+//
+// SPDX-License-Identifier: MPL-2.0
+
+using System.IO.Abstractions;
 
 namespace SAF.Toolbox.FileTransfer;
 
