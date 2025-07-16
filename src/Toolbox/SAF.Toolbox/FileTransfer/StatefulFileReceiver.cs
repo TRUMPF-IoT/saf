@@ -2,13 +2,12 @@
 //
 // SPDX-License-Identifier: MPL-2.0
 
-using SAF.Toolbox.Serialization;
-using System.IO.Abstractions;
-
 namespace SAF.Toolbox.FileTransfer;
 
 using Microsoft.Extensions.Logging;
 using System;
+using Serialization;
+using System.IO.Abstractions;
 
 public class StatefulFileReceiver(ILogger<StatefulFileReceiver> log, IFileSystem fileSystem) : IStatefulFileReceiver
 {
