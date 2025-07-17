@@ -190,7 +190,6 @@ public class StatefulFileReceiver : IStatefulFileReceiver
 
         try
         {
-            var fullFolderPath = _fileSystem.Path.GetFullPath(_folderPath);
             var tempFiles = _fileSystem.Directory.GetFiles(_folderPath, "*.temp", new EnumerationOptions { RecurseSubdirectories = true });
             var metadataFiles = _fileSystem.Directory.GetFiles(_folderPath, "*.meta", new EnumerationOptions { RecurseSubdirectories = true });
 
