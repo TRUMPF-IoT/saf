@@ -2,6 +2,7 @@
 //
 // SPDX-License-Identifier: MPL-2.0
 
+using System.IO.Abstractions.TestingHelpers;
 using SAF.Toolbox.FileTransfer;
 using Xunit;
 
@@ -9,6 +10,7 @@ namespace SAF.Toolbox.Tests.FileTransfer;
 
 public class TransportFileExtensionsTests
 {
+    private readonly MockFileSystem _fileSystem = new();
     private readonly TransportFile _transportFile = new TransportFile
     {
         FileName = "myfile.txt",
@@ -24,21 +26,21 @@ public class TransportFileExtensionsTests
     [Fact]
     public void GetTargetFilePath_ReturnsCombinedPath()
     {
-        var result = _transportFile.GetTargetFilePath(Folder);
-        Assert.Equal(Path.Combine(Folder, "myfile.txt"), result);
+        var result = _transportFile.GetTargetFilePath(_fileSystem,Folder);
+        Assert.Equal(_fileSystem.Path.GetFullPath(_fileSystem.Path.Combine(Folder, "myfile.txt")), result);
     }
 
     [Fact]
     public void GetTempTargetFilePath_ReturnsTempFilePathWithFileId()
     {
-        var result = _transportFile.GetTempTargetFilePath(Folder);
-        Assert.Equal(Path.Combine(Folder, "myfile.abc123.temp"), result);
+        var result = _transportFile.GetTempTargetFilePath(_fileSystem, Folder);
+        Assert.Equal(_fileSystem.Path.GetFullPath(_fileSystem.Path.Combine(Folder, "myfile.abc123.temp")), result);
     }
 
     [Fact]
     public void GetMetadataTargetFilePath_ReturnsMetaFilePathWithFileId()
     {
-        var result = _transportFile.GetMetadataTargetFilePath(Folder);
-        Assert.Equal(Path.Combine(Folder, "myfile.abc123.meta"), result);
+        var result = _transportFile.GetMetadataTargetFilePath(_fileSystem, Folder);
+        Assert.Equal(_fileSystem.Path.GetFullPath(_fileSystem.Path.Combine(Folder, "myfile.abc123.meta")), result);
     }
 }

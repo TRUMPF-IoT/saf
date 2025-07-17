@@ -64,35 +64,37 @@ public static class ServiceCollectionExtensions
     }
     
     public static IServiceCollection AddFileSender(this IServiceCollection services)
-    {
-        services.AddFileSender(null);
-        return services;
-    }
+        => services.AddFileSender(_ => { });
 
-    public static IServiceCollection AddFileSender(this IServiceCollection services, IConfiguration? hostConfig)
+    public static IServiceCollection AddFileSender(this IServiceCollection services, IConfiguration hostConfig)
+        => services.AddFileSender(options => { hostConfig.GetSection(nameof(FileSender)).Bind(options); });
+
+    public static IServiceCollection AddFileSender(this IServiceCollection services, Action<FileSenderOptions> configure)
     {
         services.TryAddTransient<IFileSystem, FileSystem>();
         services.AddRequestClient();
 
+        services.Configure(configure);
         services.TryAddTransient<IFileSender, FileSender>();
-
-        if (hostConfig == null)
-        {
-            // Assure default configuration
-            services.Configure<FileSenderOptions>(_ => { });
-            return services;
-        }
-        services.AddServiceConfiguration<FileSenderOptions>(hostConfig, nameof(FileSender));
-
         return services;
     }
 
     public static IServiceCollection AddFileReceiver(this IServiceCollection services)
+        => services.AddFileReceiver(_ => { });
+
+    public static IServiceCollection AddFileReceiver(this IServiceCollection services, IConfiguration hostConfig)
+        => services.AddFileReceiver(options => { hostConfig.GetSection(nameof(FileReceiver)).Bind(options); });
+
+    public static IServiceCollection AddFileReceiver(this IServiceCollection services, Action<FileReceiverOptions> configure)
     {
+        services.Configure(configure);
+
         services.TryAddTransient<IFileReceiver, FileReceiver>();
 
         services.TryAddTransient<IFileSystem, FileSystem>();
-        services.TryAddTransient<IStatefulFileReceiver, StatefulFileReceiver>();
+        services.TryAddTransient<IStatefulFileReceiverFactory, StatefulFileReceiverFactory>();
+
+        services.AddHeartbeatPool();
         return services;
     }
 

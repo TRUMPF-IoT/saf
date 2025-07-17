@@ -138,22 +138,53 @@ public class ServiceCollectionExtensionsTests
     }
 
     [Fact]
-    public void AddFileReceiverAddsServiceAndRequiredServicesOk()
+    public void AddFileReceiverWithoutConfigAddsServiceAndRequiredServicesOk()
     {
         // Arrange
         _services.AddSingleton(_ => Substitute.For<IMessagingInfrastructure>());
+        _services.AddSingleton(_ => Substitute.For<ILoggerFactory>());
         _services.AddSingleton(_ => Substitute.For<ILogger<FileReceiver>>());
-        _services.AddSingleton(_ => Substitute.For<ILogger<StatefulFileReceiver>>());
 
         // Act
         _services.AddFileReceiver();
 
         using var provider = _services.BuildServiceProvider();
+        var options = provider.GetService<IOptions<FileReceiverOptions>>();
         var fileReceiver = provider.GetService<IFileReceiver>();
-        var statefulFileReceiver = provider.GetService<IStatefulFileReceiver>();
+        var statefulFileReceiverFactory = provider.GetService<IStatefulFileReceiverFactory>();
 
         // Assert
+        Assert.NotNull(options);
         Assert.NotNull(fileReceiver);
-        Assert.NotNull(statefulFileReceiver);
+        Assert.NotNull(statefulFileReceiverFactory);
+        Assert.Equal(72u, options.Value.StateExpirationAfterHours);
+    }
+
+    [Fact]
+    public void AddFileReceiverWithConfigAddsServiceWithSpecificConfigOk()
+    {
+        // Arrange
+        _services.AddSingleton(_ => Substitute.For<IMessagingInfrastructure>());
+        _services.AddSingleton(_ => Substitute.For<ILoggerFactory>());
+        _services.AddSingleton(_ => Substitute.For<ILogger<FileReceiver>>());
+        
+        var config = new ConfigurationBuilder().AddInMemoryCollection(new Dictionary<string, string>
+        {
+            { "FileReceiver:StateExpirationAfterHours", "5" }
+        }!).Build();
+
+        // Act
+        _services.AddFileReceiver(config);
+
+        using var provider = _services.BuildServiceProvider();
+        var options = provider.GetService<IOptions<FileReceiverOptions>>();
+        var fileReceiver = provider.GetService<IFileReceiver>();
+        var statefulFileReceiverFactory = provider.GetService<IStatefulFileReceiverFactory>();
+
+        // Assert
+        Assert.NotNull(options);
+        Assert.NotNull(fileReceiver);
+        Assert.NotNull(statefulFileReceiverFactory);
+        Assert.Equal(5u, options.Value.StateExpirationAfterHours);
     }
 }

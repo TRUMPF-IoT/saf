@@ -4,10 +4,10 @@
 
 namespace SAF.Toolbox.FileTransfer;
 
-public interface IStatefulFileReceiver
+public interface IStatefulFileReceiver : IDisposable
 {
-    event Action<string>? FileReceived;
+    FileReceiverState GetState(TransportFile file);
+    FileReceiverStatus WriteFile(TransportFile file, FileChunk fileChunk);
 
-    FileReceiverState GetState(string folderPath, TransportFile file);
-    FileReceiverStatus WriteFile(string folderPath, TransportFile file, FileChunk fileChunk);
+    event Action<string>? FileReceived;
 }

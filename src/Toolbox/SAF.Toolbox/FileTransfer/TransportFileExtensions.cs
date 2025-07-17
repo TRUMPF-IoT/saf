@@ -2,22 +2,24 @@
 //
 // SPDX-License-Identifier: MPL-2.0
 
+using System.IO.Abstractions;
+
 namespace SAF.Toolbox.FileTransfer;
 
 internal static class TransportFileExtensions
 {
-    public static string GetTargetFilePath(this TransportFile file, string folderPath)
-        => Path.Combine(folderPath, file.FileName);
+    public static string GetTargetFilePath(this TransportFile file, IFileSystem fileSystem, string folderPath)
+        => fileSystem.Path.GetFullPath(fileSystem.Path.Combine(folderPath, file.FileName));
 
-    public static string GetTempTargetFilePath(this TransportFile file, string folderPath)
+    public static string GetTempTargetFilePath(this TransportFile file, IFileSystem fileSystem, string folderPath)
     {
-        var targetFilePath = file.GetTargetFilePath(folderPath);
-        return Path.ChangeExtension(targetFilePath, $".{file.FileId}.temp");
+        var targetFilePath = file.GetTargetFilePath(fileSystem, folderPath);
+        return fileSystem.Path.ChangeExtension(targetFilePath, $".{file.FileId}.temp");
     }
 
-    public static string GetMetadataTargetFilePath(this TransportFile file, string folderPath)
+    public static string GetMetadataTargetFilePath(this TransportFile file, IFileSystem fileSystem, string folderPath)
     {
-        var targetFilePath = file.GetTargetFilePath(folderPath);
-        return Path.ChangeExtension(targetFilePath, $".{file.FileId}.meta");
+        var targetFilePath = file.GetTargetFilePath(fileSystem, folderPath);
+        return fileSystem.Path.ChangeExtension(targetFilePath, $".{file.FileId}.meta");
     }
 }

@@ -29,14 +29,14 @@ public class FileReceiverTests
     public void Subscribe_ThrowsArgumentNullException_WhenTopicIsNull()
     {
         var receiver = new FileReceiver(_logger, _messaging);
-        Assert.Throws<ArgumentNullException>(() => receiver.Subscribe(null!, _statefulReceiver, "folder"));
+        Assert.Throws<ArgumentNullException>(() => receiver.Subscribe(null!, _statefulReceiver));
     }
 
     [Fact]
     public void Subscribe_ThrowsArgumentNullException_WhenReceiverIsNull()
     {
         var receiver = new FileReceiver(_logger, _messaging);
-        Assert.Throws<ArgumentNullException>(() => receiver.Subscribe("topic", null!, "folder"));
+        Assert.Throws<ArgumentNullException>(() => receiver.Subscribe("topic", null!));
     }
 
     [Fact]
@@ -44,8 +44,8 @@ public class FileReceiverTests
     {
         var receiver = new FileReceiver(_logger, _messaging);
         _messaging.Subscribe(Arg.Any<string>(), Arg.Any<Action<Message>>()).Returns(new object());
-        receiver.Subscribe("topic", _statefulReceiver, "folder");
-        Assert.Throws<ArgumentException>(() => receiver.Subscribe("topic", _statefulReceiver, "folder"));
+        receiver.Subscribe("topic", _statefulReceiver);
+        Assert.Throws<ArgumentException>(() => receiver.Subscribe("topic", _statefulReceiver));
     }
 
     [Fact]
@@ -56,7 +56,7 @@ public class FileReceiverTests
         var sub2 = new object();
         _messaging.Subscribe(Arg.Any<string>(), Arg.Any<Action<Message>>()).Returns(sub1, sub2);
 
-        receiver.Subscribe("topic", _statefulReceiver, "folder");
+        receiver.Subscribe("topic", _statefulReceiver);
         receiver.Unsubscribe("topic");
 
         _messaging.Received(1).Subscribe("topic/state/get", Arg.Any<Action<Message>>());
@@ -73,8 +73,8 @@ public class FileReceiverTests
         var sub2 = new object();
         _messaging.Subscribe(Arg.Any<string>(), Arg.Any<Action<Message>>()).Returns(sub1, sub2, sub1, sub2);
 
-        receiver.Subscribe("topic1", _statefulReceiver, "folder1");
-        receiver.Subscribe("topic2", _statefulReceiver, "folder2");
+        receiver.Subscribe("topic1", _statefulReceiver);
+        receiver.Subscribe("topic2", _statefulReceiver);
         receiver.Unsubscribe();
 
         _messaging.Received(1).Subscribe("topic1/state/get", Arg.Any<Action<Message>>());
@@ -88,12 +88,11 @@ public class FileReceiverTests
     public void HandleGetReceiverState_PublishesState_WhenPayloadIsValid()
     {
         const string topic = "topic";
-        const string folder = "folder";
         const string replyTo = "reply";
 
         var file = new TransportFile { FileName = "file.txt", FileId = "fileId", ContentHash = "contentHash", ChunkSize = 32, ContentLength = 32, TotalChunks = 1 };
         var state = new FileReceiverState();
-        _statefulReceiver.GetState(folder, Arg.Any<TransportFile>()).Returns(state);
+        _statefulReceiver.GetState(Arg.Any<TransportFile>()).Returns(state);
 
         var request = new GetReceiverStateRequest { File = file, ReplyTo = replyTo };
         var message = new Message
@@ -110,7 +109,7 @@ public class FileReceiverTests
             });
 
         var receiver = new FileReceiver(_logger, _messaging);
-        receiver.Subscribe(topic, _statefulReceiver, folder);
+        receiver.Subscribe(topic, _statefulReceiver);
 
         Assert.NotNull(getStateHandler);
         getStateHandler.Invoke(message);
@@ -126,7 +125,6 @@ public class FileReceiverTests
     public void HandleGetReceiverState_DoesNothing_WhenPayloadIsNull()
     {
         const string topic = "topic";
-        const string folder = "folder";
 
         _messaging.Subscribe(Arg.Any<string>(), Arg.Any<Action<Message>>()).Returns(new object());
 
@@ -139,7 +137,7 @@ public class FileReceiverTests
             });
 
         var receiver = new FileReceiver(_logger, _messaging);
-        receiver.Subscribe(topic, _statefulReceiver, folder);
+        receiver.Subscribe(topic, _statefulReceiver);
 
         Assert.NotNull(getStateHandler);
         var message = new Message { Payload = null };
@@ -152,7 +150,6 @@ public class FileReceiverTests
     public void HandleSendFileChunks_PublishesStatus_WhenPayloadIsValid()
     {
         const string topic = "topic";
-        const string folder = "folder";
         const string replyTo = "reply";
 
         _messaging.Subscribe(Arg.Any<string>(), Arg.Any<Action<Message>>()).Returns(new object());
@@ -160,7 +157,7 @@ public class FileReceiverTests
         const FileReceiverStatus status = FileReceiverStatus.Failed;
 
         var file = new TransportFile { FileName = "file.txt", FileId = "fileId", ContentHash = "contentHash", ChunkSize = 32, ContentLength = 32, TotalChunks = 1 };
-        _statefulReceiver.WriteFile(folder, Arg.Any<TransportFile>(), Arg.Any<FileChunk>()).Returns(status);
+        _statefulReceiver.WriteFile(Arg.Any<TransportFile>(), Arg.Any<FileChunk>()).Returns(status);
 
         var request = new SendFileChunkRequest { File = file, FileChunk = new FileChunk { Index = 1, Data = new byte[2] }, ReplyTo = replyTo };
         var message = new Message
@@ -177,7 +174,7 @@ public class FileReceiverTests
             });
 
         var receiver = new FileReceiver(_logger, _messaging);
-        receiver.Subscribe(topic, _statefulReceiver, folder);
+        receiver.Subscribe(topic, _statefulReceiver);
 
         Assert.NotNull(sendFileChunkHandler);
         sendFileChunkHandler.Invoke(message);
@@ -193,7 +190,6 @@ public class FileReceiverTests
     public void HandleSendFileChunks_DoesNothing_WhenPayloadIsNull()
     {
         const string topic = "topic";
-        const string folder = "folder";
 
         _messaging.Subscribe(Arg.Any<string>(), Arg.Any<Action<Message>>()).Returns(new object());
 
@@ -206,7 +202,7 @@ public class FileReceiverTests
             });
 
         var receiver = new FileReceiver(_logger, _messaging);
-        receiver.Subscribe(topic, _statefulReceiver, folder);
+        receiver.Subscribe(topic, _statefulReceiver);
 
         Assert.NotNull(sendFileChunkHandler);
         var message = new Message { Payload = null };

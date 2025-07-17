@@ -2,91 +2,155 @@
 //
 // SPDX-License-Identifier: MPL-2.0
 
+using SAF.Toolbox.Heartbeat;
+
 namespace SAF.Toolbox.FileTransfer;
 
 using Microsoft.Extensions.Logging;
-using System;
 using Serialization;
+using System;
+using System.IO;
 using System.IO.Abstractions;
 
-public class StatefulFileReceiver(ILogger<StatefulFileReceiver> log, IFileSystem fileSystem) : IStatefulFileReceiver
+public class StatefulFileReceiver : IStatefulFileReceiver
 {
-    private static readonly FileTransferLockManager LockManager = new();
+    private readonly ILogger<StatefulFileReceiver> _log;
+    private readonly IFileSystem _fileSystem;
+    private readonly FileReceiverOptions _options;
+    private readonly string _folderPath;
+    private readonly TimeProvider _timeProvider;
+    private readonly IHeartbeat? _heartbeat;
 
-    public event Action<string>? FileReceived;
+    private static readonly FileTransferLockManager _lockManager = new();
 
-    public FileReceiverState GetState(string folderPath, TransportFile file)
+    public StatefulFileReceiver(ILogger<StatefulFileReceiver> log,
+        IFileSystem fileSystem,
+        FileReceiverOptions options,
+        IHeartbeatPool heartbeatPool,
+        string folderPath)
+    : this(log, fileSystem, options, heartbeatPool, folderPath, TimeProvider.System)
     {
-        using var _ = LockManager.Acquire(file.FileId);
+
+    }
+
+    internal StatefulFileReceiver(ILogger<StatefulFileReceiver> log,
+        IFileSystem fileSystem,
+        FileReceiverOptions options,
+        IHeartbeatPool heartbeatPool,
+        string folderPath,
+        TimeProvider timeProvider)
+    {
+        _log = log;
+        _fileSystem = fileSystem;
+        _options = options;
+        _folderPath = fileSystem.Path.GetFullPath(folderPath);
+        _timeProvider = timeProvider;
+
+        if (options.StateExpirationAfterHours != 0)
+        {
+            _log.LogDebug("Registering heartbeat for file receiver state cleanup");
+
+            _heartbeat = heartbeatPool.GetOrCreateHeartbeat(60 * 60 * 1000);
+            _heartbeat.Beat += OnStateCleanupHeartbeat;
+        }
+    }
+
+    public FileReceiverState GetState(TransportFile file)
+    {
+        using var _ = _lockManager.Acquire(file.FileId);
             
-        var targetFileInfo = fileSystem.FileInfo.New(file.GetTargetFilePath(folderPath));
+        var targetFileInfo = _fileSystem.FileInfo.New(file.GetTargetFilePath(_fileSystem, _folderPath));
         if (targetFileInfo.Exists && file.ContentHash == targetFileInfo.GetContentHash())
         {
-            log.LogDebug(
+            _log.LogDebug(
                 "File {FileName} already exists with matching content hash, signal sender to skip transfer.",
                 targetFileInfo.FullName);
             return new FileReceiverState {FileExists = true};
         }
 
-        var tempTargetFileInfo = fileSystem.FileInfo.New(file.GetTempTargetFilePath(folderPath));
+        var tempTargetFileInfo = _fileSystem.FileInfo.New(file.GetTempTargetFilePath(_fileSystem, _folderPath));
         if (!tempTargetFileInfo.Exists)
         {
-            log.LogDebug("Temporary file {FileName} does not exist, signal sender to transfer all chunks.", tempTargetFileInfo.FullName);
+            _log.LogDebug("Temporary file {FileName} does not exist, signal sender to transfer all chunks.", tempTargetFileInfo.FullName);
             return new FileReceiverState();
         }
 
-        var metadata = ReadFileMetadata(file.GetMetadataTargetFilePath(folderPath));
+        var metadata = ReadFileMetadata(file.GetMetadataTargetFilePath(_fileSystem, _folderPath));
         if (metadata.ReceivedChunks.Count == file.TotalChunks)
         {
-            log.LogDebug("All chunks of file {FileName} already received, signal sender to skip transfer.", file.FileName);
-            CompleteFileTransfer(folderPath, file);
-
+            _log.LogDebug("All chunks of file {FileName} already received, signal sender to skip transfer.", file.FileName);
+            CompleteFileTransfer(file);
             return new FileReceiverState {FileExists = true, TransmittedChunks = metadata.ReceivedChunks};
         }
+
         return new FileReceiverState {TransmittedChunks = metadata.ReceivedChunks};
     }
 
-    public FileReceiverStatus WriteFile(string folderPath, TransportFile file, FileChunk fileChunk)
+    public FileReceiverStatus WriteFile(TransportFile file, FileChunk fileChunk)
     {
         try
         {
-            using var _ = LockManager.Acquire(file.FileId);
+            using var _ = _lockManager.Acquire(file.FileId);
             
-            var metadata = ReadFileMetadata(file.GetMetadataTargetFilePath(folderPath));
+            var metadata = ReadFileMetadata(file.GetMetadataTargetFilePath(_fileSystem, _folderPath));
             if (metadata.ReceivedChunks.Contains(fileChunk.Index))
             {
-                log.LogDebug("Chunk {ChunkIndex} of file {FileName} already received, skipping.", fileChunk.Index, file.FileName);
+                _log.LogDebug("Chunk {ChunkIndex} of file {FileName} already received, skipping.", fileChunk.Index, file.FileName);
             }
             else
             {
-                var tempTargetFile = fileSystem.FileInfo.New(file.GetTempTargetFilePath(folderPath));
+                var directoryInfo = _fileSystem.DirectoryInfo.New(_folderPath);
+                if (!directoryInfo.Exists)
+                {
+                    directoryInfo.Create();
+                }
+
+                var tempTargetFile = _fileSystem.FileInfo.New(file.GetTempTargetFilePath(_fileSystem, _folderPath));
                 WriteChunk(tempTargetFile, fileChunk, file.ChunkSize);
 
                 metadata.ReceivedChunks.Add(fileChunk.Index);
-                SaveFileMetadata(file.GetMetadataTargetFilePath(folderPath), metadata);
+                SaveFileMetadata(file.GetMetadataTargetFilePath(_fileSystem, _folderPath), metadata);
             }
 
             if (metadata.ReceivedChunks.Count == file.TotalChunks)
             {
-                CompleteFileTransfer(folderPath, file);
+                CompleteFileTransfer(file);
             }
 
             return FileReceiverStatus.Ok;
         }
         catch (Exception e)
         {
-            log.LogError(e, "Failed to write file");
+            _log.LogError(e, "Failed to write file");
             return FileReceiverStatus.Failed;
         }
     }
 
-    private void CompleteFileTransfer(string folderPath, TransportFile file)
-    {
-        var targetFilePath = file.GetTargetFilePath(folderPath);
-        fileSystem.File.Move(file.GetTempTargetFilePath(folderPath), targetFilePath, true);
-        fileSystem.File.Delete(file.GetMetadataTargetFilePath(folderPath));
+    public event Action<string>? FileReceived;
 
-        FileReceived?.Invoke(fileSystem.Path.GetFullPath(file.GetTargetFilePath(folderPath)));
+    public void Dispose()
+    {
+        Dispose(true);
+        GC.SuppressFinalize(this);
+    }
+
+    protected virtual void Dispose(bool disposing)
+    {
+        if (!disposing) return;
+
+        if(_heartbeat != null)
+        {
+            _heartbeat.Beat -= OnStateCleanupHeartbeat;
+        }
+    }
+
+    private void CompleteFileTransfer(TransportFile file)
+    {
+        var targetFilePath = file.GetTargetFilePath(_fileSystem, _folderPath);
+        _fileSystem.File.Move(file.GetTempTargetFilePath(_fileSystem, _folderPath), targetFilePath, true);
+        _fileSystem.File.Delete(file.GetMetadataTargetFilePath(_fileSystem, _folderPath));
+
+        FileReceived?.Invoke(_fileSystem.Path.GetFullPath(file.GetTargetFilePath(_fileSystem, _folderPath)));
     }
 
     private sealed class FileMetadata
@@ -96,21 +160,21 @@ public class StatefulFileReceiver(ILogger<StatefulFileReceiver> log, IFileSystem
 
     private FileMetadata ReadFileMetadata(string metadataFilePath)
     {
-        var metadataFileInfo = fileSystem.FileInfo.New(metadataFilePath);
+        var metadataFileInfo = _fileSystem.FileInfo.New(metadataFilePath);
         if (!metadataFileInfo.Exists)
         {
-            log.LogDebug("Metadata file {FileName} does not exist, signal sender to transfer all chunks.", metadataFilePath);
+            _log.LogDebug("Metadata file {FileName} does not exist, signal sender to transfer all chunks.", metadataFilePath);
             return new FileMetadata();
         }
 
-        var metadataContent = fileSystem.File.ReadAllText(metadataFilePath);
+        var metadataContent = _fileSystem.File.ReadAllText(metadataFilePath);
         return JsonSerializer.Deserialize<FileMetadata>(metadataContent) ?? new FileMetadata();
     }
 
     private void SaveFileMetadata(string metadataFilePath, FileMetadata metadata)
     {
         var metadataContent = JsonSerializer.Serialize(metadata);
-        fileSystem.File.WriteAllText(metadataFilePath, metadataContent);
+        _fileSystem.File.WriteAllText(metadataFilePath, metadataContent);
     }
 
     private static void WriteChunk(IFileInfo tempTargetFile, FileChunk fileChunk, uint chunkSize)
@@ -118,5 +182,39 @@ public class StatefulFileReceiver(ILogger<StatefulFileReceiver> log, IFileSystem
         using var tempFileStream = tempTargetFile.Open(FileMode.OpenOrCreate, FileAccess.Write, FileShare.None);
         tempFileStream.Seek(fileChunk.Index * chunkSize, SeekOrigin.Begin);
         tempFileStream.Write(fileChunk.Data);
+    }
+
+    private void OnStateCleanupHeartbeat(object? sender, HeartbeatEventArgs e)
+    {
+        _log.LogDebug("Cleaning up file receiver states");
+
+        try
+        {
+            var fullFolderPath = _fileSystem.Path.GetFullPath(_folderPath);
+            var tempFiles = _fileSystem.Directory.GetFiles(_folderPath, "*.temp", new EnumerationOptions { RecurseSubdirectories = true });
+            var metadataFiles = _fileSystem.Directory.GetFiles(_folderPath, "*.meta", new EnumerationOptions { RecurseSubdirectories = true });
+
+            foreach (var fileInfo in tempFiles.Concat(metadataFiles).Select(fn => _fileSystem.FileInfo.New(fn)))
+            {
+                try
+                {
+                    if (fileInfo.LastWriteTimeUtc <
+                        _timeProvider.GetUtcNow() - TimeSpan.FromHours(_options.StateExpirationAfterHours))
+                    {
+                        _log.LogInformation("Deleting state file '{StateFileFullName}' as it expired after {StateExpirationAfterHours} hours.",
+                            fileInfo.FullName, _options.StateExpirationAfterHours);
+                        fileInfo.Delete();
+                    }
+                }
+                catch (Exception ex)
+                {
+                    _log.LogError(ex, "Failed to delete state file '{StateFileFullName}'.", fileInfo.FullName);
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            _log.LogError(ex, "Failed to delete file receiver states in folder {FileReceiverFolder}", _folderPath);
+        }
     }
 }

@@ -20,7 +20,7 @@ internal class FileReceiver(ILogger<FileReceiver> log, IMessagingInfrastructure 
 
     private readonly Dictionary<string, SubscriptionEntry> _subscriptions = [];
 
-    public void Subscribe(string topic, IStatefulFileReceiver statefulFileReceiver, string folderPath)
+    public void Subscribe(string topic, IStatefulFileReceiver statefulFileReceiver)
     {
         ArgumentNullException.ThrowIfNull(topic);
         ArgumentNullException.ThrowIfNull(statefulFileReceiver);
@@ -32,12 +32,12 @@ internal class FileReceiver(ILogger<FileReceiver> log, IMessagingInfrastructure 
                 throw new ArgumentException($"An element with the same key already exists: {topic}");
             }
 
-            log.LogDebug("Subscribing stateful receiver on {ReceiverTopic} for folder {ReceiverFolderPath}", topic, folderPath);
+            log.LogDebug("Subscribing stateful receiver on {ReceiverTopic}", topic);
             _subscriptions.Add(topic,
                 new SubscriptionEntry
                 {
-                    GetReceiverState = messaging.Subscribe($"{topic}/state/get", message => HandleGetReceiverState(message, statefulFileReceiver, folderPath)),
-                    SendFileChunk = messaging.Subscribe(topic, message => HandleSendFileChunks(message, statefulFileReceiver, folderPath))
+                    GetReceiverState = messaging.Subscribe($"{topic}/state/get", message => HandleGetReceiverState(message, statefulFileReceiver)),
+                    SendFileChunk = messaging.Subscribe(topic, message => HandleSendFileChunks(message, statefulFileReceiver))
                 });
         }
     }
@@ -69,7 +69,7 @@ internal class FileReceiver(ILogger<FileReceiver> log, IMessagingInfrastructure 
         }
     }
 
-    private void HandleGetReceiverState(Message message, IStatefulFileReceiver statefulFileReceiver, string folderPath)
+    private void HandleGetReceiverState(Message message, IStatefulFileReceiver statefulFileReceiver)
     {
         if (message.Payload == null)
         {
@@ -80,7 +80,7 @@ internal class FileReceiver(ILogger<FileReceiver> log, IMessagingInfrastructure 
         var request = JsonSerializer.Deserialize<GetReceiverStateRequest>(message.Payload);
         if (request?.ReplyTo == null) return;
 
-        var receiverState = statefulFileReceiver.GetState(folderPath, request.File);
+        var receiverState = statefulFileReceiver.GetState(request.File);
         
         messaging.Publish(new Message
         {
@@ -89,7 +89,7 @@ internal class FileReceiver(ILogger<FileReceiver> log, IMessagingInfrastructure 
         });
     }
 
-    private void HandleSendFileChunks(Message message, IStatefulFileReceiver statefulFileReceiver, string folderPath)
+    private void HandleSendFileChunks(Message message, IStatefulFileReceiver statefulFileReceiver)
     {
         if (message.Payload == null)
         {
@@ -100,7 +100,7 @@ internal class FileReceiver(ILogger<FileReceiver> log, IMessagingInfrastructure 
         var request = JsonSerializer.Deserialize<SendFileChunkRequest>(message.Payload);
         if (request?.ReplyTo == null || request.FileChunk == null) return;
 
-        var receiverStatus = statefulFileReceiver.WriteFile(folderPath, request.File, request.FileChunk);
+        var receiverStatus = statefulFileReceiver.WriteFile(request.File, request.FileChunk);
         if(receiverStatus != FileReceiverStatus.Ok)
         {
             log.LogWarning("Failed to write file chunk {ChunkIndex} of file {FileName}. Status: {Status}",

@@ -8,30 +8,39 @@ using NSubstitute;
 using SAF.Toolbox.FileTransfer;
 using SAF.Toolbox.Serialization;
 using System.IO.Abstractions.TestingHelpers;
+using Microsoft.Extensions.Options;
 using NSubstitute.ExceptionExtensions;
+using SAF.Toolbox.Heartbeat;
 using Xunit;
 using Xunit.Abstractions;
 
 namespace SAF.Toolbox.Tests.FileTransfer;
 
-public class StatefulFileReceiverTest
+public class StatefulFileReceiverTests
 {
     private const int DefaultChunkSize = 1024 * 200;
+    private static readonly string DefaultFolderPath = "testFolder";
 
     private readonly ILogger<StatefulFileReceiver> _logger;
     private readonly MockFileSystem _fileSystem = new();
+    private readonly IHeartbeatPool _heartbeatPool = Substitute.For<IHeartbeatPool>();
+    private readonly IOptions<FileReceiverOptions> _options = Options.Create(new FileReceiverOptions());
 
-    public StatefulFileReceiverTest(ITestOutputHelper outputHelper)
+    private readonly string _defaultTestFilePath;
+
+    public StatefulFileReceiverTests(ITestOutputHelper outputHelper)
     {
         var loggerFactory = LoggerFactory.Create(builder => builder.AddXunit(outputHelper, LogLevel.Trace).SetMinimumLevel(LogLevel.Warning));
         _logger = loggerFactory.CreateLogger<StatefulFileReceiver>();
+
+        _defaultTestFilePath = _fileSystem.Path.Combine(DefaultFolderPath, "file.txt");
     }
 
     [Fact]
     public void GetState_ReturnsFileExists_WhenTargetFileExistsAndHashMatches()
     {
-        _fileSystem.AddFile("file.txt", new MockFileData("content"));
-        var fileInfo = _fileSystem.FileInfo.New("file.txt");
+        _fileSystem.AddFile(_defaultTestFilePath, new MockFileData("content"));
+        var fileInfo = _fileSystem.FileInfo.New(_defaultTestFilePath);
 
         var file = new TransportFile
         {
@@ -43,9 +52,9 @@ public class StatefulFileReceiverTest
             TotalChunks = 1
         };
 
-        var receiver = new StatefulFileReceiver(_logger, _fileSystem);
+        using var receiver = new StatefulFileReceiver(_logger, _fileSystem, _options.Value, _heartbeatPool, DefaultFolderPath);
 
-        var state = receiver.GetState(string.Empty, file);
+        var state = receiver.GetState(file);
 
         Assert.True(state.FileExists);
     }
@@ -53,9 +62,9 @@ public class StatefulFileReceiverTest
     [Fact]
     public void GetState_ReturnsEmptyChunks_WhenTempFileDoesNotExist()
     {
-        _fileSystem.AddFile("file.txt", new MockFileData("content"));
+        _fileSystem.AddFile(_defaultTestFilePath, new MockFileData("content"));
         
-        var fileInfo = _fileSystem.FileInfo.New("file.txt");
+        var fileInfo = _fileSystem.FileInfo.New(_defaultTestFilePath);
         var file = new TransportFile
         {
             FileName = "file.txt",
@@ -67,9 +76,9 @@ public class StatefulFileReceiverTest
         };
         fileInfo.Delete();
 
-        var receiver = new StatefulFileReceiver(_logger, _fileSystem);
+        using var receiver = new StatefulFileReceiver(_logger, _fileSystem, _options.Value, _heartbeatPool, DefaultFolderPath);
 
-        var state = receiver.GetState(string.Empty, file);
+        var state = receiver.GetState(file);
 
         Assert.False(state.FileExists);
         Assert.Empty(state.TransmittedChunks);
@@ -78,9 +87,9 @@ public class StatefulFileReceiverTest
     [Fact]
     public void GetState_ReturnsEmptyChunks_WhenNoMetadataExist()
     {
-        _fileSystem.AddFile("file.txt", new MockFileData("content"));
+        _fileSystem.AddFile(_defaultTestFilePath, new MockFileData("content"));
         
-        var fileInfo = _fileSystem.FileInfo.New("file.txt");
+        var fileInfo = _fileSystem.FileInfo.New(_defaultTestFilePath);
         var file = new TransportFile
         {
             FileName = "file.txt",
@@ -91,12 +100,12 @@ public class StatefulFileReceiverTest
             TotalChunks = 5
         };
 
-        _fileSystem.AddFile(file.GetTempTargetFilePath(string.Empty), new MockFileData("content"));
+        _fileSystem.AddFile(file.GetTempTargetFilePath(_fileSystem, DefaultFolderPath), new MockFileData("content"));
         fileInfo.Delete();
 
-        var receiver = new StatefulFileReceiver(_logger, _fileSystem);
+        using var receiver = new StatefulFileReceiver(_logger, _fileSystem, _options.Value, _heartbeatPool, DefaultFolderPath);
 
-        var state = receiver.GetState(string.Empty, file);
+        var state = receiver.GetState(file);
 
         Assert.False(state.FileExists);
         Assert.Empty(state.TransmittedChunks);
@@ -105,9 +114,9 @@ public class StatefulFileReceiverTest
     [Fact]
     public void GetState_ReturnsTransmittedChunks_WhenMetadataExist()
     {
-        _fileSystem.AddFile("file.txt", new MockFileData("content"));
+        _fileSystem.AddFile(_defaultTestFilePath, new MockFileData("content"));
 
-        var fileInfo = _fileSystem.FileInfo.New("file.txt");
+        var fileInfo = _fileSystem.FileInfo.New(_defaultTestFilePath);
         var file = new TransportFile
         {
             FileName = "file.txt",
@@ -118,15 +127,15 @@ public class StatefulFileReceiverTest
             TotalChunks = 5
         };
 
-        _fileSystem.AddFile(file.GetTempTargetFilePath(string.Empty), new MockFileData("content"));
+        _fileSystem.AddFile(file.GetTempTargetFilePath(_fileSystem, DefaultFolderPath), new MockFileData("content"));
 
         HashSet<uint> hashSet = [0, 1, 2];
-        _fileSystem.AddFile(file.GetMetadataTargetFilePath(string.Empty), new MockFileData(JsonSerializer.Serialize(new { ReceivedChunks = hashSet })));
+        _fileSystem.AddFile(file.GetMetadataTargetFilePath(_fileSystem, DefaultFolderPath), new MockFileData(JsonSerializer.Serialize(new { ReceivedChunks = hashSet })));
         fileInfo.Delete();
 
-        var receiver = new StatefulFileReceiver(_logger, _fileSystem);
+        using var receiver = new StatefulFileReceiver(_logger, _fileSystem, _options.Value, _heartbeatPool, DefaultFolderPath);
 
-        var state = receiver.GetState(string.Empty, file);
+        var state = receiver.GetState(file);
 
         Assert.False(state.FileExists);
         Assert.Equal(3, state.TransmittedChunks.Count);
@@ -135,9 +144,9 @@ public class StatefulFileReceiverTest
     [Fact]
     public void GetState_CompletesFileTransfer_WhenMetadataContainsAllChunks()
     {
-        _fileSystem.AddFile("file.txt", new MockFileData("content"));
+        _fileSystem.AddFile(_defaultTestFilePath, new MockFileData("content"));
 
-        var fileInfo = _fileSystem.FileInfo.New("file.txt");
+        var fileInfo = _fileSystem.FileInfo.New(_defaultTestFilePath);
         var file = new TransportFile
         {
             FileName = "file.txt",
@@ -148,33 +157,33 @@ public class StatefulFileReceiverTest
             TotalChunks = 5
         };
 
-        _fileSystem.AddFile(file.GetTempTargetFilePath(string.Empty), new MockFileData("content"));
+        _fileSystem.AddFile(file.GetTempTargetFilePath(_fileSystem, DefaultFolderPath), new MockFileData("content"));
 
         HashSet<uint> hashSet = [0, 1, 2, 3, 4];
-        _fileSystem.AddFile(file.GetMetadataTargetFilePath(string.Empty), new MockFileData(JsonSerializer.Serialize(new { ReceivedChunks = hashSet })));
+        _fileSystem.AddFile(file.GetMetadataTargetFilePath(_fileSystem, DefaultFolderPath), new MockFileData(JsonSerializer.Serialize(new { ReceivedChunks = hashSet })));
         fileInfo.Delete();
 
-        var receiver = new StatefulFileReceiver(_logger, _fileSystem);
+        using var receiver = new StatefulFileReceiver(_logger, _fileSystem, _options.Value, _heartbeatPool, DefaultFolderPath);
 
         string? receivedFileName = null;
         receiver.FileReceived += fn => receivedFileName = fn;
-        var state = receiver.GetState(string.Empty, file);
+        var state = receiver.GetState(file);
 
         Assert.True(state.FileExists);
         Assert.Equal(5, state.TransmittedChunks.Count);
-        Assert.False(_fileSystem.File.Exists(file.GetTempTargetFilePath(string.Empty)));
-        Assert.False(_fileSystem.File.Exists(file.GetMetadataTargetFilePath(string.Empty)));
-        Assert.True(_fileSystem.File.Exists(file.GetTargetFilePath(string.Empty)));
+        Assert.False(_fileSystem.File.Exists(file.GetTempTargetFilePath(_fileSystem, DefaultFolderPath)));
+        Assert.False(_fileSystem.File.Exists(file.GetMetadataTargetFilePath(_fileSystem, DefaultFolderPath)));
+        Assert.True(_fileSystem.File.Exists(file.GetTargetFilePath(_fileSystem, DefaultFolderPath)));
         Assert.NotNull(receivedFileName);
-        Assert.Equal(_fileSystem.Path.GetFullPath(file.GetTargetFilePath(string.Empty)), receivedFileName);
+        Assert.Equal(_fileSystem.Path.GetFullPath(file.GetTargetFilePath(_fileSystem, DefaultFolderPath)), receivedFileName);
     }
 
     [Fact]
     public void WriteFile_ReturnsOk_WhenChunkIsWritten()
     {
-        _fileSystem.AddFile("file.txt", new MockFileData("content"));
+        _fileSystem.AddFile(_defaultTestFilePath, new MockFileData("content"));
 
-        var fileInfo = _fileSystem.FileInfo.New("file.txt");
+        var fileInfo = _fileSystem.FileInfo.New(_defaultTestFilePath);
         var file = new TransportFile
         {
             FileName = "file.txt",
@@ -186,13 +195,13 @@ public class StatefulFileReceiverTest
         };
 
         var chunk = new FileChunk { Index = 3, Data = _fileSystem.File.ReadAllBytes(fileInfo.FullName) };
-        var tempFilePath = file.GetTempTargetFilePath(string.Empty);
-        var metadataFilePath = file.GetMetadataTargetFilePath(string.Empty);
+        var tempFilePath = file.GetTempTargetFilePath(_fileSystem, DefaultFolderPath);
+        var metadataFilePath = file.GetMetadataTargetFilePath(_fileSystem, DefaultFolderPath);
         fileInfo.Delete();
 
-        var receiver = new StatefulFileReceiver(_logger, _fileSystem);
+        using var receiver = new StatefulFileReceiver(_logger, _fileSystem, _options.Value, _heartbeatPool, DefaultFolderPath);
 
-        var status = receiver.WriteFile(string.Empty, file, chunk);
+        var status = receiver.WriteFile(file, chunk);
 
         Assert.Equal(FileReceiverStatus.Ok, status);
         Assert.True(_fileSystem.File.Exists(tempFilePath));
@@ -202,9 +211,9 @@ public class StatefulFileReceiverTest
     [Fact]
     public void WriteFile_ReturnsOk_WhenChunkWasAlreadyReceived()
     {
-        _fileSystem.AddFile("file.txt", new MockFileData("content"));
+        _fileSystem.AddFile(_defaultTestFilePath, new MockFileData("content"));
 
-        var fileInfo = _fileSystem.FileInfo.New("file.txt");
+        var fileInfo = _fileSystem.FileInfo.New(_defaultTestFilePath);
         var file = new TransportFile
         {
             FileName = "file.txt",
@@ -217,16 +226,16 @@ public class StatefulFileReceiverTest
 
         HashSet<uint> hashSet = [0, 3, 4];
         _fileSystem.AddFile(
-            file.GetMetadataTargetFilePath(string.Empty),
+            file.GetMetadataTargetFilePath(_fileSystem, DefaultFolderPath),
             new MockFileData(JsonSerializer.Serialize(new { ReceivedChunks = hashSet })));
 
         var chunk = new FileChunk { Index = 3, Data = _fileSystem.File.ReadAllBytes(fileInfo.FullName) };
-        var tempFilePath = file.GetTempTargetFilePath(string.Empty);
+        var tempFilePath = file.GetTempTargetFilePath(_fileSystem, DefaultFolderPath);
         fileInfo.Delete();
 
-        var receiver = new StatefulFileReceiver(_logger, _fileSystem);
+        using var receiver = new StatefulFileReceiver(_logger, _fileSystem, _options.Value, _heartbeatPool, DefaultFolderPath);
 
-        var status = receiver.WriteFile(string.Empty, file, chunk);
+        var status = receiver.WriteFile(file, chunk);
 
         Assert.Equal(FileReceiverStatus.Ok, status);
         Assert.False(_fileSystem.File.Exists(tempFilePath));
@@ -250,10 +259,10 @@ public class StatefulFileReceiverTest
         var rand = new Random();
         rand.NextBytes(contentBytes);
 
-        _fileSystem.AddFile("file.txt", new MockFileData(contentBytes));
+        _fileSystem.AddFile(_defaultTestFilePath, new MockFileData(contentBytes));
 
         var totalChunks = (uint)Math.Ceiling((double)contentLength / DefaultChunkSize);
-        var fileInfo = _fileSystem.FileInfo.New("file.txt");
+        var fileInfo = _fileSystem.FileInfo.New(_defaultTestFilePath);
         var file = new TransportFile
         {
             FileName = "file.txt",
@@ -264,11 +273,11 @@ public class StatefulFileReceiverTest
             TotalChunks = totalChunks
         };
 
-        var tempFilePath = file.GetTempTargetFilePath(string.Empty);
-        var metadataFilePath = file.GetMetadataTargetFilePath(string.Empty);
+        var tempFilePath = file.GetTempTargetFilePath(_fileSystem, DefaultFolderPath);
+        var metadataFilePath = file.GetMetadataTargetFilePath(_fileSystem, DefaultFolderPath);
         fileInfo.Delete();
 
-        var receiver = new StatefulFileReceiver(_logger, _fileSystem);
+        using var receiver = new StatefulFileReceiver(_logger, _fileSystem, _options.Value, _heartbeatPool, DefaultFolderPath);
 
         string? receivedFile = null;
         receiver.FileReceived += f => receivedFile = f;
@@ -285,7 +294,7 @@ public class StatefulFileReceiverTest
             };
             lengthSent += fileChunk.Data.Length;
 
-            var status = receiver.WriteFile(string.Empty, file, fileChunk);
+            var status = receiver.WriteFile(file, fileChunk);
             
             Assert.Equal(FileReceiverStatus.Ok, status);
             Assert.True(_fileSystem.File.Exists(tempFilePath));
@@ -303,13 +312,13 @@ public class StatefulFileReceiverTest
             Data = lastSpan.ToArray()
         };
 
-        var lastStatus = receiver.WriteFile(string.Empty, file, lastChunk);
+        var lastStatus = receiver.WriteFile(file, lastChunk);
         Assert.Equal(FileReceiverStatus.Ok, lastStatus);
 
         Assert.False(_fileSystem.File.Exists(tempFilePath));
         Assert.False(_fileSystem.File.Exists(metadataFilePath));
         
-        var transferredFile = _fileSystem.FileInfo.New("file.txt");
+        var transferredFile = _fileSystem.FileInfo.New(_defaultTestFilePath);
         Assert.True(transferredFile.Exists);
         Assert.Equal(file.ContentHash, transferredFile.GetContentHash());
         Assert.Equal(file.ContentLength, transferredFile.Length);
@@ -322,9 +331,9 @@ public class StatefulFileReceiverTest
     {
         var fileSystem = Substitute.For<IFileSystem>();
 
-        _fileSystem.AddFile("file.txt", new MockFileData("content"));
+        _fileSystem.AddFile(_defaultTestFilePath, new MockFileData("content"));
 
-        var fileInfo = _fileSystem.FileInfo.New("file.txt");
+        var fileInfo = _fileSystem.FileInfo.New(_defaultTestFilePath);
         var file = new TransportFile
         {
             FileName = "file.txt",
@@ -337,11 +346,63 @@ public class StatefulFileReceiverTest
         fileInfo.Delete();
 
         fileSystem.FileInfo.New(Arg.Any<string>()).Throws(new Exception("fail"));
-        var receiver = new StatefulFileReceiver(_logger, fileSystem);
+        using var receiver = new StatefulFileReceiver(_logger, fileSystem, _options.Value, _heartbeatPool, DefaultFolderPath);
 
         var chunk = new FileChunk { Index = 0, Data = [1] };
-        var status = receiver.WriteFile(string.Empty, file, chunk);
+        var status = receiver.WriteFile(file, chunk);
         
         Assert.Equal(FileReceiverStatus.Failed, status);
+    }
+
+    [Fact]
+    public void StatefulReceiver_PerformsCleanup_AfterStateFileExpiration()
+    {
+        _fileSystem.AddFile(_defaultTestFilePath, new MockFileData("content"));
+
+        _fileSystem.AddFile(_fileSystem.Path.Combine(DefaultFolderPath, "file.fileId1.temp"), new MockFileData("content"));
+        _fileSystem.AddFile(_fileSystem.Path.Combine(DefaultFolderPath, "file.fileId1.meta"), new MockFileData("content"));
+
+        _fileSystem.AddFile(_fileSystem.Path.Combine(DefaultFolderPath, "subdir", "file.fileId2.temp"), new MockFileData("content"));
+        _fileSystem.AddFile(_fileSystem.Path.Combine(DefaultFolderPath, "subdir", "file.fileId2.meta"), new MockFileData("content"));
+
+        var heartbeat = Substitute.For<IHeartbeat>();
+        _heartbeatPool.GetOrCreateHeartbeat(Arg.Any<int>()).Returns(heartbeat);
+
+        var timeProvider = Substitute.For<TimeProvider>();
+        using var receiver = new StatefulFileReceiver(_logger, _fileSystem, _options.Value, _heartbeatPool, DefaultFolderPath, timeProvider);
+
+        timeProvider.GetUtcNow().Returns(DateTime.UtcNow.AddHours(_options.Value.StateExpirationAfterHours + 1));
+        heartbeat.Beat += Raise.EventWith(new HeartbeatEventArgs(1, 1));
+
+        Assert.False(_fileSystem.File.Exists(_fileSystem.Path.Combine(DefaultFolderPath, "file.fileId1.temp")));
+        Assert.False(_fileSystem.File.Exists(_fileSystem.Path.Combine(DefaultFolderPath, "file.fileId1.meta")));
+        Assert.False(_fileSystem.File.Exists(_fileSystem.Path.Combine(DefaultFolderPath, "subdir", "file.fileId2.temp")));
+        Assert.False(_fileSystem.File.Exists(_fileSystem.Path.Combine(DefaultFolderPath, "subdir", "file.fileId2.meta")));
+    }
+
+    [Fact]
+    public void StatefulReceiver_PerformsNoCleanup_WhenStateFileNotExpired()
+    {
+        _fileSystem.AddFile(_defaultTestFilePath, new MockFileData("content"));
+
+        _fileSystem.AddFile(_fileSystem.Path.Combine(DefaultFolderPath, "file.fileId1.temp"), new MockFileData("content"));
+        _fileSystem.AddFile(_fileSystem.Path.Combine(DefaultFolderPath, "file.fileId1.meta"), new MockFileData("content"));
+
+        _fileSystem.AddFile(_fileSystem.Path.Combine(DefaultFolderPath, "subdir", "file.fileId2.temp"), new MockFileData("content"));
+        _fileSystem.AddFile(_fileSystem.Path.Combine(DefaultFolderPath, "subdir", "file.fileId2.meta"), new MockFileData("content"));
+
+        var heartbeat = Substitute.For<IHeartbeat>();
+        _heartbeatPool.GetOrCreateHeartbeat(Arg.Any<int>()).Returns(heartbeat);
+
+        var timeProvider = Substitute.For<TimeProvider>();
+        using var receiver = new StatefulFileReceiver(_logger, _fileSystem, _options.Value, _heartbeatPool, DefaultFolderPath, timeProvider);
+
+        timeProvider.GetUtcNow().Returns(DateTime.UtcNow.AddHours(1));
+        heartbeat.Beat += Raise.EventWith(new HeartbeatEventArgs(1, 1));
+
+        Assert.True(_fileSystem.File.Exists(_fileSystem.Path.Combine(DefaultFolderPath, "file.fileId1.temp")));
+        Assert.True(_fileSystem.File.Exists(_fileSystem.Path.Combine(DefaultFolderPath, "file.fileId1.meta")));
+        Assert.True(_fileSystem.File.Exists(_fileSystem.Path.Combine(DefaultFolderPath, "subdir", "file.fileId2.temp")));
+        Assert.True(_fileSystem.File.Exists(_fileSystem.Path.Combine(DefaultFolderPath, "subdir", "file.fileId2.meta")));
     }
 }
