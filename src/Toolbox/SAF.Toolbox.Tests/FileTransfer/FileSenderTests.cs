@@ -197,6 +197,40 @@ public class FileSenderTests
         Assert.Equal(contentLength, sentContentLength);
     }
 
+    [Fact]
+    public async Task SendAsync_ReturnsDelivered_AndSkipsAlreadySentChunks()
+    {
+        const int contentLength = 200 * 1024 * 5;
+
+        var buffer = new byte[contentLength];
+        
+        _fileSystem.AddFile("file.txt", new MockFileData(buffer));
+
+        _requestClient.SendRequestAwaitFirstAnswer<GetReceiverStateRequest, GetReceiverStateResponse>(
+                null!, null!, null!, null!, null!)
+            .ReturnsForAnyArgs(new GetReceiverStateResponse { State = new FileReceiverState { TransmittedChunks = [1, 3] } });
+        var expectedSendCalls = (int)Math.Ceiling((double)contentLength / _defaultOptions.Value.MaxChunkSizeInBytes) - 2;
+
+        var sentContentLength = 0;
+        _requestClient.SendRequestAwaitFirstAnswer<SendFileChunkRequest, SendFileChunkResponse>(
+                null!, null!, null!, null!, null!)
+            .ReturnsForAnyArgs(ci =>
+            {
+                var request = ci.Arg<SendFileChunkRequest>();
+                sentContentLength += request.FileChunk!.Data.Length;
+                return new SendFileChunkResponse { Status = FileReceiverStatus.Ok };
+            });
+
+        var sender = new FileSender(_logger, _defaultOptions, _fileSystem, _requestClient);
+
+        var result = await sender.SendAsync("topic", "file.txt", 1000);
+
+        Assert.Equal(FileTransferStatus.Delivered, result);
+        await _requestClient.ReceivedWithAnyArgs(expectedSendCalls).
+            SendRequestAwaitFirstAnswer<SendFileChunkRequest, SendFileChunkResponse>(null!, null!, null!, null!, null!);
+        Assert.Equal(contentLength - 2 * 200 * 1024, sentContentLength);
+    }
+
     [Theory]
     [InlineData(1)]
     [InlineData(3)]

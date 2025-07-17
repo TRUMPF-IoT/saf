@@ -16,7 +16,7 @@ namespace SAF.Toolbox.Tests.FileTransfer;
 
 public class StatefulFileReceiverTest
 {
-    private const uint DefaultChunkSize = 1024 * 200;
+    private const int DefaultChunkSize = 1024 * 200;
 
     private readonly ILogger<StatefulFileReceiver> _logger;
     private readonly MockFileSystem _fileSystem = new();
@@ -244,8 +244,6 @@ public class StatefulFileReceiverTest
     [InlineData(DefaultChunkSize * 3 - 1)] // multiple of chunk size - 1
     [InlineData(DefaultChunkSize * 3)] // multiple of chunk size
     [InlineData(DefaultChunkSize * 3 + 1)] // multiple of chunk size + 1
-    [InlineData(DefaultChunkSize * 3 - 1)] // multiple of chunk size - 1, with transfer id
-    [InlineData(1024 * 1024 * 3)]  // 3 MByte, with transfer id
     public void WriteFile_CompletesTransfer_WhenAllChunksWereReceived(int contentLength)
     {
         var contentBytes = new byte[contentLength];
@@ -278,7 +276,7 @@ public class StatefulFileReceiverTest
         var lengthSent = 0;
         for (uint chunk = 0; chunk < totalChunks - 1; chunk++)
         {
-            var span = new ReadOnlySpan<byte>(contentBytes, (int)(chunk * DefaultChunkSize),  (int)DefaultChunkSize);
+            var span = new ReadOnlySpan<byte>(contentBytes, (int)(chunk * DefaultChunkSize),  DefaultChunkSize);
             
             var fileChunk = new FileChunk
             {

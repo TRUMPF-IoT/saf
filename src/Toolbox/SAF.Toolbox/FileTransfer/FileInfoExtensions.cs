@@ -18,7 +18,9 @@ internal static class FileInfoExtensions
         var meta = $"{fileInfo.Name}|{chunkSize}|{GetContentHash(fileInfo)}";
         var metaHash = SHA256.HashData(System.Text.Encoding.UTF8.GetBytes(meta));
 
-        return Convert.ToHexString(metaHash).ToLowerInvariant();
+        return Convert.ToBase64String(metaHash)
+            .TrimEnd('=')
+            .Replace('/', '_');
     }
 
     public static string GetContentHash(this IFileInfo fileInfo)

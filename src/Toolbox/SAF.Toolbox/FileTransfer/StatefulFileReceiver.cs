@@ -20,15 +20,12 @@ public class StatefulFileReceiver(ILogger<StatefulFileReceiver> log, IFileSystem
         using var _ = LockManager.Acquire(file.FileId);
             
         var targetFileInfo = fileSystem.FileInfo.New(file.GetTargetFilePath(folderPath));
-        if (targetFileInfo.Exists)
+        if (targetFileInfo.Exists && file.ContentHash == targetFileInfo.GetContentHash())
         {
-            if (file.ContentHash == targetFileInfo.GetContentHash())
-            {
-                log.LogDebug(
-                    "File {FileName} already exists with matching content hash, signal sender to skip transfer.",
-                    targetFileInfo.FullName);
-                return new FileReceiverState {FileExists = true};
-            }
+            log.LogDebug(
+                "File {FileName} already exists with matching content hash, signal sender to skip transfer.",
+                targetFileInfo.FullName);
+            return new FileReceiverState {FileExists = true};
         }
 
         var tempTargetFileInfo = fileSystem.FileInfo.New(file.GetTempTargetFilePath(folderPath));
@@ -92,7 +89,7 @@ public class StatefulFileReceiver(ILogger<StatefulFileReceiver> log, IFileSystem
         FileReceived?.Invoke(fileSystem.Path.GetFullPath(file.GetTargetFilePath(folderPath)));
     }
 
-    private class FileMetadata
+    private sealed class FileMetadata
     {
         public HashSet<uint> ReceivedChunks { get; set; } = [];
     }

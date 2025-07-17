@@ -8,7 +8,7 @@ using System.Collections.Concurrent;
 
 internal sealed class FileTransferLockManager
 {
-    private class SyncEntry
+    private sealed class SyncEntry
     {
         public SemaphoreSlim Semaphore { get; } = new(1, 1);
         public int LockCount { get; set; }

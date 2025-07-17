@@ -12,7 +12,7 @@ using Microsoft.Extensions.Logging;
 
 internal class FileReceiver(ILogger<FileReceiver> log, IMessagingInfrastructure messaging) : IFileReceiver
 {
-    private class SubscriptionEntry
+    private sealed class SubscriptionEntry
     {
         public required object SendFileChunk { get; init; }
         public required object GetReceiverState { get; init; }

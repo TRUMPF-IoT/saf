@@ -90,9 +90,9 @@ internal class FileSender(
             log.LogError(e, "Could not open file {FullFilePath}", fullFilePath);
             return FileTransferStatus.Error;
         }
-        catch(Exception)
+        catch(Exception e)
         {
-            log.LogError("An unexpected error occurred while sending file {FullFilePath}", fullFilePath);
+            log.LogError(e, "An unexpected error occurred while sending file {FullFilePath}", fullFilePath);
             return FileTransferStatus.Error;
         }
     }
