@@ -54,9 +54,57 @@ public class StatefulFileReceiverTests
 
         using var receiver = new StatefulFileReceiver(_logger, _fileSystem, _options.Value, _heartbeatPool, DefaultFolderPath);
 
+        BeforeFileReceivedEventArgs? beforeFileReceived = null;
+        FileReceivedEventArgs? fileReceived = null;
+        receiver.BeforeFileReceived += (_, bfr) => beforeFileReceived = bfr;
+        receiver.FileReceived += (_, fr) => fileReceived = fr;
+
         var state = receiver.GetState(file);
 
         Assert.True(state.FileExists);
+        Assert.NotNull(beforeFileReceived);
+        Assert.NotNull(fileReceived);
+        Assert.Equal(fileInfo.FullName, fileReceived.LocalFileFullName);
+    }
+
+    [Fact]
+    public void GetState_ReturnsFileExists_WhenTargetFileExistsAndHashMatches_AndGeneratesNewFileForNoOverwrite()
+    {
+        _fileSystem.AddFile(_defaultTestFilePath, new MockFileData("content"));
+        var fileInfo = _fileSystem.FileInfo.New(_defaultTestFilePath);
+
+        var file = new TransportFile
+        {
+            FileName = "file.txt",
+            FileId = fileInfo.GetFileId(DefaultChunkSize),
+            ContentHash = fileInfo.GetContentHash(),
+            ChunkSize = DefaultChunkSize,
+            ContentLength = fileInfo.Length,
+            TotalChunks = 1
+        };
+
+        using var receiver = new StatefulFileReceiver(_logger, _fileSystem, _options.Value, _heartbeatPool, DefaultFolderPath);
+
+        BeforeFileReceivedEventArgs? beforeFileReceived = null;
+        FileReceivedEventArgs? fileReceived = null;
+        receiver.BeforeFileReceived += (_, bfr) =>
+        {
+            bfr.AllowOverwrite = false;
+            beforeFileReceived = bfr;
+        };
+        receiver.FileReceived += (_, fr) => fileReceived = fr;
+
+        var state = receiver.GetState(file);
+
+        Assert.True(state.FileExists);
+        Assert.NotNull(beforeFileReceived);
+        Assert.NotNull(fileReceived);
+        Assert.NotEqual(fileInfo.FullName, fileReceived.LocalFileFullName);
+
+        var localFileInfo = _fileSystem.FileInfo.New(fileReceived.LocalFileFullName);
+        Assert.True(localFileInfo.Exists);
+        Assert.Equal(fileInfo.GetContentHash(), localFileInfo.GetContentHash());
+        Assert.True(fileInfo.Exists);
     }
 
     [Fact]
@@ -165,8 +213,10 @@ public class StatefulFileReceiverTests
 
         using var receiver = new StatefulFileReceiver(_logger, _fileSystem, _options.Value, _heartbeatPool, DefaultFolderPath);
 
-        string? receivedFileName = null;
-        receiver.FileReceived += fn => receivedFileName = fn;
+        BeforeFileReceivedEventArgs? beforeFileReceived = null;
+        FileReceivedEventArgs? fileReceived = null;
+        receiver.BeforeFileReceived += (_, bfr) => beforeFileReceived = bfr;
+        receiver.FileReceived += (_, fr) => fileReceived = fr;
         var state = receiver.GetState(file);
 
         Assert.True(state.FileExists);
@@ -174,8 +224,9 @@ public class StatefulFileReceiverTests
         Assert.False(_fileSystem.File.Exists(file.GetTempTargetFilePath(_fileSystem, DefaultFolderPath)));
         Assert.False(_fileSystem.File.Exists(file.GetMetadataTargetFilePath(_fileSystem, DefaultFolderPath)));
         Assert.True(_fileSystem.File.Exists(file.GetTargetFilePath(_fileSystem, DefaultFolderPath)));
-        Assert.NotNull(receivedFileName);
-        Assert.Equal(_fileSystem.Path.GetFullPath(file.GetTargetFilePath(_fileSystem, DefaultFolderPath)), receivedFileName);
+        Assert.NotNull(beforeFileReceived);
+        Assert.NotNull(fileReceived);
+        Assert.Equal(_fileSystem.Path.GetFullPath(file.GetTargetFilePath(_fileSystem, DefaultFolderPath)), fileReceived.LocalFileFullName);
     }
 
     [Fact]
@@ -279,8 +330,10 @@ public class StatefulFileReceiverTests
 
         using var receiver = new StatefulFileReceiver(_logger, _fileSystem, _options.Value, _heartbeatPool, DefaultFolderPath);
 
-        string? receivedFile = null;
-        receiver.FileReceived += f => receivedFile = f;
+        BeforeFileReceivedEventArgs? beforeFileReceived = null;
+        FileReceivedEventArgs? fileReceived = null;
+        receiver.BeforeFileReceived += (_, bfr) => beforeFileReceived = bfr;
+        receiver.FileReceived += (_, fr) => fileReceived = fr;
 
         var lengthSent = 0;
         for (uint chunk = 0; chunk < totalChunks - 1; chunk++)
@@ -299,7 +352,8 @@ public class StatefulFileReceiverTests
             Assert.Equal(FileReceiverStatus.Ok, status);
             Assert.True(_fileSystem.File.Exists(tempFilePath));
             Assert.True(_fileSystem.File.Exists(metadataFilePath));
-            Assert.Null(receivedFile);
+            Assert.Null(beforeFileReceived);
+            Assert.Null(fileReceived);
         }
 
         // Last chunk may be smaller than DefaultChunkSize
@@ -322,8 +376,9 @@ public class StatefulFileReceiverTests
         Assert.True(transferredFile.Exists);
         Assert.Equal(file.ContentHash, transferredFile.GetContentHash());
         Assert.Equal(file.ContentLength, transferredFile.Length);
-        Assert.NotNull(receivedFile);
-        Assert.Equal(transferredFile.FullName, receivedFile);
+        Assert.NotNull(beforeFileReceived);
+        Assert.NotNull(fileReceived);
+        Assert.Equal(transferredFile.FullName, fileReceived.LocalFileFullName);
     }
 
     [Fact]

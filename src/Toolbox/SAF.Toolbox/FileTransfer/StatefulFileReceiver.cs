@@ -60,11 +60,13 @@ public class StatefulFileReceiver : IStatefulFileReceiver
         using var _ = _lockManager.Acquire(file.FileId);
             
         var targetFileInfo = _fileSystem.FileInfo.New(file.GetTargetFilePath(_fileSystem, _folderPath));
-        if (targetFileInfo.Exists && file.ContentHash == targetFileInfo.GetContentHash())
+        if (targetFileInfo.Exists && file.ContentLength == targetFileInfo.Length && file.ContentHash == targetFileInfo.GetContentHash())
         {
             _log.LogDebug(
                 "File {FileName} already exists with matching content hash, signal sender to skip transfer.",
                 targetFileInfo.FullName);
+
+            CompleteFileTransfer(file, file.GetTargetFilePath(_fileSystem, _folderPath));
             return new FileReceiverState {FileExists = true};
         }
 
@@ -79,6 +81,7 @@ public class StatefulFileReceiver : IStatefulFileReceiver
         if (metadata.ReceivedChunks.Count == file.TotalChunks)
         {
             _log.LogDebug("All chunks of file {FileName} already received, signal sender to skip transfer.", file.FileName);
+            
             CompleteFileTransfer(file);
             return new FileReceiverState {FileExists = true, TransmittedChunks = metadata.ReceivedChunks};
         }
@@ -126,7 +129,8 @@ public class StatefulFileReceiver : IStatefulFileReceiver
         }
     }
 
-    public event Action<string>? FileReceived;
+    public event EventHandler<BeforeFileReceivedEventArgs>? BeforeFileReceived;
+    public event EventHandler<FileReceivedEventArgs>? FileReceived;
 
     public void Dispose()
     {
@@ -145,12 +149,34 @@ public class StatefulFileReceiver : IStatefulFileReceiver
     }
 
     private void CompleteFileTransfer(TransportFile file)
-    {
-        var targetFilePath = file.GetTargetFilePath(_fileSystem, _folderPath);
-        _fileSystem.File.Move(file.GetTempTargetFilePath(_fileSystem, _folderPath), targetFilePath, true);
-        _fileSystem.File.Delete(file.GetMetadataTargetFilePath(_fileSystem, _folderPath));
+        => CompleteFileTransfer(file, file.GetTempTargetFilePath(_fileSystem, _folderPath));
 
-        FileReceived?.Invoke(_fileSystem.Path.GetFullPath(file.GetTargetFilePath(_fileSystem, _folderPath)));
+    private void CompleteFileTransfer(TransportFile file, string sourceFilePath)
+    {
+        var beforeEventArgs = new BeforeFileReceivedEventArgs(file);
+        BeforeFileReceived?.Invoke(this, beforeEventArgs);
+
+        var targetFilePath = file.GetTargetFilePath(_fileSystem, _folderPath);
+        if (!beforeEventArgs.AllowOverwrite)
+        {
+            targetFilePath = GenerateUniqueTargetFilePath(targetFilePath);
+        }
+
+        if (sourceFilePath != targetFilePath)
+        {
+            _fileSystem.File.Copy(sourceFilePath, targetFilePath);
+        }
+
+        if (_fileSystem.File.Exists(file.GetTempTargetFilePath(_fileSystem, _folderPath)))
+        {
+            _fileSystem.File.Delete(file.GetTempTargetFilePath(_fileSystem, _folderPath));
+        }
+        if (_fileSystem.File.Exists(file.GetMetadataTargetFilePath(_fileSystem, _folderPath)))
+        {
+            _fileSystem.File.Delete(file.GetMetadataTargetFilePath(_fileSystem, _folderPath));
+        }
+
+        FileReceived?.Invoke(this, new FileReceivedEventArgs(file, targetFilePath));
     }
 
     private sealed class FileMetadata
@@ -182,6 +208,24 @@ public class StatefulFileReceiver : IStatefulFileReceiver
         using var tempFileStream = tempTargetFile.Open(FileMode.OpenOrCreate, FileAccess.Write, FileShare.None);
         tempFileStream.Seek(fileChunk.Index * chunkSize, SeekOrigin.Begin);
         tempFileStream.Write(fileChunk.Data);
+    }
+
+    private string GenerateUniqueTargetFilePath(string filePath)
+    {
+        var directory = _fileSystem.Path.GetDirectoryName(filePath);
+        if (string.IsNullOrEmpty(directory)) return filePath;
+
+        var fileName = _fileSystem.Path.GetFileName(filePath);
+        var name = _fileSystem.Path.GetFileNameWithoutExtension(fileName);
+        var ext = _fileSystem.Path.GetExtension(fileName);
+        var n = 0;
+        while (_fileSystem.File.Exists(filePath))
+        {
+            var pattern = $"{name}({++n}){ext}";
+            filePath = _fileSystem.Path.Combine(directory, pattern);
+        }
+
+        return filePath;
     }
 
     private void OnStateCleanupHeartbeat(object? sender, HeartbeatEventArgs e)

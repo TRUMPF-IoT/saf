@@ -97,6 +97,20 @@ internal class FileSender(
         }
     }
 
+    public void Dispose()
+    {
+        Dispose(true);
+        GC.SuppressFinalize(this);
+    }
+
+    protected virtual void Dispose(bool disposing)
+    {
+        if (disposing)
+        {
+            // not required anymore, but kept for compatibility
+        }
+    }
+
     private static async Task<FileChunk> ReadFileChunkAsync(uint chunkIndex, FileSystemStream fileStream, byte[] buffer)
     {
         var bytesRead = await fileStream.ReadAsync(buffer, CancellationToken.None);

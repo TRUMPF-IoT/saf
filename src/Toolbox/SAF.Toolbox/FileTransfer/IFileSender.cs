@@ -4,7 +4,7 @@
 
 namespace SAF.Toolbox.FileTransfer;
 
-public interface IFileSender
+public interface IFileSender : IDisposable
 {
     Task<FileTransferStatus> SendAsync(string topic, string fullFilePath, uint timeoutMs);
     Task<FileTransferStatus> SendAsync(string topic, string fullFilePath, uint timeoutMs, IDictionary<string, string> properties);
