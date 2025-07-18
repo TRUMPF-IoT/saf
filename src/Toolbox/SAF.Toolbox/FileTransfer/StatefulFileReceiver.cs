@@ -153,10 +153,11 @@ public class StatefulFileReceiver : IStatefulFileReceiver
 
     private void CompleteFileTransfer(TransportFile file, string sourceFilePath)
     {
-        var beforeEventArgs = new BeforeFileReceivedEventArgs(file);
+        var targetFilePath = file.GetTargetFilePath(_fileSystem, _folderPath);
+        var beforeEventArgs = new BeforeFileReceivedEventArgs(file, targetFilePath);
         BeforeFileReceived?.Invoke(this, beforeEventArgs);
 
-        var targetFilePath = file.GetTargetFilePath(_fileSystem, _folderPath);
+        targetFilePath = beforeEventArgs.TargetFilePath;
         if (!beforeEventArgs.AllowOverwrite)
         {
             targetFilePath = GenerateUniqueTargetFilePath(targetFilePath);
