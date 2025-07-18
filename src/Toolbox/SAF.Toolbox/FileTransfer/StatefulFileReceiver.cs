@@ -157,7 +157,7 @@ public class StatefulFileReceiver : IStatefulFileReceiver
         var beforeEventArgs = new BeforeFileReceivedEventArgs(file, targetFilePath);
         BeforeFileReceived?.Invoke(this, beforeEventArgs);
 
-        targetFilePath = beforeEventArgs.TargetFilePath;
+        targetFilePath = _fileSystem.Path.GetFullPath(beforeEventArgs.TargetFilePath);
         if (!beforeEventArgs.AllowOverwrite)
         {
             targetFilePath = GenerateUniqueTargetFilePath(targetFilePath);
@@ -165,6 +165,11 @@ public class StatefulFileReceiver : IStatefulFileReceiver
 
         if (sourceFilePath != targetFilePath)
         {
+            var targetDirectory = _fileSystem.Path.GetDirectoryName(targetFilePath);
+            if(targetDirectory != null && !_fileSystem.Directory.Exists(targetDirectory))
+            {
+                _fileSystem.Directory.CreateDirectory(targetDirectory);
+            }
             _fileSystem.File.Copy(sourceFilePath, targetFilePath);
         }
 

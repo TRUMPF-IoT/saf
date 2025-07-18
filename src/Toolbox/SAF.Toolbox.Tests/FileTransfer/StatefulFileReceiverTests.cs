@@ -382,6 +382,66 @@ public class StatefulFileReceiverTests
     }
 
     [Fact]
+    public void WriteFile_ReturnsOk_AndStoresFileToPathSetInEventHandler()
+    {
+        const int contentLength = 4;
+        var contentBytes = new byte[contentLength];
+        var rand = new Random();
+        rand.NextBytes(contentBytes);
+
+        _fileSystem.AddFile(_defaultTestFilePath, new MockFileData(contentBytes));
+
+        var fileInfo = _fileSystem.FileInfo.New(_defaultTestFilePath);
+        var file = new TransportFile
+        {
+            FileName = "file.txt",
+            FileId = fileInfo.GetFileId(DefaultChunkSize),
+            ContentHash = fileInfo.GetContentHash(),
+            ChunkSize = DefaultChunkSize,
+            ContentLength = contentLength,
+            TotalChunks = 1
+        };
+
+        var tempFilePath = file.GetTempTargetFilePath(_fileSystem, DefaultFolderPath);
+        var metadataFilePath = file.GetMetadataTargetFilePath(_fileSystem, DefaultFolderPath);
+        fileInfo.Delete();
+
+        using var receiver = new StatefulFileReceiver(_logger, _fileSystem, _options.Value, _heartbeatPool, DefaultFolderPath);
+
+        BeforeFileReceivedEventArgs? beforeFileReceived = null;
+        FileReceivedEventArgs? fileReceived = null;
+        receiver.BeforeFileReceived += (_, bfr) =>
+        {
+            bfr.TargetFilePath = _fileSystem.Path.Combine(DefaultFolderPath, "custom", "changed.txt");
+            beforeFileReceived = bfr;
+        };
+        receiver.FileReceived += (_, fr) => fileReceived = fr;
+
+        var lastChunk = new FileChunk
+        {
+            Index = 0,
+            Data = contentBytes
+        };
+
+        var lastStatus = receiver.WriteFile(file, lastChunk);
+        Assert.Equal(FileReceiverStatus.Ok, lastStatus);
+
+        var expectedFilePath = _fileSystem.Path.GetFullPath(_fileSystem.Path.Combine(DefaultFolderPath, "custom", "changed.txt"));
+        Assert.NotNull(beforeFileReceived);
+        Assert.NotNull(fileReceived);
+        Assert.Equal(expectedFilePath, fileReceived.LocalFileFullName);
+
+        Assert.False(_fileSystem.File.Exists(tempFilePath));
+        Assert.False(_fileSystem.File.Exists(metadataFilePath));
+
+        var transferredFile = _fileSystem.FileInfo.New(expectedFilePath);
+        Assert.True(transferredFile.Exists);
+        Assert.Equal(file.ContentHash, transferredFile.GetContentHash());
+        Assert.Equal(file.ContentLength, transferredFile.Length);
+        Assert.Equal(transferredFile.FullName, fileReceived.LocalFileFullName);
+    }
+
+    [Fact]
     public void WriteFile_ReturnsFailed_OnException()
     {
         var fileSystem = Substitute.For<IFileSystem>();
