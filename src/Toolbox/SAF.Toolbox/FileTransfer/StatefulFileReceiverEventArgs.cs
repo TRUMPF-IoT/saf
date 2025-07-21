@@ -4,10 +4,16 @@
 
 namespace SAF.Toolbox.FileTransfer;
 
-public class BeforeFileReceivedEventArgs(TransportFile file, string targetFilePath) : EventArgs
+public class TargetFilePathResolvedEventArgs(TransportFile file, string targetFilePath) : EventArgs
 {
     public TransportFile File { get; } = file;
     public string TargetFilePath { get; set; } = targetFilePath;
+}
+
+public class BeforeFileReceivedEventArgs(TransportFile file, string targetFilePath) : EventArgs
+{
+    public TransportFile File { get; } = file;
+    public string TargetFilePath { get; } = targetFilePath;
     public bool AllowOverwrite { get; set; } = true;
 }
 

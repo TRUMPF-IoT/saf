@@ -102,7 +102,8 @@ internal class FileReceiver(ILogger<FileReceiver> log, IMessagingInfrastructure 
         var request = JsonSerializer.Deserialize<SendFileChunkRequest>(message.Payload);
         if (request?.ReplyTo == null || request.FileChunk == null) return;
 
-        log.LogDebug("HandleSendFileChunks for file {FileName} on topic {ReceiverTopic}", request.File.FileName, topic);
+        log.LogTrace("HandleSendFileChunks for file {FileName} and chunk {ChunkIndex} on topic {ReceiverTopic}",
+            request.File.FileName, request.FileChunk.Index, topic);
 
         var receiverStatus = statefulFileReceiver.WriteFile(request.File, request.FileChunk);
         if(receiverStatus != FileReceiverStatus.Ok)

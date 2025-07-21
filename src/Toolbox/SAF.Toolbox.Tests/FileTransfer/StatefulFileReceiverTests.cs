@@ -408,12 +408,12 @@ public class StatefulFileReceiverTests
 
         using var receiver = new StatefulFileReceiver(_logger, _fileSystem, _options.Value, _heartbeatPool, DefaultFolderPath);
 
-        BeforeFileReceivedEventArgs? beforeFileReceived = null;
+        TargetFilePathResolvedEventArgs? targetFilePathResolvedReceived = null;
         FileReceivedEventArgs? fileReceived = null;
-        receiver.BeforeFileReceived += (_, bfr) =>
+        receiver.TargetFilePathResolved += (_, r) =>
         {
-            bfr.TargetFilePath = _fileSystem.Path.Combine(DefaultFolderPath, "custom", "changed.txt");
-            beforeFileReceived = bfr;
+            r.TargetFilePath = _fileSystem.Path.Combine(DefaultFolderPath, "custom", "changed.txt");
+            targetFilePathResolvedReceived = r;
         };
         receiver.FileReceived += (_, fr) => fileReceived = fr;
 
@@ -427,7 +427,7 @@ public class StatefulFileReceiverTests
         Assert.Equal(FileReceiverStatus.Ok, lastStatus);
 
         var expectedFilePath = _fileSystem.Path.GetFullPath(_fileSystem.Path.Combine(DefaultFolderPath, "custom", "changed.txt"));
-        Assert.NotNull(beforeFileReceived);
+        Assert.NotNull(targetFilePathResolvedReceived);
         Assert.NotNull(fileReceived);
         Assert.Equal(expectedFilePath, fileReceived.LocalFileFullName);
 

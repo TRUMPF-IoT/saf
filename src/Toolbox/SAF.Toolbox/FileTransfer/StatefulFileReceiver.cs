@@ -59,7 +59,8 @@ public class StatefulFileReceiver : IStatefulFileReceiver
     {
         using var _ = _lockManager.Acquire(file.FileId);
 
-        var targetFileInfo = _fileSystem.FileInfo.New(file.GetTargetFilePath(_fileSystem, _folderPath));
+        var targetFilePath = ResolveTargetFilePath(file);
+        var targetFileInfo = _fileSystem.FileInfo.New(targetFilePath);
         
         _log.LogDebug("Sender requests transfer state for file {FileName}", targetFileInfo.FullName);
 
@@ -69,23 +70,23 @@ public class StatefulFileReceiver : IStatefulFileReceiver
                 "File {FileName} already exists with matching content hash, signal sender to skip transfer.",
                 targetFileInfo.FullName);
 
-            CompleteFileTransfer(file, file.GetTargetFilePath(_fileSystem, _folderPath));
+            CompleteFileTransfer(file, targetFilePath, targetFilePath);
             return new FileReceiverState {FileExists = true};
         }
 
-        var tempTargetFileInfo = _fileSystem.FileInfo.New(file.GetTempTargetFilePath(_fileSystem, _folderPath));
+        var tempTargetFileInfo = _fileSystem.FileInfo.New(file.GetTempTargetFilePath(_fileSystem, targetFileInfo.DirectoryName!));
         if (!tempTargetFileInfo.Exists)
         {
             _log.LogDebug("Temporary file {FileName} does not exist, signal sender to transfer all chunks.", tempTargetFileInfo.FullName);
             return new FileReceiverState();
         }
 
-        var metadata = ReadFileMetadata(file.GetMetadataTargetFilePath(_fileSystem, _folderPath));
+        var metadata = ReadFileMetadata(file.GetMetadataTargetFilePath(_fileSystem, targetFileInfo.DirectoryName!));
         if (metadata.ReceivedChunks.Count == file.TotalChunks)
         {
             _log.LogDebug("All chunks of file {FileName} already received, signal sender to skip transfer.", file.FileName);
             
-            CompleteFileTransfer(file);
+            CompleteFileTransfer(file, tempTargetFileInfo.FullName, targetFilePath);
             return new FileReceiverState {FileExists = true, TransmittedChunks = metadata.ReceivedChunks};
         }
 
@@ -97,30 +98,29 @@ public class StatefulFileReceiver : IStatefulFileReceiver
         try
         {
             using var _ = _lockManager.Acquire(file.FileId);
-            
-            var metadata = ReadFileMetadata(file.GetMetadataTargetFilePath(_fileSystem, _folderPath));
+
+            var targetFilePath = ResolveTargetFilePath(file);
+            var targetFileDirectory = _fileSystem.Path.GetDirectoryName(targetFilePath)!;
+            var tempTargetFilePath = file.GetTempTargetFilePath(_fileSystem, targetFileDirectory);
+            var metaTargetFilePath = file.GetMetadataTargetFilePath(_fileSystem, targetFileDirectory);
+
+            var metadata = ReadFileMetadata(metaTargetFilePath);
             if (metadata.ReceivedChunks.Contains(fileChunk.Index))
             {
                 _log.LogDebug("Chunk {ChunkIndex} of file {FileName} already received, skipping.", fileChunk.Index, file.FileName);
             }
             else
             {
-                var directoryInfo = _fileSystem.DirectoryInfo.New(_folderPath);
-                if (!directoryInfo.Exists)
-                {
-                    directoryInfo.Create();
-                }
-
-                var tempTargetFile = _fileSystem.FileInfo.New(file.GetTempTargetFilePath(_fileSystem, _folderPath));
+                var tempTargetFile = _fileSystem.FileInfo.New(tempTargetFilePath);
                 WriteChunk(tempTargetFile, fileChunk, file.ChunkSize);
 
                 metadata.ReceivedChunks.Add(fileChunk.Index);
-                SaveFileMetadata(file.GetMetadataTargetFilePath(_fileSystem, _folderPath), metadata);
+                SaveFileMetadata(metaTargetFilePath, metadata);
             }
 
             if (metadata.ReceivedChunks.Count == file.TotalChunks)
             {
-                CompleteFileTransfer(file);
+                CompleteFileTransfer(file, tempTargetFilePath, targetFilePath);
             }
 
             return FileReceiverStatus.Ok;
@@ -132,6 +132,7 @@ public class StatefulFileReceiver : IStatefulFileReceiver
         }
     }
 
+    public event EventHandler<TargetFilePathResolvedEventArgs>? TargetFilePathResolved;
     public event EventHandler<BeforeFileReceivedEventArgs>? BeforeFileReceived;
     public event EventHandler<FileReceivedEventArgs>? FileReceived;
 
@@ -151,44 +152,48 @@ public class StatefulFileReceiver : IStatefulFileReceiver
         }
     }
 
-    private void CompleteFileTransfer(TransportFile file)
-        => CompleteFileTransfer(file, file.GetTempTargetFilePath(_fileSystem, _folderPath));
-
-    private void CompleteFileTransfer(TransportFile file, string sourceFilePath)
+    private string ResolveTargetFilePath(TransportFile file)
     {
-        var targetFilePath = file.GetTargetFilePath(_fileSystem, _folderPath);
+        var eventArgs = new TargetFilePathResolvedEventArgs(file, file.GetTargetFilePath(_fileSystem, _folderPath));
+        TargetFilePathResolved?.Invoke(this, eventArgs);
+        return _fileSystem.Path.GetFullPath(eventArgs.TargetFilePath);
+    }
+
+    private void CompleteFileTransfer(TransportFile file, string sourceFilePath, string targetFilePath)
+    {
         var beforeEventArgs = new BeforeFileReceivedEventArgs(file, targetFilePath);
         BeforeFileReceived?.Invoke(this, beforeEventArgs);
 
-        targetFilePath = _fileSystem.Path.GetFullPath(beforeEventArgs.TargetFilePath);
+        var uniqueTargetFilePath = _fileSystem.Path.GetFullPath(beforeEventArgs.TargetFilePath);
         if (!beforeEventArgs.AllowOverwrite)
         {
-            targetFilePath = GenerateUniqueTargetFilePath(targetFilePath);
+            uniqueTargetFilePath = GenerateUniqueTargetFilePath(targetFilePath);
         }
 
-        if (sourceFilePath != targetFilePath)
+        if (sourceFilePath != uniqueTargetFilePath)
         {
-            _log.LogDebug("CompleteFileTransfer: Copying file from {SourceFilePath} to {TargetFilePath}", sourceFilePath, targetFilePath);
+            _log.LogDebug("CompleteFileTransfer: Copying file from {SourceFilePath} to {TargetFilePath}", sourceFilePath, uniqueTargetFilePath);
 
-            var targetDirectory = _fileSystem.Path.GetDirectoryName(targetFilePath);
+            var targetDirectory = _fileSystem.Path.GetDirectoryName(uniqueTargetFilePath);
             if(targetDirectory != null && !_fileSystem.Directory.Exists(targetDirectory))
             {
                 _fileSystem.Directory.CreateDirectory(targetDirectory);
             }
-            _fileSystem.File.Copy(sourceFilePath, targetFilePath);
+            _fileSystem.File.Copy(sourceFilePath, uniqueTargetFilePath);
         }
 
-        if (_fileSystem.File.Exists(file.GetTempTargetFilePath(_fileSystem, _folderPath)))
+        var targetFileDirectory = _fileSystem.Path.GetDirectoryName(uniqueTargetFilePath)!;
+        if (_fileSystem.File.Exists(file.GetTempTargetFilePath(_fileSystem, targetFileDirectory)))
         {
-            _fileSystem.File.Delete(file.GetTempTargetFilePath(_fileSystem, _folderPath));
+            _fileSystem.File.Delete(file.GetTempTargetFilePath(_fileSystem, targetFileDirectory));
         }
-        if (_fileSystem.File.Exists(file.GetMetadataTargetFilePath(_fileSystem, _folderPath)))
+        if (_fileSystem.File.Exists(file.GetMetadataTargetFilePath(_fileSystem, targetFileDirectory)))
         {
-            _fileSystem.File.Delete(file.GetMetadataTargetFilePath(_fileSystem, _folderPath));
+            _fileSystem.File.Delete(file.GetMetadataTargetFilePath(_fileSystem, targetFileDirectory));
         }
 
-        _log.LogDebug("Invoking FileReceived event for file: {TargetFilePath}", targetFilePath);
-        FileReceived?.Invoke(this, new FileReceivedEventArgs(file, targetFilePath));
+        _log.LogDebug("Invoking FileReceived event for file: {TargetFilePath}", uniqueTargetFilePath);
+        FileReceived?.Invoke(this, new FileReceivedEventArgs(file, uniqueTargetFilePath));
     }
 
     private sealed class FileMetadata
@@ -214,8 +219,14 @@ public class StatefulFileReceiver : IStatefulFileReceiver
         _fileSystem.File.WriteAllText(metadataFilePath, metadataContent);
     }
 
-    private static void WriteChunk(IFileInfo tempTargetFile, FileChunk fileChunk, uint chunkSize)
+    private void WriteChunk(IFileInfo tempTargetFile, FileChunk fileChunk, uint chunkSize)
     {
+        var directoryInfo = _fileSystem.DirectoryInfo.New(tempTargetFile.DirectoryName!);
+        if (!directoryInfo.Exists)
+        {
+            directoryInfo.Create();
+        }
+
         using var tempFileStream = tempTargetFile.Open(FileMode.OpenOrCreate, FileAccess.Write, FileShare.None);
         tempFileStream.Seek(fileChunk.Index * chunkSize, SeekOrigin.Begin);
         tempFileStream.Write(fileChunk.Data);

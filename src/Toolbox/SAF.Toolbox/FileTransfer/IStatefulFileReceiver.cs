@@ -9,6 +9,7 @@ public interface IStatefulFileReceiver : IDisposable
     FileReceiverState GetState(TransportFile file);
     FileReceiverStatus WriteFile(TransportFile file, FileChunk fileChunk);
 
+    event EventHandler<TargetFilePathResolvedEventArgs>? TargetFilePathResolved;
     event EventHandler<BeforeFileReceivedEventArgs>? BeforeFileReceived;
     event EventHandler<FileReceivedEventArgs>? FileReceived;
 }
