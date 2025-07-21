@@ -36,8 +36,8 @@ internal class FileReceiver(ILogger<FileReceiver> log, IMessagingInfrastructure 
             _subscriptions.Add(topic,
                 new SubscriptionEntry
                 {
-                    GetReceiverState = messaging.Subscribe($"{topic}/state/get", message => HandleGetReceiverState(message, statefulFileReceiver)),
-                    SendFileChunk = messaging.Subscribe(topic, message => HandleSendFileChunks(message, statefulFileReceiver))
+                    GetReceiverState = messaging.Subscribe($"{topic}/state/get", message => HandleGetReceiverState(topic, message, statefulFileReceiver)),
+                    SendFileChunk = messaging.Subscribe(topic, message => HandleSendFileChunks(topic, message, statefulFileReceiver))
                 });
         }
     }
@@ -69,7 +69,7 @@ internal class FileReceiver(ILogger<FileReceiver> log, IMessagingInfrastructure 
         }
     }
 
-    private void HandleGetReceiverState(Message message, IStatefulFileReceiver statefulFileReceiver)
+    private void HandleGetReceiverState(string topic, Message message, IStatefulFileReceiver statefulFileReceiver)
     {
         if (message.Payload == null)
         {
@@ -80,6 +80,8 @@ internal class FileReceiver(ILogger<FileReceiver> log, IMessagingInfrastructure 
         var request = JsonSerializer.Deserialize<GetReceiverStateRequest>(message.Payload);
         if (request?.ReplyTo == null) return;
 
+        log.LogDebug("GetReceiverState for file {FileName} on topic {ReceiverTopic}", request.File.FileName, topic);
+
         var receiverState = statefulFileReceiver.GetState(request.File);
         
         messaging.Publish(new Message
@@ -89,7 +91,7 @@ internal class FileReceiver(ILogger<FileReceiver> log, IMessagingInfrastructure 
         });
     }
 
-    private void HandleSendFileChunks(Message message, IStatefulFileReceiver statefulFileReceiver)
+    private void HandleSendFileChunks(string topic, Message message, IStatefulFileReceiver statefulFileReceiver)
     {
         if (message.Payload == null)
         {
@@ -99,6 +101,8 @@ internal class FileReceiver(ILogger<FileReceiver> log, IMessagingInfrastructure 
 
         var request = JsonSerializer.Deserialize<SendFileChunkRequest>(message.Payload);
         if (request?.ReplyTo == null || request.FileChunk == null) return;
+
+        log.LogDebug("HandleSendFileChunks for file {FileName} on topic {ReceiverTopic}", request.File.FileName, topic);
 
         var receiverStatus = statefulFileReceiver.WriteFile(request.File, request.FileChunk);
         if(receiverStatus != FileReceiverStatus.Ok)

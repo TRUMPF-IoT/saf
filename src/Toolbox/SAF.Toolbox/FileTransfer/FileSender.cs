@@ -31,6 +31,8 @@ internal class FileSender(
                 return status;
             }
 
+            log.LogDebug("SendAsync called for file {FullFilePath} and topic {ReceiverTopic}", fullFilePath, topic);
+
             var totalChunks = (uint)Math.Ceiling((double)fi.Length / _options.MaxChunkSizeInBytes);
 
             var transportFile = new TransportFile
@@ -44,7 +46,7 @@ internal class FileSender(
                 Properties = properties
             };
 
-            var receiverState = await requestClient.GetReceiverStateAsync(topic, transportFile, _options);
+            var receiverState = await requestClient.GetReceiverStateAsync(log, topic, transportFile, _options);
             if (receiverState == null)
             {
                 log.LogError("Failed to retrieve transmitted chunk information for file {FullFilePath} on topic {ReceiverTopic}", fullFilePath, topic);
@@ -73,7 +75,7 @@ internal class FileSender(
 
                 var fileChunk = await ReadFileChunkAsync(chunk, fileStream, buffer);
 
-                var transferStatus = await requestClient.SendFileChunkAsync(topic,
+                var transferStatus = await requestClient.SendFileChunkAsync(log, topic,
                     new SendFileChunkRequest { File = transportFile, FileChunk = fileChunk },
                     _options, timeoutMs);
                 if(transferStatus != FileTransferStatus.Delivered)

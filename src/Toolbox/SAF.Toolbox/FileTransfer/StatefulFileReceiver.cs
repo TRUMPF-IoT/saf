@@ -58,8 +58,11 @@ public class StatefulFileReceiver : IStatefulFileReceiver
     public FileReceiverState GetState(TransportFile file)
     {
         using var _ = _lockManager.Acquire(file.FileId);
-            
+
         var targetFileInfo = _fileSystem.FileInfo.New(file.GetTargetFilePath(_fileSystem, _folderPath));
+        
+        _log.LogDebug("Sender requests transfer state for file {FileName}", targetFileInfo.FullName);
+
         if (targetFileInfo.Exists && file.ContentLength == targetFileInfo.Length && file.ContentHash == targetFileInfo.GetContentHash())
         {
             _log.LogDebug(
@@ -165,6 +168,8 @@ public class StatefulFileReceiver : IStatefulFileReceiver
 
         if (sourceFilePath != targetFilePath)
         {
+            _log.LogDebug("CompleteFileTransfer: Copying file from {SourceFilePath} to {TargetFilePath}", sourceFilePath, targetFilePath);
+
             var targetDirectory = _fileSystem.Path.GetDirectoryName(targetFilePath);
             if(targetDirectory != null && !_fileSystem.Directory.Exists(targetDirectory))
             {
@@ -182,6 +187,7 @@ public class StatefulFileReceiver : IStatefulFileReceiver
             _fileSystem.File.Delete(file.GetMetadataTargetFilePath(_fileSystem, _folderPath));
         }
 
+        _log.LogDebug("Invoking FileReceived event for file: {TargetFilePath}", targetFilePath);
         FileReceived?.Invoke(this, new FileReceivedEventArgs(file, targetFilePath));
     }
 
@@ -195,7 +201,6 @@ public class StatefulFileReceiver : IStatefulFileReceiver
         var metadataFileInfo = _fileSystem.FileInfo.New(metadataFilePath);
         if (!metadataFileInfo.Exists)
         {
-            _log.LogDebug("Metadata file {FileName} does not exist, signal sender to transfer all chunks.", metadataFilePath);
             return new FileMetadata();
         }
 
@@ -240,6 +245,12 @@ public class StatefulFileReceiver : IStatefulFileReceiver
 
         try
         {
+            if (!_fileSystem.Directory.Exists(_folderPath))
+            {
+                _log.LogDebug("Nothing to clean-up: Folder {FileReceiverFolder} does not exist", _folderPath);
+                return;
+            }
+
             var tempFiles = _fileSystem.Directory.GetFiles(_folderPath, "*.temp", new EnumerationOptions { RecurseSubdirectories = true });
             var metadataFiles = _fileSystem.Directory.GetFiles(_folderPath, "*.meta", new EnumerationOptions { RecurseSubdirectories = true });
 
