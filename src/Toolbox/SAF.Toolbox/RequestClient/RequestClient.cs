@@ -56,7 +56,7 @@ internal sealed class RequestClient : IRequestClient, IDisposable
         var resultJson = await SendRequestAwaitFirstAnswer(topic, request, converters, replyTopicPrefix,
             millisecondsTimeoutTarget);
         return resultJson != null
-            ? JsonSerializer.Deserialize<TResponse>(resultJson, converters ?? new IJsonObjectConverter[] { })
+            ? JsonSerializer.Deserialize<TResponse>(resultJson, converters ?? [])
             : null;
     }
 
@@ -83,17 +83,17 @@ internal sealed class RequestClient : IRequestClient, IDisposable
                 RequestHandlerAction = resultJson =>
                 {
                     if (!tcs.TrySetResult(resultJson))
-                        _log.LogWarning($"SendRequestAwaitFirstAnswer: Couldn't set request result for {topic}");
+                        _log.LogWarning("SendRequestAwaitFirstAnswer: Couldn't set request result for {Topic}", topic);
                 },
                 TimeoutAction = () =>
                 {
                     if (!tcs.TrySetResult(null))
-                        _log.LogWarning($"SendRequestAwaitFirstAnswer: Couldn't set empty result for {topic}");
+                        _log.LogWarning("SendRequestAwaitFirstAnswer: Couldn't set empty result for {Topic}", topic);
                 },
                 CancelAction = () =>
                 {
                     if (!tcs.TrySetResult(null))
-                        _log.LogWarning($"SendRequestAwaitFirstAnswer: Couldn't set empty result for {topic}");
+                        _log.LogWarning("SendRequestAwaitFirstAnswer: Couldn't set empty result for {Topic}", topic);
                 },
                 PublishedOnHeartbeat = currentBeat,
                 ExpiresOnHeartbeat = currentBeat + heartbeatsUntilExpiry
@@ -109,13 +109,13 @@ internal sealed class RequestClient : IRequestClient, IDisposable
             }
             else
             {
-                _log.LogError($"SendRequestAwaitFirstAnswer: Failed to open request for {topic}!");
+                _log.LogError("SendRequestAwaitFirstAnswer: Failed to open request for {Topic}!", topic);
                 tcs.TrySetResult(null);
             }
         }
         catch (Exception ex)
         {
-            _log.LogError(ex, $"SendRequestAwaitFirstAnswer: Unexpected exception processing request {topic}!");
+            _log.LogError(ex, "SendRequestAwaitFirstAnswer: Unexpected exception processing request {Topic}!", topic);
             tcs.TrySetResult(null);
         }
 
@@ -138,7 +138,8 @@ internal sealed class RequestClient : IRequestClient, IDisposable
             if (!_openRequests.TryRemove(request.ReplyToTopic, out var removedRequest)) continue;
 
             var timeoutTimeMs = (e.CurrentBeat - request.PublishedOnHeartbeat) * _heartbeat.BeatCycleTimeMillis;
-            _log.LogError($"Cancelling timed out request '{request.Topic}' (replyTo={removedRequest.ReplyToTopic}) after {timeoutTimeMs}ms. Returning null.");
+            _log.LogError("Cancelling timed out request '{Topic}' (replyTo={ReplyToTopic}) after {TimeoutMs}ms. Returning null.",
+                request.Topic, removedRequest.ReplyToTopic, timeoutTimeMs);
 
             removedRequest.TimeoutAction();
         }
@@ -157,7 +158,7 @@ internal sealed class RequestClient : IRequestClient, IDisposable
 
     public void Dispose()
     {
-        _log.LogInformation($"Disposing RequestClient {_postfix}.");
+        _log.LogInformation("Disposing RequestClient {RequestClientPostfix}.", _postfix);
 
         if (_subscriptionHandle != null)
         {
@@ -170,7 +171,8 @@ internal sealed class RequestClient : IRequestClient, IDisposable
         {
             if (!_openRequests.TryRemove(request.ReplyToTopic, out _)) return;
 
-            _log.LogError($"Cancelling request '{request.Topic}' (replyTo={request.ReplyToTopic}) on shutdown. Returning null.");
+            _log.LogError("Cancelling request '{Topic}' (replyTo={ReplyToTopic}) on shutdown. Returning null.",
+                request.Topic, request.ReplyToTopic);
             request.CancelAction();
         });
 

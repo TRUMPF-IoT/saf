@@ -99,14 +99,15 @@ public class ServiceCollectionExtensionsTests
         _services.AddFileSender();
 
         using var provider = _services.BuildServiceProvider();
-        var fileSender = provider.GetService<IFileSender>();
-        var options = provider.GetService<IOptions<FileSenderConfiguration>>();
+        var fileSender = provider.GetRequiredService<IFileSender>();
+        var options = provider.GetService<IOptions<FileSenderOptions>>();
         
         // Assert
         Assert.NotNull(fileSender);
         Assert.NotNull(options);
         Assert.NotNull(options.Value);
         Assert.Equal(0, options.Value.RetryAttemptsForFailedChunks);
+        Assert.Equal(200 * 1024u, options.Value.MaxChunkSizeInBytes);
     }
 
     [Fact]
@@ -117,7 +118,8 @@ public class ServiceCollectionExtensionsTests
         _services.AddSingleton(_ => Substitute.For<ILogger<FileSender>>());
         var config = new ConfigurationBuilder().AddInMemoryCollection(new Dictionary<string, string>
         {
-            { "FileSender:RetryAttemptsForFailedChunks", "5" }
+            { "FileSender:RetryAttemptsForFailedChunks", "5" },
+            { "FileSender:MaxChunkSizeInBytes", "1024" }
         }!).Build();
         
         // Act
@@ -125,12 +127,64 @@ public class ServiceCollectionExtensionsTests
 
         using var provider = _services.BuildServiceProvider();
         var fileSender = provider.GetService<IFileSender>();
-        var options = provider.GetService<IOptions<FileSenderConfiguration>>();
+        var options = provider.GetService<IOptions<FileSenderOptions>>();
         
         // Assert
         Assert.NotNull(fileSender);
         Assert.NotNull(options);
         Assert.NotNull(options.Value);
         Assert.Equal(5, options.Value.RetryAttemptsForFailedChunks);
+        Assert.Equal(1024u, options.Value.MaxChunkSizeInBytes);
+    }
+
+    [Fact]
+    public void AddFileReceiverWithoutConfigAddsServiceAndRequiredServicesOk()
+    {
+        // Arrange
+        _services.AddSingleton(_ => Substitute.For<IMessagingInfrastructure>());
+        _services.AddSingleton(_ => Substitute.For<ILoggerFactory>());
+        _services.AddSingleton(_ => Substitute.For<ILogger<FileReceiver>>());
+
+        // Act
+        _services.AddFileReceiver();
+
+        using var provider = _services.BuildServiceProvider();
+        var options = provider.GetService<IOptions<FileReceiverOptions>>();
+        var fileReceiver = provider.GetService<IFileReceiver>();
+        var statefulFileReceiverFactory = provider.GetService<IStatefulFileReceiverFactory>();
+
+        // Assert
+        Assert.NotNull(options);
+        Assert.NotNull(fileReceiver);
+        Assert.NotNull(statefulFileReceiverFactory);
+        Assert.Equal(72u, options.Value.StateExpirationAfterHours);
+    }
+
+    [Fact]
+    public void AddFileReceiverWithConfigAddsServiceWithSpecificConfigOk()
+    {
+        // Arrange
+        _services.AddSingleton(_ => Substitute.For<IMessagingInfrastructure>());
+        _services.AddSingleton(_ => Substitute.For<ILoggerFactory>());
+        _services.AddSingleton(_ => Substitute.For<ILogger<FileReceiver>>());
+        
+        var config = new ConfigurationBuilder().AddInMemoryCollection(new Dictionary<string, string>
+        {
+            { "FileReceiver:StateExpirationAfterHours", "5" }
+        }!).Build();
+
+        // Act
+        _services.AddFileReceiver(config);
+
+        using var provider = _services.BuildServiceProvider();
+        var options = provider.GetService<IOptions<FileReceiverOptions>>();
+        var fileReceiver = provider.GetService<IFileReceiver>();
+        var statefulFileReceiverFactory = provider.GetService<IStatefulFileReceiverFactory>();
+
+        // Assert
+        Assert.NotNull(options);
+        Assert.NotNull(fileReceiver);
+        Assert.NotNull(statefulFileReceiverFactory);
+        Assert.Equal(5u, options.Value.StateExpirationAfterHours);
     }
 }
