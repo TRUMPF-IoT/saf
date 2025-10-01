@@ -285,8 +285,8 @@ public class ServiceHost(
             EnvironmentName = GetEnvironment()
         };
 
-    private IServiceHostContext BuildServiceHostContext()
-        => new ServiceHostContext
+    private ServiceHostContext BuildServiceHostContext()
+        => new()
         {
             Configuration = applicationServiceProvider.GetRequiredService<IConfiguration>(),
             Environment = BuildServiceHostEnvironment(),

@@ -65,7 +65,7 @@ internal class ServiceAssemblySearch(ILogger<ServiceAssemblySearch> logger, IOpt
     /// <returns></returns>
     private List<string> SearchServiceAssemblies(string basePath, string searchPath, string fileNameFilterRegEx)
     {
-        logger.LogInformation("Searching SAF service assemblies using BasePath: {basePath}, SearchPath: {searchPath}, SearchFilenamePattern: {searchFilenamePattern}",
+        logger.LogInformation("Searching SAF service assemblies using BasePath: {BasePath}, SearchPath: {SearchPath}, SearchFilenamePattern: {SearchFilenamePattern}",
             basePath, searchPath, fileNameFilterRegEx);
 
         if (string.IsNullOrWhiteSpace(basePath) ||
@@ -90,7 +90,7 @@ internal class ServiceAssemblySearch(ILogger<ServiceAssemblySearch> logger, IOpt
         var serviceAssemblyNameRegEx = new Regex(fileNameFilterRegEx, RegexOptions.IgnoreCase, Timeout.InfiniteTimeSpan);
         results = results.Where(assembly => serviceAssemblyNameRegEx.IsMatch(Path.GetFileName(assembly))).ToList();
 
-        logger.LogInformation("Found {serviceAssemblyCount} possible SAF service assemblies [{serviceAssemblies}]",
+        logger.LogInformation("Found {ServiceAssemblyCount} possible SAF service assemblies [{ServiceAssemblies}]",
             results.Count, string.Join(", ", results.Select(Path.GetFileName)));
 
         return results;
