@@ -63,7 +63,7 @@ public class ServiceHost(
             await StopServicesAsync(_services, linkedCts.Token);
 
             stopWatch.Stop();
-            logger.LogInformation("Stopping all services took {serviceShutdownTime:N0} ns",
+            logger.LogInformation("Stopping all services took {ServiceShutdownTime:N0} ns",
                 stopWatch.Elapsed.TotalMilliseconds * 1000000);
 
             _services.Clear();
@@ -96,7 +96,7 @@ public class ServiceHost(
 
         stopWatch.Stop();
 
-        logger.LogInformation("Starting all services took {serviceStartUpTime:N0} ns",
+        logger.LogInformation("Starting all services took {ServiceStartUpTime:N0} ns",
             stopWatch.Elapsed.TotalMilliseconds * 1000000);
     }
 
@@ -108,7 +108,7 @@ public class ServiceHost(
             var asyncServiceStarts = new List<Task>();
             foreach (var service in services.TakeWhile(_ => !linkedCts.Token.IsCancellationRequested))
             {
-                logger.LogDebug("Starting service: {serviceName}", service.GetType().Name);
+                logger.LogDebug("Starting service: {ServiceName}", service.GetType().Name);
 
                 var serviceStopWatch = new Stopwatch();
                 serviceStopWatch.Start();
@@ -116,7 +116,7 @@ public class ServiceHost(
                 if (service.AsyncService is not null)
                 {
                     asyncServiceStarts.Add(service.AsyncService.StartAsync(linkedCts.Token)
-                        .ContinueWith(t =>
+                        .ContinueWith(_ =>
                         {
                             serviceStopWatch.Stop();
                             LogServiceStartupTime(service, serviceStopWatch);
@@ -156,7 +156,7 @@ public class ServiceHost(
             var asyncServiceStops = new List<Task>();
             foreach (var service in services.TakeWhile(_ => !cancelToken.IsCancellationRequested))
             {
-                logger.LogDebug("Stopping service: {serviceName}", service.GetType().Name);
+                logger.LogDebug("Stopping service: {ServiceName}", service.GetType().Name);
 
                 var serviceStopWatch = new Stopwatch();
                 serviceStopWatch.Start();
@@ -164,7 +164,7 @@ public class ServiceHost(
                 if (service.AsyncService is not null)
                 {
                     asyncServiceStops.Add(service.AsyncService.StopAsync(linkedCts.Token)
-                        .ContinueWith(t =>
+                        .ContinueWith(_ =>
                         {
                             serviceStopWatch.Stop();
                             LogServiceShutdownTime(service, serviceStopWatch);
@@ -198,13 +198,13 @@ public class ServiceHost(
 
     private void LogServiceStartupTime(HostedServiceContainer service, Stopwatch stopWatch)
         => logger.LogInformation(
-            "Started service: {serviceName}, start-up took {serviceStartUpTime:N0} ns",
+            "Started service: {ServiceName}, start-up took {ServiceStartUpTime:N0} ns",
             service.AsyncService?.GetType().Name ?? service.Service?.GetType().Name,
             stopWatch.Elapsed.TotalMilliseconds * 1000000);
 
     private void LogServiceShutdownTime(HostedServiceContainer service, Stopwatch stopWatch)
         => logger.LogInformation(
-            "Stopped service: {serviceName}, shutdown took {serviceStartUpTime:N0} ns",
+            "Stopped service: {ServiceName}, shutdown took {ServiceStartUpTime:N0} ns",
             service.AsyncService?.GetType().Name ?? service.Service?.GetType().Name,
             stopWatch.Elapsed.TotalMilliseconds * 1000000);
 
@@ -214,7 +214,7 @@ public class ServiceHost(
 
         foreach(var manifest in serviceAssemblyManager.GetServiceAssemblyManifests())
         {
-            logger.LogInformation("Initializing service assembly: {serviceName}.", manifest.FriendlyName);
+            logger.LogInformation("Initializing service assembly: {ServiceName}.", manifest.FriendlyName);
 
             var assemblyServiceCollection = new ServiceCollection();
 
@@ -260,7 +260,7 @@ public class ServiceHost(
     {
         foreach (var type in messageHandlerTypes)
         {
-            logger.LogDebug("Add message handler factory function to dispatcher: {messageHandlerType}.", type.FullName);
+            logger.LogDebug("Add message handler factory function to dispatcher: {MessageHandlerType}.", type.FullName);
             messageDispatcher.AddHandler(type, () => (IMessageHandler)serviceProvider.GetRequiredService(type));
         }
     }

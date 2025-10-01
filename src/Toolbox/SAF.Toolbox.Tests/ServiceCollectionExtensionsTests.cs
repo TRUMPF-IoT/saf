@@ -17,12 +17,7 @@ using Xunit;
 
 public class ServiceCollectionExtensionsTests
 {
-    private readonly ServiceCollection _services;
-
-    public ServiceCollectionExtensionsTests()
-    {
-        _services = new ServiceCollection();
-    }
+    private readonly ServiceCollection _services = [];
 
     [Fact]
     public void AddHeartbeatPoolAddsServiceOk()

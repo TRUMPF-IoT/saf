@@ -3,9 +3,11 @@
 // SPDX-License-Identifier: MPL-2.0
 
 namespace SAF.Hosting;
-using Microsoft.Extensions.DependencyInjection;
 using Contracts;
 using Diagnostics;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
+using System.IO.Abstractions;
 
 public static class ServiceHostBuilderExtensions
 {
@@ -30,6 +32,7 @@ public static class ServiceHostBuilderExtensions
 
     public static IServiceHostBuilder AddHostDiagnostics(this IServiceHostBuilder builder)
     {
+        builder.Services.TryAddTransient<IFileSystem, FileSystem>();
         builder.Services.AddHostedService<ServiceHostDiagnostics>();
         return builder;
     }

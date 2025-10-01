@@ -3,13 +3,16 @@
 // SPDX-License-Identifier: MPL-2.0
 
 namespace SAF.Hosting.Diagnostics;
+
 using Microsoft.Extensions.Logging;
 using Contracts;
+using System.IO.Abstractions;
 using Toolbox.Serialization;
 
 internal class ServiceHostDiagnostics(ILogger<ServiceHostDiagnostics> log,
         IEnumerable<IServiceAssemblyManifest> serviceAssemblies,
-        IServiceHostInfo hostInfo)
+        IServiceHostInfo hostInfo,
+        IFileSystem fileSystem)
     : Microsoft.Extensions.Hosting.IHostedService
 {
     public Task StartAsync(CancellationToken cancellationToken)
@@ -23,15 +26,15 @@ internal class ServiceHostDiagnostics(ILogger<ServiceHostDiagnostics> log,
         {
             var nodeInfo = new SafNodeInfo(hostInfo, serviceAssemblies);
 
-            var targetDir = Path.Combine(hostInfo.FileSystemUserBasePath, "diagnostics");
-            if (!Directory.Exists(targetDir)) Directory.CreateDirectory(targetDir);
+            var targetDir = fileSystem.Path.Combine(hostInfo.FileSystemUserBasePath, "diagnostics");
+            if (!fileSystem.Directory.Exists(targetDir)) fileSystem.Directory.CreateDirectory(targetDir);
 
             var file = $"SafServiceHost_{hostInfo.Id}.json";
-            var targetFile = Path.Combine(targetDir, file);
-            if (File.Exists(targetFile)) File.Delete(targetFile);
+            var targetFile = fileSystem.Path.Combine(targetDir, file);
+            if (fileSystem.File.Exists(targetFile)) fileSystem.File.Delete(targetFile);
 
             var serializedInfo = JsonSerializer.Serialize(nodeInfo);
-            File.WriteAllText(targetFile, serializedInfo);
+            fileSystem.File.WriteAllText(targetFile, serializedInfo);
         }
         catch (Exception ex)
         {

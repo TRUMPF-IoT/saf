@@ -31,27 +31,27 @@ internal class ServiceAssemblySearch(ILogger<ServiceAssemblySearch> logger, IOpt
             var loadedAssembly = AssemblyLoadContext.Default.LoadFromAssemblyPath(assembly);
             var versionInfo = FileVersionInfo.GetVersionInfo(loadedAssembly.Location);
 
-            logger.LogInformation("Loading assembly: {assembly}, FileVersion: {fileVersion}, ProductVersion: {productVersion}, Version: {version}",
+            logger.LogInformation("Loading assembly: {Assembly}, FileVersion: {FileVersion}, ProductVersion: {ProductVersion}, Version: {Version}",
                     assembly, versionInfo.FileVersion, versionInfo.ProductVersion, loadedAssembly.GetName().Version);
 
             var assemblyManifests = loadedAssembly.GetExportedTypes().Where(t => t.IsClass && typeof(IServiceAssemblyManifest).IsAssignableFrom(t)).ToList();
 
             if (assemblyManifests.Count != 1)
             {
-                logger.LogError("Assembly {assemblyFullName} skipped: a valid assembly should contain exactly one public manifest, found {manifestsFound}.",
+                logger.LogError("Assembly {AssemblyFullName} skipped: a valid assembly should contain exactly one public manifest, found {ManifestsFound}.",
                     loadedAssembly.FullName, assemblyManifests.Count);
                 continue;
             }
 
             if (Activator.CreateInstance(assemblyManifests[0]) is not IServiceAssemblyManifest manifest)
             {
-                logger.LogError("Assembly {assemblyFullName} skipped: failed to create manifest instance.", loadedAssembly.FullName);
+                logger.LogError("Assembly {AssemblyFullName} skipped: failed to create manifest instance.", loadedAssembly.FullName);
                 continue;
             }
             manifests.Add(manifest);
         }
 
-        logger.LogInformation("Loaded {assembliesLoadedCount} assemblies.", manifests.Count);
+        logger.LogInformation("Loaded {AssembliesLoadedCount} assemblies.", manifests.Count);
 
         return manifests;
     }

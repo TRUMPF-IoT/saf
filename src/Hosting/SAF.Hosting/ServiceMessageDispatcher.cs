@@ -19,7 +19,7 @@ public class ServiceMessageDispatcher(ILogger<ServiceMessageDispatcher> log) : I
 
     public void AddHandler(string handlerTypeName, Func<IMessageHandler> handlerFactory)
     {
-        log.LogTrace("Add message handler {handlerTypeName}.", handlerTypeName);
+        log.LogTrace("Add message handler {HandlerTypeName}.", handlerTypeName);
         _messageHandlerProviders.Add(handlerTypeName, handlerFactory);
     }
 
@@ -33,7 +33,7 @@ public class ServiceMessageDispatcher(ILogger<ServiceMessageDispatcher> log) : I
     {
         if (!_messageHandlerProviders.TryGetValue(handlerTypeFullName, out var handlerFactory))
         {
-            log.LogError("Handler {handlerTypeFullName} unknown!", handlerTypeFullName);
+            log.LogError("Handler {HandlerTypeFullName} unknown!", handlerTypeFullName);
             return;
         }
 
@@ -43,12 +43,12 @@ public class ServiceMessageDispatcher(ILogger<ServiceMessageDispatcher> log) : I
 
             if (!handler.CanHandle(message))
             {
-                log.LogDebug("Message {messageTopic} not handled by {handlerTypeFullName}. CanHandle = false.",
+                log.LogDebug("Message {MessageTopic} not handled by {HandlerTypeFullName}. CanHandle = false.",
                     message.Topic, handlerTypeFullName);
                 return;
             }
 
-            log.LogTrace("Dispatching message {messageTopic} with handler {handlerTypeFullName}.",
+            log.LogTrace("Dispatching message {MessageTopic} with handler {HandlerTypeFullName}.",
                 message.Topic, handlerTypeFullName);
 
             handler.Handle(message);
@@ -56,19 +56,19 @@ public class ServiceMessageDispatcher(ILogger<ServiceMessageDispatcher> log) : I
         catch (ObjectDisposedException ex)
         {
             // on system shutdown a handler, or even the handlerFactory() may throw an ObjectDisposedException, which we accept and log here.
-            log.LogWarning(ex, "Object {objectName} disposed while processing message {messageTopic} with handler {handlerTypeFullName}.",
+            log.LogWarning(ex, "Object {ObjectName} disposed while processing message {MessageTopic} with handler {HandlerTypeFullName}.",
                 ex.ObjectName, message.Topic, handlerTypeFullName);
         }
         catch (Exception e)
         {
-            log.LogError(e, "Error while processing message {messageTopic} with handler {handlerTypeFullName}.",
+            log.LogError(e, "Error while processing message {MessageTopic} with handler {HandlerTypeFullName}.",
                 message.Topic, handlerTypeFullName);
         }
     }
 
     public void DispatchMessage(Action<Message> handler, Message message)
     {
-        log.LogDebug("Dispatching message {messageTopic} with lambda handler of target {targetType}.",
+        log.LogDebug("Dispatching message {MessageTopic} with lambda handler of target {TargetType}.",
             message.Topic, handler.Target?.ToString());
         try
         {
@@ -76,7 +76,7 @@ public class ServiceMessageDispatcher(ILogger<ServiceMessageDispatcher> log) : I
         }
         catch (Exception e)
         {
-            log.LogError(e, "Error while processing message {messageTopic} with lambda handler of target {targetType}",
+            log.LogError(e, "Error while processing message {MessageTopic} with lambda handler of target {TargetType}",
                 message.Topic, handler.Target?.ToString());
         }
     }

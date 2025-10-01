@@ -8,6 +8,7 @@ using Contracts;
 using Hosting.Diagnostics;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
+using System.IO.Abstractions;
 using Xunit;
 
 public class ServiceHostBuilderExtensionsTests
@@ -78,7 +79,7 @@ public class ServiceHostBuilderExtensionsTests
     }
 
     [Fact]
-    public void AddHostDiagnosticsAddsService()
+    public void AddHostDiagnosticsAddsServices()
     {
         // Arrange
         var services = new ServiceCollection();
@@ -90,6 +91,7 @@ public class ServiceHostBuilderExtensionsTests
         // Assert
         Assert.NotEmpty(services);
         Assert.Contains(services, sd => sd.ServiceType == typeof(Microsoft.Extensions.Hosting.IHostedService) && sd.ImplementationType == typeof(ServiceHostDiagnostics));
+        Assert.Contains(services, sd => sd.ServiceType == typeof(IFileSystem) && sd.ImplementationType == typeof(FileSystem));
     }
 
     private class DummyServiceAssemblyManifest : IServiceAssemblyManifest
