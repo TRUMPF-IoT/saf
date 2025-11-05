@@ -3,6 +3,7 @@
 // SPDX-License-Identifier: MPL-2.0
 
 using nsCDEngine.BaseClasses;
+using SAF.Communication.PubSub.Cde.MessageProcessing;
 
 namespace SAF.Communication.PubSub.Cde;
 
@@ -22,4 +23,6 @@ internal interface IRemoteSubscriber
     bool IsMatch(string topic);
 
     void Touch();
+
+    void Broadcast(BroadcastMessage message);
 }

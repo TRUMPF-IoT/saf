@@ -45,11 +45,20 @@ internal class SubscriptionInternal : AbstractSubscription, ISubscriptionInterna
         if (!msg.Message.IsRoutingAllowed(RoutingOptions)) return;
         if (!IsTopicMatch(topic)) return;
 
-        var message = msgVersion == PubSubVersion.V1
-            ? new Message { Topic = topic, Payload = msg.Message.PLS }
-            : TheCommonUtils.DeserializeJSONStringToObject<Message>(msg.Message.PLS);
+        var messageVersion = Version.Parse(msgVersion);
+        if (messageVersion < Version.Parse(PubSubVersion.V4))
+        {
+            var message = msgVersion == PubSubVersion.V1
+                ? new Message {Topic = topic, Payload = msg.Message.PLS}
+                : TheCommonUtils.DeserializeJSONStringToObject<Message>(msg.Message.PLS);
 
-        Handler?.Invoke(msg.Message.TIM, message);
-        _rawHandler?.Invoke(msgVersion, msg);
+            Handler?.Invoke(msg.Message.TIM, message);
+            _rawHandler?.Invoke(msgVersion, msg);
+        }
+        else
+        {
+            var messages = TheCommonUtils.DeserializeJSONStringToObject<List<Message>>(msg.Message.PLS);
+            messages.ForEach(m => Handler?.Invoke(msg.Message.TIM, m));
+        }
     }
 }

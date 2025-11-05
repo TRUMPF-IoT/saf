@@ -52,19 +52,21 @@ public class MyService : IHostedServiceAsync
 
         _timer = new Timer(_ =>
         {
-            _log.LogInformation($"-------------------------------------------------------------------------------");
+            _log.LogInformation("-------------------------------------------------------------------------------");
+
             var pingId = Interlocked.Increment(ref _pingId);
             var payload = JsonSerializer.Serialize(new PingRequest { ReplyTo = "ping/response", Id = $"{pingId}" });
+
             _log.LogInformation($"Publish ping/request ({pingId}), Payload: {payload}");
             _messaging.Publish(new Message
             {
                 Topic = "ping/request",
                 Payload = payload,
-                CustomProperties = new List<MessageCustomProperty>
-                {
-                    new() {Name = "pingService", Value = nameof(MyService)},
-                    new() {Name = "stringSetting", Value = ""}
-                }
+                CustomProperties =
+                [
+                    new MessageCustomProperty {Name = "pingService", Value = nameof(MyService)},
+                    new MessageCustomProperty {Name = "stringSetting", Value = ""}
+                ]
             });
 
         }, null, TimeSpan.Zero, TimeSpan.FromSeconds(5));

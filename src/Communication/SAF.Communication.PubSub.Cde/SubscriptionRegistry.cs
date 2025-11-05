@@ -8,6 +8,7 @@ using nsCDEngine.ViewModels;
 using SAF.Common;
 using SAF.Communication.Cde;
 using SAF.Communication.Cde.Utils;
+using SAF.Communication.PubSub.Cde.MessageProcessing;
 using SAF.Communication.PubSub.Interfaces;
 
 namespace SAF.Communication.PubSub.Cde;
@@ -78,28 +79,7 @@ internal class SubscriptionRegistry : ISubscriptionRegistry
         {
             foreach (var subscriber in _subscribers.Values)
             {
-                if(!subscriber.IsRoutingAllowed(routingOptions)) continue;
-                if (!subscriber.IsMatch(topic.Channel)) continue;
-
-                TSM tsm;
-                var messageTxt = $"{MessageToken.Publish}:{new Topic(topic.Channel, topic.MsgId, subscriber.Version).ToTsmTxt()}";
-                if (subscriber.Version == PubSubVersion.V1)
-                {
-                    tsm = new TSM(subscriber.TargetEngine, messageTxt, message.Payload)
-                    {
-                        UID = userId
-                    };
-                }
-                else
-                {
-                    tsm = new TSM(subscriber.TargetEngine, messageTxt, TheCommonUtils.SerializeObjectToJSONString(message))
-                    {
-                        UID = userId
-                    };
-                }
-
-                _log.LogDebug($"Send {MessageToken.Publish} ({topic.Channel}), origin: {_line.Address}, target: {subscriber.Tsm.ORG}");
-                _line.AnswerToSender(subscriber.Tsm, tsm);
+                subscriber.Broadcast(new BroadcastMessage(topic, message, userId, routingOptions));
             }
         }
         finally
@@ -130,7 +110,7 @@ internal class SubscriptionRegistry : ISubscriptionRegistry
         {
             if (!_subscribers.TryGetValue(message.ORG, out var subscriber))
             {
-                subscriber = new RemoteSubscriber(message, newPatterns, request);
+                subscriber = new RemoteSubscriber(_line, message, newPatterns, request);
                 _subscribers.Add(message.ORG, subscriber);
                 _log.LogDebug($"HandleSubscribe: new {message.ORG}, topics {string.Join(",", topics)}");
             }
@@ -193,7 +173,7 @@ internal class SubscriptionRegistry : ISubscriptionRegistry
     {
         if (msg is not TheProcessMessage message) return;
 
-        _log.LogDebug($"Recived message: {message.Message.TXT}, origin: {message.Message.ORG}, payload: {message.Message.PLS}");
+        _log.LogDebug($"Received message: {message.Message.TXT}, origin: {message.Message.ORG}, payload: {message.Message.PLS}");
         if (message.Message.TXT.StartsWith(MessageToken.Publish))
             HandlePublication(message);
         else if (message.Message.TXT.StartsWith(MessageToken.DiscoveryRequest))
@@ -228,6 +208,7 @@ internal class SubscriptionRegistry : ISubscriptionRegistry
             return;
         }
 
+        // TODO: consider PubSubVersion.V4
         var msg = topic.Version == PubSubVersion.V1
             ? new Message {Topic = topic.Channel, Payload = message.PLS}
             : TheCommonUtils.DeserializeJSONStringToObject<Message>(message.PLS);

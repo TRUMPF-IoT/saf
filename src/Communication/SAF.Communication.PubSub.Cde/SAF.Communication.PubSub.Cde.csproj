@@ -20,4 +20,8 @@ SPDX-License-Identifier: MPL-2.0
     <ProjectReference Include="..\SAF.Communication.PubSub.Interfaces\SAF.Communication.PubSub.Interfaces.csproj" />
     <ProjectReference Include="..\SAF.Communication.PubSub\SAF.Communication.PubSub.csproj" />
   </ItemGroup>
+
+  <ItemGroup>
+    <Folder Include="MessageProcessing\" />
+  </ItemGroup>
 </Project>

@@ -9,7 +9,6 @@ using nsCDEngine.Engines.ThingService;
 using nsCDEngine.ViewModels;
 using SAF.Communication.Cde;
 using SAF.Communication.Cde.Utils;
-using SAF.Communication.PubSub.Cde.MessageHandler;
 using SAF.Communication.PubSub.Interfaces;
 
 namespace SAF.Communication.PubSub.Cde;
@@ -41,7 +40,6 @@ public class Subscriber : ISubscriber, IDisposable
     private int _sendingAlive;
 
     private RemoteRegistryLifetimeHandler? _registryLifetimeHandler;
-    private MessageListener? _messageListener;
     private string? _registryIdentity;
 
     public event Action<string, string, TheProcessMessage>? MessageEvent;
@@ -98,8 +96,6 @@ public class Subscriber : ISubscriber, IDisposable
         _registryLifetimeHandler.RegistryUp += OnRegistryUp;
 
         BroadcastDiscoveryRequestAndAwaitFirstResponse();
-
-        _messageListener = new MessageListener(this, publisher);
     }
 
     private void BroadcastDiscoveryRequest()
@@ -242,7 +238,7 @@ public class Subscriber : ISubscriber, IDisposable
         if (pMsg is not TheProcessMessage msg) return;
         if (msg.Message.ENG != Engines.PubSub) return; //  accept only non remote-subscriber publications
 
-        _log.LogDebug($"Recived message: {msg.Message.TXT}, origin: {msg.Message.ORG}, payload: {msg.Message.PLS}");
+        _log.LogDebug($"Received message: {msg.Message.TXT}, origin: {msg.Message.ORG}, payload: {msg.Message.PLS}");
         if (msg.Message.TXT.StartsWith(MessageToken.Publish))
         {
             HandlePublication(msg);
@@ -355,13 +351,11 @@ public class Subscriber : ISubscriber, IDisposable
 
         if (_disposed) return;
         _disposed = true;
-
-        _messageListener?.Dispose();
             
         _registryLifetimeHandler?.Dispose();
         _aliveTimer?.Dispose();
 
-        _registryDiscoveredEvent?.Dispose();
+        _registryDiscoveredEvent.Dispose();
 
         var tsm = new TSM(Engines.PubSub, MessageToken.SubscriberShutdown);
         tsm.SetToServiceOnly(true);

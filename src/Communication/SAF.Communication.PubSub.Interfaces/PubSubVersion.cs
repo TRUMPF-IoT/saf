@@ -9,5 +9,6 @@ public static class PubSubVersion
     public const string V1 = "1.0.0";
     public const string V2 = "2.0.0";
     public const string V3 = "3.0.0";
-    public static readonly string Latest = V3;
+    public const string V4 = "4.0.0";
+    public static readonly string Latest = V4;
 }

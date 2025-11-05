@@ -4,9 +4,11 @@
 
 
 using nsCDEngine.BaseClasses;
+using SAF.Common;
 using SAF.Communication.Cde;
 using SAF.Communication.PubSub.Interfaces;
-using SAF.Common;
+using SAF.Communication.Cde.Utils;
+using SAF.Communication.PubSub.Cde.MessageProcessing;
 
 namespace SAF.Communication.PubSub.Cde;
 
@@ -16,19 +18,28 @@ namespace SAF.Communication.PubSub.Cde;
 /// </summary>
 internal class RemoteSubscriber : IRemoteSubscriber
 {
+    private readonly Logger _logger = new(typeof(RemoteSubscriber));
+
+    private readonly ComLine _line;
     private readonly RegistrySubscriptionRequest _registryRequest;
     private readonly HashSet<string> _patterns;
     private DateTimeOffset _lastActivity = DateTimeOffset.UtcNow;
 
-    public RemoteSubscriber(TSM tsm)
-        : this(tsm, new List<string>(), new RegistrySubscriptionRequest())
+    private readonly BroadcastMessageQueue _broadcastMessageQueue;
+
+    public RemoteSubscriber(ComLine line, TSM tsm)
+        : this(line, tsm, new List<string>(), new RegistrySubscriptionRequest())
     { }
-    public RemoteSubscriber(TSM tsm, IList<string> patterns, RegistrySubscriptionRequest request)
+    public RemoteSubscriber(ComLine line, TSM tsm, IList<string> patterns, RegistrySubscriptionRequest request)
     {
         Tsm = tsm;
+
+        _line = line;
         _registryRequest = request;
-        _patterns = new HashSet<string>(patterns.Distinct());
+        _patterns = [..patterns.Distinct()];
         IsLocalHost = tsm.IsLocalHost();
+
+        _broadcastMessageQueue = new BroadcastMessageQueue(BroadcastQueueProcessing);
     }
 
     public TSM Tsm { get; }
@@ -45,7 +56,6 @@ internal class RemoteSubscriber : IRemoteSubscriber
     {
         foreach (var pattern in patterns)
         {
-            if (_patterns.Contains(pattern)) continue;
             _patterns.Add(pattern);
         }
     }
@@ -64,25 +74,71 @@ internal class RemoteSubscriber : IRemoteSubscriber
         => _patterns.Contains("*") || _patterns.Contains(topic) || _patterns.Any(topic.IsMatch);
 
     public void Touch() => _lastActivity = DateTimeOffset.UtcNow;
-}
 
-internal static class RemoteSubscriberExtensions
-{
-    public static bool IsRoutingAllowed(this IRemoteSubscriber subscriber, RoutingOptions routingOptions)
+    public void Broadcast(BroadcastMessage message)
     {
-        switch (routingOptions)
+        if (!IsRoutingAllowed(message.RoutingOptions) ||
+            !IsMatch(message.Topic.Channel))
         {
-            case RoutingOptions.All:
-                return true;
-
-            case RoutingOptions.Local:
-                return subscriber.IsLocalHost;
-
-            case RoutingOptions.Remote:
-                return !subscriber.IsLocalHost;
-
-            default:
-                throw new ArgumentOutOfRangeException(nameof(routingOptions));
+            return;
         }
+
+        if (System.Version.Parse(Version) >= System.Version.Parse(PubSubVersion.V4))
+        {
+            _broadcastMessageQueue.Enqueue(message);
+            return;
+        }
+
+        var tsm = CreateBroadcastTsm(message);
+
+        _logger.LogDebug($"Send {MessageToken.Publish} ({message.Topic.Channel}), origin: {_line.Address}, target: {Tsm.ORG}");
+        _line.AnswerToSender(Tsm, tsm);
     }
+
+    private TSM CreateBroadcastTsm(BroadcastMessage message)
+    {
+        TSM tsm;
+        var messageTxt = $"{MessageToken.Publish}:{new Topic(message.Topic.Channel, message.Topic.MsgId, Version).ToTsmTxt()}";
+        if (Version == PubSubVersion.V1)
+        {
+            tsm = new TSM(TargetEngine, messageTxt, message.Message.Payload)
+            {
+                UID = message.UserId
+            };
+        }
+        else
+        {
+            tsm = new TSM(TargetEngine, messageTxt, TheCommonUtils.SerializeObjectToJSONString(message.Message))
+            {
+                UID = message.UserId
+            };
+        }
+
+        return tsm;
+    }
+
+    private void BroadcastQueueProcessing(string userId, IEnumerable<BroadcastMessage> broadcastMessages)
+    {
+        var messagesToSend = broadcastMessages.Select(m => m.Message);
+        var serializedMessages = TheCommonUtils.SerializeObjectToJSONString(messagesToSend);
+
+        var msgId = Guid.NewGuid().ToString("N");
+        var messageTxt = $"{MessageToken.Publish}:{new Topic("$$batch$$", msgId, Version).ToTsmTxt()}";
+        var tsm = new TSM(TargetEngine, messageTxt, serializedMessages)
+        {
+            UID = userId
+        };
+
+        _logger.LogDebug($"Send {MessageToken.Publish} (batch), origin: {_line.Address}, target: {Tsm.ORG}");
+        _line.AnswerToSender(Tsm, tsm);
+    }
+
+    public bool IsRoutingAllowed(RoutingOptions routingOptions)
+        => routingOptions switch
+        {
+            RoutingOptions.All => true,
+            RoutingOptions.Local => IsLocalHost,
+            RoutingOptions.Remote => !IsLocalHost,
+            _ => throw new ArgumentOutOfRangeException(nameof(routingOptions))
+        };
 }
