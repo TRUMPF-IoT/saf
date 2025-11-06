@@ -13,35 +13,50 @@ public class BroadcastMessageQueue(Action<string, IEnumerable<BroadcastMessage>>
 {
     private readonly object _syncQueue = new();
     private List<BroadcastMessage> _queue = [];
+    private bool _queueProcessing;
 
     public void Enqueue(BroadcastMessage message)
     {
         lock (_syncQueue)
         {
-            var triggerProcess = _queue.Count == 0;
             _queue.Add(message);
 
-            if (triggerProcess)
-            {
-                ProcessQueuedMessagesAsync().ConfigureAwait(false);
-            }
+            if (_queueProcessing) return;
+            _queueProcessing = true;
+
+            ProcessQueuedMessagesAsync().ConfigureAwait(false);
         }
     }
 
     private Task ProcessQueuedMessagesAsync()
         => Task.Run(() =>
         {
-            List<BroadcastMessage> messagesToProcess;
-            lock (_syncQueue)
+            var messagesToProcess = GetMessagesToBroadcast();
+            while (messagesToProcess.Count > 0)
             {
-                messagesToProcess = _queue;
-                _queue = [];
-            }
+                var messagesToSendPerUser = messagesToProcess.GroupBy(p => p.UserId);
+                foreach (var broadcastMessages in messagesToSendPerUser)
+                {
+                    messageProcessing(broadcastMessages.Key, broadcastMessages);
+                }
 
-            var messagesToSendPerUser = messagesToProcess.GroupBy(p => p.UserId);
-            foreach (var broadcastMessages in messagesToSendPerUser)
-            {
-                messageProcessing(broadcastMessages.Key, broadcastMessages);
+                messagesToProcess = GetMessagesToBroadcast();
             }
         });
+
+    private IReadOnlyList<BroadcastMessage> GetMessagesToBroadcast()
+    {
+        lock (_syncQueue)
+        {
+            if (_queue.Count == 0)
+            {
+                _queueProcessing = false;
+                return [];
+            }
+
+            var messages = _queue;
+            _queue = [];
+            return messages;
+        }
+    }
 }

@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: 2017-2020 TRUMPF Laser GmbH
+// SPDX-FileCopyrightText: 2017-2025 TRUMPF Laser GmbH
 //
 // SPDX-License-Identifier: MPL-2.0
 
@@ -9,12 +9,13 @@ using SAF.Communication.Cde;
 using SAF.Communication.PubSub.Interfaces;
 using SAF.Communication.Cde.Utils;
 using SAF.Communication.PubSub.Cde.MessageProcessing;
+using System.Text;
 
 namespace SAF.Communication.PubSub.Cde;
 
 /// <summary>
 /// Contains the information about a subscriber running on another node.
-/// These remote subscibers are manged by <see cref="SubscriptionRegistry"/>.
+/// These remote subscribers are managed by <see cref="SubscriptionRegistry"/>.
 /// </summary>
 internal class RemoteSubscriber : IRemoteSubscriber
 {
@@ -26,6 +27,9 @@ internal class RemoteSubscriber : IRemoteSubscriber
     private DateTimeOffset _lastActivity = DateTimeOffset.UtcNow;
 
     private readonly BroadcastMessageQueue _broadcastMessageQueue;
+
+    private const int MaxMessagesPerBlock = 100;
+    private const int MaxPayloadBytesPerBlock = 200 * 1024; //200 kB
 
     public RemoteSubscriber(ComLine line, TSM tsm)
         : this(line, tsm, new List<string>(), new RegistrySubscriptionRequest())
@@ -117,22 +121,6 @@ internal class RemoteSubscriber : IRemoteSubscriber
         return tsm;
     }
 
-    private void BroadcastQueueProcessing(string userId, IEnumerable<BroadcastMessage> broadcastMessages)
-    {
-        var messagesToSend = broadcastMessages.Select(m => m.Message);
-        var serializedMessages = TheCommonUtils.SerializeObjectToJSONString(messagesToSend);
-
-        var msgId = Guid.NewGuid().ToString("N");
-        var messageTxt = $"{MessageToken.Publish}:{new Topic("$$batch$$", msgId, Version).ToTsmTxt()}";
-        var tsm = new TSM(TargetEngine, messageTxt, serializedMessages)
-        {
-            UID = userId
-        };
-
-        _logger.LogDebug($"Send {MessageToken.Publish} (batch), origin: {_line.Address}, target: {Tsm.ORG}");
-        _line.AnswerToSender(Tsm, tsm);
-    }
-
     public bool IsRoutingAllowed(RoutingOptions routingOptions)
         => routingOptions switch
         {
@@ -141,4 +129,66 @@ internal class RemoteSubscriber : IRemoteSubscriber
             RoutingOptions.Remote => !IsLocalHost,
             _ => throw new ArgumentOutOfRangeException(nameof(routingOptions))
         };
+
+    private void BroadcastQueueProcessing(string userId, IEnumerable<BroadcastMessage> broadcastMessages)
+    {
+        var messagesToSend = broadcastMessages.Select(m => m.Message);
+
+        foreach (var block in CreateMessageBlocks(messagesToSend))
+        {
+            var serializedMessages = TheCommonUtils.SerializeObjectToJSONString(block);
+
+            var msgId = Guid.NewGuid().ToString("N");
+            var messageTxt = $"{MessageToken.Publish}:{new Topic($"$$batch:size={block.Count}$$", msgId, Version).ToTsmTxt()}";
+            var tsm = new TSM(TargetEngine, messageTxt, serializedMessages)
+            {
+                UID = userId
+            };
+
+            _logger.LogDebug($"Send {MessageToken.Publish} (batch size={block.Count}), origin: {_line.Address}, target: {Tsm.ORG}");
+            _line.AnswerToSender(Tsm, tsm);
+        }
+    }
+
+    /// <summary>
+    /// Splits an enumeration of messages into blocks. A block is finalized when it reaches
+    /// either the maximum number of messages (<see cref="MaxMessagesPerBlock"/>) or the cumulative
+    /// UTF-8 encoded payload size exceeds <see cref="MaxPayloadBytesPerBlock"/>.
+    /// A single message larger than the payload limit will be placed in its own block.
+    /// </summary>
+    /// <param name="messages">The messages to split.</param>
+    /// <returns>An enumeration of blocks, each block being a read-only list of messages.</returns>
+    private static IEnumerable<IReadOnlyList<Message>> CreateMessageBlocks(IEnumerable<Message> messages)
+    {
+        var block = new List<Message>(MaxMessagesPerBlock);
+        var cumulativeSize = 0;
+
+        foreach (var msg in messages)
+        {
+            var payloadSize = msg.Payload != null ? Encoding.UTF8.GetByteCount(msg.Payload) : 0;
+
+            if (block.Count > 0 && (block.Count == MaxMessagesPerBlock || cumulativeSize + payloadSize > MaxPayloadBytesPerBlock))
+            {
+                yield return block;
+
+                block = new List<Message>(MaxMessagesPerBlock);
+                cumulativeSize = 0;
+            }
+
+            block.Add(msg);
+            cumulativeSize += payloadSize;
+
+            if (block.Count == MaxMessagesPerBlock || cumulativeSize >= MaxPayloadBytesPerBlock)
+            {
+                yield return block;
+                block = new List<Message>(MaxMessagesPerBlock);
+                cumulativeSize = 0;
+            }
+        }
+
+        if (block.Count > 0)
+        {
+            yield return block;
+        }
+    }
 }

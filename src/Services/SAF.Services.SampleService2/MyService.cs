@@ -55,7 +55,7 @@ public class MyService : IHostedServiceAsync
             _log.LogInformation("-------------------------------------------------------------------------------");
 
             var pingId = Interlocked.Increment(ref _pingId);
-            var payload = JsonSerializer.Serialize(new PingRequest { ReplyTo = "ping/response", Id = $"{pingId}" });
+            var payload = JsonSerializer.Serialize(new PingRequest {ReplyTo = "ping/response", Id = $"{pingId}"});
 
             _log.LogInformation($"Publish ping/request ({pingId}), Payload: {payload}");
             _messaging.Publish(new Message

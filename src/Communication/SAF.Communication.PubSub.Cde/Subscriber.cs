@@ -260,7 +260,7 @@ public class Subscriber : ISubscriber, IDisposable
             HandleError(msg);
         }
         _registryLifetimeHandler?.HandleMessage(msg);
-        _log.LogDebug($"Finished message: {msg.Message.TXT}, origin: {msg.Message.ORG}, payload: {msg.Message.PLS}");
+        _log.LogTrace($"Finished message: {msg.Message.TXT}, origin: {msg.Message.ORG}, payload: {msg.Message.PLS}");
     }
 
     private void SendSubscribeRequest(TSM registryTsm, string[] topics)
