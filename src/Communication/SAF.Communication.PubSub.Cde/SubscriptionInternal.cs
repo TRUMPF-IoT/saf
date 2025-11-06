@@ -43,11 +43,12 @@ internal class SubscriptionInternal : AbstractSubscription, ISubscriptionInterna
     {
         if (Handler == null && _rawHandler == null) return;
         if (!msg.Message.IsRoutingAllowed(RoutingOptions)) return;
-        if (!IsTopicMatch(topic)) return;
-
+        
         var messageVersion = Version.Parse(msgVersion);
         if (messageVersion < Version.Parse(PubSubVersion.V4))
         {
+            if (!IsTopicMatch(topic)) return;
+
             var message = msgVersion == PubSubVersion.V1
                 ? new Message {Topic = topic, Payload = msg.Message.PLS}
                 : TheCommonUtils.DeserializeJSONStringToObject<Message>(msg.Message.PLS);
@@ -58,7 +59,11 @@ internal class SubscriptionInternal : AbstractSubscription, ISubscriptionInterna
         else
         {
             var messages = TheCommonUtils.DeserializeJSONStringToObject<List<Message>>(msg.Message.PLS);
-            messages.ForEach(m => Handler?.Invoke(msg.Message.TIM, m));
+            messages.ForEach(m =>
+            {
+                if (!IsTopicMatch(m.Topic)) return;
+                Handler?.Invoke(msg.Message.TIM, m);
+            });
         }
     }
 }
