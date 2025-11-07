@@ -2,7 +2,6 @@
 //
 // SPDX-License-Identifier: MPL-2.0
 
-using NSubstitute;
 using SAF.Common;
 using SAF.Communication.PubSub.Interfaces;
 using Xunit;
@@ -87,28 +86,6 @@ public class TestCommunicationPubSub
         Assert.True(lifetimeHandler.DownEventFired);
         Assert.Empty(lifetimeHandler.Registries);
     }
-
-    [Fact]
-    public void RunAbstractSubscription()
-    {
-        var mockSubscriber = Substitute.For<ISubscriber>();
-        TestAbstractSubscription testSubscription = new(mockSubscriber, "aPatt*");
-        testSubscription.SetHandler((_, topic) => testSubscription.EventFired = true);
-        Assert.Single(testSubscription.Patterns);
-        Assert.NotEqual("{00000000-0000-0000-0000-000000000000}", testSubscription.Id.ToString());
-        Assert.Equal(RoutingOptions.All, testSubscription.RoutingOptions);
-        Assert.True(testSubscription.TestMatch("aPattern"));
-        Assert.True(testSubscription.TestMatch("aPatt"));
-        Assert.False(testSubscription.TestMatch("bPatt"));
-        Assert.False(testSubscription.EventFired);
-        testSubscription.InvokeHandler();
-        Assert.True(testSubscription.EventFired);
-        testSubscription.Unsubscribe();
-        testSubscription.EventFired = false;
-        testSubscription.InvokeHandler();
-        Assert.False(testSubscription.EventFired);
-    }
-
 }
 
 internal class TestRegistryLifetimeHandlerBase : RegistryLifetimeHandlerBase<Topic>
@@ -141,31 +118,4 @@ internal class TestRegistryLifetimeHandlerBase : RegistryLifetimeHandlerBase<Top
     {
         DownEventFired = true;
     }
-}
-
-internal class TestAbstractSubscription : AbstractSubscription
-{
-    public bool EventFired = false;
-
-    private readonly ISubscriber _subscriber;
-
-    public TestAbstractSubscription(ISubscriber subscriber, params string[] patterns)
-        : this(subscriber, RoutingOptions.All, patterns)
-    { }
-
-    public TestAbstractSubscription(ISubscriber subscriber, RoutingOptions routingOptions, params string[] patterns) : base(subscriber, routingOptions, patterns)
-    {
-        _subscriber = subscriber;
-    }
-
-    public void InvokeHandler()
-    {
-        Handler?.Invoke(new DateTimeOffset(DateTime.Now), new Message());
-    }
-
-    public bool TestMatch(string topic)
-    {
-        return IsTopicMatch(topic);
-    }
-
 }

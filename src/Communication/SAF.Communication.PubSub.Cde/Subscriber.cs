@@ -14,7 +14,7 @@ using SAF.Communication.PubSub.Interfaces;
 namespace SAF.Communication.PubSub.Cde;
 
 /// <summary>
-/// Manages all subscribers (which are implemented as <see cref="SubscriptionInternal"/>) 
+/// Manages all subscribers (which are implemented as <see cref="Subscription"/>) 
 /// and the messages from the C-DEngine to them. Coordinates organizational event-driven
 /// and scheduled calls to the C-DEngine via <see cref="ComLine"/>. The referenced
 /// <see cref="RemoteRegistryLifetimeHandler"/> is used to manage the lifetime of the other
@@ -68,7 +68,7 @@ public class Subscriber : ISubscriber, IDisposable
     {
         if (patterns.Length == 0) patterns = ["*"];
 
-        var subscription = new SubscriptionInternal(this, routingOptions, patterns);
+        var subscription = new Subscription(this, routingOptions, patterns);
         RemoteSubscribe(subscription.Id, routingOptions, patterns);
 
         _subscribers.TryAdd(subscription.Id, subscription);

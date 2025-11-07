@@ -6,11 +6,6 @@ using SAF.Common;
 using SAF.Communication.Cde;
 using SAF.Communication.PubSub.Interfaces;
 
-using System.Runtime.CompilerServices;
-
-[assembly: InternalsVisibleTo("SAF.Communication.PubSub.Cde.Tests")]
-[assembly: InternalsVisibleTo("DynamicProxyGenAssembly2")]
-
 namespace SAF.Communication.PubSub.Cde;
 
 /// <summary>

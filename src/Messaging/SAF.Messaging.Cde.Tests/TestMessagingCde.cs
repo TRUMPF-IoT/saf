@@ -8,7 +8,6 @@ using Microsoft.Extensions.Logging;
 using NSubstitute;
 using SAF.Common;
 using SAF.Communication.Cde;
-using SAF.Communication.PubSub;
 using SAF.Communication.PubSub.Interfaces;
 using Xunit;
 
@@ -22,8 +21,10 @@ public class TestMessagingCde
         CdeMessagingConfiguration cmc = new();
         Assert.Equal(RoutingOptions.All, cmc.RoutingOptions);
 
-        MessagingConfiguration mc = new();
-        mc.Config = new Dictionary<string, string>();
+        MessagingConfiguration mc = new()
+        {
+            Config = new Dictionary<string, string>()
+        };
         mc.Config.Add("routingOptions", "Remote");
         cmc = new(mc);
         Assert.Equal(RoutingOptions.Remote, cmc.RoutingOptions);
@@ -36,7 +37,9 @@ public class TestMessagingCde
         var publisher = Substitute.For<IPublisher>();
         var comLineSubscriber = Substitute.For<ComLine>();
         var subscriber = Substitute.For<ISubscriber>();
-        var test = Substitute.For<AbstractSubscription>(subscriber, RoutingOptions.All, new[] { "*" });
+        var test = Substitute.For<ISubscription>();
+        test.RoutingOptions.Returns(RoutingOptions.All);
+        test.Patterns.Returns(["*"]);
         subscriber.Subscribe(Arg.Any<RoutingOptions>(), Arg.Any<string>()).Returns(test);
 
         Messaging messaging = new(null, smd, publisher, subscriber, null);
@@ -97,7 +100,7 @@ public class TestMessagingCde
         //"LogIgnore": "UPnP;cdeSniffer;WSQueuedSender;CoreComm;QueuedSender;QSRegistry",
         //"PreShutDownDelay": 5000
         //}
-        IConfigurationRoot cr = new ConfigurationRoot(new List<IConfigurationProvider> { cp });
+        var cr = new ConfigurationRoot([cp]);
 
         var applicationServices = new ServiceCollection();
         applicationServices.AddLogging(l => l.AddConfiguration(cr.GetSection("Logging")).AddConsole());

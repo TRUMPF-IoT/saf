@@ -14,13 +14,13 @@ using Xunit;
 
 namespace SAF.Communication.PubSub.Cde.Tests;
 
-public class SubscriptionInternalTests
+public class SubscriptionTests
 {
     private readonly ComLine _comLine = Substitute.For<ComLine>();
     private readonly IPublisher _publisher = Substitute.For<IPublisher>();
     private readonly Subscriber _subscriber;
 
-    public SubscriptionInternalTests()
+    public SubscriptionTests()
     {
         _comLine
             .When(m => m.Broadcast(Arg.Is<TSM>(tsm => tsm.TXT == MessageToken.DiscoveryRequest)))
@@ -35,48 +35,17 @@ public class SubscriptionInternalTests
         _subscriber = new Subscriber(_comLine, _publisher, CancellationToken.None);
     }
 
-    [Fact]
-    public void SetRawHandler_AppliesRawHandler()
-    {
-        var subscription = new SubscriptionInternal(_subscriber);
-
-        var rawHandler = new Action<string, TheProcessMessage>((_, _) => { });
-        subscription.SetRawHandler(rawHandler);
-
-        var field = typeof(SubscriptionInternal).GetField("_rawHandler", BindingFlags.NonPublic | BindingFlags.Instance)!;
-
-        var action = Assert.IsType<Action<string, TheProcessMessage>>(field.GetValue(subscription));
-        Assert.Equal(rawHandler, action);
-    }
-
-    [Fact]
-    public void Unsubscribe_ClearsRawHandler()
-    {
-        var subscription = new SubscriptionInternal(_subscriber);
-
-        var rawHandler = new Action<string, TheProcessMessage>((_, _) => { });
-        subscription.SetRawHandler(rawHandler);
-
-        subscription.Unsubscribe();
-
-        var field = typeof(SubscriptionInternal).GetField("_rawHandler", BindingFlags.NonPublic | BindingFlags.Instance)!;
-        Assert.Null(field.GetValue(subscription));
-    }
-
     [Theory]
     [InlineData(PubSubVersion.V1, "payload")]
     [InlineData(PubSubVersion.V2, "{\"topic\":\"sensor/1\",\"payload\":\"payload\"}")]
     [InlineData(PubSubVersion.V3, "{\"topic\":\"sensor/1\",\"payload\":\"payload\"}")]
     public void OnMessage_NonBatch_InvokesHandlers(string pubSubVersion, string payload)
     {
-        var subscription = new SubscriptionInternal(_subscriber, "sensor/*");
+        var subscription = new Subscription(_subscriber, "sensor/*");
         DateTimeOffset? receivedTs = null;
         Message? receivedMsg = null;
-        string? rawVersion = null;
-        TheProcessMessage? rawMsg = null;
 
         subscription.SetHandler((ts, m) => { receivedTs = ts; receivedMsg = m; });
-        subscription.SetRawHandler((ver, m) => { rawVersion = ver; rawMsg = m; });
 
         var processMsg = CreateProcessMessage(payload);
         RaiseMessageEvent(_subscriber, "sensor/1", pubSubVersion, processMsg);
@@ -85,14 +54,12 @@ public class SubscriptionInternalTests
         Assert.NotNull(receivedMsg);
         Assert.Equal("sensor/1", receivedMsg!.Topic);
         Assert.Equal("payload", receivedMsg.Payload);
-        Assert.Equal(pubSubVersion, rawVersion);
-        Assert.Same(processMsg, rawMsg);
     }
 
     [Fact]
     public void OnMessage_Batch_InvokesHandlerForMatchingTopicsOnly()
     {
-        var subscription = new SubscriptionInternal(_subscriber, "dev/*");
+        var subscription = new Subscription(_subscriber, "dev/*");
 
         var handled = new List<string>();
         subscription.SetHandler((_, m) => handled.Add(m.Topic));
@@ -108,7 +75,7 @@ public class SubscriptionInternalTests
     [Fact]
     public void OnMessage_NoHandlers_EarlyReturn()
     {
-        _ = new SubscriptionInternal(_subscriber, "sensor/*");
+        _ = new Subscription(_subscriber, "sensor/*");
         var processMsg = CreateProcessMessage("payload");
 
         var ex = Record.Exception(() => RaiseMessageEvent(_subscriber, "sensor/3", PubSubVersion.V1, processMsg));

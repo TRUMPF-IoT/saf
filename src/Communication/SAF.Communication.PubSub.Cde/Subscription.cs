@@ -12,36 +12,59 @@ namespace SAF.Communication.PubSub.Cde;
 /// <summary>
 /// Defines the pattern and the handler to be executed for a subscription. 
 /// </summary>
-internal class SubscriptionInternal : AbstractSubscription, ISubscriptionInternal
+internal class Subscription : ISubscription
 {
     private readonly Subscriber _subscriber;
-    private Action<string, TheProcessMessage>? _rawHandler;
+    private Action<DateTimeOffset, Message>? _handler;
 
-    public SubscriptionInternal(Subscriber subscriber, params string[] patterns)
+    public Subscription(Subscriber subscriber, params string[] patterns)
         : this(subscriber, RoutingOptions.All, patterns)
     { }
 
-    public SubscriptionInternal(Subscriber subscriber, RoutingOptions routingOptions, params string[] patterns) : base(subscriber, routingOptions, patterns)
+    public Subscription(Subscriber subscriber, RoutingOptions routingOptions, params string[] patterns)
     {
         _subscriber = subscriber;
+        RoutingOptions = routingOptions;
+        Patterns = patterns;
+
         _subscriber.MessageEvent += OnMessage;
     }
 
-    public override void Unsubscribe()
+    public Guid Id { get; } = Guid.NewGuid();
+    public RoutingOptions RoutingOptions { get; }
+    public string[] Patterns { get; }
+
+    public void SetHandler(Action<DateTimeOffset, Message> handler)
     {
-        base.Unsubscribe();
-        _subscriber.MessageEvent -= OnMessage;
-        _rawHandler = null;
+        _handler = handler;
     }
 
-    public void SetRawHandler(Action<string, TheProcessMessage> callback)
+    public void Unsubscribe()
     {
-        _rawHandler = callback;
+        _subscriber.Unsubscribe(this);
+        _subscriber.MessageEvent -= OnMessage;
+
+        _handler = null;
     }
+
+    public void Dispose()
+    {
+        Dispose(true);
+        GC.SuppressFinalize(this);
+    }
+
+    protected virtual void Dispose(bool disposing)
+    {
+        if (!disposing) return;
+        Unsubscribe();
+    }
+
+    private bool IsTopicMatch(string topic)
+        => Array.Exists(Patterns, p => p == "*" || p == topic) || Array.Exists(Patterns, topic.IsMatch);
 
     private void OnMessage(string topic, string msgVersion, TheProcessMessage msg)
     {
-        if (Handler == null && _rawHandler == null) return;
+        if (_handler == null) return;
         if (!msg.Message.IsRoutingAllowed(RoutingOptions)) return;
         
         var messageVersion = Version.Parse(msgVersion);
@@ -53,8 +76,7 @@ internal class SubscriptionInternal : AbstractSubscription, ISubscriptionInterna
                 ? new Message {Topic = topic, Payload = msg.Message.PLS}
                 : TheCommonUtils.DeserializeJSONStringToObject<Message>(msg.Message.PLS);
 
-            Handler?.Invoke(msg.Message.TIM, message);
-            _rawHandler?.Invoke(msgVersion, msg);
+            _handler.Invoke(msg.Message.TIM, message);
         }
         else
         {
@@ -62,7 +84,7 @@ internal class SubscriptionInternal : AbstractSubscription, ISubscriptionInterna
             messages.ForEach(m =>
             {
                 if (!IsTopicMatch(m.Topic)) return;
-                Handler?.Invoke(msg.Message.TIM, m);
+                _handler.Invoke(msg.Message.TIM, m);
             });
         }
     }
