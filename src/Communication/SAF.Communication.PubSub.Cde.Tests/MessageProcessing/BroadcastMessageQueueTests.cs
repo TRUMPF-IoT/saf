@@ -107,12 +107,14 @@ public class BroadcastMessageQueueTests
     [Fact]
     public void Enqueue_ConcurrentAdds_StartsOnlyOneProcessingLoop()
     {
-        var processingLoops = 0;
+        HashSet<int?> taskIds = [];
         var totalProcessed = 0;
         
         using var doneEvent = new ManualResetEventSlim();
         var queue = new BroadcastMessageQueue((_, messages) =>
         {
+            taskIds.Add(Task.CurrentId);
+
             Interlocked.Add(ref totalProcessed, messages.Count());
             if (totalProcessed >= 50)
             {
@@ -120,10 +122,11 @@ public class BroadcastMessageQueueTests
             }
         });
 
-        Parallel.For(0, 50, i => queue.Enqueue(CreateBroadcastMessage("userX")));
+        Parallel.For(0, 50, _ => queue.Enqueue(CreateBroadcastMessage("userX")));
 
         Assert.True(doneEvent.Wait(TimeSpan.FromSeconds(5)), "Not all messages processed in time");
         Assert.Equal(50, totalProcessed);
+        Assert.Equal(1, taskIds.Count);
     }
 
     private static BroadcastMessage CreateBroadcastMessage(string userId, string channel = "chan", string payload = "data")
