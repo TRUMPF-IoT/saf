@@ -43,13 +43,27 @@ internal class SubscriptionInternal : AbstractSubscription, ISubscriptionInterna
     {
         if (Handler == null && _rawHandler == null) return;
         if (!msg.Message.IsRoutingAllowed(RoutingOptions)) return;
-        if (!IsTopicMatch(topic)) return;
+        
+        var messageVersion = Version.Parse(msgVersion);
+        if (messageVersion < Version.Parse(PubSubVersion.V4) || !topic.StartsWith("$$batch"))
+        {
+            if (!IsTopicMatch(topic)) return;
 
-        var message = msgVersion == PubSubVersion.V1
-            ? new Message { Topic = topic, Payload = msg.Message.PLS }
-            : TheCommonUtils.DeserializeJSONStringToObject<Message>(msg.Message.PLS);
+            var message = msgVersion == PubSubVersion.V1
+                ? new Message {Topic = topic, Payload = msg.Message.PLS}
+                : TheCommonUtils.DeserializeJSONStringToObject<Message>(msg.Message.PLS);
 
-        Handler?.Invoke(msg.Message.TIM, message);
-        _rawHandler?.Invoke(msgVersion, msg);
+            Handler?.Invoke(msg.Message.TIM, message);
+            _rawHandler?.Invoke(msgVersion, msg);
+        }
+        else
+        {
+            var messages = TheCommonUtils.DeserializeJSONStringToObject<List<Message>>(msg.Message.PLS);
+            messages.ForEach(m =>
+            {
+                if (!IsTopicMatch(m.Topic)) return;
+                Handler?.Invoke(msg.Message.TIM, m);
+            });
+        }
     }
 }
