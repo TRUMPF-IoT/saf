@@ -2,18 +2,16 @@
 //
 // SPDX-License-Identifier: MPL-2.0
 
-// for Thread.Sleep
+namespace SAF.Communication.PubSub.Cde.Tests;
 
+using Common;
+using Communication.Cde;
+using Interfaces;
 using nsCDEngine.BaseClasses;
 using NSubstitute;
-using SAF.Common;
-using SAF.Communication.Cde;
 using SAF.Communication.PubSub.Cde.MessageProcessing;
-using SAF.Communication.PubSub.Interfaces;
 using System.Reflection;
 using Xunit;
-
-namespace SAF.Communication.PubSub.Cde.Tests;
 
 public class RemoteSubscriberTests
 {
