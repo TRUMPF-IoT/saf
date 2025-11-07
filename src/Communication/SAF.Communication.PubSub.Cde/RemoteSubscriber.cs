@@ -99,6 +99,15 @@ internal class RemoteSubscriber : IRemoteSubscriber
         _line.AnswerToSender(Tsm, tsm);
     }
 
+    public bool IsRoutingAllowed(RoutingOptions routingOptions)
+        => routingOptions switch
+        {
+            RoutingOptions.All => true,
+            RoutingOptions.Local => IsLocalHost,
+            RoutingOptions.Remote => !IsLocalHost,
+            _ => throw new ArgumentOutOfRangeException(nameof(routingOptions))
+        };
+
     private TSM CreateBroadcastTsm(BroadcastMessage message)
     {
         TSM tsm;
@@ -120,15 +129,6 @@ internal class RemoteSubscriber : IRemoteSubscriber
 
         return tsm;
     }
-
-    public bool IsRoutingAllowed(RoutingOptions routingOptions)
-        => routingOptions switch
-        {
-            RoutingOptions.All => true,
-            RoutingOptions.Local => IsLocalHost,
-            RoutingOptions.Remote => !IsLocalHost,
-            _ => throw new ArgumentOutOfRangeException(nameof(routingOptions))
-        };
 
     private void BroadcastQueueProcessing(string userId, IEnumerable<BroadcastMessage> broadcastMessages)
     {

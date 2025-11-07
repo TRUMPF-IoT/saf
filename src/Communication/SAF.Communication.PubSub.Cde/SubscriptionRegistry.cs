@@ -208,12 +208,28 @@ internal class SubscriptionRegistry : ISubscriptionRegistry
             return;
         }
 
-        // TODO: consider PubSubVersion.V4
-        var msg = topic.Version == PubSubVersion.V1
-            ? new Message {Topic = topic.Channel, Payload = message.PLS}
-            : TheCommonUtils.DeserializeJSONStringToObject<Message>(message.PLS);
+        var messages = ExtractMessagesFromTsm(topic, message);
+        messages.ForEach(m =>
+        {
+            var t = new Topic { Channel = m.Topic, MsgId = Guid.NewGuid().ToString("N") };
+            Broadcast(t, m, message.UID, RoutingOptions.All);
+        });
+    }
 
-        Broadcast(topic, msg, message.UID, RoutingOptions.All);
+    private static List<Message> ExtractMessagesFromTsm(Topic topic, TSM message)
+    {
+        var messageVersion = Version.Parse(topic.Version);
+        if (messageVersion < Version.Parse(PubSubVersion.V4) || !topic.Channel.StartsWith("$$batch"))
+        {
+            return
+            [
+                topic.Version == PubSubVersion.V1
+                    ? new Message {Topic = topic.Channel, Payload = message.PLS}
+                    : TheCommonUtils.DeserializeJSONStringToObject<Message>(message.PLS)
+            ];
+        }
+        
+        return TheCommonUtils.DeserializeJSONStringToObject<List<Message>>(message.PLS);
     }
 
     private void HandleDiscoveryRequest(TheProcessMessage message)

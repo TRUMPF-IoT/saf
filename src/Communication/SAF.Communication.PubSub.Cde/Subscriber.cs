@@ -52,13 +52,13 @@ public class Subscriber : ISubscriber, IDisposable
         : this(line, publisher, CancellationTokenSource.CreateLinkedTokenSource(token))
     { }
 
-    public Subscriber(ComLine line, IPublisher publisher, CancellationTokenSource tokenSource)
+    public Subscriber(ComLine line, IPublisher _, CancellationTokenSource tokenSource)
     {
         _log = new Logger(typeof(Subscriber));
         _line = line;
         _tokenSource = tokenSource;
 
-        InitAsync(publisher).Wait(_tokenSource.Token);
+        InitAsync().Wait(_tokenSource.Token);
     }
 
     public ISubscription Subscribe(params string[] patterns)
@@ -66,7 +66,7 @@ public class Subscriber : ISubscriber, IDisposable
 
     public ISubscription Subscribe(RoutingOptions routingOptions, params string[] patterns)
     {
-        if (patterns.Length == 0) patterns = new[] { "*" };
+        if (patterns.Length == 0) patterns = ["*"];
 
         var subscription = new SubscriptionInternal(this, routingOptions, patterns);
         RemoteSubscribe(subscription.Id, routingOptions, patterns);
@@ -83,7 +83,7 @@ public class Subscriber : ISubscriber, IDisposable
         }
     }
 
-    private async Task InitAsync(IPublisher publisher)
+    private async Task InitAsync()
     {
         _line.MessageReceived += HandleMessage;
         await _line.Subscribe(Engines.PubSub);

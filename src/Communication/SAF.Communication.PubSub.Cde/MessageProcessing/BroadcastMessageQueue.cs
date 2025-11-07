@@ -44,7 +44,7 @@ public class BroadcastMessageQueue(Action<string, IEnumerable<BroadcastMessage>>
             }
         });
 
-    private IReadOnlyList<BroadcastMessage> GetMessagesToBroadcast()
+    private List<BroadcastMessage> GetMessagesToBroadcast()
     {
         lock (_syncQueue)
         {
