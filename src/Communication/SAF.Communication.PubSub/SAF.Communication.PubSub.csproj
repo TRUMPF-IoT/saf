@@ -18,4 +18,10 @@ SPDX-License-Identifier: MPL-2.0
   <ItemGroup>
     <ProjectReference Include="..\SAF.Communication.PubSub.Interfaces\SAF.Communication.PubSub.Interfaces.csproj" />
   </ItemGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="$(AssemblyName).Tests" />
+    <InternalsVisibleTo Include="DynamicProxyGenAssembly2" />
+  </ItemGroup>
+
 </Project>

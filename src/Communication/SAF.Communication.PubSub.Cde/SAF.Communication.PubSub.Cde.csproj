@@ -24,4 +24,10 @@ SPDX-License-Identifier: MPL-2.0
   <ItemGroup>
     <Folder Include="MessageProcessing\" />
   </ItemGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="$(AssemblyName).Tests" />
+    <InternalsVisibleTo Include="DynamicProxyGenAssembly2" />
+  </ItemGroup>
+  
 </Project>
