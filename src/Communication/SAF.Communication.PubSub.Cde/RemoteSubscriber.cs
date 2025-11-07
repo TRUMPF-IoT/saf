@@ -139,7 +139,7 @@ internal class RemoteSubscriber : IRemoteSubscriber
             var serializedMessages = TheCommonUtils.SerializeObjectToJSONString(block);
 
             var msgId = Guid.NewGuid().ToString("N");
-            var messageTxt = $"{MessageToken.Publish}:{new Topic($"$$batch:size={block.Count}$$", msgId, Version).ToTsmTxt()}";
+            var messageTxt = $"{MessageToken.Publish}:{new Topic($"$$batch:size={block.Count}$$", msgId, PubSubVersion.V4).ToTsmTxt()}";
             var tsm = new TSM(TargetEngine, messageTxt, serializedMessages)
             {
                 UID = userId

@@ -45,7 +45,7 @@ internal class SubscriptionInternal : AbstractSubscription, ISubscriptionInterna
         if (!msg.Message.IsRoutingAllowed(RoutingOptions)) return;
         
         var messageVersion = Version.Parse(msgVersion);
-        if (messageVersion < Version.Parse(PubSubVersion.V4))
+        if (messageVersion < Version.Parse(PubSubVersion.V4) || !topic.StartsWith("$$batch"))
         {
             if (!IsTopicMatch(topic)) return;
 

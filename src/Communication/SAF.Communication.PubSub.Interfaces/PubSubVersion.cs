@@ -7,8 +7,9 @@ namespace SAF.Communication.PubSub.Interfaces;
 public static class PubSubVersion
 {
     public const string V1 = "1.0.0";
-    public const string V2 = "2.0.0";
+    public const string V2 = "2.0.0"; // send whole SAF message not only its payload
     public const string V3 = "3.0.0";
-    public const string V4 = "4.0.0";
+    public const string V4 = "4.0.0"; // batch processing
+
     public static readonly string Latest = V4;
 }
