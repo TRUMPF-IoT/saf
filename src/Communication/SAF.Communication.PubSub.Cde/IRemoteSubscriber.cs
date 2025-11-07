@@ -4,6 +4,7 @@
 
 namespace SAF.Communication.PubSub.Cde;
 using nsCDEngine.BaseClasses;
+using MessageProcessing;
 
 internal interface IRemoteSubscriber
 {
@@ -21,4 +22,6 @@ internal interface IRemoteSubscriber
     bool IsMatch(string topic);
 
     void Touch();
+
+    void Broadcast(BroadcastMessage message);
 }

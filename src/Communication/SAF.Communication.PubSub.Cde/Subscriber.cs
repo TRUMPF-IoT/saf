@@ -40,7 +40,6 @@ public class Subscriber : ISubscriber, IDisposable
     private int _sendingAlive;
 
     private RemoteRegistryLifetimeHandler? _registryLifetimeHandler;
-    private MessageListener? _messageListener;
     private string? _registryIdentity;
 
     public event Action<string, string, TheProcessMessage>? MessageEvent;
@@ -53,13 +52,13 @@ public class Subscriber : ISubscriber, IDisposable
         : this(line, publisher, CancellationTokenSource.CreateLinkedTokenSource(token))
     { }
 
-    public Subscriber(ComLine line, IPublisher publisher, CancellationTokenSource tokenSource)
+    public Subscriber(ComLine line, IPublisher _, CancellationTokenSource tokenSource)
     {
         _log = new Logger(typeof(Subscriber));
         _line = line;
         _tokenSource = tokenSource;
 
-        InitAsync(publisher).Wait(_tokenSource.Token);
+        InitAsync().Wait(_tokenSource.Token);
     }
 
     public ISubscription Subscribe(params string[] patterns)
@@ -67,7 +66,7 @@ public class Subscriber : ISubscriber, IDisposable
 
     public ISubscription Subscribe(RoutingOptions routingOptions, params string[] patterns)
     {
-        if (patterns.Length == 0) patterns = new[] { "*" };
+        if (patterns.Length == 0) patterns = ["*"];
 
         var subscription = new SubscriptionInternal(this, routingOptions, patterns);
         RemoteSubscribe(subscription.Id, routingOptions, patterns);
@@ -84,7 +83,7 @@ public class Subscriber : ISubscriber, IDisposable
         }
     }
 
-    private async Task InitAsync(IPublisher publisher)
+    private async Task InitAsync()
     {
         _line.MessageReceived += HandleMessage;
         await _line.Subscribe(Engines.PubSub);
@@ -97,8 +96,6 @@ public class Subscriber : ISubscriber, IDisposable
         _registryLifetimeHandler.RegistryUp += OnRegistryUp;
 
         BroadcastDiscoveryRequestAndAwaitFirstResponse();
-
-        _messageListener = new MessageListener(this, publisher);
     }
 
     private void BroadcastDiscoveryRequest()
@@ -241,7 +238,7 @@ public class Subscriber : ISubscriber, IDisposable
         if (pMsg is not TheProcessMessage msg) return;
         if (msg.Message.ENG != Engines.PubSub) return; //  accept only non remote-subscriber publications
 
-        _log.LogDebug($"Recived message: {msg.Message.TXT}, origin: {msg.Message.ORG}, payload: {msg.Message.PLS}");
+        _log.LogDebug($"Received message: {msg.Message.TXT}, origin: {msg.Message.ORG}, payload: {msg.Message.PLS}");
         if (msg.Message.TXT.StartsWith(MessageToken.Publish))
         {
             HandlePublication(msg);
@@ -263,7 +260,7 @@ public class Subscriber : ISubscriber, IDisposable
             HandleError(msg);
         }
         _registryLifetimeHandler?.HandleMessage(msg);
-        _log.LogDebug($"Finished message: {msg.Message.TXT}, origin: {msg.Message.ORG}, payload: {msg.Message.PLS}");
+        _log.LogTrace($"Finished message: {msg.Message.TXT}, origin: {msg.Message.ORG}, payload: {msg.Message.PLS}");
     }
 
     private void SendSubscribeRequest(TSM registryTsm, string[] topics)
@@ -354,13 +351,11 @@ public class Subscriber : ISubscriber, IDisposable
 
         if (_disposed) return;
         _disposed = true;
-
-        _messageListener?.Dispose();
             
         _registryLifetimeHandler?.Dispose();
         _aliveTimer?.Dispose();
 
-        _registryDiscoveredEvent?.Dispose();
+        _registryDiscoveredEvent.Dispose();
 
         var tsm = new TSM(Engines.PubSub, MessageToken.SubscriberShutdown);
         tsm.SetToServiceOnly(true);
