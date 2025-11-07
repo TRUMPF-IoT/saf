@@ -11,6 +11,7 @@ using SAF.Communication.Cde;
 using SAF.Communication.PubSub.Interfaces;
 using SAF.Common;
 using Xunit;
+using System.Collections.Concurrent;
 
 namespace SAF.Communication.PubSub.Cde.Tests;
 
@@ -23,7 +24,7 @@ public class SubscriptionTests
     public SubscriptionTests()
     {
         _comLine
-            .When(m => m.Broadcast(Arg.Is<TSM>(tsm => tsm.TXT == MessageToken.DiscoveryRequest)))
+            .When(m => m.Broadcast(Arg.Is<TSM>(tsm => tsm.TXT.StartsWith(MessageToken.DiscoveryRequest))))
             .Do(_ =>
             { 
                 var discoveryTsm = new TSM(Engines.PubSub, MessageToken.DiscoveryResponse, "{\"address\":\"test-address\",\"instanceId\":\"fast\",\"version\":\"4.0.0\"}")
@@ -32,6 +33,7 @@ public class SubscriptionTests
                 };
                 _comLine.MessageReceived += Raise.Event<MessageReceivedHandler>(Substitute.For<ICDEThing>(), new TheProcessMessage(discoveryTsm));
             });
+
         _subscriber = new Subscriber(_comLine, _publisher, CancellationToken.None);
     }
 
@@ -82,6 +84,54 @@ public class SubscriptionTests
         Assert.Null(ex);
     }
 
+    [Fact]
+    public void Unsubscribe_RemovesHandlerAndDetachesFromSubscriber()
+    {
+        var subscription = _subscriber.Subscribe("sensor/*");
+
+        var invokeCount = 0;
+        subscription.SetHandler((_, _) => invokeCount++);
+
+        var processMsg = CreateProcessMessage("payload");
+        RaiseMessageEvent(_subscriber, "sensor/1", PubSubVersion.V1, processMsg);
+        Assert.Equal(1, invokeCount);
+
+        subscription.Unsubscribe();
+
+        // raising again should not invoke handler
+        RaiseMessageEvent(_subscriber, "sensor/1", PubSubVersion.V1, processMsg);
+        Assert.Equal(1, invokeCount); // unchanged
+
+        // assert subscription removed from subscriber registry
+        var subsDictField = typeof(Subscriber).GetField("_subscribers", BindingFlags.Instance | BindingFlags.NonPublic)!;
+        var dict = (ConcurrentDictionary<Guid, ISubscription>)subsDictField.GetValue(_subscriber)!;
+        Assert.False(dict.ContainsKey(subscription.Id));
+    }
+
+    [Fact]
+    public void Dispose_CallsUnsubscribe()
+    {
+        var subscription = _subscriber.Subscribe("sensor/*");
+
+        var invokeCount = 0;
+        subscription.SetHandler((_, _) => invokeCount++);
+
+        var processMsg = CreateProcessMessage("payload");
+        RaiseMessageEvent(_subscriber, "sensor/1", PubSubVersion.V1, processMsg);
+        Assert.Equal(1, invokeCount);
+
+        subscription.Dispose();
+
+        // no further invocations
+        RaiseMessageEvent(_subscriber, "sensor/1", PubSubVersion.V1, processMsg);
+        Assert.Equal(1, invokeCount);
+
+        // subscription removed from internal dictionary
+        var subsDictField = typeof(Subscriber).GetField("_subscribers", BindingFlags.Instance | BindingFlags.NonPublic)!;
+        var dict = (ConcurrentDictionary<Guid, ISubscription>)subsDictField.GetValue(_subscriber)!;
+        Assert.False(dict.ContainsKey(subscription.Id));
+    }
+
     private static TheProcessMessage CreateProcessMessage(string payload, DateTimeOffset? tim = null)
     {
         var tsm = new TSM(Engines.PubSub, MessageToken.Publish, payload) { TIM = tim ?? DateTimeOffset.UtcNow };
@@ -92,6 +142,6 @@ public class SubscriptionTests
     {
         var evtField = typeof(Subscriber).GetField("MessageEvent", BindingFlags.Instance | BindingFlags.NonPublic)!;
         var raiseMethod = evtField.GetValue(subscriber) as MulticastDelegate;
-        raiseMethod!.DynamicInvoke(topic, version, msg);
+        raiseMethod?.DynamicInvoke(topic, version, msg);
     }
 }

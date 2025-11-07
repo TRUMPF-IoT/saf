@@ -105,7 +105,7 @@ jobs:
         if ( $LASTEXITCODE -ne 0 ) { exit $LASTEXITCODE }
         .\.tools\coverage\dotnet-coverage collect -f xml -o coverage.xml 'dotnet test ./src/SmartApplicationFramework.sln --configuration Release --no-build --no-restore --verbosity normal'
         if ( $LASTEXITCODE -ne 0 ) { exit $LASTEXITCODE }
-        .\.tools\sonarscanner\dotnet-sonarscanner end /d:sonar.login="${{ secrets.SONAR_TOKEN }}"
+        .\.tools\sonarscanner\dotnet-sonarscanner end /d:sonar.token="${{ secrets.SONAR_TOKEN }}"
         if ( $LASTEXITCODE -ne 0 ) { exit $LASTEXITCODE }
       
     - name: Pack
