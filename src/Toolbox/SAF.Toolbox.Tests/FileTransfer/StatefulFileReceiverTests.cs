@@ -230,6 +230,48 @@ public class StatefulFileReceiverTests
     }
 
     [Fact]
+    public void GetState_CompletesFileTransfer_WhenMetadataContainsAllChunks_AndOverwritesExistingTargetFile()
+    {
+        _fileSystem.AddFile(_defaultTestFilePath, new MockFileData("content"));
+
+        var fileInfo = _fileSystem.FileInfo.New(_defaultTestFilePath);
+        var file = new TransportFile
+        {
+            FileName = "file.txt",
+            FileId = fileInfo.GetFileId(DefaultChunkSize),
+            ContentHash = fileInfo.GetContentHash(),
+            ChunkSize = DefaultChunkSize,
+            ContentLength = fileInfo.Length,
+            TotalChunks = 5
+        };
+
+        _fileSystem.AddFile(file.GetTempTargetFilePath(_fileSystem, DefaultFolderPath), new MockFileData("content"));
+
+        HashSet<uint> hashSet = [0, 1, 2, 3, 4];
+        _fileSystem.AddFile(file.GetMetadataTargetFilePath(_fileSystem, DefaultFolderPath), new MockFileData(JsonSerializer.Serialize(new { ReceivedChunks = hashSet })));
+        
+        fileInfo.Delete();
+        _fileSystem.AddFile(_defaultTestFilePath, new MockFileData("otherContent"));
+
+        using var receiver = new StatefulFileReceiver(_logger, _fileSystem, _options.Value, _heartbeatPool, DefaultFolderPath);
+
+        BeforeFileReceivedEventArgs? beforeFileReceived = null;
+        FileReceivedEventArgs? fileReceived = null;
+        receiver.BeforeFileReceived += (_, bfr) => beforeFileReceived = bfr;
+        receiver.FileReceived += (_, fr) => fileReceived = fr;
+        var state = receiver.GetState(file);
+
+        Assert.True(state.FileExists);
+        Assert.Equal(5, state.TransmittedChunks.Count);
+        Assert.False(_fileSystem.File.Exists(file.GetTempTargetFilePath(_fileSystem, DefaultFolderPath)));
+        Assert.False(_fileSystem.File.Exists(file.GetMetadataTargetFilePath(_fileSystem, DefaultFolderPath)));
+        Assert.True(_fileSystem.File.Exists(file.GetTargetFilePath(_fileSystem, DefaultFolderPath)));
+        Assert.NotNull(beforeFileReceived);
+        Assert.NotNull(fileReceived);
+        Assert.Equal(_fileSystem.Path.GetFullPath(file.GetTargetFilePath(_fileSystem, DefaultFolderPath)), fileReceived.LocalFileFullName);
+    }
+
+    [Fact]
     public void WriteFile_ReturnsOk_WhenChunkIsWritten()
     {
         _fileSystem.AddFile(_defaultTestFilePath, new MockFileData("content"));

@@ -70,7 +70,7 @@ public class StatefulFileReceiver : IStatefulFileReceiver
                 "File {FileName} already exists with matching content hash, signal sender to skip transfer.",
                 targetFileInfo.FullName);
 
-            CompleteFileTransfer(file, targetFilePath, targetFilePath, false);
+            CompleteFileTransfer(file, targetFilePath, targetFilePath);
             return new FileReceiverState {FileExists = true};
         }
 
@@ -86,7 +86,7 @@ public class StatefulFileReceiver : IStatefulFileReceiver
         {
             _log.LogDebug("All chunks of file {FileName} already received, signal sender to skip transfer.", file.FileName);
             
-            CompleteFileTransfer(file, tempTargetFileInfo.FullName, targetFilePath, true);
+            CompleteFileTransfer(file, tempTargetFileInfo.FullName, targetFilePath);
             return new FileReceiverState {FileExists = true, TransmittedChunks = metadata.ReceivedChunks};
         }
 
@@ -120,7 +120,7 @@ public class StatefulFileReceiver : IStatefulFileReceiver
 
             if (metadata.ReceivedChunks.Count == file.TotalChunks)
             {
-                CompleteFileTransfer(file, tempTargetFilePath, targetFilePath, true);
+                CompleteFileTransfer(file, tempTargetFilePath, targetFilePath);
             }
 
             return FileReceiverStatus.Ok;
@@ -159,7 +159,7 @@ public class StatefulFileReceiver : IStatefulFileReceiver
         return _fileSystem.Path.GetFullPath(eventArgs.TargetFilePath);
     }
 
-    private void CompleteFileTransfer(TransportFile file, string sourceFilePath, string targetFilePath, bool contentChanged)
+    private void CompleteFileTransfer(TransportFile file, string sourceFilePath, string targetFilePath)
     {
         var beforeEventArgs = new BeforeFileReceivedEventArgs(file, targetFilePath);
         BeforeFileReceived?.Invoke(this, beforeEventArgs);
@@ -172,8 +172,7 @@ public class StatefulFileReceiver : IStatefulFileReceiver
 
         if (sourceFilePath != uniqueTargetFilePath)
         {
-            _log.LogDebug("CompleteFileTransfer: Copying file from {SourceFilePath} to {TargetFilePath}, contentChanged={ContentChanged}",
-                sourceFilePath, uniqueTargetFilePath, contentChanged);
+            _log.LogDebug("CompleteFileTransfer: Copying file from {SourceFilePath} to {TargetFilePath}", sourceFilePath, uniqueTargetFilePath);
 
             var targetDirectory = _fileSystem.Path.GetDirectoryName(uniqueTargetFilePath);
             if (targetDirectory != null && !_fileSystem.Directory.Exists(targetDirectory))
@@ -181,17 +180,7 @@ public class StatefulFileReceiver : IStatefulFileReceiver
                 _fileSystem.Directory.CreateDirectory(targetDirectory);
             }
 
-            if (_fileSystem.File.Exists(uniqueTargetFilePath))
-            {
-                if (contentChanged)
-                {
-                    _fileSystem.File.Copy(sourceFilePath, uniqueTargetFilePath, true);
-                }
-            }
-            else
-            {
-                _fileSystem.File.Copy(sourceFilePath, uniqueTargetFilePath);
-            }
+            _fileSystem.File.Copy(sourceFilePath, uniqueTargetFilePath, true);
         }
 
         var targetFileDirectory = _fileSystem.Path.GetDirectoryName(uniqueTargetFilePath)!;
