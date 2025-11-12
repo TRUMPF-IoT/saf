@@ -175,12 +175,11 @@ public class StatefulFileReceiver : IStatefulFileReceiver
             _log.LogDebug("CompleteFileTransfer: Copying file from {SourceFilePath} to {TargetFilePath}", sourceFilePath, uniqueTargetFilePath);
 
             var targetDirectory = _fileSystem.Path.GetDirectoryName(uniqueTargetFilePath);
-            if (targetDirectory != null && !_fileSystem.Directory.Exists(targetDirectory))
+            if(targetDirectory != null && !_fileSystem.Directory.Exists(targetDirectory))
             {
                 _fileSystem.Directory.CreateDirectory(targetDirectory);
             }
-
-            _fileSystem.File.Copy(sourceFilePath, uniqueTargetFilePath, true);
+            _fileSystem.File.Copy(sourceFilePath, uniqueTargetFilePath);
         }
 
         var targetFileDirectory = _fileSystem.Path.GetDirectoryName(uniqueTargetFilePath)!;
