@@ -4,7 +4,6 @@ on:
   push:
     branches:
       - master
-      - feature/host-builder
     tags:
       - '*'
   pull_request:
