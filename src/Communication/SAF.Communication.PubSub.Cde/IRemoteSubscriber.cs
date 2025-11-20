@@ -2,10 +2,9 @@
 //
 // SPDX-License-Identifier: MPL-2.0
 
-using nsCDEngine.BaseClasses;
-using SAF.Communication.PubSub.Cde.MessageProcessing;
-
 namespace SAF.Communication.PubSub.Cde;
+using nsCDEngine.BaseClasses;
+using MessageProcessing;
 
 internal interface IRemoteSubscriber
 {

@@ -2,11 +2,10 @@
 //
 // SPDX-License-Identifier: MPL-2.0
 
-using NSubstitute;
-using SAF.Common;
-using SAF.DevToolbox.TestRunner;
-
 namespace SAF.DevToolbox.Tests.TestRunner;
+using NSubstitute;
+using Common;
+using SAF.DevToolbox.TestRunner;
 
 public class TestSequenceBaseTests
 {

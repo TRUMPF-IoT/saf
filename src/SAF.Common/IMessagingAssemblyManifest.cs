@@ -2,9 +2,8 @@
 //
 // SPDX-License-Identifier: MPL-2.0
 
-using Microsoft.Extensions.DependencyInjection;
-
 namespace SAF.Common;
+using Microsoft.Extensions.DependencyInjection;
 
 public class MessagingConfiguration
 {

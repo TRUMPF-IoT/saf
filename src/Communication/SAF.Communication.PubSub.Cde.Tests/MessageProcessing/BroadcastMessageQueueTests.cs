@@ -126,7 +126,7 @@ public class BroadcastMessageQueueTests
 
         Assert.True(doneEvent.Wait(TimeSpan.FromSeconds(5)), "Not all messages processed in time");
         Assert.Equal(50, totalProcessed);
-        Assert.Equal(1, taskIds.Count);
+        Assert.Single(taskIds);
     }
 
     private static BroadcastMessage CreateBroadcastMessage(string userId, string channel = "chan", string payload = "data")

@@ -2,12 +2,11 @@
 //
 // SPDX-License-Identifier: MPL-2.0
 
-using NSubstitute;
-using SAF.Common;
-using SAF.Services.SampleService1.MessageHandlers;
-using Xunit;
-
 namespace SAF.Services.SampleService1.Tests;
+using NSubstitute;
+using Common;
+using MessageHandlers;
+using Xunit;
 
 public class PingMessageHandlerTests
 {

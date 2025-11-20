@@ -2,10 +2,9 @@
 //
 // SPDX-License-Identifier: MPL-2.0
 
+namespace SAF.Communication.Cde;
 using nsCDEngine.BaseClasses;
 using nsCDEngine.Engines.ThingService;
-
-namespace SAF.Communication.Cde;
 
 public delegate void MessageReceivedHandler(ICDEThing sender, object msg);
 

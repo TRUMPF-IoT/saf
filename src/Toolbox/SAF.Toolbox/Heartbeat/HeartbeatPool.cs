@@ -2,9 +2,8 @@
 //
 // SPDX-License-Identifier: MPL-2.0
 
-using System.Collections.Concurrent;
-
 namespace SAF.Toolbox.Heartbeat;
+using System.Collections.Concurrent;
 
 internal sealed class HeartbeatPool : IHeartbeatPool
 {

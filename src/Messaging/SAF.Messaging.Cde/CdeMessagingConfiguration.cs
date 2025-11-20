@@ -2,10 +2,9 @@
 //
 // SPDX-License-Identifier: MPL-2.0
 
-using SAF.Common;
-using SAF.Communication.PubSub.Interfaces;
-
 namespace SAF.Messaging.Cde;
+using Common;
+using Communication.PubSub.Interfaces;
 
 internal class CdeMessagingConfiguration
 {

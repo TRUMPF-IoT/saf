@@ -3,9 +3,8 @@
 // SPDX-License-Identifier: MPL-2.0
 
 
-using SAF.Communication.PubSub.Interfaces;
-
 namespace SAF.Communication.PubSub;
+using Interfaces;
 
 public class Topic
 {

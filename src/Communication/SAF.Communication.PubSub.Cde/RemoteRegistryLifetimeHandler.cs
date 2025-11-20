@@ -2,11 +2,10 @@
 //
 // SPDX-License-Identifier: MPL-2.0
 
+namespace SAF.Communication.PubSub.Cde;
 using nsCDEngine.BaseClasses;
 using nsCDEngine.ViewModels;
-using SAF.Communication.PubSub.Interfaces;
-
-namespace SAF.Communication.PubSub.Cde;
+using Interfaces;
 
 /// <summary>
 /// Manages the nodes where the parent subscriber is known. Most functionality

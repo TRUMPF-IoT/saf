@@ -2,15 +2,14 @@
 //
 // SPDX-License-Identifier: MPL-2.0
 
+namespace SAF.Messaging.LoadTest;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
-using SAF.Common;
-using SAF.Hosting;
+using Common;
+using Hosting;
 using System.Diagnostics;
-using SAF.Messaging.Redis;
-using SAF.Messaging.InProcess;
-
-namespace SAF.Messaging.LoadTest;
+using Redis;
+using InProcess;
 
 class Program
 {

@@ -9,11 +9,13 @@ using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using SAF.Common;
+using SAF.Hosting.Contracts;
 using SAF.Toolbox.Heartbeat;
-using SAF.Toolbox.FileTransfer;
 using SAF.Toolbox.RequestClient;
 
 namespace SAF.Toolbox;
+
+using FileTransfer;
 
 public static class ServiceCollectionExtensions
 {
@@ -37,7 +39,7 @@ public static class ServiceCollectionExtensions
         services.TryAddTransient<IFileSystem, FileSystem>();
         services.TryAddTransient(sp =>
             {
-                var hi = sp.GetRequiredService<IHostInfo>();
+                var hi = sp.GetRequiredService<IServiceHostInfo>();
                 var fs = sp.GetRequiredService<IFileSystem>();
                 var di = fs.DirectoryInfo.New(hi.FileSystemUserBasePath);
                 if (!di.Exists) di.Create();

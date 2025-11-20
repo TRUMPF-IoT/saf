@@ -2,10 +2,9 @@
 //
 // SPDX-License-Identifier: MPL-2.0
 
+namespace SAF.Toolbox.Tests.Serialization;
 using SAF.Toolbox.Serialization;
 using Xunit;
-
-namespace SAF.Toolbox.Tests.Serialization;
 
 public class JsonSerializerTests
 {

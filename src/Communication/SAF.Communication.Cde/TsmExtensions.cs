@@ -2,9 +2,8 @@
 //
 // SPDX-License-Identifier: MPL-2.0
 
-using nsCDEngine.BaseClasses;
-
 namespace SAF.Communication.Cde;
+using nsCDEngine.BaseClasses;
 
 public static class TsmExtensions
 {

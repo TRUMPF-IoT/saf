@@ -2,25 +2,17 @@
 //
 // SPDX-License-Identifier: MPL-2.0
 
-using SAF.Common;
-
 namespace SAF.Hosting.TestServices
 {
-    public class DummyService : IHostedService
+    using Contracts;
+    using System.Threading;
+    using System.Threading.Tasks;
+
+    // DummyService used for hosting tests only
+    public class DummyService : IHostedServiceAsync
     {
-        public void Start()
-        {
-            // DummyService used for hosting tests only
-        }
+        public Task StartAsync(CancellationToken cancelToken) => Task.CompletedTask;
 
-        public void Stop()
-        {
-            // DummyService used for hosting tests only
-        }
-
-        public void Kill()
-        {
-            // DummyService used for hosting tests only
-        }
+        public Task StopAsync(CancellationToken cancelToken) => Task.CompletedTask;
     }
 }

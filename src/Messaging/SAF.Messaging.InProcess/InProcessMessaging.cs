@@ -2,12 +2,11 @@
 //
 // SPDX-License-Identifier: MPL-2.0
 
+namespace SAF.Messaging.InProcess;
 using System.Diagnostics;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
-using SAF.Common;
-
-namespace SAF.Messaging.InProcess;
+using Common;
 
 internal class InProcessMessaging : IInProcessMessagingInfrastructure, IDisposable
 {

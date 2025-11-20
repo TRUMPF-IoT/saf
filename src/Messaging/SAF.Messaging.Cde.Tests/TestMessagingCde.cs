@@ -1,17 +1,17 @@
-﻿// SPDX-FileCopyrightText: 2017-2021 TRUMPF Laser GmbH
+// SPDX-FileCopyrightText: 2017-2021 TRUMPF Laser GmbH
 //
 // SPDX-License-Identifier: MPL-2.0
 
+namespace SAF.Messaging.Cde.Tests;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using NSubstitute;
-using SAF.Common;
+using Common;
 using SAF.Communication.Cde;
-using SAF.Communication.PubSub.Interfaces;
+using Communication.PubSub;
+using Communication.PubSub.Interfaces;
 using Xunit;
-
-namespace SAF.Messaging.Cde.Tests;
 
 public class TestMessagingCde
 {

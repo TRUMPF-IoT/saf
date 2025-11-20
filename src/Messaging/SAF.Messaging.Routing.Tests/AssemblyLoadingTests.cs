@@ -2,13 +2,12 @@
 //
 // SPDX-License-Identifier: MPL-2.0
 
+namespace SAF.Messaging.Routing.Tests;
 using System.Reflection;
 using Microsoft.Extensions.DependencyInjection;
 using NSubstitute;
-using SAF.Common;
+using Common;
 using Xunit;
-
-namespace SAF.Messaging.Routing.Tests;
 
 public class AssemblyLoadingTests
 {
@@ -65,7 +64,7 @@ public class AssemblyLoadingTests
     [Fact]
     public void SearchingServiceAssembliesWithSubDirectoryWorks()
     {
-        var result = ServiceCollectionExtensions.SearchMessagingAssemblies(System.IO.Path.Combine(TestDataPath, "FilePatterns1"), "**/*.txt", ".*").ToList();
+        var result = ServiceCollectionExtensions.SearchMessagingAssemblies(Path.Combine(TestDataPath, "FilePatterns1"), "**/*.txt", ".*").ToList();
         // All should match -> just compare count
         Assert.Equal(6, result.Count);
     }

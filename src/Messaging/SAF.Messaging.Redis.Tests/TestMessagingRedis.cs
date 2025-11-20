@@ -2,13 +2,12 @@
 //
 // SPDX-License-Identifier: MPL-2.0
 
+namespace SAF.Messaging.Redis.Tests;
 using NSubstitute;
-using SAF.Common;
+using Common;
 using StackExchange.Redis;
 using System.Net;
 using Xunit;
-
-namespace SAF.Messaging.Redis.Tests;
 
 public class TestMessagingRedis
 {

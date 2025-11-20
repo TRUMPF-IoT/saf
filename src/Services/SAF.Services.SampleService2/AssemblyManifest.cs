@@ -2,10 +2,9 @@
 //
 // SPDX-License-Identifier: MPL-2.0
 
-using Microsoft.Extensions.DependencyInjection;
-using SAF.Common;
-
 namespace SAF.Services.SampleService2;
+using Microsoft.Extensions.DependencyInjection;
+using Hosting.Contracts;
 
 public class AssemblyManifest : IServiceAssemblyManifest
 {
@@ -13,6 +12,8 @@ public class AssemblyManifest : IServiceAssemblyManifest
 
     public void RegisterDependencies(IServiceCollection services, IServiceHostContext context)
     {
-        services.AddHostedAsync<MyService>();
+#pragma warning disable CS0618 // Type or member is obsolete
+        services.AddHosted<MyService>();
+#pragma warning restore CS0618 // Type or member is obsolete
     }
 }

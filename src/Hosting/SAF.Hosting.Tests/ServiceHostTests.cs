@@ -1,244 +1,189 @@
-// SPDX-FileCopyrightText: 2017-2020 TRUMPF Laser GmbH
+// SPDX-FileCopyrightText: 2017-2024 TRUMPF Laser GmbH
 //
 // SPDX-License-Identifier: MPL-2.0
 
-using System.Reflection;
+namespace SAF.Hosting.Tests;
+
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging.Abstractions;
 using NSubstitute;
-using SAF.Common;
+using Common;
+using Contracts;
+using Microsoft.Extensions.Logging;
 using Xunit;
-
-namespace SAF.Hosting.Tests;
 
 public class ServiceHostTests
 {
-    private string TestAssemblyPath => Path.GetDirectoryName(new Uri(Assembly.GetExecutingAssembly().Location).LocalPath)!;
+    private readonly IServiceHostInfo _hostInfo = Substitute.For<IServiceHostInfo>();
+    private readonly IConfiguration _configuration = Substitute.For<IConfiguration>();
+    private readonly IServiceMessageDispatcher _dispatcher = Substitute.For<IServiceMessageDispatcher>();
+    private readonly ISharedServiceRegistry _sharedServiceRegistry = Substitute.For<ISharedServiceRegistry>();
+    private readonly IServiceAssemblyManager _serviceAssemblyManager = Substitute.For<IServiceAssemblyManager>();
+    private readonly IServiceAssemblyManifest _assemblyManifest = Substitute.For<IServiceAssemblyManifest>();
 
-    private string TestDataPath => Path.Combine(TestAssemblyPath, "TestData");
-
-    [Theory]
-    [InlineData(false)]
-    [InlineData(true)]
-    public async Task StartsAndStopsLoadedServices(bool asyncService)
+    [Fact]
+    [Obsolete("Is obsolete when IHostedService will be removed")]
+    public async Task StartAsyncInitializesAndStartsHostedServices()
     {
-        // Arrange
-        var callCounters = new CallCounters();
-        using (var sut = SetupServiceHostWithCallCountersService(callCounters, asyncService))
-        {
-            // Act
-            await sut.StartAsync(CancellationToken.None);
+        var service = Substitute.For<IHostedService>();
 
-            // Assert
-            Assert.Equal(1, callCounters.StartCalled);
-            Assert.Equal(0, callCounters.StopCalled);
-            Assert.Equal(0, callCounters.KillCalled);
+        var host = SetupServiceHost(_ => { }, services => services.AddSingleton(service));
 
-            // Act
-            await sut.StopAsync(CancellationToken.None);
-
-            // Assert
-            Assert.Equal(1, callCounters.StartCalled);
-            Assert.Equal(1, callCounters.StopCalled);
-            Assert.Equal(0, callCounters.KillCalled);
-        }
-
-        // Assert
-        Assert.Equal(1, callCounters.StartCalled);
-        Assert.Equal(1, callCounters.StopCalled);
-        Assert.Equal(0, callCounters.KillCalled);
-    }
-
-    [Theory]
-    [InlineData(false)]
-    [InlineData(true)]
-    public async Task RegistersHandlersWithinDispatchers(bool asyncService)
-    {
-        // Arrange
-        var hostInfo = Substitute.For<IHostInfo>();
-        var config = Substitute.For<IConfiguration>();
-        var serviceProvider = new ServiceCollection()
-            .AddSingleton(hostInfo)
-            .AddSingleton(config)
-            .BuildServiceProvider();
-        var serviceAssemblies = new List<IServiceAssemblyManifest> { new CountingTestAssemblyManifest(new CallCounters(), asyncService, true) };
-        var dispatcher = new ServiceMessageDispatcher(null);
-
-        // Act
-        using var host = new ServiceHost(serviceProvider, null, dispatcher, serviceAssemblies);
         await host.StartAsync(CancellationToken.None);
 
-        // Assert
-        Assert.Single(dispatcher.RegisteredHandlers);
-        Assert.Equal("SAF.Hosting.Tests.ServiceHostTests+CountingTestHandler", dispatcher.RegisteredHandlers.First());
+        _serviceAssemblyManager.Received(1).GetServiceAssemblyManifests();
+        _assemblyManifest.Received(1).RegisterDependencies(
+            Arg.Any<IServiceCollection>(), 
+            Arg.Is<IServiceHostContext>(c => c.HostInfo == _hostInfo && c.Configuration == _configuration));
+
+        service.Received(1).Start();
 
         await host.StopAsync(CancellationToken.None);
+
+        service.Received(1).Stop();
     }
 
-    [Theory]
-    [InlineData(false)]
-    [InlineData(true)]
-    public async Task DispatcherCallsCorrectHandler(bool asyncService)
+    [Fact]
+    public async Task StartAsyncInitializesAndStartsHostedAsyncServices()
     {
-        // Arrange
-        var hostInfo = Substitute.For<IHostInfo>();
-        var config = Substitute.For<IConfiguration>();
-        var callCounters = new CallCounters();
-        var serviceProvider = new ServiceCollection()
-            .AddSingleton(hostInfo)
-            .AddSingleton(config)
-            .BuildServiceProvider();
-        var serviceAssemblies = new List<IServiceAssemblyManifest> { new CountingTestAssemblyManifest(callCounters, asyncService, true) };
-        var dispatcher = new ServiceMessageDispatcher(null);
+        var service = Substitute.For<IHostedServiceAsync>();
 
-        using var host = new ServiceHost(serviceProvider, null, dispatcher, serviceAssemblies);
+        var host = SetupServiceHost(_ => { }, services => services.AddSingleton(service));
+
         await host.StartAsync(CancellationToken.None);
-            
-        // Act
-        dispatcher.DispatchMessage("SAF.Hosting.Tests.ServiceHostTests+CountingTestHandler", new Message());
 
-        // Assert
-        Assert.Equal(1, callCounters.CanHandleCalled);
-        Assert.Equal(1, callCounters.HandleCalled);
+        _serviceAssemblyManager.Received(1).GetServiceAssemblyManifests();
+        _assemblyManifest.Received(1).RegisterDependencies(
+            Arg.Any<IServiceCollection>(),
+            Arg.Is<IServiceHostContext>(c => c.HostInfo == _hostInfo && c.Configuration == _configuration));
+
+        await service.Received(1).StartAsync(Arg.Any<CancellationToken>());
 
         await host.StopAsync(CancellationToken.None);
+
+        await service.Received(1).StopAsync(Arg.Any<CancellationToken>());
     }
 
     [Fact]
-    public void SearchingServiceAssembliesWithWrongParameters()
+    [Obsolete("Is obsolete when IHostedService will be removed")]
+    public async Task StopAsyncStopsHostedServices()
     {
-        Assert.Throws<ArgumentNullException>(() => ServiceCollectionExtensions.SearchServiceAssemblies(null!, "**/*.txt", ".*"));
-        Assert.Throws<ArgumentNullException>(() => ServiceCollectionExtensions.SearchServiceAssemblies(Path.Combine(TestDataPath, "FilePatterns1"), null!, ".*"));
-        Assert.Throws<ArgumentNullException>(() => ServiceCollectionExtensions.SearchServiceAssemblies(Path.Combine(TestDataPath, "FilePatterns1"), "**/*.txt", null!));
+        var service = Substitute.For<IHostedService>();
+
+        var host = SetupServiceHost(_ => { }, services => services.AddSingleton(service));
+        await host.StartAsync(CancellationToken.None);
+
+        await host.StopAsync(CancellationToken.None);
+
+        service.Received(1).Stop();
     }
 
     [Fact]
-    public void SearchingServiceAssembliesWithSubdirectoryWorks()
+    public async Task StopAsyncStopsHostedAsyncServices()
     {
-        var result = ServiceCollectionExtensions.SearchServiceAssemblies(Path.Combine(TestDataPath, "FilePatterns1"), "**/*.txt", ".*").ToList();
-        // All should match -> just compare count
-        Assert.Equal(6, result.Count());
+        var service = Substitute.For<IHostedServiceAsync>();
+
+        var host = SetupServiceHost(_ => { }, services => services.AddSingleton(service));
+        await host.StartAsync(CancellationToken.None);
+
+        await host.StopAsync(CancellationToken.None);
+
+        await service.Received(1).StopAsync(Arg.Any<CancellationToken>());
     }
 
     [Fact]
-    public void SearchingServiceAssembliesWithoutSubdirectoryWorksCorrectly()
+    public async Task StartAsyncAddsApplicationMessageHandlerToMessageDispatcher()
     {
-        var result = ServiceCollectionExtensions.SearchServiceAssemblies(Path.Combine(TestDataPath, "FilePatterns1"), "*.txt", ".*").ToList();
-            
-        Assert.Equal(2, result.Count());
-        Assert.Contains(Path.Combine(TestDataPath, "FilePatterns1", "My.Service3.txt"), result);
-        Assert.Contains(Path.Combine(TestDataPath, "FilePatterns1", "My.Service3.Contracts.txt"), result);
+        var host = SetupServiceHost(appServices => appServices.AddTransient<DummyMessageHandler>(), _ => { });
+
+        await host.StartAsync(CancellationToken.None);
+
+        _dispatcher.Received(1).AddHandler(Arg.Is(typeof(DummyMessageHandler)), Arg.Any<Func<IMessageHandler>>());
     }
 
     [Fact]
-    public void SearchingServiceAssembliesWithExclusionGlobWorksCorrectly()
+    public async Task StartAsyncAddsServiceMessageHandlerToMessageDispatcher()
     {
-        var result = ServiceCollectionExtensions.SearchServiceAssemblies(Path.Combine(TestDataPath, "FilePatterns1"), "**/My.Service*.txt;|**/*Contracts*.txt", ".*").ToList();
-
-        Assert.Equal(3, result.Count());
-        Assert.Contains(Path.Combine(TestDataPath, "FilePatterns1", "My.Service3.txt"), result);
-        Assert.Contains(Path.Combine(TestDataPath, "FilePatterns1", "SubDir", "My.Service1.txt"), result);
-        Assert.Contains(Path.Combine(TestDataPath, "FilePatterns1", "SubDir", "My.Service2.txt"), result);
-    }
-
-    [Fact]
-    public void SearchingServiceAssembliesWithFilterPatternWorksCorrectly()
-    {
-        var result = ServiceCollectionExtensions.SearchServiceAssemblies(Path.Combine(TestDataPath, "FilePatterns1"), "*.txt", "^((?!Contracts).)*$");
-
-        Assert.Single(result);
-        Assert.Contains(Path.Combine(TestDataPath, "FilePatterns1", "My.Service3.txt"), result);
-    }
+        var host = SetupServiceHost(_ => { }, services => services.AddTransient<DummyMessageHandler>());
         
-    private static ServiceHost SetupServiceHostWithCallCountersService(CallCounters callCounters, bool asyncService)
-    {
-        var hostInfo = Substitute.For<IHostInfo>();
-        var config = Substitute.For<IConfiguration>();
-        var dispatcher = Substitute.For<IServiceMessageDispatcher>();
-        var serviceProvider = new ServiceCollection()
-            .AddSingleton(hostInfo)
-            .AddSingleton(config)
-            .BuildServiceProvider();
-        var serviceAssemblies = new List<IServiceAssemblyManifest> { new CountingTestAssemblyManifest(callCounters, asyncService) };
-        return new ServiceHost(serviceProvider, null, dispatcher, serviceAssemblies);
+        await host.StartAsync(CancellationToken.None);
+
+        _dispatcher.Received(1).AddHandler(Arg.Is(typeof(DummyMessageHandler)), Arg.Any<Func<IMessageHandler>>());
     }
 
-    #region internal test miniclasses for "call counting test assembly"
-
-    internal class CallCounters
+    [Fact]
+    public async Task StartAsyncRedirectsCommonServices()
     {
-        public int StartCalled { get; set; }
-        public int StopCalled { get; set; }
-        public int KillCalled { get; set; }
-        public int CanHandleCalled { get; set; }
-        public int HandleCalled { get; set; }
+        var host = SetupServiceHost(_ => { }, _ => { });
+
+       IServiceCollection? assemblyServices = null;
+        _assemblyManifest.When(m => m.RegisterDependencies(Arg.Any<IServiceCollection>(), Arg.Any<IServiceHostContext>()))
+            .Do(ci => assemblyServices = ci.Arg<IServiceCollection>());
+
+        await host.StartAsync(CancellationToken.None);
+
+        Assert.NotNull(assemblyServices);
+        Assert.Contains(assemblyServices, sd => sd.ServiceType == typeof(IMessagingInfrastructure));
+        Assert.Contains(assemblyServices, sd => sd.ServiceType == typeof(IStorageInfrastructure));
+        Assert.Contains(assemblyServices, sd => sd.ServiceType == typeof(ILogger));
+        Assert.Contains(assemblyServices, sd => sd.ServiceType == typeof(ILogger<>));
+        Assert.Contains(assemblyServices, sd => sd.ServiceType == typeof(ILoggerFactory));
+        Assert.Contains(assemblyServices, sd => sd.ServiceType == typeof(IServiceHostInfo));
+        Assert.Contains(assemblyServices, sd => sd.ServiceType == typeof(IConfiguration));
+        Assert.Contains(assemblyServices, sd => sd.ServiceType == typeof(IServiceHostEnvironment));
     }
 
-    internal class CountingTestAssemblyManifest : IServiceAssemblyManifest
+    [Fact]
+    public async Task StartAsyncRedirectsSharedServices()
     {
-        private readonly CallCounters _counters;
-        private readonly bool _registerAsAsyncService;
-        private readonly bool _registerAHandler;
+        var host = SetupServiceHost(_ => { }, _ => { });
 
-        public CountingTestAssemblyManifest(CallCounters counters, bool registerAsAsyncService, bool registerAHandler = false)
-        {
-            _counters = counters;
-            _registerAsAsyncService = registerAsAsyncService;
-            _registerAHandler = registerAHandler;
-        }
+        var sharedServices = new ServiceCollection();
+        sharedServices.AddSingleton(Substitute.For<IDummySharedService>());
+        _sharedServiceRegistry.Services.Returns(sharedServices);
 
-        public string FriendlyName => "Internal test service - only for this test";
+        IServiceCollection? assemblyServices = null;
+        _assemblyManifest.When(m => m.RegisterDependencies(Arg.Any<IServiceCollection>(), Arg.Any<IServiceHostContext>()))
+            .Do(ci => assemblyServices = ci.Arg<IServiceCollection>());
 
-        public void RegisterDependencies(IServiceCollection services, IServiceHostContext context)
-        {
-            if(!_registerAsAsyncService)
-                services.AddHosted<SyncCountingTestService>();
-            else
-                services.AddHostedAsync<AsyncCountingTestService>();
-                
-            services.AddSingleton(typeof(CallCounters), r => _counters);
+        await host.StartAsync(CancellationToken.None);
 
-            if(_registerAHandler)
-                services.AddTransient<CountingTestHandler>();
-        }
+        Assert.NotNull(assemblyServices);
+        Assert.Contains(assemblyServices, sd => sd.ServiceType == typeof(IDummySharedService));
     }
 
-    internal class SyncCountingTestService : IHostedService
+    private ServiceHost SetupServiceHost(Action<IServiceCollection> registerApplicationDependencies, Action<IServiceCollection> registerServiceDependencies)
     {
-        private readonly CallCounters _counters;
-        public SyncCountingTestService(CallCounters counters) => _counters = counters ?? new CallCounters();
-        public void Start() => _counters.StartCalled++;
-        public void Stop() => _counters.StopCalled++;
-        public void Kill() => _counters.KillCalled++;
+        var appServices = new ServiceCollection()
+            .AddSingleton(_hostInfo)
+            .AddSingleton(_configuration);
+
+        registerApplicationDependencies(appServices);
+            
+        var serviceProvider = appServices.BuildServiceProvider();
+
+        _assemblyManifest
+            .When(m => m.RegisterDependencies(Arg.Any<IServiceCollection>(), Arg.Any<IServiceHostContext>()))
+            .Do(ci =>
+            {
+                var services = ci.Arg<IServiceCollection>();
+                registerServiceDependencies(services);
+            });
+
+        var serviceAssemblies = new List<IServiceAssemblyManifest> { _assemblyManifest };
+        _serviceAssemblyManager.GetServiceAssemblyManifests().Returns(serviceAssemblies);
+
+        var messageHandlerTypes = new ServiceMessageHandlerTypes(appServices);
+
+        return new ServiceHost(NullLogger<ServiceHost>.Instance, serviceProvider, messageHandlerTypes, _sharedServiceRegistry, _serviceAssemblyManager, _dispatcher, _configuration);
     }
 
-    internal class AsyncCountingTestService : IHostedServiceAsync
+    private class DummyMessageHandler : IMessageHandler
     {
-        private readonly CallCounters _counters;
-        public AsyncCountingTestService(CallCounters counters) => _counters = counters ?? new CallCounters();
-
-        public void Start() => _counters.StartCalled++;
-        public void Stop() => _counters.StopCalled++;
-
-        public Task StartAsync(CancellationToken _)
-        {
-            Start();
-            return Task.CompletedTask;
-        }
-        public Task StopAsync(CancellationToken _)
-        {
-            Stop();
-            return Task.CompletedTask;
-        }
+        public bool CanHandle(Message message) => true;
+        public void Handle(Message message) { }
     }
 
-    internal class CountingTestHandler : IMessageHandler
-    {
-        private readonly CallCounters _counters;
-        public CountingTestHandler(CallCounters counters) => _counters = counters ?? new CallCounters();
-        public bool CanHandle(Message message) => _counters.CanHandleCalled++ > -1;
-        public void Handle(Message message) => _counters.HandleCalled++;
-    }
-
-    #endregion
+    public interface IDummySharedService;
 }

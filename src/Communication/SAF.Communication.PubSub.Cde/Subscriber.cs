@@ -3,15 +3,14 @@
 // SPDX-License-Identifier: MPL-2.0
 
 
+namespace SAF.Communication.PubSub.Cde;
 using System.Collections.Concurrent;
 using nsCDEngine.BaseClasses;
 using nsCDEngine.Engines.ThingService;
 using nsCDEngine.ViewModels;
 using SAF.Communication.Cde;
 using SAF.Communication.Cde.Utils;
-using SAF.Communication.PubSub.Interfaces;
-
-namespace SAF.Communication.PubSub.Cde;
+using Interfaces;
 
 /// <summary>
 /// Manages all subscribers (which are implemented as <see cref="Subscription"/>) 

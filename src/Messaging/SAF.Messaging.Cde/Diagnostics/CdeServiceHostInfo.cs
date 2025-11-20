@@ -2,9 +2,8 @@
 //
 // SPDX-License-Identifier: MPL-2.0
 
-using nsCDEngine.BaseClasses;
-
 namespace SAF.Messaging.Cde.Diagnostics;
+using nsCDEngine.BaseClasses;
 
 internal class CdeServiceHostInfo
 {

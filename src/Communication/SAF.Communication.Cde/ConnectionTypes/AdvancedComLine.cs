@@ -2,12 +2,11 @@
 //
 // SPDX-License-Identifier: MPL-2.0
 
+namespace SAF.Communication.Cde.ConnectionTypes;
 using nsCDEngine.BaseClasses;
 using nsCDEngine.Communication;
 using nsCDEngine.Engines.ThingService;
 using nsCDEngine.ViewModels;
-
-namespace SAF.Communication.Cde.ConnectionTypes;
 
 public class AdvancedComLine : ComLine
 {

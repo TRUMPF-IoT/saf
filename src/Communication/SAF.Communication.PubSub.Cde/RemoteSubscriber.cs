@@ -3,15 +3,14 @@
 // SPDX-License-Identifier: MPL-2.0
 
 
-using nsCDEngine.BaseClasses;
-using SAF.Common;
-using SAF.Communication.Cde;
-using SAF.Communication.PubSub.Interfaces;
-using SAF.Communication.Cde.Utils;
-using SAF.Communication.PubSub.Cde.MessageProcessing;
-using System.Text;
-
 namespace SAF.Communication.PubSub.Cde;
+using nsCDEngine.BaseClasses;
+using Common;
+using SAF.Communication.Cde;
+using Interfaces;
+using SAF.Communication.Cde.Utils;
+using MessageProcessing;
+using System.Text;
 
 /// <summary>
 /// Contains the information about a subscriber running on another node.

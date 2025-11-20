@@ -2,9 +2,8 @@
 //
 // SPDX-License-Identifier: MPL-2.0
 
-using Microsoft.Extensions.Logging;
-
 namespace SAF.Services.SampleService1.AnyOtherInternalLogic;
+using Microsoft.Extensions.Logging;
 
 internal class MyInternalDependency
 {

@@ -2,10 +2,9 @@
 //
 // SPDX-License-Identifier: MPL-2.0
 
+namespace TestUtilities;
 using Microsoft.Extensions.Logging;
 using NSubstitute;
-
-namespace TestUtilities;
 
 public static class MockLoggerAssertionExtensions
 {

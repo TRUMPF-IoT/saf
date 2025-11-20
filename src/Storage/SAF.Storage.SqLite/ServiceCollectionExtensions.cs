@@ -2,11 +2,10 @@
 //
 // SPDX-License-Identifier: MPL-2.0
 
+namespace SAF.Storage.SqLite;
 using System.Data.SQLite;
 using Microsoft.Extensions.DependencyInjection;
-using SAF.Common;
-
-namespace SAF.Storage.SqLite;
+using Common;
 
 public static class ServiceCollectionExtensions
 {

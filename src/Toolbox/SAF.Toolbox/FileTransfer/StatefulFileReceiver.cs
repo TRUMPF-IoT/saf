@@ -179,7 +179,6 @@ public class StatefulFileReceiver : IStatefulFileReceiver
             {
                 _fileSystem.Directory.CreateDirectory(targetDirectory);
             }
-
             _fileSystem.File.Copy(sourceFilePath, uniqueTargetFilePath, true);
         }
 

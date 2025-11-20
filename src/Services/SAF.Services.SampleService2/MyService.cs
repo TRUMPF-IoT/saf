@@ -2,11 +2,11 @@
 //
 // SPDX-License-Identifier: MPL-2.0
 
-using Microsoft.Extensions.Logging;
-using SAF.Common;
-using SAF.Toolbox.Serialization;
-
 namespace SAF.Services.SampleService2;
+using Microsoft.Extensions.Logging;
+using Common;
+using Hosting.Contracts;
+using Toolbox.Serialization;
 
 internal class PingRequest
 {
@@ -14,7 +14,9 @@ internal class PingRequest
     public string Id { get; set; } = default!;
 }
 
-public class MyService : IHostedServiceAsync
+#pragma warning disable CS0618 // Type or member is obsolete
+public class MyService : IHostedService
+#pragma warning restore CS0618 // Type or member is obsolete
 {
     private readonly ILogger<MyService> _log;
     private readonly IMessagingInfrastructure _messaging;
@@ -29,13 +31,7 @@ public class MyService : IHostedServiceAsync
         _messaging = messaging;
     }
 
-    public Task StartAsync(CancellationToken cancelToken)
-        => Task.Run(Start, cancelToken);
-
-    public Task StopAsync(CancellationToken cancelToken)
-        => Task.Run(Stop, cancelToken);
-
-    private void Start()
+    public void Start()
     {
         void Handler(Message m)
         {
@@ -72,7 +68,7 @@ public class MyService : IHostedServiceAsync
         }, null, TimeSpan.Zero, TimeSpan.FromSeconds(5));
     }
 
-    private void Stop()
+    public void Stop()
     {
         foreach (var subscription in _subscriptions)
         {
@@ -82,5 +78,12 @@ public class MyService : IHostedServiceAsync
 
         _timer?.Dispose();
         _log.LogInformation("My service stopped.");
+    }
+
+    public void Kill()
+    {
+        Stop();
+
+        _log.LogInformation("My service killed.");
     }
 }

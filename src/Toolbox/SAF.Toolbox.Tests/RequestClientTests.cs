@@ -2,14 +2,13 @@
 //
 // SPDX-License-Identifier: MPL-2.0
 
+namespace SAF.Toolbox.Tests;
 using NSubstitute;
-using SAF.Common;
-using SAF.Common.Contracts;
-using SAF.Toolbox.Heartbeat;
+using Common;
+using Common.Contracts;
+using Heartbeat;
 using SAF.Toolbox.Serialization;
 using Xunit;
-
-namespace SAF.Toolbox.Tests;
 
 public class RequestClientTests
 {

@@ -14,5 +14,4 @@ SPDX-License-Identifier: MPL-2.0
   <ItemGroup>
     <ProjectReference Include="..\..\SAF.Common\SAF.Common.csproj" />
   </ItemGroup>
-
 </Project>

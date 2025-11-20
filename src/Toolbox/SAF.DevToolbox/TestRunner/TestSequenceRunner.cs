@@ -2,17 +2,17 @@
 //
 // SPDX-License-Identifier: MPL-2.0
 
+namespace SAF.DevToolbox.TestRunner;
 using System.Diagnostics;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
-using SAF.Common;
-using SAF.Hosting;
-using SAF.Messaging.Cde;
-using SAF.Messaging.InProcess;
-using SAF.Messaging.Redis;
-
-namespace SAF.DevToolbox.TestRunner;
+using Common;
+using Hosting;
+using Hosting.Contracts;
+using Messaging.Cde;
+using Messaging.InProcess;
+using Messaging.Redis;
 
 public class TestSequenceRunner : IDisposable
 {
@@ -50,13 +50,13 @@ public class TestSequenceRunner : IDisposable
         _mainLogger = baseServiceProvider.GetRequiredService<ILogger<TestSequenceRunner>>();
         _mainLogger.LogInformation("Starting test runner console app...");
 
-        _applicationServices.AddConfiguration(_config);
+        _applicationServices.AddSingleton(_config);
         _applicationServices.AddHost(_config.GetSection("ServiceHost").Bind, hi =>
         {
             hi.ServiceHostType = "Test Sequence Runner";
             hi.FileSystemUserBasePath = "tempfs";
             hi.FileSystemInstallationPath = Directory.GetCurrentDirectory();
-        }, _mainLogger);
+        });
     }
 
     public TestSequenceRunner() : this(string.Empty)

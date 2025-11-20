@@ -2,47 +2,31 @@
 //
 // SPDX-License-Identifier: MPL-2.0
 
+namespace SAF.Hosting;
+
 using System.Diagnostics;
 using System.Reflection;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
-using Microsoft.Extensions.Logging.Abstractions;
-using SAF.Common;
-
-namespace SAF.Hosting;
+using Common;
+using Contracts;
 
 /// <summary>
 /// Central entry point for initializing and starting the services used.
 /// </summary>
-public sealed class ServiceHost : Microsoft.Extensions.Hosting.IHostedService, IDisposable
+internal class ServiceHost(
+    ILogger<ServiceHost> logger,
+    IServiceProvider applicationServiceProvider,
+    IServiceMessageHandlerTypes hostMessageHandlerTypes,
+    ISharedServiceRegistry sharedServiceRegistry,
+    IServiceAssemblyManager serviceAssemblyManager,
+    IServiceMessageDispatcher messageDispatcher,
+    IConfiguration configuration)
+    : Microsoft.Extensions.Hosting.IHostedService
 {
-    private readonly IServiceProvider _runtimeApplicationServiceProvider;
-    private readonly ILogger _log;
-    private readonly IEnumerable<IServiceAssemblyManifest> _serviceAssemblies;
-    private readonly IServiceMessageDispatcher _messageDispatcher;
-
-    private readonly IConfiguration? _configuration;
-    private readonly ServiceHostEnvironment _environment;
-    private readonly IServiceHostContext _context;
-
-    private readonly List<IHostedServiceBase> _services = new();
-
-    public ServiceHost(
-        IServiceProvider runtimeApplicationServiceProvider,
-        ILogger<ServiceHost>? log,
-        IServiceMessageDispatcher messageDispatcher,
-        IEnumerable<IServiceAssemblyManifest> serviceAssemblies)
-    {
-        _runtimeApplicationServiceProvider = runtimeApplicationServiceProvider;
-        _log = log ?? NullLogger<ServiceHost>.Instance;
-        _messageDispatcher = messageDispatcher;
-        _serviceAssemblies = serviceAssemblies;
-
-        _configuration = _runtimeApplicationServiceProvider.GetService<IConfiguration>();
-        _environment = BuildServiceHostEnvironment();
-        _context = BuildServiceHostContext();
-    }
+    private readonly List<ServiceProvider> _serviceAssemblyServiceProviders = [];
+    private readonly List<HostedServiceContainer> _services = [];
 
     public Task StartAsync(CancellationToken cancellationToken)
         => Task.Run(async () =>
@@ -80,9 +64,12 @@ public sealed class ServiceHost : Microsoft.Extensions.Hosting.IHostedService, I
             await StopServicesAsync(_services, linkedCts.Token);
 
             stopWatch.Stop();
-            _log.LogInformation($"Stopping all services took {stopWatch.Elapsed.TotalMilliseconds * 1000000:N0} ns");
+            logger.LogInformation("Stopping all services took {ServiceShutdownTime:N0} ns",
+                stopWatch.Elapsed.TotalMilliseconds * 1000000);
 
             _services.Clear();
+            _serviceAssemblyServiceProviders.ForEach(sp => sp.Dispose());
+            _serviceAssemblyServiceProviders.Clear();
         }
         catch (TaskCanceledException)
         {
@@ -96,11 +83,6 @@ public sealed class ServiceHost : Microsoft.Extensions.Hosting.IHostedService, I
         {
             linkedCts.Dispose();
         }
-    }
-
-    public void Dispose()
-    {
-        // intentionally left blank
     }
 
     private async Task StartInternalAsync(CancellationToken token)
@@ -109,42 +91,49 @@ public sealed class ServiceHost : Microsoft.Extensions.Hosting.IHostedService, I
         stopWatch.Start();
 
         InitializeServices();
-        AddRuntimeMessageHandlersToDispatcher();
+        AddApplicationMessageHandlersToDispatcher();
 
         await StartServicesAsync(_services, token);
 
         stopWatch.Stop();
 
-        _log.LogInformation($"Starting all services took {stopWatch.Elapsed.TotalMilliseconds * 1000000:N0} ns");
+        logger.LogInformation("Starting all services took {ServiceStartUpTime:N0} ns",
+            stopWatch.Elapsed.TotalMilliseconds * 1000000);
     }
 
-    private async Task StartServicesAsync(IEnumerable<IHostedServiceBase> services, CancellationToken cancelToken)
+    private async Task StartServicesAsync(IEnumerable<HostedServiceContainer> services, CancellationToken cancelToken)
     {
         var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(cancelToken);
         try
         {
+            var asyncServiceStarts = new List<Task>();
             foreach (var service in services.TakeWhile(_ => !linkedCts.Token.IsCancellationRequested))
             {
-                _log.LogDebug($"Starting service: {service.GetType().Name}");
+                logger.LogDebug("Starting service: {ServiceName}", service.GetType().Name);
 
                 var serviceStopWatch = new Stopwatch();
                 serviceStopWatch.Start();
 
-                switch (service)
+                if (service.AsyncService is not null)
                 {
-                    case IHostedServiceAsync asyncService:
-                        await asyncService.StartAsync(linkedCts.Token);
-                        break;
-                    case IHostedService syncService:
-                        syncService.Start();
-                        break;
+                    asyncServiceStarts.Add(service.AsyncService.StartAsync(linkedCts.Token)
+                        .ContinueWith(_ =>
+                        {
+                            serviceStopWatch.Stop();
+                            LogServiceStartupTime(service, serviceStopWatch);
+
+                        }, linkedCts.Token));
                 }
+                else
+                {
+                    service.Service?.Start();
 
-                serviceStopWatch.Stop();
-
-                _log.LogInformation(
-                    $"Started service: {service.GetType().Name}, start-up took {serviceStopWatch.Elapsed.TotalMilliseconds * 1000000:N0} ns");
+                    serviceStopWatch.Stop();
+                    LogServiceStartupTime(service, serviceStopWatch);
+                }
             }
+
+            await Task.WhenAll(asyncServiceStarts);
         }
         catch (TaskCanceledException)
         {
@@ -160,32 +149,39 @@ public sealed class ServiceHost : Microsoft.Extensions.Hosting.IHostedService, I
         }
     }
 
-    private async Task StopServicesAsync(IEnumerable<IHostedServiceBase> services, CancellationToken cancelToken)
+    private async Task StopServicesAsync(IEnumerable<HostedServiceContainer> services, CancellationToken cancelToken)
     {
         var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(cancelToken);
         try
         {
+            var asyncServiceStops = new List<Task>();
             foreach (var service in services.TakeWhile(_ => !cancelToken.IsCancellationRequested))
             {
-                _log.LogDebug($"Stopping service: {service.GetType().Name}");
+                logger.LogDebug("Stopping service: {ServiceName}", service.GetType().Name);
 
                 var serviceStopWatch = new Stopwatch();
                 serviceStopWatch.Start();
 
-                switch (service)
+                if (service.AsyncService is not null)
                 {
-                    case IHostedServiceAsync asyncService:
-                        await asyncService.StopAsync(linkedCts.Token);
-                        break;
-                    case IHostedService syncService:
-                        syncService.Stop();
-                        break;
+                    asyncServiceStops.Add(service.AsyncService.StopAsync(linkedCts.Token)
+                        .ContinueWith(_ =>
+                        {
+                            serviceStopWatch.Stop();
+                            LogServiceShutdownTime(service, serviceStopWatch);
+
+                        }, linkedCts.Token));
                 }
+                else
+                {
+                    service.Service?.Stop();
 
-                serviceStopWatch.Stop();
-
-                _log.LogInformation($"Stopped service: {service.GetType().Name}, shutdown took {serviceStopWatch.Elapsed.TotalMilliseconds * 1000000:N0} ns");
+                    serviceStopWatch.Stop();
+                    LogServiceShutdownTime(service, serviceStopWatch);
+                }
             }
+
+            await Task.WhenAll(asyncServiceStops);
         }
         catch (TaskCanceledException)
         {
@@ -201,90 +197,104 @@ public sealed class ServiceHost : Microsoft.Extensions.Hosting.IHostedService, I
         }
     }
 
-    private ServiceHostEnvironment BuildServiceHostEnvironment()
-    {
-        return new()
-        {
-            ApplicationName = Assembly.GetEntryAssembly()?.GetName().Name,
-            EnvironmentName = GetEnvironment()
-        };
-    }
+    private void LogServiceStartupTime(HostedServiceContainer service, Stopwatch stopWatch)
+        => logger.LogInformation(
+            "Started service: {ServiceName}, start-up took {ServiceStartUpTime:N0} ns",
+            service.AsyncService?.GetType().Name ?? service.Service?.GetType().Name,
+            stopWatch.Elapsed.TotalMilliseconds * 1000000);
 
-    private IServiceHostContext BuildServiceHostContext()
-    {
-        return new ServiceHostContext
-        {
-            Configuration = _runtimeApplicationServiceProvider.GetRequiredService<IConfiguration>(),
-            Environment = _environment,
-            HostInfo = _runtimeApplicationServiceProvider.GetRequiredService<IHostInfo>()
-        };
-    }
+    private void LogServiceShutdownTime(HostedServiceContainer service, Stopwatch stopWatch)
+        => logger.LogInformation(
+            "Stopped service: {ServiceName}, shutdown took {ServiceStartUpTime:N0} ns",
+            service.AsyncService?.GetType().Name ?? service.Service?.GetType().Name,
+            stopWatch.Elapsed.TotalMilliseconds * 1000000);
 
     private void InitializeServices()
     {
-        foreach(var manifest in _serviceAssemblies)
+        var context = BuildServiceHostContext();
+
+        foreach(var manifest in serviceAssemblyManager.GetServiceAssemblyManifests())
         {
-            _log.LogInformation($"Initializing service assembly: {manifest.FriendlyName}.");
+            logger.LogInformation("Initializing service assembly: {ServiceName}.", manifest.FriendlyName);
 
             var assemblyServiceCollection = new ServiceCollection();
 
-            RedirectCommonServicesFromOuterContainer(assemblyServiceCollection);
+            RedirectCommonServices(assemblyServiceCollection, context);
+            sharedServiceRegistry.RedirectServices(applicationServiceProvider, assemblyServiceCollection);
 
-            manifest.RegisterDependencies(assemblyServiceCollection, _context);
+            manifest.RegisterDependencies(assemblyServiceCollection, context);
+
             var assemblyServiceProvider = assemblyServiceCollection.BuildServiceProvider();
+            _serviceAssemblyServiceProviders.Add(assemblyServiceProvider);
 
-            var servicesToAdd = assemblyServiceProvider.GetServices<IHostedServiceBase>();
-            _services.AddRange(servicesToAdd);
+#pragma warning disable CS0618 // Type or member is obsolete
+            var servicesToAdd = assemblyServiceProvider.GetServices<IHostedService>();
+#pragma warning restore CS0618 // Type or member is obsolete
+            var asyncServicesToAdd = assemblyServiceProvider.GetServices<IHostedServiceAsync>();
+            _services.AddRange(servicesToAdd.Select(s => new HostedServiceContainer(null, s)));
+            _services.AddRange(asyncServicesToAdd.Select(s => new HostedServiceContainer(s, null)));
 
-            var messageHandlerType = typeof(IMessageHandler);
-            foreach (var messageHandlerServiceType in assemblyServiceCollection
-                         .Where(s => messageHandlerType.IsAssignableFrom(s.ServiceType))
-                         .Select(s => s.ServiceType))
-            {
-                // keep a reference to the providing service provider within the dispatcher for every registered message handler
-                _log.LogDebug(
-                    $"Add message handler factory function to dispatcher: {messageHandlerServiceType.FullName}.");
-                _messageDispatcher.AddHandler(messageHandlerServiceType.FullName!,
-                    () => (IMessageHandler) assemblyServiceProvider.GetRequiredService(messageHandlerServiceType));
-            }
+            var assemblyMessageHandlerTypes = new ServiceMessageHandlerTypes(assemblyServiceCollection);
+            AddMessageHandlersToDispatcher(assemblyMessageHandlerTypes.GetMessageHandlerTypes(), assemblyServiceProvider);
         }
     }
 
-    private void RedirectCommonServicesFromOuterContainer(IServiceCollection assemblyServices)
+    private void RedirectCommonServices(IServiceCollection assemblyServices, ServiceHostContext context)
     {
-        assemblyServices.AddSingleton(_ => _runtimeApplicationServiceProvider.GetRequiredService<IConfiguration>());
-                
-        assemblyServices.AddSingleton(_ => _runtimeApplicationServiceProvider.GetRequiredService<IMessagingInfrastructure>());
-        assemblyServices.AddSingleton(_ => _runtimeApplicationServiceProvider.GetRequiredService<IStorageInfrastructure>());
-
-        assemblyServices.AddTransient(_ => _runtimeApplicationServiceProvider.GetRequiredService<ILogger>());
+        assemblyServices.AddSingleton(_ => applicationServiceProvider.GetRequiredService<ILoggerFactory>());
+        assemblyServices.AddTransient(_ => applicationServiceProvider.GetRequiredService<ILogger>());
         assemblyServices.AddTransient(typeof(ILogger<>), typeof(Logger<>));
 
-        assemblyServices.AddSingleton(_ => _runtimeApplicationServiceProvider.GetRequiredService<ILoggerFactory>());
-        assemblyServices.AddSingleton(_ => _runtimeApplicationServiceProvider.GetRequiredService<IHostInfo>());
+        assemblyServices.AddSingleton(_ => applicationServiceProvider.GetRequiredService<IServiceHostInfo>());
+        assemblyServices.AddSingleton(_ => context.Environment);
+
+        assemblyServices.AddSingleton(_ => applicationServiceProvider.GetRequiredService<IConfiguration>());
+
+        assemblyServices.AddSingleton(_ => applicationServiceProvider.GetRequiredService<IMessagingInfrastructure>());
+        assemblyServices.AddSingleton(_ => applicationServiceProvider.GetRequiredService<IStorageInfrastructure>());
     }
 
-    private void AddRuntimeMessageHandlersToDispatcher()
+    private void AddApplicationMessageHandlersToDispatcher()
+        => AddMessageHandlersToDispatcher(hostMessageHandlerTypes.GetMessageHandlerTypes(), applicationServiceProvider);
+
+    private void AddMessageHandlersToDispatcher(IEnumerable<Type> messageHandlerTypes, IServiceProvider serviceProvider)
     {
-        foreach(var runtimeApplicationMessageHandler in _runtimeApplicationServiceProvider.GetServices<IMessageHandler>())
+        foreach (var type in messageHandlerTypes)
         {
-            var type = runtimeApplicationMessageHandler.GetType();
-            _log.LogDebug($"Add runtime message handler factory function to dispatcher: {type.FullName}.");
-            _messageDispatcher.AddHandler(type.FullName!, () => runtimeApplicationMessageHandler);
+            logger.LogDebug("Add message handler factory function to dispatcher: {MessageHandlerType}.", type.FullName);
+            messageDispatcher.AddHandler(type, () => (IMessageHandler)serviceProvider.GetRequiredService(type));
         }
     }
 
     private string GetEnvironment()
     {
-        string? environment = null;
+        var environment = configuration["environment"];
 
-        if (_configuration != null)
-            environment = _configuration["environment"];
-
-        if(string.IsNullOrWhiteSpace(environment))
+        if (string.IsNullOrWhiteSpace(environment))
+        {
             environment = Environment.GetEnvironmentVariable("NETCORE_ENVIRONMENT")
                           ?? Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT");
+        }
 
         return string.IsNullOrEmpty(environment) ? "Production" : environment;
     }
+
+    private ServiceHostEnvironment BuildServiceHostEnvironment()
+        => new()
+        {
+            ApplicationName = Assembly.GetEntryAssembly()?.GetName().Name,
+            EnvironmentName = GetEnvironment()
+        };
+
+    private ServiceHostContext BuildServiceHostContext()
+        => new()
+        {
+            Configuration = applicationServiceProvider.GetRequiredService<IConfiguration>(),
+            Environment = BuildServiceHostEnvironment(),
+            HostInfo = applicationServiceProvider.GetRequiredService<IServiceHostInfo>()
+        };
+
+#pragma warning disable CS0618 // Type or member is obsolete
+    private sealed record HostedServiceContainer(IHostedServiceAsync? AsyncService, IHostedService? Service);
+#pragma warning restore CS0618 // Type or member is obsolete
 }

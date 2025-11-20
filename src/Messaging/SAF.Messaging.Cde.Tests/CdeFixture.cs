@@ -2,12 +2,11 @@
 //
 // SPDX-License-Identifier: MPL-2.0
 
+namespace SAF.Messaging.Cde.Tests;
 using System.Diagnostics;
 using nsCDEngine.BaseClasses;
 using nsCDEngine.Security;
 using nsCDEngine.ViewModels;
-
-namespace SAF.Messaging.Cde.Tests;
 
 public sealed class CdeFixture : IDisposable
 {

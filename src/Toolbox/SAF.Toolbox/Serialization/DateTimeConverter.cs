@@ -2,10 +2,9 @@
 //
 // SPDX-License-Identifier: MPL-2.0
 
+namespace SAF.Toolbox.Serialization;
 using System.Text.Json;
 using System.Text.Json.Serialization;
-
-namespace SAF.Toolbox.Serialization;
 
 internal class DateTimeConverter : JsonConverter<DateTime>
 {

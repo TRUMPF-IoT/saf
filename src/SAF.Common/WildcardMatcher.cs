@@ -13,7 +13,7 @@ public static class WildcardMatcher
 
     public static unsafe bool IsMatch(this string @string, string pattern)
     {
-        // Optimize catch-all and equality
+        // optimize catch-all and equality
         if(pattern == All) return true;
 
         fixed(char* p = pattern)

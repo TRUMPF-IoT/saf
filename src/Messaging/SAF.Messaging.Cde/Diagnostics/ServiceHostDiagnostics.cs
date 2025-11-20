@@ -2,22 +2,21 @@
 //
 // SPDX-License-Identifier: MPL-2.0
 
+namespace SAF.Messaging.Cde.Diagnostics;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using nsCDEngine.BaseClasses;
-using SAF.Common;
 using Microsoft.Extensions.DependencyInjection;
+using Hosting.Contracts;
 using IHostedService = Microsoft.Extensions.Hosting.IHostedService;
-
-namespace SAF.Messaging.Cde.Diagnostics;
 
 internal class ServiceHostDiagnostics : IHostedService
 {
     private readonly ILogger<ServiceHostDiagnostics> _log;
     private readonly IServiceProvider _serviceProvider;
-    private readonly IHostInfo _hostInfo;
+    private readonly IServiceHostInfo _hostInfo;
 
-    public ServiceHostDiagnostics(ILogger<ServiceHostDiagnostics> log, IServiceProvider serviceProvider, IHostInfo hostInfo)
+    public ServiceHostDiagnostics(ILogger<ServiceHostDiagnostics> log, IServiceProvider serviceProvider, IServiceHostInfo hostInfo)
     {
         _log = log ?? NullLogger<ServiceHostDiagnostics>.Instance;
         _serviceProvider = serviceProvider;

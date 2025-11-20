@@ -2,9 +2,8 @@
 //
 // SPDX-License-Identifier: MPL-2.0
 
-using System.Diagnostics;
-
 namespace TestUtilities;
+using System.Diagnostics;
 
 public static class WaitUtils
 {

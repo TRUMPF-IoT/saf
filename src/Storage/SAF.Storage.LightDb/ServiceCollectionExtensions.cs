@@ -3,11 +3,10 @@
 // SPDX-License-Identifier: MPL-2.0
 
 
+namespace SAF.Storage.LiteDb;
 using Microsoft.Extensions.DependencyInjection;
 using LiteDB;
-using SAF.Common;
-
-namespace SAF.Storage.LiteDb;
+using Common;
 
 public static class ServiceCollectionExtensions
 {

@@ -2,14 +2,13 @@
 //
 // SPDX-License-Identifier: MPL-2.0
 
+namespace SAF.Messaging.Cde;
 using System.Text;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using nsCDEngine.Engines.StorageService;
 using nsCDEngine.ViewModels;
-using SAF.Common;
-
-namespace SAF.Messaging.Cde;
+using Common;
 
 internal class StorageEntry : TheDataBase
 {

@@ -2,11 +2,11 @@
 //
 // SPDX-License-Identifier: MPL-2.0
 
-using SAF.Common;
-using SAF.Communication.PubSub.Interfaces;
-using Xunit;
-
 namespace SAF.Communication.PubSub.Tests;
+using NSubstitute;
+using Common;
+using Interfaces;
+using Xunit;
 
 public class TestCommunicationPubSub
 {
@@ -95,8 +95,8 @@ internal class TestRegistryLifetimeHandlerBase : RegistryLifetimeHandlerBase<Top
 
     public TestRegistryLifetimeHandlerBase() : base(1)
     {
-        base.RegistryUp += OnRegistryUp;
-        base.RegistryDown += OnRegistryDown;
+        RegistryUp += OnRegistryUp;
+        RegistryDown += OnRegistryDown;
     }
 
     public void HandleMessageDiscoveryResponse(Topic msg)

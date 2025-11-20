@@ -2,15 +2,14 @@
 //
 // SPDX-License-Identifier: MPL-2.0
 
+namespace SAF.Communication.PubSub.Cde.Tests;
 using NSubstitute;
 using Xunit;
-using SAF.Common;
+using Common;
 using SAF.Communication.Cde;
-using SAF.Communication.PubSub.Interfaces;
+using Interfaces;
 using nsCDEngine.ViewModels;
 using nsCDEngine.BaseClasses;
-
-namespace SAF.Communication.PubSub.Cde.Tests;
 
 public class TestCommunicationPubSubCde
 {

@@ -1,28 +1,23 @@
-﻿// SPDX-FileCopyrightText: 2017-2021 TRUMPF Laser GmbH
+// SPDX-FileCopyrightText: 2017-2021 TRUMPF Laser GmbH
 //
 // SPDX-License-Identifier: MPL-2.0
+
+namespace SAF.Toolbox.Tests;
 
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using NSubstitute;
-using SAF.Common;
-using SAF.Toolbox.FileTransfer;
-using SAF.Toolbox.Heartbeat;
-using SAF.Toolbox.RequestClient;
+using Common;
+using Heartbeat;
+using RequestClient;
+using Toolbox.FileTransfer;
 using Xunit;
-
-namespace SAF.Toolbox.Tests;
 
 public class ServiceCollectionExtensionsTests
 {
-    private readonly ServiceCollection _services;
-
-    public ServiceCollectionExtensionsTests()
-    {
-        _services = new ServiceCollection();
-    }
+    private readonly ServiceCollection _services = [];
 
     [Fact]
     public void AddHeartbeatPoolAddsServiceOk()

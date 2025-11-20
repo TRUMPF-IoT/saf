@@ -58,6 +58,7 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "TestRunnerCde", "TestRunner
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "_build", "_build", "{2C13739B-7911-4D4D-82D5-8FD959A2D362}"
 	ProjectSection(SolutionItems) = preProject
+		.editorconfig = .editorconfig
 		..\Directory.Build.props = ..\Directory.Build.props
 		..\Directory.Packages.props = ..\Directory.Packages.props
 		..\.github\workflows\dotnet-core.yml = ..\.github\workflows\dotnet-core.yml
@@ -100,6 +101,10 @@ EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "SAF.Messaging.Redis.Tests", "Messaging\SAF.Messaging.Redis.Tests\SAF.Messaging.Redis.Tests.csproj", "{DEC01382-8D03-4F37-8794-8CCDC3368358}"
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "SAF.DevToolbox.Tests", "Toolbox\SAF.DevToolbox.Tests\SAF.DevToolbox.Tests.csproj", "{76E45858-11E0-4DBE-93C9-B64BCF312359}"
+EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "SAF.Hosting.Contracts", "Hosting\SAF.Hosting.Contracts\SAF.Hosting.Contracts.csproj", "{59D6F7B1-3E2A-4566-91EA-117BDAE394CA}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SAF.Hosting.Contracts.Tests", "Hosting\SAF.Hosting.Contracts.Tests\SAF.Hosting.Contracts.Tests.csproj", "{292832C7-9208-4EDC-B25D-6B2C0FDD6C0B}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SAF.Messaging.Nats", "Messaging\SAF.Messaging.Nats\SAF.Messaging.Nats.csproj", "{C98C7DE0-3A88-4D8E-9451-B10A7ECE4496}"
 EndProject
@@ -269,6 +274,14 @@ Global
 		{76E45858-11E0-4DBE-93C9-B64BCF312359}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{76E45858-11E0-4DBE-93C9-B64BCF312359}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{76E45858-11E0-4DBE-93C9-B64BCF312359}.Release|Any CPU.Build.0 = Release|Any CPU
+		{59D6F7B1-3E2A-4566-91EA-117BDAE394CA}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{59D6F7B1-3E2A-4566-91EA-117BDAE394CA}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{59D6F7B1-3E2A-4566-91EA-117BDAE394CA}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{59D6F7B1-3E2A-4566-91EA-117BDAE394CA}.Release|Any CPU.Build.0 = Release|Any CPU
+		{292832C7-9208-4EDC-B25D-6B2C0FDD6C0B}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{292832C7-9208-4EDC-B25D-6B2C0FDD6C0B}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{292832C7-9208-4EDC-B25D-6B2C0FDD6C0B}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{292832C7-9208-4EDC-B25D-6B2C0FDD6C0B}.Release|Any CPU.Build.0 = Release|Any CPU
 		{C98C7DE0-3A88-4D8E-9451-B10A7ECE4496}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
 		{C98C7DE0-3A88-4D8E-9451-B10A7ECE4496}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{C98C7DE0-3A88-4D8E-9451-B10A7ECE4496}.Release|Any CPU.ActiveCfg = Release|Any CPU
@@ -316,6 +329,8 @@ Global
 		{6963B94E-EA8B-4E7B-B781-148E7D9FE637} = {65800A90-1808-42B2-89C1-662576050A3A}
 		{DEC01382-8D03-4F37-8794-8CCDC3368358} = {42D58619-E495-4AD4-AAA9-11E8285FCCDE}
 		{76E45858-11E0-4DBE-93C9-B64BCF312359} = {022317AF-352A-4A5B-ADB8-78FE50181121}
+		{59D6F7B1-3E2A-4566-91EA-117BDAE394CA} = {E53CC9A7-AB65-46C0-8AEE-980CFBFCFF31}
+		{292832C7-9208-4EDC-B25D-6B2C0FDD6C0B} = {E53CC9A7-AB65-46C0-8AEE-980CFBFCFF31}
 		{C98C7DE0-3A88-4D8E-9451-B10A7ECE4496} = {42D58619-E495-4AD4-AAA9-11E8285FCCDE}
 		{0669851C-183E-4395-8C87-9BDF50B8A7E5} = {42D58619-E495-4AD4-AAA9-11E8285FCCDE}
 	EndGlobalSection

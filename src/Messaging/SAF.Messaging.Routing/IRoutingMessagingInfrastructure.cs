@@ -3,9 +3,8 @@
 // SPDX-License-Identifier: MPL-2.0
 
 
-using SAF.Common;
-
 namespace SAF.Messaging.Routing;
+using Common;
 
 public interface IRoutingMessagingInfrastructure : IMessagingInfrastructure
 {

@@ -2,10 +2,9 @@
 //
 // SPDX-License-Identifier: MPL-2.0
 
-using Microsoft.Extensions.DependencyInjection;
-using SAF.Common;
-
 namespace SAF.Messaging.Redis;
+using Microsoft.Extensions.DependencyInjection;
+using Common;
 
 public class AssemblyManifest : IMessagingAssemblyManifest
 {

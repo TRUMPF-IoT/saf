@@ -2,9 +2,8 @@
 //
 // SPDX-License-Identifier: MPL-2.0
 
-using Microsoft.Extensions.Logging;
-
 namespace TestUtilities;
+using Microsoft.Extensions.Logging;
 
 public abstract class MockLogger : ILogger
 {

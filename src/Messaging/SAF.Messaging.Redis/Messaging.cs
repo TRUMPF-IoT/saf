@@ -2,14 +2,13 @@
 //
 // SPDX-License-Identifier: MPL-2.0
 
+namespace SAF.Messaging.Redis;
 using System.Collections.Concurrent;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using StackExchange.Redis;
-using SAF.Common;
-using JsonSerializer = SAF.Toolbox.Serialization.JsonSerializer;
-
-namespace SAF.Messaging.Redis;
+using Common;
+using JsonSerializer = Toolbox.Serialization.JsonSerializer;
 
 public static class RedisMessageVersion
 {

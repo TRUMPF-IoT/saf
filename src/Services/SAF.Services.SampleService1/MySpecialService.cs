@@ -2,18 +2,17 @@
 //
 // SPDX-License-Identifier: MPL-2.0
 
+namespace SAF.Services.SampleService1;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
-using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
-using SAF.Common;
-using SAF.Services.SampleService1.AnyOtherInternalLogic;
-using SAF.Services.SampleService1.MessageHandlers;
-using SAF.Toolbox.Serialization;
+using Common;
+using Hosting.Contracts;
+using AnyOtherInternalLogic;
+using MessageHandlers;
+using Toolbox.Serialization;
 
-namespace SAF.Services.SampleService1;
-
-internal class MySpecialService : IHostedService
+internal class MySpecialService : IHostedServiceAsync
 {
     private readonly ILogger<MySpecialService> _log;
     private readonly IMessagingInfrastructure _messaging;
@@ -29,7 +28,7 @@ internal class MySpecialService : IHostedService
         IOptionsMonitor<MyServiceConfiguration> monitoredConfig,
         IConfiguration hostConfig)
     {
-        _log = log ?? NullLogger<MySpecialService>.Instance;
+        _log = log;
         _messaging = messaging;
         _config = serviceConfig;
         _hostConfig = hostConfig;
@@ -39,10 +38,10 @@ internal class MySpecialService : IHostedService
         monitoredConfig.OnChange(OnServiceConfigurationChanged);
     }
 
-    public void Start()
+    public Task StartAsync(CancellationToken cancelToken)
     {
-        _subscriptions.AddRange(new[]
-        {
+        _subscriptions.AddRange(
+        [
             _messaging.Subscribe<CatchAllMessageHandler>(),
             _messaging.Subscribe<PingMessageHandler>("ping/request"),
             _messaging.Subscribe("ping/request", m =>
@@ -58,15 +57,19 @@ internal class MySpecialService : IHostedService
                     Topic = "pong/response", Payload = JsonSerializer.Serialize(new { req.Id })
                 });
             })
-        });
+        ]);
 
         _log.LogInformation("My special service started.");
+
+        return Task.CompletedTask;
     }
 
-    public void Stop()
+    public Task StopAsync(CancellationToken cancelToken)
     {
         _log.LogInformation("My special service stopped.");
         UnsubscribeAll();
+
+        return Task.CompletedTask;
     }
 
     public void Kill()
@@ -84,7 +87,5 @@ internal class MySpecialService : IHostedService
     }
 
     private void OnServiceConfigurationChanged(MyServiceConfiguration newConfig, string? optionName)
-    {
-        _log.LogInformation($"Service configuration changed: {newConfig.MyNumericSetting}, {newConfig.MyStringSetting}");
-    }
+        => _log.LogInformation($"Service configuration changed: {newConfig.MyNumericSetting}, {newConfig.MyStringSetting}");
 }

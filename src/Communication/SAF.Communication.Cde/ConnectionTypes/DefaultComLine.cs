@@ -2,11 +2,10 @@
 //
 // SPDX-License-Identifier: MPL-2.0
 
+namespace SAF.Communication.Cde.ConnectionTypes;
 using nsCDEngine.BaseClasses;
 using nsCDEngine.Communication;
 using nsCDEngine.Engines.ThingService;
-
-namespace SAF.Communication.Cde.ConnectionTypes;
 
 /// <summary>
 /// Link class between the C-DEngine object <c>TheThing</c> and the SAF objects

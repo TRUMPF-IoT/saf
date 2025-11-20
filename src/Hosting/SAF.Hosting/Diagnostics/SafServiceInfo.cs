@@ -2,12 +2,12 @@
 //
 // SPDX-License-Identifier: MPL-2.0
 
-using SAF.Common;
-using System.Diagnostics;
-
 namespace SAF.Hosting.Diagnostics;
 
-public class SafServiceInfo
+using System.Diagnostics;
+using Contracts;
+
+internal class SafServiceInfo
 {
     public SafServiceInfo(IServiceAssemblyManifest assembly)
     {

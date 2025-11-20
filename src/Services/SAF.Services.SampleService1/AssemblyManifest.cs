@@ -2,13 +2,12 @@
 //
 // SPDX-License-Identifier: MPL-2.0
 
-using Microsoft.Extensions.DependencyInjection;
-using SAF.Common;
-using SAF.Services.SampleService1.AnyOtherInternalLogic;
-using SAF.Services.SampleService1.MessageHandlers;
-using SAF.Toolbox;
-
 namespace SAF.Services.SampleService1;
+using Microsoft.Extensions.DependencyInjection;
+using Hosting.Contracts;
+using AnyOtherInternalLogic;
+using MessageHandlers;
+using Toolbox;
 
 public class AssemblyManifest : IServiceAssemblyManifest
 {
@@ -25,6 +24,6 @@ public class AssemblyManifest : IServiceAssemblyManifest
         services.AddServiceConfiguration<MyServiceConfiguration>(context.Configuration, nameof(MySpecialService));
 
         // "microservices"
-        services.AddHosted<MySpecialService>();
+        services.AddHostedAsync<MySpecialService>();
     }
 }

@@ -2,10 +2,9 @@
 //
 // SPDX-License-Identifier: MPL-2.0
 
-using Microsoft.Extensions.DependencyInjection;
-using SAF.Common;
-
 namespace TestSequenceRunner;
+using Microsoft.Extensions.DependencyInjection;
+using SAF.Hosting.Contracts;
 
 public class TestAssemblyManifest : IServiceAssemblyManifest
 {
