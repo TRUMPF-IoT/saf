@@ -239,7 +239,7 @@ internal class ServiceHost(
         }
     }
 
-    private void RedirectCommonServices(IServiceCollection assemblyServices, IServiceHostContext context)
+    private void RedirectCommonServices(IServiceCollection assemblyServices, ServiceHostContext context)
     {
         assemblyServices.AddSingleton(_ => applicationServiceProvider.GetRequiredService<ILoggerFactory>());
         assemblyServices.AddTransient(_ => applicationServiceProvider.GetRequiredService<ILogger>());
