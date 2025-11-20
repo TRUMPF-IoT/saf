@@ -5,6 +5,7 @@
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Hosting;
 using SAF.Hosting;
+using SAF.Hosting.Diagnostics;
 using SAF.Messaging.Redis;
 
 Console.Title = "SAF Redis Test Host";

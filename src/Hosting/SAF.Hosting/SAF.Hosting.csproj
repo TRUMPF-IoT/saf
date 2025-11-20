@@ -1,4 +1,4 @@
-<!--
+﻿<!--
 SPDX-FileCopyrightText: 2017-2020 TRUMPF Laser GmbH
 
 SPDX-License-Identifier: MPL-2.0
@@ -28,6 +28,9 @@ SPDX-License-Identifier: MPL-2.0
 
   <ItemGroup>
     <InternalsVisibleTo Include="$(AssemblyName).Tests" />
+    <InternalsVisibleTo Include="SAF.Messaging.InProcess.Tests" />
+    <InternalsVisibleTo Include="SAF.Messaging.LoadTest" />
+    <InternalsVisibleTo Include="SAF.DevToolbox" />
     <InternalsVisibleTo Include="DynamicProxyGenAssembly2" />
   </ItemGroup>
 

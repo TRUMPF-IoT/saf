@@ -3,6 +3,7 @@
 // SPDX-License-Identifier: MPL-2.0
 
 namespace SAF.Hosting;
+
 using System.Diagnostics;
 using System.Reflection;
 using Microsoft.Extensions.Configuration;
@@ -14,7 +15,7 @@ using Contracts;
 /// <summary>
 /// Central entry point for initializing and starting the services used.
 /// </summary>
-public class ServiceHost(
+internal class ServiceHost(
     ILogger<ServiceHost> logger,
     IServiceProvider applicationServiceProvider,
     IServiceMessageHandlerTypes hostMessageHandlerTypes,

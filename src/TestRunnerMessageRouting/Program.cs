@@ -8,6 +8,7 @@ using SAF.Hosting;
 using SAF.Messaging.Cde;
 using SAF.Messaging.Redis;
 using SAF.Messaging.Routing;
+using SAF.Hosting.Diagnostics;
 
 Console.Title = "SAF Message Routing Test Host";
 

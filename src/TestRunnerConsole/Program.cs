@@ -7,6 +7,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using SAF.Common;
 using SAF.Hosting;
+using SAF.Hosting.Diagnostics;
 using SAF.Messaging.InProcess;
 
 Console.Title = "SAF InProcess Test Host";

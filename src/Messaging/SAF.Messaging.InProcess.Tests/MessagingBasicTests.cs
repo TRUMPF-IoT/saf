@@ -3,10 +3,11 @@
 // SPDX-License-Identifier: MPL-2.0
 
 namespace SAF.Messaging.InProcess.Tests;
+
 using Microsoft.Extensions.Logging.Abstractions;
 using Common;
-using Hosting;
 using TestUtilities;
+using SAF.Hosting;
 using Xunit;
 
 public class MessagingBasicTests

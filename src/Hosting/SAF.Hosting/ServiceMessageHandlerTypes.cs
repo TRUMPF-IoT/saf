@@ -7,7 +7,7 @@ namespace SAF.Hosting;
 using Common;
 using Microsoft.Extensions.DependencyInjection;
 
-public interface IServiceMessageHandlerTypes
+internal interface IServiceMessageHandlerTypes
 {
     IEnumerable<Type> GetMessageHandlerTypes();
 }

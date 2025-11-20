@@ -2,14 +2,14 @@
 //
 // SPDX-License-Identifier: MPL-2.0
 
+namespace TestRunnerNats;
+
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Hosting;
-using Microsoft.Extensions.Logging;
 using SAF.Hosting;
 using SAF.Messaging.Nats;
-
-namespace TestRunnerNats;
+using SAF.Hosting.Diagnostics;
 
 public static class Program
 {

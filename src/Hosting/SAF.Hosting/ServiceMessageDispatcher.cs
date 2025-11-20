@@ -7,7 +7,7 @@ namespace SAF.Hosting;
 using Microsoft.Extensions.Logging;
 using Common;
 
-public class ServiceMessageDispatcher(ILogger<ServiceMessageDispatcher> log) : IServiceMessageDispatcher
+internal class ServiceMessageDispatcher(ILogger<ServiceMessageDispatcher> log) : IServiceMessageDispatcher
 {
     private readonly Dictionary<string, Func<IMessageHandler>> _messageHandlerProviders = [];
     

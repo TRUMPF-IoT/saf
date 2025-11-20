@@ -3,9 +3,11 @@
 // SPDX-License-Identifier: MPL-2.0
 
 namespace SAF.Hosting.Tests;
+
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using NSubstitute;
+using SAF.Hosting.Contracts;
 using TestUtilities;
 using Xunit;
 

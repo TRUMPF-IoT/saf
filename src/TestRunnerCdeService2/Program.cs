@@ -7,6 +7,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using SAF.Common;
 using SAF.Hosting;
+using SAF.Hosting.Diagnostics;
 using SAF.Messaging.Cde;
 using SAF.Messaging.Cde.Diagnostics;
 
