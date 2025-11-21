@@ -79,7 +79,7 @@ public class RemoteSubscriberTests
     }
 
     [Fact]
-    public void Broadcast_V4_QueuesForBatchProcessing()
+    public async Task Broadcast_V4_QueuesForBatchProcessing()
     {
         using var processedEvent = new ManualResetEvent(false);
 
@@ -92,7 +92,8 @@ public class RemoteSubscriberTests
         var bm = CreateBroadcastMessage(channel: "sensor/1");
         rs.Broadcast(bm);
 
-        Assert.True(processedEvent.WaitOne(TimeSpan.FromSeconds(5)));
+        var eventProcessed = await Task.Run(() => processedEvent.WaitOne(TimeSpan.FromSeconds(5)));
+        Assert.True(eventProcessed);
         _line.Received().AnswerToSender(rs.Tsm,
             Arg.Is<TSM>(t => t.TXT.StartsWith(MessageToken.Publish) && t.TXT.Contains("$$batch")));
     }
@@ -132,7 +133,7 @@ public class RemoteSubscriberTests
     {
         var tsm = new TSM(Engines.PubSub, MessageToken.SubscribeRequest) { ORG = localHost ? _line.Address : "remote" };
         var req = new RegistrySubscriptionRequest { version = version, isRegistry = false };
-        return new RemoteSubscriber(_line, tsm, patterns ?? new List<string> { "sensor/*" }, req);
+        return new RemoteSubscriber(_line, tsm, patterns ?? ["sensor/*"], req);
     }
 
     private static BroadcastMessage CreateBroadcastMessage(string channel = "sensor/1", string payload = "data", string userId = "user", string version = PubSubVersion.V4)
