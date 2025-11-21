@@ -94,13 +94,13 @@ jobs:
         SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
       shell: powershell
       run: |
-        dotnet dotnet-sonarscanner begin /k:"TRUMPF-IoT_saf" /o:"trumpf-iot" /d:sonar.token="${{ secrets.SONAR_TOKEN }}" /d:sonar.host.url="https://sonarcloud.io" /d:sonar.dotnet.excludeTestProjects=true /d:sonar.cs.vscoveragexml.reportsPaths=coverage.xml
+        dotnet dotnet-sonarscanner begin /k:"TRUMPF-IoT_saf" /o:"trumpf-iot" /d:sonar.token="$SONAR_TOKEN" /d:sonar.host.url="https://sonarcloud.io" /d:sonar.dotnet.excludeTestProjects=true /d:sonar.cs.vscoveragexml.reportsPaths=coverage.xml
         if ( $LASTEXITCODE -ne 0 ) { exit $LASTEXITCODE }
         dotnet build './src/SmartApplicationFramework.sln' --configuration Release --no-restore
         if ( $LASTEXITCODE -ne 0 ) { exit $LASTEXITCODE }
         dotnet dotnet-coverage collect -f xml -o coverage.xml 'dotnet test ./src/SmartApplicationFramework.sln --configuration Release --no-build --no-restore --verbosity normal'
         if ( $LASTEXITCODE -ne 0 ) { exit $LASTEXITCODE }
-        dotnet dotnet-sonarscanner end /d:sonar.token="${{ secrets.SONAR_TOKEN }}"
+        dotnet dotnet-sonarscanner end /d:sonar.token="$SONAR_TOKEN"
         if ( $LASTEXITCODE -ne 0 ) { exit $LASTEXITCODE }
       
     - name: Pack
