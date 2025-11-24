@@ -2,13 +2,13 @@
 //
 // SPDX-License-Identifier: MPL-2.0
 
+namespace SAF.Communication.PubSub.Cde.Tests.MessageProcessing;
+
 using System.Collections.Concurrent;
 using SAF.Communication.PubSub.Cde.MessageProcessing;
 using SAF.Communication.PubSub.Interfaces;
 using SAF.Common;
 using Xunit;
-
-namespace SAF.Communication.PubSub.Cde.Tests.MessageProcessing;
 
 public class BroadcastMessageQueueTests
 {
@@ -77,7 +77,7 @@ public class BroadcastMessageQueueTests
     }
 
     [Fact]
-    public void Enqueue_MessageAddedDuringProcessing_IsProcessedInNextIteration()
+    public async Task Enqueue_MessageAddedDuringProcessing_IsProcessedInNextIteration()
     {
         var calls = 0; 
         
@@ -100,7 +100,8 @@ public class BroadcastMessageQueueTests
 
         queue.Enqueue(CreateBroadcastMessage("user1"));
 
-        Assert.True(doneEvent.Wait(TimeSpan.FromSeconds(5)), "Second iteration not processed");
+        var eventProcessed = await Task.Run(() => doneEvent.Wait(TimeSpan.FromSeconds(5)));
+        Assert.True(eventProcessed, "Second iteration not processed");
         Assert.Equal(2, calls);
     }
 
