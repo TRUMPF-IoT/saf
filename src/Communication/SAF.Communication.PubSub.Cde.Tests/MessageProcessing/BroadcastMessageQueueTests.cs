@@ -2,13 +2,14 @@
 //
 // SPDX-License-Identifier: MPL-2.0
 
+namespace SAF.Communication.PubSub.Cde.Tests.MessageProcessing;
+
 using System.Collections.Concurrent;
 using SAF.Communication.PubSub.Cde.MessageProcessing;
 using SAF.Communication.PubSub.Interfaces;
 using SAF.Common;
 using Xunit;
-
-namespace SAF.Communication.PubSub.Cde.Tests.MessageProcessing;
+using Xunit.Abstractions;
 
 public class BroadcastMessageQueueTests
 {
@@ -77,12 +78,11 @@ public class BroadcastMessageQueueTests
     }
 
     [Fact]
-    public void Enqueue_MessageAddedDuringProcessing_IsProcessedInNextIteration()
+    public async Task Enqueue_MessageAddedDuringProcessing_IsProcessedInNextIteration()
     {
-        var calls = 0; 
+        var calls = 0;
+        var doneEvent = new TaskCompletionSource<bool>();
         
-        using var doneEvent = new ManualResetEventSlim();
-
         BroadcastMessageQueue? queue = null;
         queue = new BroadcastMessageQueue((_, messages) =>
         {
@@ -94,13 +94,17 @@ public class BroadcastMessageQueueTests
 
             if (calls == 2)
             {
-                doneEvent.Set();
+                doneEvent.TrySetResult(true);
             }
         });
 
+        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(5));
+        using var tokenReg = cts.Token.Register(() => doneEvent.TrySetResult(false));
+
         queue.Enqueue(CreateBroadcastMessage("user1"));
 
-        Assert.True(doneEvent.Wait(TimeSpan.FromSeconds(5)), "Second iteration not processed");
+        var eventProcessed = await doneEvent.Task;
+        Assert.True(eventProcessed, "Second iteration not processed");
         Assert.Equal(2, calls);
     }
 
