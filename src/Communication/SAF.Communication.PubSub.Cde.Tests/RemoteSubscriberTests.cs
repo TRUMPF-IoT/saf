@@ -81,18 +81,22 @@ public class RemoteSubscriberTests
     [Fact]
     public async Task Broadcast_V4_QueuesForBatchProcessing()
     {
-        using var processedEvent = new ManualResetEvent(false);
+        var processedEvent = new TaskCompletionSource<bool>();
 
         _line.When(m =>
                 m.AnswerToSender(Arg.Any<TSM>(), Arg.Is<TSM>(t => t.TXT.StartsWith(MessageToken.Publish) && t.TXT.Contains("$$batch"))))
-            .Do(_ => processedEvent.Set());
+            .Do(_ => processedEvent.TrySetResult(true));
 
         var rs = Create(PubSubVersion.V4, ["sensor/*"], localHost: true);
 
         var bm = CreateBroadcastMessage(channel: "sensor/1");
+
+        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(5));
+        using var tokenReg = cts.Token.Register(() => processedEvent.TrySetResult(false));
+
         rs.Broadcast(bm);
 
-        var eventProcessed = await Task.Run(() => processedEvent.WaitOne(TimeSpan.FromSeconds(5)));
+        var eventProcessed = await processedEvent.Task;
         Assert.True(eventProcessed);
         _line.Received().AnswerToSender(rs.Tsm,
             Arg.Is<TSM>(t => t.TXT.StartsWith(MessageToken.Publish) && t.TXT.Contains("$$batch")));
