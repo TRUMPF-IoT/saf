@@ -14,9 +14,7 @@ internal class PingRequest
     public string Id { get; set; } = default!;
 }
 
-#pragma warning disable CS0618 // Type or member is obsolete
 public class MyService : IHostedService
-#pragma warning restore CS0618 // Type or member is obsolete
 {
     private readonly ILogger<MyService> _log;
     private readonly IMessagingInfrastructure _messaging;

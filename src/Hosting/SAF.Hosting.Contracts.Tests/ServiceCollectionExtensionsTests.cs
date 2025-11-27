@@ -10,14 +10,14 @@ using Xunit;
 public class ServiceCollectionExtensionsTests
 {
     [Fact]
-    [Obsolete("Remove this test when IHostedService gets removed.")]
     public void AddHostedAddsServiceOk()
     {
         var services = new ServiceCollection();
         services.AddHosted<MockHostedService>();
 
-        Assert.Contains(services, sd => sd.ServiceType == typeof(IHostedService));
-        Assert.Contains(services, sd => sd.ImplementationType == typeof(MockHostedService));
+        Assert.Contains(services, sd => sd.ServiceType == typeof(IHostedServiceAsync));
+        Assert.Contains(services, sd => sd.ServiceType == typeof(HostedServiceWrapper<MockHostedService>));
+        Assert.Contains(services, sd => sd.ServiceType == typeof(MockHostedService));
     }
 
     [Fact]
@@ -30,7 +30,6 @@ public class ServiceCollectionExtensionsTests
         Assert.Contains(services, sd => sd.ImplementationType == typeof(MockHostedServiceAsync));
     }
 
-    [Obsolete("Remove this class when IHostedService gets removed.")]
     private class MockHostedService : IHostedService
     {
         public void Start() { }

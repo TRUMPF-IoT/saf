@@ -26,7 +26,7 @@ internal class ServiceHost(
     : Microsoft.Extensions.Hosting.IHostedService
 {
     private readonly List<ServiceProvider> _serviceAssemblyServiceProviders = [];
-    private readonly List<HostedServiceContainer> _services = [];
+    private readonly List<IHostedServiceAsync> _services = [];
 
     public Task StartAsync(CancellationToken cancellationToken)
         => Task.Run(async () =>
@@ -101,7 +101,7 @@ internal class ServiceHost(
             stopWatch.Elapsed.TotalMilliseconds * 1000000);
     }
 
-    private async Task StartServicesAsync(IEnumerable<HostedServiceContainer> services, CancellationToken cancelToken)
+    private async Task StartServicesAsync(IEnumerable<IHostedServiceAsync> services, CancellationToken cancelToken)
     {
         var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(cancelToken);
         try
@@ -114,23 +114,13 @@ internal class ServiceHost(
                 var serviceStopWatch = new Stopwatch();
                 serviceStopWatch.Start();
 
-                if (service.AsyncService is not null)
-                {
-                    asyncServiceStarts.Add(service.AsyncService.StartAsync(linkedCts.Token)
-                        .ContinueWith(_ =>
-                        {
-                            serviceStopWatch.Stop();
-                            LogServiceStartupTime(service, serviceStopWatch);
+                asyncServiceStarts.Add(service.StartAsync(linkedCts.Token)
+                    .ContinueWith(_ =>
+                    {
+                        serviceStopWatch.Stop();
+                        LogServiceStartupTime(service, serviceStopWatch);
 
-                        }, linkedCts.Token));
-                }
-                else
-                {
-                    service.Service?.Start();
-
-                    serviceStopWatch.Stop();
-                    LogServiceStartupTime(service, serviceStopWatch);
-                }
+                    }, linkedCts.Token));
             }
 
             await Task.WhenAll(asyncServiceStarts);
@@ -149,7 +139,7 @@ internal class ServiceHost(
         }
     }
 
-    private async Task StopServicesAsync(IEnumerable<HostedServiceContainer> services, CancellationToken cancelToken)
+    private async Task StopServicesAsync(IEnumerable<IHostedServiceAsync> services, CancellationToken cancelToken)
     {
         var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(cancelToken);
         try
@@ -162,23 +152,13 @@ internal class ServiceHost(
                 var serviceStopWatch = new Stopwatch();
                 serviceStopWatch.Start();
 
-                if (service.AsyncService is not null)
-                {
-                    asyncServiceStops.Add(service.AsyncService.StopAsync(linkedCts.Token)
-                        .ContinueWith(_ =>
-                        {
-                            serviceStopWatch.Stop();
-                            LogServiceShutdownTime(service, serviceStopWatch);
+                asyncServiceStops.Add(service.StopAsync(linkedCts.Token)
+                    .ContinueWith(_ =>
+                    {
+                        serviceStopWatch.Stop();
+                        LogServiceShutdownTime(service, serviceStopWatch);
 
-                        }, linkedCts.Token));
-                }
-                else
-                {
-                    service.Service?.Stop();
-
-                    serviceStopWatch.Stop();
-                    LogServiceShutdownTime(service, serviceStopWatch);
-                }
+                    }, linkedCts.Token));
             }
 
             await Task.WhenAll(asyncServiceStops);
@@ -197,16 +177,16 @@ internal class ServiceHost(
         }
     }
 
-    private void LogServiceStartupTime(HostedServiceContainer service, Stopwatch stopWatch)
+    private void LogServiceStartupTime(IHostedServiceAsync service, Stopwatch stopWatch)
         => logger.LogInformation(
             "Started service: {ServiceName}, start-up took {ServiceStartUpTime:N0} ns",
-            service.AsyncService?.GetType().Name ?? service.Service?.GetType().Name,
+            service.GetType().Name ?? service.GetType().Name,
             stopWatch.Elapsed.TotalMilliseconds * 1000000);
 
-    private void LogServiceShutdownTime(HostedServiceContainer service, Stopwatch stopWatch)
+    private void LogServiceShutdownTime(IHostedServiceAsync service, Stopwatch stopWatch)
         => logger.LogInformation(
             "Stopped service: {ServiceName}, shutdown took {ServiceStartUpTime:N0} ns",
-            service.AsyncService?.GetType().Name ?? service.Service?.GetType().Name,
+            service.GetType().Name ?? service.GetType().Name,
             stopWatch.Elapsed.TotalMilliseconds * 1000000);
 
     private void InitializeServices()
@@ -227,12 +207,8 @@ internal class ServiceHost(
             var assemblyServiceProvider = assemblyServiceCollection.BuildServiceProvider();
             _serviceAssemblyServiceProviders.Add(assemblyServiceProvider);
 
-#pragma warning disable CS0618 // Type or member is obsolete
-            var servicesToAdd = assemblyServiceProvider.GetServices<IHostedService>();
-#pragma warning restore CS0618 // Type or member is obsolete
             var asyncServicesToAdd = assemblyServiceProvider.GetServices<IHostedServiceAsync>();
-            _services.AddRange(servicesToAdd.Select(s => new HostedServiceContainer(null, s)));
-            _services.AddRange(asyncServicesToAdd.Select(s => new HostedServiceContainer(s, null)));
+            _services.AddRange(asyncServicesToAdd);
 
             var assemblyMessageHandlerTypes = new ServiceMessageHandlerTypes(assemblyServiceCollection);
             AddMessageHandlersToDispatcher(assemblyMessageHandlerTypes.GetMessageHandlerTypes(), assemblyServiceProvider);
@@ -293,8 +269,4 @@ internal class ServiceHost(
             Environment = BuildServiceHostEnvironment(),
             HostInfo = applicationServiceProvider.GetRequiredService<IServiceHostInfo>()
         };
-
-#pragma warning disable CS0618 // Type or member is obsolete
-    private sealed record HostedServiceContainer(IHostedServiceAsync? AsyncService, IHostedService? Service);
-#pragma warning restore CS0618 // Type or member is obsolete
 }

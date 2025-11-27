@@ -23,12 +23,11 @@ public class ServiceHostTests
     private readonly IServiceAssemblyManifest _assemblyManifest = Substitute.For<IServiceAssemblyManifest>();
 
     [Fact]
-    [Obsolete("Is obsolete when IHostedService will be removed")]
     public async Task StartAsyncInitializesAndStartsHostedServices()
     {
         var service = Substitute.For<IHostedService>();
 
-        var host = SetupServiceHost(_ => { }, services => services.AddSingleton(service));
+        var host = SetupServiceHost(_ => { }, services => services.AddSingleton<IHostedServiceAsync>(sp => new HostedServiceWrapper<IHostedService>(service)));
 
         await host.StartAsync(CancellationToken.None);
 
@@ -66,12 +65,11 @@ public class ServiceHostTests
     }
 
     [Fact]
-    [Obsolete("Is obsolete when IHostedService will be removed")]
     public async Task StopAsyncStopsHostedServices()
     {
         var service = Substitute.For<IHostedService>();
 
-        var host = SetupServiceHost(_ => { }, services => services.AddSingleton(service));
+        var host = SetupServiceHost(_ => { }, services => services.AddSingleton<IHostedServiceAsync>(sp => new HostedServiceWrapper<IHostedService>(service)));
         await host.StartAsync(CancellationToken.None);
 
         await host.StopAsync(CancellationToken.None);

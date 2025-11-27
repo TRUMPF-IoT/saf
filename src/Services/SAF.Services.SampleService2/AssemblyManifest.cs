@@ -12,8 +12,6 @@ public class AssemblyManifest : IServiceAssemblyManifest
 
     public void RegisterDependencies(IServiceCollection services, IServiceHostContext context)
     {
-#pragma warning disable CS0618 // Type or member is obsolete
         services.AddHosted<MyService>();
-#pragma warning restore CS0618 // Type or member is obsolete
     }
 }
