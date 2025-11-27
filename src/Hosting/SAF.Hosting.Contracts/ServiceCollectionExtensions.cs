@@ -17,11 +17,12 @@ public static class ServiceCollectionExtensions
     /// <typeparam name="TService">The type of the service.</typeparam>
     /// <param name="serviceCollection">The service collection to add the service.</param>
     /// <returns>The serviceCollection for chaining.</returns>
-    [Obsolete("AddHosted will be removed in a future release. Use AddHostedAsync instead.")]
     public static IServiceCollection AddHosted<TService>(this IServiceCollection serviceCollection)
         where TService : class, IHostedService
     {
-        serviceCollection.AddSingleton<IHostedService, TService>();
+        serviceCollection.AddSingleton<TService>();
+        serviceCollection.AddSingleton<HostedServiceWrapper<TService>>();
+        serviceCollection.AddSingleton<IHostedServiceAsync>(sp => sp.GetRequiredService<HostedServiceWrapper<TService>>());
 
         return serviceCollection;
     }
