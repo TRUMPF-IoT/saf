@@ -9,7 +9,6 @@ using SAF.Communication.PubSub.Cde.MessageProcessing;
 using SAF.Communication.PubSub.Interfaces;
 using SAF.Common;
 using Xunit;
-using Xunit.Abstractions;
 
 public class BroadcastMessageQueueTests
 {

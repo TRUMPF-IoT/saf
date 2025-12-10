@@ -7,7 +7,6 @@ namespace SAF.Hosting.Tests;
 using Common;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
-using Microsoft.VisualBasic;
 using NSubstitute;
 using TestUtilities;
 using Xunit;

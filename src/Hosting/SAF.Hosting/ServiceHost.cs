@@ -217,17 +217,17 @@ internal class ServiceHost(
 
     private void RedirectCommonServices(IServiceCollection assemblyServices, ServiceHostContext context)
     {
-        assemblyServices.AddSingleton(_ => applicationServiceProvider.GetRequiredService<ILoggerFactory>());
-        assemblyServices.AddTransient(_ => applicationServiceProvider.GetRequiredService<ILogger>());
+        assemblyServices.AddSingleton(_ => ServiceInterfaceProxyFactory.Create(applicationServiceProvider.GetRequiredService<ILoggerFactory>()));
+        assemblyServices.AddTransient(_ => ServiceInterfaceProxyFactory.Create(applicationServiceProvider.GetRequiredService<ILogger>()));
         assemblyServices.AddTransient(typeof(ILogger<>), typeof(Logger<>));
 
-        assemblyServices.AddSingleton(_ => applicationServiceProvider.GetRequiredService<IServiceHostInfo>());
-        assemblyServices.AddSingleton(_ => context.Environment);
+        assemblyServices.AddSingleton(_ => ServiceInterfaceProxyFactory.Create(applicationServiceProvider.GetRequiredService<IServiceHostInfo>()));
+        assemblyServices.AddSingleton(_ => ServiceInterfaceProxyFactory.Create(context.Environment));
 
-        assemblyServices.AddSingleton(_ => applicationServiceProvider.GetRequiredService<IConfiguration>());
+        assemblyServices.AddSingleton(_ => ServiceInterfaceProxyFactory.Create(applicationServiceProvider.GetRequiredService<IConfiguration>()));
 
-        assemblyServices.AddSingleton(_ => applicationServiceProvider.GetRequiredService<IMessagingInfrastructure>());
-        assemblyServices.AddSingleton(_ => applicationServiceProvider.GetRequiredService<IStorageInfrastructure>());
+        assemblyServices.AddSingleton(_ => ServiceInterfaceProxyFactory.Create(applicationServiceProvider.GetRequiredService<IMessagingInfrastructure>()));
+        assemblyServices.AddSingleton(_ => ServiceInterfaceProxyFactory.Create(applicationServiceProvider.GetRequiredService<IStorageInfrastructure>()));
     }
 
     private void AddApplicationMessageHandlersToDispatcher()
