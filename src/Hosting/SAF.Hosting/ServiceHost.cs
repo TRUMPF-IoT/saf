@@ -109,7 +109,8 @@ internal class ServiceHost(
             var asyncServiceStarts = new List<Task>();
             foreach (var service in services.TakeWhile(_ => !linkedCts.Token.IsCancellationRequested))
             {
-                logger.LogDebug("Starting service: {ServiceName}", service.GetType().Name);
+                var displayName = GetServiceDisplayName(service);
+                logger.LogDebug("Starting service: {ServiceName}", displayName);
 
                 var serviceStopWatch = new Stopwatch();
                 serviceStopWatch.Start();
@@ -147,7 +148,8 @@ internal class ServiceHost(
             var asyncServiceStops = new List<Task>();
             foreach (var service in services.TakeWhile(_ => !cancelToken.IsCancellationRequested))
             {
-                logger.LogDebug("Stopping service: {ServiceName}", service.GetType().Name);
+                var displayName = GetServiceDisplayName(service);
+                logger.LogDebug("Stopping service: {ServiceName}", displayName);
 
                 var serviceStopWatch = new Stopwatch();
                 serviceStopWatch.Start();
@@ -178,16 +180,40 @@ internal class ServiceHost(
     }
 
     private void LogServiceStartupTime(IHostedServiceAsync service, Stopwatch stopWatch)
-        => logger.LogInformation(
+    {
+        if(!logger.IsEnabled(LogLevel.Information))
+        {
+            return;
+        }
+
+        logger.LogInformation(
             "Started service: {ServiceName}, start-up took {ServiceStartUpTime:N0} ns",
-            service.GetType().Name ?? service.GetType().Name,
-            stopWatch.Elapsed.TotalMilliseconds * 1000000);
+            GetServiceDisplayName(service), stopWatch.Elapsed.TotalMilliseconds * 1000000);
+    }
 
     private void LogServiceShutdownTime(IHostedServiceAsync service, Stopwatch stopWatch)
-        => logger.LogInformation(
+    {
+        if (!logger.IsEnabled(LogLevel.Information))
+        {
+            return;
+        }
+
+        logger.LogInformation(
             "Stopped service: {ServiceName}, shutdown took {ServiceStartUpTime:N0} ns",
-            service.GetType().Name ?? service.GetType().Name,
-            stopWatch.Elapsed.TotalMilliseconds * 1000000);
+            GetServiceDisplayName(service), stopWatch.Elapsed.TotalMilliseconds * 1000000);
+    }
+
+    private static string GetServiceDisplayName(IHostedServiceAsync service)
+    {
+        var type = service.GetType();
+        if (type.IsGenericType && type.GetGenericTypeDefinition() == typeof(HostedServiceWrapper<>))
+        {
+            var genericArg = type.GetGenericArguments()[0];
+            return $"{genericArg.Name} (wrapped)";
+        }
+
+        return type.Name;
+    }
 
     private void InitializeServices()
     {
