@@ -4,13 +4,12 @@
 
 namespace SAF.Hosting.Tests;
 
-using Microsoft.Extensions.Configuration;
-using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.Logging.Abstractions;
-using NSubstitute;
 using Common;
 using Contracts;
+using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
+using NSubstitute;
 using Xunit;
 
 public class ServiceHostTests
@@ -21,6 +20,7 @@ public class ServiceHostTests
     private readonly ISharedServiceRegistry _sharedServiceRegistry = Substitute.For<ISharedServiceRegistry>();
     private readonly IServiceAssemblyManager _serviceAssemblyManager = Substitute.For<IServiceAssemblyManager>();
     private readonly IServiceAssemblyManifest _assemblyManifest = Substitute.For<IServiceAssemblyManifest>();
+    private readonly ILogger<ServiceHost> _logger = Substitute.For<ILogger<ServiceHost>>();
 
     [Fact]
     public async Task StartAsyncInitializesAndStartsHostedServices()
@@ -28,6 +28,7 @@ public class ServiceHostTests
         var service = Substitute.For<IHostedService>();
 
         var host = SetupServiceHost(_ => { }, services => services.AddSingleton<IHostedServiceAsync>(sp => new HostedServiceWrapper<IHostedService>(service)));
+        _logger.IsEnabled(LogLevel.Information).Returns(true);
 
         await host.StartAsync(CancellationToken.None);
 
@@ -174,7 +175,7 @@ public class ServiceHostTests
 
         var messageHandlerTypes = new ServiceMessageHandlerTypes(appServices);
 
-        return new ServiceHost(NullLogger<ServiceHost>.Instance, serviceProvider, messageHandlerTypes, _sharedServiceRegistry, _serviceAssemblyManager, _dispatcher, _configuration);
+        return new ServiceHost(_logger, serviceProvider, messageHandlerTypes, _sharedServiceRegistry, _serviceAssemblyManager, _dispatcher, _configuration);
     }
 
     private class DummyMessageHandler : IMessageHandler
