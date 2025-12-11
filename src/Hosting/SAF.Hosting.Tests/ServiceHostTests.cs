@@ -28,7 +28,7 @@ public class ServiceHostTests
         var service = Substitute.For<IHostedService>();
 
         var host = SetupServiceHost(_ => { }, services => services.AddSingleton<IHostedServiceAsync>(sp => new HostedServiceWrapper<IHostedService>(service)));
-        _logger.IsEnabled(LogLevel.Information).Returns(true);
+        _logger.IsEnabled(Arg.Any<LogLevel>()).Returns(true);
 
         await host.StartAsync(CancellationToken.None);
 

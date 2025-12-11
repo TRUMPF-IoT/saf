@@ -109,8 +109,11 @@ internal class ServiceHost(
             var asyncServiceStarts = new List<Task>();
             foreach (var service in services.TakeWhile(_ => !linkedCts.Token.IsCancellationRequested))
             {
-                var displayName = GetServiceDisplayName(service);
-                logger.LogDebug("Starting service: {ServiceName}", displayName);
+                if(logger.IsEnabled(LogLevel.Debug))
+                {
+                    var displayName = GetServiceDisplayName(service);
+                    logger.LogDebug("Starting service: {ServiceName}", displayName);
+                }                
 
                 var serviceStopWatch = new Stopwatch();
                 serviceStopWatch.Start();
@@ -148,8 +151,11 @@ internal class ServiceHost(
             var asyncServiceStops = new List<Task>();
             foreach (var service in services.TakeWhile(_ => !cancelToken.IsCancellationRequested))
             {
-                var displayName = GetServiceDisplayName(service);
-                logger.LogDebug("Stopping service: {ServiceName}", displayName);
+                if (logger.IsEnabled(LogLevel.Debug))
+                {
+                    var displayName = GetServiceDisplayName(service);
+                    logger.LogDebug("Stopping service: {ServiceName}", displayName);
+                }
 
                 var serviceStopWatch = new Stopwatch();
                 serviceStopWatch.Start();
