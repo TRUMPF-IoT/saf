@@ -13,7 +13,6 @@ using System.IO.Abstractions.TestingHelpers;
 using System.Reflection;
 using System.Runtime.Loader;
 using Xunit;
-using Xunit.Abstractions;
 
 public class ServiceHostDiagnosticsTests
 {
@@ -23,7 +22,7 @@ public class ServiceHostDiagnosticsTests
 
     public ServiceHostDiagnosticsTests(ITestOutputHelper outputHelper)
     {
-        var loggerFactory = LoggerFactory.Create(builder => builder.AddXunit(outputHelper, LogLevel.Trace).SetMinimumLevel(LogLevel.Warning));
+        var loggerFactory = LoggerFactory.Create(builder => builder.AddXUnit(outputHelper).SetMinimumLevel(LogLevel.Warning));
         _logger = loggerFactory.CreateLogger<ServiceHostDiagnostics>();
 
         _hostInfo.Id.Returns("hostId");
@@ -76,7 +75,7 @@ public class ServiceHostDiagnosticsTests
         var filePath = _fileSystem.Path.Combine("userbase", "diagnostics", "SafServiceHost_hostId.json");
 
         _fileSystem.Directory.CreateDirectory(_fileSystem.Path.Combine("userbase", "diagnostics"));
-        await _fileSystem.File.WriteAllTextAsync(filePath, "content");
+        await _fileSystem.File.WriteAllTextAsync(filePath, "content", TestContext.Current.CancellationToken);
 
         var serviceAssemblies = new[] { Substitute.For<IServiceAssemblyManifest>() };
 
@@ -87,7 +86,7 @@ public class ServiceHostDiagnosticsTests
         // Assert
         Assert.True(_fileSystem.Directory.Exists(_fileSystem.Path.Combine("userbase", "diagnostics")));
         Assert.True(_fileSystem.File.Exists(filePath));
-        Assert.NotEqual("content", await _fileSystem.File.ReadAllTextAsync(filePath));
+        Assert.NotEqual("content", await _fileSystem.File.ReadAllTextAsync(filePath, TestContext.Current.CancellationToken));
     }
 
     [Fact]

@@ -4,7 +4,7 @@
 
 namespace SAF.Toolbox.Tests;
 using Microsoft.Extensions.Logging;
-using Xunit.Abstractions;
+using Xunit;
 
 internal class TestLogger : ILogger
 {
