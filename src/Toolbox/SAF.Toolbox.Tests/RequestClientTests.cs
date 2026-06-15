@@ -72,7 +72,7 @@ public class RequestClientTests
         var sut = new RequestClient.RequestClient(messagingMock, heartbeatMock, null);
         var task = sut.SendRequestAwaitFirstAnswer<DummyRequest, DummyResponse>("test", new DummyRequest(), millisecondsTimeoutTarget: 30000);
 
-        await Task.Delay(10);
+        await Task.Delay(10, TestContext.Current.CancellationToken);
 
         sut.Dispose();
         var response = await task;

@@ -46,7 +46,7 @@ public class TestMessagingNats
         msg.Topic = "Top";
         msg.Payload = "Payxx";
         messaging.Publish(msg);
-        natsClient.Received().PublishAsync(subject: Arg.Is<string>(msg.Topic), data: Arg.Is<string>(msg.Payload));
+        natsClient.Received().PublishAsync(subject: Arg.Is<string>(msg.Topic), data: Arg.Is<string>(msg.Payload), cancellationToken: Arg.Any<CancellationToken>());
         natsClient.ClearReceivedCalls();
 
         messaging.Unsubscribe(id);
@@ -142,49 +142,49 @@ public class TestMessagingNats
         var natsObjStore = Substitute.For<INatsObjStore>();
         var globalStorageArea = "global";
 
-        natsObjContext.CreateObjectStoreAsync(Arg.Any<string>()).Returns(natsObjStore);
+        natsObjContext.CreateObjectStoreAsync(Arg.Any<string>(), Arg.Any<CancellationToken>()).Returns(natsObjStore);
 
         byte[] value = { 118, 97, 108, 117, 101 };
         Storage storage = new(natsObjContext);
 
         storage.Set("area", "key", value);
-        natsObjContext.Received().CreateObjectStoreAsync(Arg.Is<string>("area"));
-        natsObjStore.Received().PutAsync(Arg.Is<string>("key"), Arg.Is<byte[]>(value));
+        natsObjContext.Received().CreateObjectStoreAsync(Arg.Is<string>("area"), Arg.Any<CancellationToken>());
+        natsObjStore.Received().PutAsync(Arg.Is<string>("key"), Arg.Is<byte[]>(value), Arg.Any<CancellationToken>());
 
         natsObjContext.ClearReceivedCalls();
         natsObjStore.ClearReceivedCalls();
 
         storage.Set("key", value);
-        natsObjContext.Received().CreateObjectStoreAsync(Arg.Is<string>(globalStorageArea));
-        natsObjStore.Received().PutAsync(Arg.Is<string>("key"), Arg.Is<byte[]>(value));
+        natsObjContext.Received().CreateObjectStoreAsync(Arg.Is<string>(globalStorageArea), Arg.Any<CancellationToken>());
+        natsObjStore.Received().PutAsync(Arg.Is<string>("key"), Arg.Is<byte[]>(value), Arg.Any<CancellationToken>());
 
         natsObjContext.ClearReceivedCalls();
         natsObjStore.ClearReceivedCalls();
 
         storage.GetBytes("area", "key");
-        natsObjContext.Received().CreateObjectStoreAsync(Arg.Is<string>("area"));
-        natsObjStore.GetBytesAsync(Arg.Is<string>("key"));
+        natsObjContext.Received().CreateObjectStoreAsync(Arg.Is<string>("area"), Arg.Any<CancellationToken>());
+        natsObjStore.GetBytesAsync(Arg.Is<string>("key"), Arg.Any<CancellationToken>());
 
         natsObjContext.ClearReceivedCalls();
         natsObjStore.ClearReceivedCalls();
 
         storage.GetBytes("key");
-        natsObjContext.Received().CreateObjectStoreAsync(Arg.Is<string>(globalStorageArea));
-        natsObjStore.GetBytesAsync(Arg.Is<string>("key"));
+        natsObjContext.Received().CreateObjectStoreAsync(Arg.Is<string>(globalStorageArea), Arg.Any<CancellationToken>());
+        natsObjStore.GetBytesAsync(Arg.Is<string>("key"), Arg.Any<CancellationToken>());
 
         natsObjContext.ClearReceivedCalls();
         natsObjStore.ClearReceivedCalls();
 
         storage.RemoveKey("area", "key");
-        natsObjContext.Received().CreateObjectStoreAsync(Arg.Is<string>("area"));
-        natsObjStore.DeleteAsync("key");
+        natsObjContext.Received().CreateObjectStoreAsync(Arg.Is<string>("area"), Arg.Any<CancellationToken>());
+        natsObjStore.DeleteAsync("key", TestContext.Current.CancellationToken);
 
         natsObjContext.ClearReceivedCalls();
         natsObjStore.ClearReceivedCalls();
 
         storage.RemoveKey("key");
-        natsObjContext.Received().CreateObjectStoreAsync(Arg.Is<string>(globalStorageArea));
-        natsObjStore.DeleteAsync("key");
+        natsObjContext.Received().CreateObjectStoreAsync(Arg.Is<string>(globalStorageArea), Arg.Any<CancellationToken>());
+        natsObjStore.DeleteAsync("key", TestContext.Current.CancellationToken);
 
         natsObjContext.ClearReceivedCalls();
         natsObjStore.ClearReceivedCalls();
