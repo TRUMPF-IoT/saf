@@ -3,11 +3,11 @@ name: .NET Core
 on:
   push:
     branches:
-      - master
+      - main
     tags:
       - '*'
   pull_request:
-    branches: [ master ]
+    branches: [ main ]
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -107,7 +107,7 @@ jobs:
         dotnet pack './src/SmartApplicationFramework.slnx' --configuration Release --no-build --output './artifacts'
         
     - name: Upload artifacts
-      if: github.event_name == 'push' && (contains(github.ref, 'refs/tags/') || contains(github.ref, 'refs/heads/master'))
+      if: github.event_name == 'push' && (contains(github.ref, 'refs/tags/') || contains(github.ref, 'refs/heads/main'))
       uses: actions/upload-artifact@v4
       with:
         name: SmartApplicationFramework-${{ steps.minver.outputs.version }}
