@@ -1,6 +1,6 @@
 // SPDX-FileCopyrightText: 2024 TRUMPF Laser SE
 //
-// SPDX-License-Identifier: LicenseRef-TRUMPF
+// SPDX-License-Identifier: MPL-2.0
 
 namespace SAF.PluginSystem.Hosting;
 

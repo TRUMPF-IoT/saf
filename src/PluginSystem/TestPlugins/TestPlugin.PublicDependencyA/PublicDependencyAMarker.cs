@@ -1,6 +1,6 @@
 // SPDX-FileCopyrightText: 2026 TRUMPF Laser SE
 //
-// SPDX-License-Identifier: LicenseRef-TRUMPF
+// SPDX-License-Identifier: MPL-2.0
 
 namespace TestPlugin.PublicDependencyA;
 
