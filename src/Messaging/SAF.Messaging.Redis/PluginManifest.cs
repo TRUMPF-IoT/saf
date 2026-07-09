@@ -17,7 +17,6 @@ public class PluginManifest : IMessagingAssemblyManifest, IPluginManifest
 
     public void ConfigureServices(IPluginSystemHostContext context, IServiceCollection pluginServices)
     {
-        pluginServices.AddRedisMessagingInfrastructure(c => context.HostConfiguration.GetSection("Redis").Bind(c));
-        pluginServices.AddSingleton<IMessagingInfrastructure>(sp => sp.GetRequiredService<IRedisMessagingInfrastructure>());
+        pluginServices.AddRedisInfrastructure(c => context.HostConfiguration.GetSection("Redis").Bind(c));
     }
 }

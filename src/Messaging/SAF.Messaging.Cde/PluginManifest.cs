@@ -17,8 +17,6 @@ public class PluginManifest : IMessagingAssemblyManifest, IPluginManifest
 
     public void ConfigureServices(IPluginSystemHostContext context, IServiceCollection pluginServices)
     {
-        pluginServices.AddCde(c => context.HostConfiguration.GetSection("Cde").Bind(c));
-        pluginServices.AddCdeMessagingInfrastructure();
-        pluginServices.AddSingleton<IMessagingInfrastructure>(sp => sp.GetRequiredService<ICdeMessagingInfrastructure>());
+        pluginServices.AddCdeInfrastructure(c => context.HostConfiguration.GetSection("Cde").Bind(c));
     }
 }

@@ -18,7 +18,6 @@ public class PluginManifest : IMessagingAssemblyManifest, IPluginManifest
 
     public void ConfigureServices(IPluginSystemHostContext context, IServiceCollection pluginServices)
     {
-        pluginServices.AddNatsMessagingInfrastructure(c => context.HostConfiguration.GetSection("Nats").Bind(c));
-        pluginServices.AddSingleton<IMessagingInfrastructure>(sp => sp.GetRequiredService<INatsMessagingInfrastructure>());
+        pluginServices.AddNatsInfrastructure(c => context.HostConfiguration.GetSection("Nats").Bind(c));
     }
 }

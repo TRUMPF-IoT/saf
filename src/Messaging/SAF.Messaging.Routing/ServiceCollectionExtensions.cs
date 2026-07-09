@@ -10,6 +10,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.FileSystemGlobbing;
 using Microsoft.Extensions.Logging;
 using SAF.Common;
+using SAF.PluginSystem.Hosting.Contracts;
 
 [assembly: InternalsVisibleTo("SAF.Messaging.Routing.Tests")]
 [assembly: InternalsVisibleTo("DynamicProxyGenAssembly2")]
@@ -46,7 +47,7 @@ public static class ServiceCollectionExtensions
         foreach(var assembly in results)
         {
             var loadedAssembly = Assembly.LoadFrom(assembly);
-            var manifestType = loadedAssembly.GetExportedTypes().SingleOrDefault(t => t.IsClass && typeof(IMessagingAssemblyManifest).IsAssignableFrom(t));
+            var manifestType = loadedAssembly.GetExportedTypes().SingleOrDefault(t => t.IsClass && typeof(IPluginManifest).IsAssignableFrom(t));
             if(manifestType == default)
             {
                 continue;
@@ -56,11 +57,9 @@ public static class ServiceCollectionExtensions
             if(messagingType == null) continue;
 
             var messagingConfigs = config.Routings.Where(r => r.Messaging.Type == messagingType.Name).Select(t => t.Messaging);
-            var manifest = Activator.CreateInstance(manifestType) as IMessagingAssemblyManifest;
-            if (manifest == null) continue;
             foreach(var messageConfig in messagingConfigs)
             {
-                manifest.RegisterDependencies(serviceCollection, messageConfig);
+                ConfigureMessagingInfrastructure(loadedAssembly, serviceCollection, messagingType, messageConfig);
             }
         }
 
@@ -114,5 +113,46 @@ public static class ServiceCollectionExtensions
         results = results.Where(r => serviceAssemblyNameRegEx.IsMatch(Path.GetFileName(r))).ToList();
 
         return results;
+    }
+
+    private static void ConfigureMessagingInfrastructure(Assembly loadedAssembly, IServiceCollection serviceCollection, Type messagingType, MessagingConfiguration messagingConfiguration)
+    {
+        var extensionType = loadedAssembly.GetTypes().SingleOrDefault(t => t.IsAbstract && t.IsSealed && t.Name == "ServiceCollectionExtensions");
+        if (extensionType == null)
+        {
+            throw new InvalidOperationException($"No service collection extensions found in {loadedAssembly.FullName}.");
+        }
+
+        var methodName = GetMessagingInfrastructureRegistrationMethodName(messagingType);
+        var registrationMethod = extensionType.GetMethod(
+            methodName,
+            BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic,
+            binder: null,
+            types: [typeof(IServiceCollection), typeof(MessagingConfiguration)],
+            modifiers: null);
+
+        if (registrationMethod == null)
+        {
+            throw new InvalidOperationException($"Can't find messaging registration method {methodName} in {loadedAssembly.FullName}.");
+        }
+
+        _ = registrationMethod.Invoke(null, [serviceCollection, messagingConfiguration]);
+    }
+
+    private static string GetMessagingInfrastructureRegistrationMethodName(Type messagingType)
+    {
+        var messagingTypeName = messagingType.Name;
+
+        if (messagingTypeName.StartsWith('I') && messagingTypeName.EndsWith("MessagingInfrastructure", StringComparison.Ordinal))
+        {
+            return $"Add{messagingTypeName[1..^"MessagingInfrastructure".Length]}MessagingInfrastructure";
+        }
+
+        if (messagingTypeName.StartsWith('I') && messagingTypeName.EndsWith("Infrastructure", StringComparison.Ordinal))
+        {
+            return $"Add{messagingTypeName[1..^"Infrastructure".Length]}Infrastructure";
+        }
+
+        return $"Add{messagingTypeName[1..]}";
     }
 }
