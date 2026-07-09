@@ -8,6 +8,7 @@ SPDX-License-Identifier: LicenseRef-TRUMPF
   <PropertyGroup>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
+    <IsPackable>false</IsPackable>
   </PropertyGroup>
   <ItemGroup>
     <ProjectReference Include="..\TestPlugin.DependencyA\TestPlugin.DependencyA.csproj" />
