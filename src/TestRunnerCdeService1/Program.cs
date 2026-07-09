@@ -1,8 +1,8 @@
-﻿// SPDX-FileCopyrightText: 2017-2021 TRUMPF Laser GmbH
+// SPDX-FileCopyrightText: 2017-2021 TRUMPF Laser SE
 //
 // SPDX-License-Identifier: MPL-2.0
 
-// SPDX-FileCopyrightText: 2017-2022 TRUMPF Laser GmbH
+// SPDX-FileCopyrightText: 2017-2022 TRUMPF Laser SE
 //
 // SPDX-License-Identifier: MPL-2.0
 

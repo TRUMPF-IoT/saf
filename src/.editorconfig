@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: 2017-2025 TRUMPF Laser GmbH
+# SPDX-FileCopyrightText: 2017-2025 TRUMPF Laser SE
 #
 # SPDX-License-Identifier: MPL-2.0
 
@@ -10,7 +10,7 @@ root = true
 
 #### Core EditorConfig Options ####
 
-file_header_template = // SPDX-FileCopyrightText: 2017-2024 TRUMPF Laser GmbH\n//\n// SPDX-License-Identifier: MPL-2.0
+file_header_template = // SPDX-FileCopyrightText: 2017-2024 TRUMPF Laser SE\n//\n// SPDX-License-Identifier: MPL-2.0
 
 # Indentation and spacing
 indent_size = 4
@@ -259,7 +259,7 @@ csharp_style_prefer_primary_constructors = true:suggestion
 
 #### Core EditorConfig Options ####
 
-file_header_template = <!-- SPDX-FileCopyrightText: 2023 TRUMPF Laser GmbH\n\n SPDX-License-Identifier: LicenseRef-TRUMPF -->
+file_header_template = <!-- SPDX-FileCopyrightText: 2023 TRUMPF Laser SE\n\n SPDX-License-Identifier: LicenseRef-TRUMPF -->
 
 # Indentation and spacing
 indent_size = 2

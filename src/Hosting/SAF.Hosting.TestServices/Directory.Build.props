@@ -1,5 +1,5 @@
 <!--
-SPDX-FileCopyrightText: 2017-2020 TRUMPF Laser GmbH
+SPDX-FileCopyrightText: 2017-2020 TRUMPF Laser SE
 
 SPDX-License-Identifier: MPL-2.0
 -->
@@ -13,9 +13,9 @@ SPDX-License-Identifier: MPL-2.0
   <Import Project="$(ParentDirectoryBuildProps)" Condition="'$(ParentDirectoryBuildProps)' != ''" />
 
   <PropertyGroup>
-    <Copyright>Copyright 2017-2020 (c) TRUMPF Laser GmbH</Copyright>
+    <Copyright>Copyright 2017-2020 (c) TRUMPF Laser SE</Copyright>
     <Product>Service Application Framework</Product>
-    <Authors>TRUMPF Laser GmbH</Authors>
+    <Authors>TRUMPF Laser SE</Authors>
     <PackageLicenseExpression>MPL-2.0</PackageLicenseExpression>
     <PackageRequireLicenseAcceptance>true</PackageRequireLicenseAcceptance>
   </PropertyGroup>
