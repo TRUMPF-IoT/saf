@@ -7,7 +7,7 @@ namespace SAF.Hosting.TestServices
     using Microsoft.Extensions.DependencyInjection;
     using Contracts;
 
-    public class AssemblyManifest : IServiceAssemblyManifest
+    public class PluginManifest : IServiceAssemblyManifest
     {
         public string FriendlyName => "Test Assembly";
 
