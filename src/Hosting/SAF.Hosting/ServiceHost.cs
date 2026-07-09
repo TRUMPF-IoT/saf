@@ -11,6 +11,8 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Common;
 using Contracts;
+using CommonServiceHostInfo = SAF.Common.IServiceHostInfo;
+using LegacyServiceHostInfo = SAF.Hosting.Contracts.IServiceHostInfo;
 
 /// <summary>
 /// Central entry point for initializing and starting the services used.
@@ -253,7 +255,8 @@ internal class ServiceHost(
         assemblyServices.AddTransient(_ => ServiceInterfaceProxyFactory.Create(applicationServiceProvider.GetRequiredService<ILogger>()));
         assemblyServices.AddTransient(typeof(ILogger<>), typeof(Logger<>));
 
-        assemblyServices.AddSingleton(_ => ServiceInterfaceProxyFactory.Create(applicationServiceProvider.GetRequiredService<IServiceHostInfo>()));
+        assemblyServices.AddSingleton(_ => ServiceInterfaceProxyFactory.Create(applicationServiceProvider.GetRequiredService<CommonServiceHostInfo>()));
+        assemblyServices.AddSingleton(_ => ServiceInterfaceProxyFactory.Create(applicationServiceProvider.GetRequiredService<LegacyServiceHostInfo>()));
         assemblyServices.AddSingleton(_ => ServiceInterfaceProxyFactory.Create(context.Environment));
 
         assemblyServices.AddSingleton(_ => ServiceInterfaceProxyFactory.Create(applicationServiceProvider.GetRequiredService<IConfiguration>()));
@@ -299,6 +302,6 @@ internal class ServiceHost(
         {
             Configuration = applicationServiceProvider.GetRequiredService<IConfiguration>(),
             Environment = BuildServiceHostEnvironment(),
-            HostInfo = applicationServiceProvider.GetRequiredService<IServiceHostInfo>()
+            HostInfo = applicationServiceProvider.GetRequiredService<LegacyServiceHostInfo>()
         };
 }

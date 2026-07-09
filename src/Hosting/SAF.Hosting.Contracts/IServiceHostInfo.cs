@@ -8,29 +8,6 @@ namespace SAF.Hosting.Contracts;
 /// Provides information about the Smart Application Framework (SAF) host instance.
 /// </summary>
 public interface IServiceHostInfo
+    : global::SAF.Common.IServiceHostInfo
 {
-    /// <summary>
-    /// Returns a unique-id for this SAF host instance.
-    /// </summary>
-    string Id { get; }
-
-    /// <summary>
-    /// Gets the type of service host (CDE, Test, ...)
-    /// </summary>
-    string ServiceHostType { get; }
-
-    /// <summary>
-    /// Gets the file system base path in which application specific data is stored.
-    /// </summary>
-    string FileSystemUserBasePath { get; }
-
-    /// <summary>
-    /// Gets the file system base path representing the installation folder of the SAF host application.
-    /// </summary>
-    string FileSystemInstallationPath { get; }
-
-    /// <summary>
-    /// Gets the service host startup time.
-    /// </summary>
-    DateTimeOffset UpSince { get; }
 }

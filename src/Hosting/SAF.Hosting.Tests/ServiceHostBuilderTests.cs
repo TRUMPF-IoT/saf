@@ -9,6 +9,7 @@ using Common;
 using Microsoft.Extensions.DependencyInjection;
 using NSubstitute;
 using Xunit;
+using LegacyServiceHostInfo = SAF.Hosting.Contracts.IServiceHostInfo;
 
 public class ServiceHostBuilderTests
 {
@@ -38,7 +39,7 @@ public class ServiceHostBuilderTests
         builder.AddServiceHostInfo();
 
         // Assert
-        var info = services.BuildServiceProvider().GetService<IServiceHostInfo>();
+        var info = services.BuildServiceProvider().GetService<LegacyServiceHostInfo>();
 
         Assert.NotNull(info);
         Assert.Equal("test", info.Id);
@@ -55,7 +56,7 @@ public class ServiceHostBuilderTests
         builder.AddServiceHostInfo();
 
         // Assert
-        var info = services.BuildServiceProvider().GetService<IServiceHostInfo>();
+        var info = services.BuildServiceProvider().GetService<LegacyServiceHostInfo>();
 
         Assert.NotNull(info);
         Assert.NotEmpty(info.Id);
@@ -77,7 +78,7 @@ public class ServiceHostBuilderTests
         builder.AddServiceHostInfo();
 
         // Assert
-        var info = services.BuildServiceProvider().GetService<IServiceHostInfo>();
+        var info = services.BuildServiceProvider().GetService<LegacyServiceHostInfo>();
 
         Assert.NotNull(info);
         Assert.Equal("test", info.Id);
@@ -104,7 +105,7 @@ public class ServiceHostBuilderTests
         builder.AddServiceHostInfo();
 
         // Assert
-        var info = services.BuildServiceProvider().GetService<IServiceHostInfo>();
+        var info = services.BuildServiceProvider().GetService<LegacyServiceHostInfo>();
 
         Assert.NotNull(info);
         Assert.NotEmpty(info.Id);

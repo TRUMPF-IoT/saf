@@ -7,6 +7,8 @@ namespace SAF.Hosting;
 using Microsoft.Extensions.DependencyInjection;
 using Common;
 using Contracts;
+using CommonServiceHostInfo = SAF.Common.IServiceHostInfo;
+using LegacyServiceHostInfo = SAF.Hosting.Contracts.IServiceHostInfo;
 
 internal class ServiceHostBuilder : IServiceHostBuilder
 {
@@ -31,7 +33,7 @@ internal class ServiceHostBuilder : IServiceHostBuilder
 
     public IServiceHostBuilder AddServiceHostInfo()
     {
-        Services.AddSingleton<IServiceHostInfo>(sp =>
+        Services.AddSingleton<LegacyServiceHostInfo>(sp =>
             {
                 var options = new ServiceHostInfoOptions();
                 _configureServiceHostInfoAction?.Invoke(options);
@@ -39,6 +41,7 @@ internal class ServiceHostBuilder : IServiceHostBuilder
                 var info = new ServiceHostInfo(options, () => GetOrInitializeHostId(sp.GetService<IStorageInfrastructure>()));
                 return info;
             });
+        Services.AddSingleton<CommonServiceHostInfo>(sp => sp.GetRequiredService<LegacyServiceHostInfo>());
 
         return this;
     }

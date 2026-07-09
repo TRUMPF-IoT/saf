@@ -11,10 +11,11 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using NSubstitute;
 using Xunit;
+using LegacyServiceHostInfo = SAF.Hosting.Contracts.IServiceHostInfo;
 
 public class ServiceHostTests
 {
-    private readonly IServiceHostInfo _hostInfo = Substitute.For<IServiceHostInfo>();
+    private readonly LegacyServiceHostInfo _hostInfo = Substitute.For<LegacyServiceHostInfo>();
     private readonly IConfiguration _configuration = Substitute.For<IConfiguration>();
     private readonly IServiceMessageDispatcher _dispatcher = Substitute.For<IServiceMessageDispatcher>();
     private readonly ISharedServiceRegistry _sharedServiceRegistry = Substitute.For<ISharedServiceRegistry>();
@@ -128,7 +129,7 @@ public class ServiceHostTests
         Assert.Contains(assemblyServices, sd => sd.ServiceType == typeof(ILogger));
         Assert.Contains(assemblyServices, sd => sd.ServiceType == typeof(ILogger<>));
         Assert.Contains(assemblyServices, sd => sd.ServiceType == typeof(ILoggerFactory));
-        Assert.Contains(assemblyServices, sd => sd.ServiceType == typeof(IServiceHostInfo));
+        Assert.Contains(assemblyServices, sd => sd.ServiceType == typeof(LegacyServiceHostInfo));
         Assert.Contains(assemblyServices, sd => sd.ServiceType == typeof(IConfiguration));
         Assert.Contains(assemblyServices, sd => sd.ServiceType == typeof(IServiceHostEnvironment));
     }
