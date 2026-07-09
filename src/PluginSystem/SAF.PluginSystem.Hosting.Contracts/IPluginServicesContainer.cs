@@ -1,0 +1,24 @@
+// SPDX-FileCopyrightText: 2024 TRUMPF Laser SE
+//
+// SPDX-License-Identifier: LicenseRef-TRUMPF
+
+namespace SAF.PluginSystem.Hosting.Contracts;
+
+/// <summary>
+/// Provides access to all plugin dependency injection (DI) containers managed by the plugin system.
+/// </summary>
+public interface IPluginServicesContainer
+{
+    /// <summary>
+    /// Gets the <see cref="IServiceProvider"/> instances for all loaded plugins.
+    /// </summary>
+    /// <returns>An enumerable of <see cref="IServiceProvider"/> instances, one per plugin.</returns>
+    IEnumerable<IServiceProvider> GetPluginServices();
+    /// <summary>
+    /// Gets a service provider instance that supplies public services which are available to all plugins used for cross-plugin communication.
+    /// </summary>
+    /// <remarks>Use this service provider to access common infrastructure or cross-plugin services.</remarks>
+    /// <returns>An <see cref="IServiceProvider"/> that provides access to public services for plugins. The returned instance may
+    /// be reused across multiple plugin invocations.</returns>
+    IServiceProvider GetPublicServices();
+}
