@@ -62,9 +62,6 @@ SPDX-License-Identifier: LicenseRef-TRUMPF
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\..\Plugins\NodeSetImporter\TL.Plugin.OpcUa.NodeSetImporter\TL.Plugin.OpcUa.NodeSetImporter.csproj" />
-    <ProjectReference Include="..\..\TL.OpcUa.Server.Contracts\TL.OpcUa.Server.Contracts.csproj" />
-    <ProjectReference Include="..\..\TL.OpcUa.Server.Utils\TL.OpcUa.Server.Utils.csproj" />
     <ProjectReference Include="..\TestPlugins\TestPlugin.PluginA\TestPlugin.PluginA.csproj">
       <Private>False</Private>
       <CopyLocalSatelliteAssemblies>False</CopyLocalSatelliteAssemblies>
