@@ -1,4 +1,4 @@
-:: SPDX-FileCopyrightText: 2017-2021 TRUMPF Laser SE
+:: SPDX-FileCopyrightText: 2017-2026 TRUMPF Laser SE
 :: SPDX-License-Identifier: MPL-2.0
 :: Start file for the Ping/Pong example between two CDE-services.
 :: This file had to be executed with administrator privilegs.
