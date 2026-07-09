@@ -106,9 +106,9 @@ public class TestSequenceBaseTests
         string? variableToWaitFor = null;
         Task.Run(async () =>
         {
-            await Task.Delay(50);
+            await Task.Delay(50, TestContext.Current.CancellationToken);
             variableToWaitFor = "testPayload";
-        });
+        }, TestContext.Current.CancellationToken);
 
         instance.WaitForPayload(ref variableToWaitFor, 500);
 

@@ -12,14 +12,13 @@ using Microsoft.Extensions.Options;
 using NSubstitute.ExceptionExtensions;
 using SAF.Toolbox.Heartbeat;
 using Xunit;
-using Xunit.Abstractions;
 
 namespace SAF.Toolbox.Tests.FileTransfer;
 
 public class StatefulFileReceiverTests
 {
     private const int DefaultChunkSize = 1024 * 200;
-    private static readonly string DefaultFolderPath = "testFolder";
+    private const string DefaultFolderPath = "testFolder";
 
     private readonly ILogger<StatefulFileReceiver> _logger;
     private readonly MockFileSystem _fileSystem = new();
@@ -30,7 +29,7 @@ public class StatefulFileReceiverTests
 
     public StatefulFileReceiverTests(ITestOutputHelper outputHelper)
     {
-        var loggerFactory = LoggerFactory.Create(builder => builder.AddXunit(outputHelper, LogLevel.Trace).SetMinimumLevel(LogLevel.Warning));
+        var loggerFactory = LoggerFactory.Create(builder => builder.AddXUnit(outputHelper).SetMinimumLevel(LogLevel.Warning));
         _logger = loggerFactory.CreateLogger<StatefulFileReceiver>();
 
         _defaultTestFilePath = _fileSystem.Path.Combine(DefaultFolderPath, "file.txt");

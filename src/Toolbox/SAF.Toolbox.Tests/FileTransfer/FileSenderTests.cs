@@ -12,7 +12,6 @@ using SAF.Toolbox.RequestClient;
 using System.IO.Abstractions;
 using System.IO.Abstractions.TestingHelpers;
 using Xunit;
-using Xunit.Abstractions;
 
 namespace SAF.Toolbox.Tests.FileTransfer;
 
@@ -25,7 +24,7 @@ public class FileSenderTests
 
     public FileSenderTests(ITestOutputHelper outputHelper)
     {
-        var loggerFactory = LoggerFactory.Create(builder => builder.AddXunit(outputHelper, LogLevel.Trace).SetMinimumLevel(LogLevel.Warning));
+        var loggerFactory = LoggerFactory.Create(builder => builder.AddXUnit(outputHelper).SetMinimumLevel(LogLevel.Warning));
         _logger = loggerFactory.CreateLogger<FileSender>();
     }
 

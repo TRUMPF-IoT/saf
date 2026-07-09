@@ -1,0 +1,71 @@
+<!--
+SPDX-FileCopyrightText: 2017-2026 TRUMPF Laser SE
+
+SPDX-License-Identifier: MPL-2.0
+-->
+<Solution>
+  <Folder Name="/Communication/">
+    <Project Path="Communication/SAF.Communication.Cde/SAF.Communication.Cde.csproj" />
+    <Project Path="Communication/SAF.Communication.PubSub.Cde.Tests/SAF.Communication.PubSub.Cde.Tests.csproj" />
+    <Project Path="Communication/SAF.Communication.PubSub.Cde/SAF.Communication.PubSub.Cde.csproj" />
+    <Project Path="Communication/SAF.Communication.PubSub.Interfaces/SAF.Communication.PubSub.Interfaces.csproj" />
+    <Project Path="Communication/SAF.Communication.PubSub.Tests/SAF.Communication.PubSub.Tests.csproj" />
+    <Project Path="Communication/SAF.Communication.PubSub/SAF.Communication.PubSub.csproj" />
+  </Folder>
+  <Folder Name="/Hosting/">
+    <Project Path="Hosting/SAF.Hosting.Contracts.Tests/SAF.Hosting.Contracts.Tests.csproj" />
+    <Project Path="Hosting/SAF.Hosting.Contracts/SAF.Hosting.Contracts.csproj" />
+    <Project Path="Hosting/SAF.Hosting.Tests/SAF.Hosting.Tests.csproj" />
+    <Project Path="Hosting/SAF.Hosting.TestServices/SAF.Hosting.TestServices.csproj" />
+    <Project Path="Hosting/SAF.Hosting/SAF.Hosting.csproj" />
+  </Folder>
+  <Folder Name="/Messaging/">
+    <Project Path="Messaging/SAF.Messaging.Cde.Tests/SAF.Messaging.Cde.Tests.csproj" />
+    <Project Path="Messaging/SAF.Messaging.Cde/SAF.Messaging.Cde.csproj" />
+    <Project Path="Messaging/SAF.Messaging.InProcess.Tests/SAF.Messaging.InProcess.Tests.csproj" />
+    <Project Path="Messaging/SAF.Messaging.InProcess/SAF.Messaging.InProcess.csproj" />
+    <Project Path="Messaging/SAF.Messaging.LoadTest/SAF.Messaging.LoadTest.csproj" />
+    <Project Path="Messaging/SAF.Messaging.Nats.Tests/SAF.Messaging.Nats.Tests.csproj" />
+    <Project Path="Messaging/SAF.Messaging.Nats/SAF.Messaging.Nats.csproj" />
+    <Project Path="Messaging/SAF.Messaging.Redis.Tests/SAF.Messaging.Redis.Tests.csproj" />
+    <Project Path="Messaging/SAF.Messaging.Redis/SAF.Messaging.Redis.csproj" />
+    <Project Path="Messaging/SAF.Messaging.Routing.Tests/SAF.Messaging.Routing.Tests.csproj" />
+    <Project Path="Messaging/SAF.Messaging.Routing/SAF.Messaging.Routing.csproj" />
+  </Folder>
+  <Folder Name="/Services/">
+    <Project Path="Services/SAF.Services.SampleService1.Tests/SAF.Services.SampleService1.Tests.csproj" />
+    <Project Path="Services/SAF.Services.SampleService1/SAF.Services.SampleService1.csproj" />
+    <Project Path="Services/SAF.Services.SampleService2/SAF.Services.SampleService2.csproj" />
+  </Folder>
+  <Folder Name="/Storage/">
+    <Project Path="Storage/SAF.Storage.LightDb.Test/SAF.Storage.LiteDb.Test.csproj" />
+    <Project Path="Storage/SAF.Storage.LightDb/SAF.Storage.LiteDb.csproj" />
+    <Project Path="Storage/SAF.Storage.SqLite.Test/SAF.Storage.SqLite.Test.csproj" />
+    <Project Path="Storage/SAF.Storage.SqLite/SAF.Storage.SqLite.csproj" />
+  </Folder>
+  <Folder Name="/Toolbox/">
+    <Project Path="Toolbox/SAF.DevToolbox.Tests/SAF.DevToolbox.Tests.csproj" />
+    <Project Path="Toolbox/SAF.DevToolbox/SAF.DevToolbox.csproj" />
+    <Project Path="Toolbox/SAF.Toolbox.Tests/SAF.Toolbox.Tests.csproj" />
+    <Project Path="Toolbox/SAF.Toolbox/SAF.Toolbox.csproj" />
+  </Folder>
+  <Folder Name="/Utils/">
+    <Project Path="Utils/CdeLogSorter/CdeLogSorter.csproj" />
+  </Folder>
+  <Folder Name="/_build/">
+    <File Path="../.github/workflows/dotnet-core.yml" />
+    <File Path="../Directory.Build.props" />
+    <File Path="../Directory.Packages.props" />
+    <File Path=".editorconfig" />
+  </Folder>
+  <Project Path="SAF.Common/SAF.Common.csproj" />
+  <Project Path="TestRunnerCde/TestRunnerCde.csproj" />
+  <Project Path="TestRunnerCdeService1/TestRunnerCdeService1.csproj" />
+  <Project Path="TestRunnerCdeService2/TestRunnerCdeService2.csproj" />
+  <Project Path="TestRunnerConsole/TestRunnerConsole.csproj" />
+  <Project Path="TestRunnerMessageRouting/TestRunnerMessageRouting.csproj" />
+  <Project Path="TestRunnerNats/TestRunnerNats.csproj" />
+  <Project Path="TestRunnerRedis/TestRunnerRedis.csproj" />
+  <Project Path="TestSequenceRunner/TestSequenceRunner.csproj" />
+  <Project Path="TestUtilities/TestUtilities.csproj" />
+</Solution>

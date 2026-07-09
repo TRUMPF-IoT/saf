@@ -27,7 +27,7 @@ public class BroadcastMessageQueueTests
         var msg = CreateBroadcastMessage("user1");
         queue.Enqueue(msg);
 
-        Assert.True(doneEvent.Wait(TimeSpan.FromSeconds(5)), "Processing did not finish in time");
+        Assert.True(doneEvent.Wait(TimeSpan.FromSeconds(5), TestContext.Current.CancellationToken), "Processing did not finish in time");
         Assert.Single(processed);
         Assert.Contains(processed, m => m == msg);
     }
@@ -50,7 +50,7 @@ public class BroadcastMessageQueueTests
         queue.Enqueue(CreateBroadcastMessage("user1"));
         queue.Enqueue(CreateBroadcastMessage("user1"));
 
-        Assert.True(doneEvent.Wait(TimeSpan.FromSeconds(5)), "Processing did not finish in time");
+        Assert.True(doneEvent.Wait(TimeSpan.FromSeconds(5), TestContext.Current.CancellationToken), "Processing did not finish in time");
         Assert.Equal(1, calls);
         Assert.Equal(3, count);
     }
@@ -72,7 +72,7 @@ public class BroadcastMessageQueueTests
         queue.Enqueue(CreateBroadcastMessage("userA"));
         queue.Enqueue(CreateBroadcastMessage("userB"));
 
-        Assert.True(doneEvent.Wait(TimeSpan.FromSeconds(5)), "Did not process both user batches");
+        Assert.True(doneEvent.Wait(TimeSpan.FromSeconds(5), TestContext.Current.CancellationToken), "Did not process both user batches");
         Assert.Equal(2, calls);
     }
 
@@ -127,7 +127,7 @@ public class BroadcastMessageQueueTests
 
         Parallel.For(0, 50, _ => queue.Enqueue(CreateBroadcastMessage("userX")));
 
-        Assert.True(doneEvent.Wait(TimeSpan.FromSeconds(5)), "Not all messages processed in time");
+        Assert.True(doneEvent.Wait(TimeSpan.FromSeconds(5), TestContext.Current.CancellationToken), "Not all messages processed in time");
         Assert.Equal(50, totalProcessed);
         Assert.Single(taskIds);
     }

@@ -11,7 +11,6 @@ using SAF.Toolbox.FileTransfer.Messages;
 using SAF.Toolbox.Serialization;
 using Common;
 using Xunit;
-using Xunit.Abstractions;
 
 public class FileReceiverTests
 {
@@ -21,7 +20,7 @@ public class FileReceiverTests
 
     public FileReceiverTests(ITestOutputHelper outputHelper)
     {
-        var loggerFactory = LoggerFactory.Create(builder => builder.AddXunit(outputHelper, LogLevel.Trace).SetMinimumLevel(LogLevel.Warning));
+        var loggerFactory = LoggerFactory.Create(builder => builder.AddXUnit(outputHelper).SetMinimumLevel(LogLevel.Warning));
         _logger = loggerFactory.CreateLogger<FileReceiver>();
     }
 
