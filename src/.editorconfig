@@ -259,7 +259,7 @@ csharp_style_prefer_primary_constructors = true:suggestion
 
 #### Core EditorConfig Options ####
 
-file_header_template = <!-- SPDX-FileCopyrightText: 2023 TRUMPF Laser SE\n\n SPDX-License-Identifier: MPL-2.0 -->
+file_header_template = <!-- SPDX-FileCopyrightText: 2017-2026 TRUMPF Laser SE\n\n SPDX-License-Identifier: MPL-2.0 -->
 
 # Indentation and spacing
 indent_size = 2
