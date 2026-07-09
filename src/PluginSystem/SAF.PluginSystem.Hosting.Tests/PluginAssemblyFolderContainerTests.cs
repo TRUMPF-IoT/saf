@@ -140,7 +140,7 @@ public class PluginAssemblyFolderContainerTests
         var options = new PluginAssemblyFolderSearchOptions
         {
             SearchRootPath = AppContext.BaseDirectory,
-            IncludePatterns = "TL.Plugin.OpcUa.NodeSetImporter.dll",
+            IncludePatterns = "SAF.PluginSystem.Hosting.Tests.dll",
             ExcludePatterns = string.Empty,
             Recursive = false
         };
@@ -156,14 +156,32 @@ public class PluginAssemblyFolderContainerTests
     [Fact]
     public void GetPluginManifests_ReturnsManifest_ForAssemblyLoadedInPluginAssemblyLoadContext()
     {
-        var destinationPlugin = Path.Combine(AppContext.BaseDirectory, "test-plugins", "TL.Plugin.OpcUa.NodeSetImporter.dll");
-        _fileSystem.File.Copy(Path.Combine(AppContext.BaseDirectory, "TL.Plugin.OpcUa.NodeSetImporter.dll"), destinationPlugin, true);
+        var pluginOutputDirectory = Path.Combine(AppContext.BaseDirectory, "plugins", "TestPlugin.PluginA");
+        var destinationPluginDirectory = Path.Combine(AppContext.BaseDirectory, "test-plugins");
+        var destinationPlugin = Path.Combine(destinationPluginDirectory, "TestPlugin.PluginA.dll");
+        var destinationPluginDeps = Path.Combine(destinationPluginDirectory, "TestPlugin.PluginA.deps.json");
+        var destinationDependency = Path.Combine(destinationPluginDirectory, "TestPlugin.DependencyA.dll");
+
+        if (!_fileSystem.File.Exists(destinationPlugin))
+        {
+            _fileSystem.File.Copy(Path.Combine(pluginOutputDirectory, "TestPlugin.PluginA.dll"), destinationPlugin);
+        }
+
+        if (!_fileSystem.File.Exists(destinationPluginDeps))
+        {
+            _fileSystem.File.Copy(Path.Combine(pluginOutputDirectory, "TestPlugin.PluginA.deps.json"), destinationPluginDeps);
+        }
+
+        if (!_fileSystem.File.Exists(destinationDependency))
+        {
+            _fileSystem.File.Copy(Path.Combine(pluginOutputDirectory, "TestPlugin.DependencyA.dll"), destinationDependency);
+        }
 
         // Arrange
         var options = new PluginAssemblyFolderSearchOptions
         {
             SearchRootPath = Path.Combine(AppContext.BaseDirectory, "test-plugins"),
-            IncludePatterns = "TL.Plugin.OpcUa.NodeSetImporter.dll",
+            IncludePatterns = "TestPlugin.PluginA.dll",
             ExcludePatterns = string.Empty,
             Recursive = false
         };
