@@ -32,6 +32,21 @@ SPDX-License-Identifier: MPL-2.0
     <Project Path="Messaging/SAF.Messaging.Routing.Tests/SAF.Messaging.Routing.Tests.csproj" />
     <Project Path="Messaging/SAF.Messaging.Routing/SAF.Messaging.Routing.csproj" />
   </Folder>
+  <Folder Name="/PluginSystem/">
+    <Project Path="PluginSystem/SAF.PluginSystem.Hosting.Contracts/SAF.PluginSystem.Hosting.Contracts.csproj" />
+    <Project Path="PluginSystem/SAF.PluginSystem.Hosting.Extensions.Tests/SAF.PluginSystem.Hosting.Extensions.Tests.csproj" />
+    <Project Path="PluginSystem/SAF.PluginSystem.Hosting.Extensions/SAF.PluginSystem.Hosting.Extensions.csproj" />
+    <Project Path="PluginSystem/SAF.PluginSystem.Hosting.Tests/SAF.PluginSystem.Hosting.Tests.csproj" />
+    <Project Path="PluginSystem/SAF.PluginSystem.Hosting/SAF.PluginSystem.Hosting.csproj" />
+  </Folder>
+  <Folder Name="/PluginSystem/TestPlugins/">
+    <Project Path="PluginSystem/TestPlugins/TestPlugin.DependencyA/TestPlugin.DependencyA.csproj" />
+    <Project Path="PluginSystem/TestPlugins/TestPlugin.DependencyB/TestPlugin.DependencyB.csproj" />
+    <Project Path="PluginSystem/TestPlugins/TestPlugin.PluginA/TestPlugin.PluginA.csproj" />
+    <Project Path="PluginSystem/TestPlugins/TestPlugin.PluginB/TestPlugin.PluginB.csproj" />
+    <Project Path="PluginSystem/TestPlugins/TestPlugin.PublicDependencyA/TestPlugin.PublicDependencyA.csproj" />
+    <Project Path="PluginSystem/TestPlugins/TestPlugin.PublicDependencyB/TestPlugin.PublicDependencyB.csproj" />
+  </Folder>
   <Folder Name="/Services/">
     <Project Path="Services/SAF.Services.SampleService1.Tests/SAF.Services.SampleService1.Tests.csproj" />
     <Project Path="Services/SAF.Services.SampleService1/SAF.Services.SampleService1.csproj" />
