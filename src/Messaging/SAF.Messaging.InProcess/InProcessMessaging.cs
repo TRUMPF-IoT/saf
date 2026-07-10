@@ -4,6 +4,7 @@
 
 namespace SAF.Messaging.InProcess;
 using System.Diagnostics;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using SAF.Common;
@@ -12,6 +13,7 @@ using SAF.Messaging.Contracts;
 internal class InProcessMessaging : IInProcessMessagingInfrastructure, IDisposable
 {
     private readonly ILogger<InProcessMessaging> _log;
+    private readonly IServiceProvider? _serviceProvider;
     private readonly IServiceMessageDispatcher _messageDispatcher;
     private Action<Message>? _traceAction;
 
@@ -22,11 +24,12 @@ internal class InProcessMessaging : IInProcessMessagingInfrastructure, IDisposab
     private readonly Dictionary<string, List<Action<Message>>> _subscriptionsByLambda = new();
     private const string MessagingKeySeparator = "###########";
 
-    public InProcessMessaging(ILogger<InProcessMessaging>? log, IServiceMessageDispatcher messageDispatcher, Action<Message>? traceAction = null)
+    public InProcessMessaging(ILogger<InProcessMessaging>? log, IServiceMessageDispatcher messageDispatcher, Action<Message>? traceAction = null, IServiceProvider? serviceProvider = null)
     {
         _log = log ?? NullLogger<InProcessMessaging>.Instance;
         _messageDispatcher = messageDispatcher;
         _traceAction = traceAction;
+        _serviceProvider = serviceProvider;
     }
         
     public object Subscribe<TMessageHandler>() where TMessageHandler : IMessageHandler
@@ -38,6 +41,11 @@ internal class InProcessMessaging : IInProcessMessagingInfrastructure, IDisposab
     public object Subscribe<TMessageHandler>(string routeFilterPattern) where TMessageHandler : IMessageHandler
     {
         var handlerType = typeof(TMessageHandler);
+        var handlerTypeName = handlerType.FullName ?? handlerType.Name;
+        if (_serviceProvider == null)
+            throw new InvalidOperationException($"Cannot subscribe handler '{handlerTypeName}' because no service provider is available for handler resolution.");
+
+        var handlerRegistrationId = _messageDispatcher.RegisterHandler(() => (IMessageHandler)_serviceProvider.GetRequiredService<TMessageHandler>(), handlerTypeName);
         _log.LogDebug($"Subscribe {handlerType} to {routeFilterPattern}");
 
         _syncSubscriptionsByType.EnterWriteLock();
@@ -45,11 +53,11 @@ internal class InProcessMessaging : IInProcessMessagingInfrastructure, IDisposab
         {
             if (_subscriptionsByType.TryGetValue(routeFilterPattern, out var handlerList))
             {
-                handlerList.Add(typeof(TMessageHandler).FullName!);
+                handlerList.Add(handlerRegistrationId);
             }
             else
             {
-                _subscriptionsByType.Add(routeFilterPattern, new List<string> { typeof(TMessageHandler).FullName! });
+                _subscriptionsByType.Add(routeFilterPattern, new List<string> { handlerRegistrationId });
             }
         }
         finally
@@ -57,7 +65,7 @@ internal class InProcessMessaging : IInProcessMessagingInfrastructure, IDisposab
             _syncSubscriptionsByType.ExitWriteLock();
         }
 
-        return $"{handlerType}{MessagingKeySeparator}{routeFilterPattern}";
+        return $"{handlerRegistrationId}{MessagingKeySeparator}{routeFilterPattern}";
     }
 
     public object Subscribe(string routeFilterPattern, Action<Message> handler)
@@ -99,8 +107,8 @@ internal class InProcessMessaging : IInProcessMessagingInfrastructure, IDisposab
                 if (!message.Topic.IsMatch(kvp.Key))
                     continue;
 
-                foreach (var handlerTypeName in kvp.Value)
-                    subscriptionsToRun.Add(PrepareTaskWithErrorHandler(handlerTypeName, () => _messageDispatcher.DispatchMessage(handlerTypeName, message)));
+                foreach (var handlerRegistrationId in kvp.Value)
+                    subscriptionsToRun.Add(PrepareTaskWithErrorHandler(handlerRegistrationId, () => _messageDispatcher.DispatchMessageByRegistration(handlerRegistrationId, message)));
             }
         }
         finally
@@ -170,10 +178,11 @@ internal class InProcessMessaging : IInProcessMessagingInfrastructure, IDisposab
             if (_subscriptionsByType.TryGetValue(routeFilterPattern, out var handlerTypes))
             {
                 handlerTypes.Remove(handlerType);
+                _messageDispatcher.UnregisterHandler(handlerType);
 
                 if (handlerTypes.Count == 0)
                 {
-                    _subscriptionsByLambda.Remove(routeFilterPattern);
+                    _subscriptionsByType.Remove(routeFilterPattern);
                 }
             }
         }

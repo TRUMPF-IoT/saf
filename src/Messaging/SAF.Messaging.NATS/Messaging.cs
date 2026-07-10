@@ -4,7 +4,9 @@
 
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
+using Microsoft.Extensions.DependencyInjection;
 using NATS.Client.Core;
+using System.Collections.Concurrent;
 using SAF.Common;
 using SAF.Messaging.Contracts;
 
@@ -13,21 +15,24 @@ namespace SAF.Messaging.Nats;
 internal sealed class Messaging : INatsMessagingInfrastructure, IDisposable
 {
     private readonly INatsClient _natsClient;
+    private readonly IServiceProvider? _serviceProvider;
     private readonly INatsSubscriptionManager _subscriptionManager;
     private readonly IInputRouteTranslator _inputRouteTranslator;
     private readonly IOutputRouteTranslator _outputRouteTranslator;
     private readonly IServiceMessageDispatcher _serviceMessageDispatcher;
     private readonly Action<Message>? _traceAction;
     private readonly ILogger<Messaging> _logger;
+    private readonly ConcurrentDictionary<Guid, string> _typedHandlerRegistrationBySubscriptionId = new();
 
     public Messaging(ILogger<Messaging>? logger, INatsClient natsClient,
         INatsSubscriptionManager subscriptionManager,
         IInputRouteTranslator inputRouteTranslator,
         IOutputRouteTranslator outputRouteTranslator,
-        IServiceMessageDispatcher serviceMessageDispatcher, Action<Message>? traceAction)
+        IServiceMessageDispatcher serviceMessageDispatcher, Action<Message>? traceAction, IServiceProvider? serviceProvider = null)
     {
         _logger = logger ?? NullLogger<Messaging>.Instance;
         _natsClient = natsClient;
+        _serviceProvider = serviceProvider;
         _subscriptionManager = subscriptionManager;
         _inputRouteTranslator = inputRouteTranslator;
         _outputRouteTranslator = outputRouteTranslator;
@@ -63,11 +68,23 @@ internal sealed class Messaging : INatsMessagingInfrastructure, IDisposable
     {
         _logger.LogDebug($"Subscribe \"{typeof(TMessageHandler).Name}\" for route \"{routeFilterPattern}\".");
 
+        var handlerTypeName = typeof(TMessageHandler).AssemblyQualifiedName ?? typeof(TMessageHandler).FullName ?? typeof(TMessageHandler).Name;
+        var handlerRegistrationId = _serviceProvider != null
+            ? _serviceMessageDispatcher.RegisterHandler(() => (IMessageHandler)_serviceProvider.GetRequiredService<TMessageHandler>(), handlerTypeName)
+            : null;
+
         void Handler(Message message)
         {
             try
             {
-                _serviceMessageDispatcher.DispatchMessage<TMessageHandler>(message);
+                if (handlerRegistrationId != null)
+                {
+                    _serviceMessageDispatcher.DispatchMessageByRegistration(handlerRegistrationId, message);
+                }
+                else
+                {
+                    _serviceMessageDispatcher.DispatchMessage<TMessageHandler>(message);
+                }
             }
             catch (Exception e)
             {
@@ -77,7 +94,19 @@ internal sealed class Messaging : INatsMessagingInfrastructure, IDisposable
             }
         }
 
-        return SubscribeMessageHandler(routeFilterPattern, Handler) ?? new object();
+        var subscription = SubscribeMessageHandler(routeFilterPattern, Handler);
+        if (subscription is Guid subscriptionId)
+        {
+            if (handlerRegistrationId != null)
+                _typedHandlerRegistrationBySubscriptionId.TryAdd(subscriptionId, handlerRegistrationId);
+
+            return subscriptionId;
+        }
+
+        if (handlerRegistrationId != null)
+            _serviceMessageDispatcher.UnregisterHandler(handlerRegistrationId);
+
+        return new object();
     }
 
     public object Subscribe(Action<Message> handler)
@@ -110,6 +139,11 @@ internal sealed class Messaging : INatsMessagingInfrastructure, IDisposable
         {
             _logger.LogWarning($"Unsubscribe failed. Invalid subscription object passed: \"{subscription}\".");
             return;
+        }
+
+        if (_typedHandlerRegistrationBySubscriptionId.TryRemove(subscriptionGuid, out var handlerRegistrationId))
+        {
+            _serviceMessageDispatcher.UnregisterHandler(handlerRegistrationId);
         }
 
         if(!_subscriptionManager.TryRemove(subscriptionGuid, out var storedSubscription))
