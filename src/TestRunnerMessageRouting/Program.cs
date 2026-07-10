@@ -4,6 +4,7 @@
 
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Configuration;
+using SAF.Common.Diagnostics;
 using SAF.PluginSystem.Hosting;
 
 Console.Title = "SAF Message Routing Test Host";
@@ -23,6 +24,8 @@ builder.AddPluginSystem(builder.Configuration.GetSection("PluginSystem").Bind)
         options.IncludePatterns = pluginAssemblySearchOptions.IncludePatterns;
         options.ExcludePatterns = pluginAssemblySearchOptions.ExcludePatterns;
     });
+
+builder.Services.AddSafDiagnostics();
 
 var host = builder.Build();
 

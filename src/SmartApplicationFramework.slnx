@@ -12,13 +12,6 @@ SPDX-License-Identifier: MPL-2.0
     <Project Path="Communication/SAF.Communication.PubSub.Tests/SAF.Communication.PubSub.Tests.csproj" />
     <Project Path="Communication/SAF.Communication.PubSub/SAF.Communication.PubSub.csproj" />
   </Folder>
-  <Folder Name="/Hosting/">
-    <Project Path="Hosting/SAF.Hosting.Contracts.Tests/SAF.Hosting.Contracts.Tests.csproj" />
-    <Project Path="Hosting/SAF.Hosting.Contracts/SAF.Hosting.Contracts.csproj" />
-    <Project Path="Hosting/SAF.Hosting.Tests/SAF.Hosting.Tests.csproj" />
-    <Project Path="Hosting/SAF.Hosting.TestServices/SAF.Hosting.TestServices.csproj" />
-    <Project Path="Hosting/SAF.Hosting/SAF.Hosting.csproj" />
-  </Folder>
   <Folder Name="/Messaging/">
     <Project Path="Messaging/SAF.Messaging.Cde.Tests/SAF.Messaging.Cde.Tests.csproj" />
     <Project Path="Messaging/SAF.Messaging.Cde/SAF.Messaging.Cde.csproj" />

@@ -6,7 +6,6 @@ namespace SAF.Services.SampleService1;
 using Microsoft.Extensions.DependencyInjection;
 using AnyOtherInternalLogic;
 using MessageHandlers;
-using SAF.Hosting.Contracts;
 using SAF.PluginSystem.Hosting.Contracts;
 using Toolbox;
 
@@ -23,6 +22,6 @@ public class PluginManifest : IPluginManifest
         pluginServices.AddServiceConfiguration<MyServiceConfiguration>(context.HostConfiguration, nameof(MySpecialService));
 
         // "microservices"
-        pluginServices.AddHostedAsync<MySpecialService>();
+        pluginServices.AddSingleton<IServicePlugin, MySpecialService>();
     }
 }

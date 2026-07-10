@@ -4,18 +4,12 @@
 
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
-using SAF.Common;
 using SAF.PluginSystem.Hosting.Contracts;
 
 namespace SAF.Messaging.Nats;
 
-public class PluginManifest : IMessagingAssemblyManifest, IPluginManifest
+public class PluginManifest : IPluginManifest
 {
-    public void RegisterDependencies(IServiceCollection services, MessagingConfiguration config)
-    {
-        services.AddNatsMessagingInfrastructure(config);
-    }
-
     public void ConfigureServices(IPluginSystemHostContext context, IServiceCollection pluginServices)
     {
         pluginServices.AddNatsInfrastructure(c => context.HostConfiguration.GetSection("Nats").Bind(c));

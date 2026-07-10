@@ -8,6 +8,7 @@
 
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Hosting;
+using SAF.Common.Diagnostics;
 using SAF.PluginSystem.Hosting;
 
 Console.Title = "SAF CDE Test Service1";
@@ -27,6 +28,8 @@ builder.AddPluginSystem(builder.Configuration.GetSection("PluginSystem").Bind)
         options.IncludePatterns = pluginAssemblySearchOptions.IncludePatterns;
         options.ExcludePatterns = pluginAssemblySearchOptions.ExcludePatterns;
     });
+
+builder.Services.AddSafDiagnostics();
 
 var host = builder.Build();
 

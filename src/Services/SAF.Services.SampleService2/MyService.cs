@@ -5,7 +5,7 @@
 namespace SAF.Services.SampleService2;
 using Microsoft.Extensions.Logging;
 using Common;
-using Hosting.Contracts;
+using SAF.PluginSystem.Hosting.Contracts;
 using Toolbox.Serialization;
 
 internal class PingRequest
@@ -14,7 +14,7 @@ internal class PingRequest
     public string Id { get; set; } = default!;
 }
 
-public class MyService : IHostedService
+public class MyService : IServicePlugin
 {
     private readonly ILogger<MyService> _log;
     private readonly IMessagingInfrastructure _messaging;
@@ -29,7 +29,7 @@ public class MyService : IHostedService
         _messaging = messaging;
     }
 
-    public void Start()
+    public Task StartAsync(CancellationToken token)
     {
         void Handler(Message m)
         {
@@ -64,9 +64,11 @@ public class MyService : IHostedService
             });
 
         }, null, TimeSpan.Zero, TimeSpan.FromSeconds(5));
+
+        return Task.CompletedTask;
     }
 
-    public void Stop()
+    public Task StopAsync(CancellationToken token)
     {
         foreach (var subscription in _subscriptions)
         {
@@ -76,11 +78,13 @@ public class MyService : IHostedService
 
         _timer?.Dispose();
         _log.LogInformation("My service stopped.");
+
+        return Task.CompletedTask;
     }
 
     public void Kill()
     {
-        Stop();
+        _ = StopAsync(CancellationToken.None);
 
         _log.LogInformation("My service killed.");
     }

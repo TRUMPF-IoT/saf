@@ -7,12 +7,12 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Common;
-using Hosting.Contracts;
+using SAF.PluginSystem.Hosting.Contracts;
 using AnyOtherInternalLogic;
 using MessageHandlers;
 using Toolbox.Serialization;
 
-internal class MySpecialService : IHostedServiceAsync
+internal class MySpecialService : IServicePlugin
 {
     private readonly ILogger<MySpecialService> _log;
     private readonly IMessagingInfrastructure _messaging;

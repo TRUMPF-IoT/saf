@@ -2,15 +2,14 @@
 //
 // SPDX-License-Identifier: MPL-2.0
 
-namespace SAF.Hosting;
+namespace SAF.Common;
 
 using Microsoft.Extensions.Logging;
-using Common;
 
-internal class ServiceMessageDispatcher(ILogger<ServiceMessageDispatcher> log) : IServiceMessageDispatcher
+public class ServiceMessageDispatcher(ILogger<ServiceMessageDispatcher> log) : IServiceMessageDispatcher
 {
     private readonly Dictionary<string, Func<IMessageHandler>> _messageHandlerProviders = [];
-    
+
     public void AddHandler<TMessageHandler>(Func<IMessageHandler> handlerFactory) where TMessageHandler : IMessageHandler
         => AddHandler(typeof(TMessageHandler), handlerFactory);
 
@@ -55,7 +54,7 @@ internal class ServiceMessageDispatcher(ILogger<ServiceMessageDispatcher> log) :
         }
         catch (ObjectDisposedException ex)
         {
-            // on system shutdown a handler, or even the handlerFactory() may throw an ObjectDisposedException, which we accept and log here.
+            // During shutdown, handler creation or execution may race with disposal.
             log.LogWarning(ex, "Object {ObjectName} disposed while processing message {MessageTopic} with handler {HandlerTypeFullName}.",
                 ex.ObjectName, message.Topic, handlerTypeFullName);
         }

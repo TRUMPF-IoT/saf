@@ -6,6 +6,7 @@ namespace TestRunnerNats;
 
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Hosting;
+using SAF.Common.Diagnostics;
 using SAF.PluginSystem.Hosting;
 
 public static class Program
@@ -29,6 +30,8 @@ public static class Program
                 options.IncludePatterns = pluginAssemblySearchOptions.IncludePatterns;
                 options.ExcludePatterns = pluginAssemblySearchOptions.ExcludePatterns;
             });
+
+        builder.Services.AddSafDiagnostics();
 
         var host = builder.Build();
 
