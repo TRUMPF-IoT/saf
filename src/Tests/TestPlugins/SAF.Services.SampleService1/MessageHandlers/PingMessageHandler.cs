@@ -5,7 +5,8 @@
 namespace SAF.Services.SampleService1.MessageHandlers;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
-using Common;
+using SAF.Common;
+using SAF.Messaging.Contracts;
 using Toolbox.Serialization;
 
 internal class PingRequest
@@ -40,3 +41,5 @@ public class PingMessageHandler : IMessageHandler
         _messaging.Publish(new Message { Topic = replyTo, Payload = JsonSerializer.Serialize(new { req.Id }) });
     }
 }
+
+

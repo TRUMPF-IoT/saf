@@ -6,6 +6,7 @@ using NATS.Client.Core;
 using NATS.Client.ObjectStore;
 using NSubstitute;
 using SAF.Common;
+using SAF.Messaging.Contracts;
 using Xunit;
 
 namespace SAF.Messaging.Nats.Tests;
@@ -193,3 +194,5 @@ public class TestMessagingNats
         natsObjContext.Received().DeleteObjectStore(Arg.Is<string>("area"), CancellationToken.None);
     }
 }
+
+

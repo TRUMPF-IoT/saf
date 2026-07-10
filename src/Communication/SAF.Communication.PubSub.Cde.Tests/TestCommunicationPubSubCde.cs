@@ -5,7 +5,8 @@
 namespace SAF.Communication.PubSub.Cde.Tests;
 using NSubstitute;
 using Xunit;
-using Common;
+using SAF.Common;
+using SAF.Messaging.Contracts;
 using SAF.Communication.Cde;
 using Interfaces;
 using nsCDEngine.ViewModels;
@@ -295,3 +296,5 @@ public class TestCommunicationPubSubCde
     }
 
 }
+
+

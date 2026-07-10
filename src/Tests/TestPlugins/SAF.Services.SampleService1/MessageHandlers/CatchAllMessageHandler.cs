@@ -4,7 +4,8 @@
 
 namespace SAF.Services.SampleService1.MessageHandlers;
 using Microsoft.Extensions.Logging;
-using Common;
+using SAF.Common;
+using SAF.Messaging.Contracts;
 
 public class CatchAllMessageHandler : IMessageHandler
 {
@@ -23,3 +24,5 @@ public class CatchAllMessageHandler : IMessageHandler
         _log.LogInformation($"Message: {message.Topic}, Payload: {message.Payload}");
     }
 }
+
+

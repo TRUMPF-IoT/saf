@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: MPL-2.0
 
-namespace SAF.Common;
+namespace SAF.Messaging.Contracts;
 
 /// <summary>
 /// A pub/sub message.
@@ -31,3 +31,4 @@ public class MessageCustomProperty
     public string Name { get; set; } = default!;
     public string? Value { get; set; }
 }
+

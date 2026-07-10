@@ -8,7 +8,8 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using nsCDEngine.Engines.StorageService;
 using nsCDEngine.ViewModels;
-using Common;
+using SAF.Common;
+using SAF.Messaging.Contracts;
 
 internal class StorageEntry : TheDataBase
 {
@@ -198,3 +199,5 @@ internal class Storage : IStorageInfrastructure, IDisposable
         return storageMirror;
     }
 }
+
+

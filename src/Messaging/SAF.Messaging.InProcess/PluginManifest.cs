@@ -4,7 +4,8 @@
 
 namespace SAF.Messaging.InProcess;
 using Microsoft.Extensions.DependencyInjection;
-using Common;
+using SAF.Common;
+using SAF.Messaging.Contracts;
 using SAF.PluginSystem.Hosting.Contracts;
 
 public class PluginManifest : IPluginManifest
@@ -15,3 +16,5 @@ public class PluginManifest : IPluginManifest
         pluginServices.AddSingleton<IMessagingInfrastructure>(sp => sp.GetRequiredService<IInProcessMessagingInfrastructure>());
     }
 }
+
+

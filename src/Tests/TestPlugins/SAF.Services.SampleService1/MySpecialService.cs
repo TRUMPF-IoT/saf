@@ -6,7 +6,8 @@ namespace SAF.Services.SampleService1;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
-using Common;
+using SAF.Common;
+using SAF.Messaging.Contracts;
 using SAF.PluginSystem.Hosting.Contracts;
 using AnyOtherInternalLogic;
 using MessageHandlers;
@@ -86,3 +87,5 @@ internal class MySpecialService : IServicePlugin
     private void OnServiceConfigurationChanged(MyServiceConfiguration newConfig, string? optionName)
         => _log.LogInformation($"Service configuration changed: {newConfig.MyNumericSetting}, {newConfig.MyStringSetting}");
 }
+
+

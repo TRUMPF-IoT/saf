@@ -4,7 +4,8 @@
 
 namespace SAF.Messaging.Routing.Tests;
 using NSubstitute;
-using Common;
+using SAF.Common;
+using SAF.Messaging.Contracts;
 using Xunit;
 
 public class MessageRoutingTest
@@ -223,3 +224,5 @@ public class MessageRoutingTest
             Payload = "test"
         };
 }
+
+

@@ -4,7 +4,8 @@
 
 
 namespace SAF.Messaging.Redis;
-using Common;
+using SAF.Common;
+using SAF.Messaging.Contracts;
 
 internal class RedisMessagingConfiguration
 {
@@ -25,3 +26,5 @@ internal class RedisMessagingConfiguration
     public string? ConnectionString
         => _config.TryGetValue("connectionString", out var connString) ? connString : null;
 }
+
+

@@ -5,7 +5,8 @@
 namespace SAF.Communication.PubSub.Cde;
 using nsCDEngine.BaseClasses;
 using nsCDEngine.ViewModels;
-using Common;
+using SAF.Common;
+using SAF.Messaging.Contracts;
 using Interfaces;
 
 /// <summary>
@@ -88,3 +89,5 @@ internal class Subscription : ISubscription
         }
     }
 }
+
+

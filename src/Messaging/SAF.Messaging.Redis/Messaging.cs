@@ -7,7 +7,8 @@ using System.Collections.Concurrent;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using StackExchange.Redis;
-using Common;
+using SAF.Common;
+using SAF.Messaging.Contracts;
 using JsonSerializer = Toolbox.Serialization.JsonSerializer;
 
 public static class RedisMessageVersion
@@ -186,3 +187,5 @@ internal sealed class Messaging : IRedisMessagingInfrastructure, IDisposable
         return null;
     }
 }
+
+

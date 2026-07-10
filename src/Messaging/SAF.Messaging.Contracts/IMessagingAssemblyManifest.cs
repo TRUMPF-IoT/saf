@@ -2,10 +2,11 @@
 //
 // SPDX-License-Identifier: MPL-2.0
 
-namespace SAF.Common;
+namespace SAF.Messaging.Contracts;
 
 public class MessagingConfiguration
 {
     public string Type { get; set; } = string.Empty;
     public IDictionary<string, string>? Config { get; set; }
 }
+

@@ -6,7 +6,7 @@
 namespace SAF.Storage.LiteDb;
 using Microsoft.Extensions.DependencyInjection;
 using LiteDB;
-using Common;
+using SAF.Common;
 
 public static class ServiceCollectionExtensions
 {
@@ -34,3 +34,4 @@ public static class ServiceCollectionExtensions
         return new LiteDatabase(new ConnectionString(config.ConnectionString));
     }
 }
+

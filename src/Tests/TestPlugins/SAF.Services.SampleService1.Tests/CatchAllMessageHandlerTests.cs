@@ -5,7 +5,8 @@
 namespace SAF.Services.SampleService1.Tests;
 using Microsoft.Extensions.Logging;
 using NSubstitute;
-using Common;
+using SAF.Common;
+using SAF.Messaging.Contracts;
 using MessageHandlers;
 using Xunit;
 
@@ -25,3 +26,5 @@ public class CatchAllMessageHandlerTests
         loggerMock.ReceivedWithAnyArgs().LogInformation("Message: Test topic"); // TODO: how is string comparison done with NSubstitute?
     }
 }
+
+

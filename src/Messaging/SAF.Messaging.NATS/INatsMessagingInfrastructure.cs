@@ -3,6 +3,7 @@
 // SPDX-License-Identifier: MPL-2.0
 
 using SAF.Common;
+using SAF.Messaging.Contracts;
 
 namespace SAF.Messaging.Nats;
 
@@ -12,3 +13,5 @@ public interface INatsMessagingInfrastructure : IMessagingInfrastructure
     // The specific instance can be retrieved like this: serviceProvider.GetService<INatsMessagingInfrastructure>.
     // Use IServiceCollection.AddNatsMessagingInfrastructure extension method to add INatsMessagingInfrastructure into the DI container.
 }
+
+

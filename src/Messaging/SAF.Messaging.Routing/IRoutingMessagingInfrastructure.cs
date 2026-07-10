@@ -4,7 +4,8 @@
 
 
 namespace SAF.Messaging.Routing;
-using Common;
+using SAF.Common;
+using SAF.Messaging.Contracts;
 
 public interface IRoutingMessagingInfrastructure : IMessagingInfrastructure
 {
@@ -12,3 +13,5 @@ public interface IRoutingMessagingInfrastructure : IMessagingInfrastructure
     // The specific instance can be retrieved like this: serviceProvider.GetService<IRedisMessagingInfrastructure>.
     // Use IServiceCollection.AddRedisMessagingInfrastructure extension method to add IRedisMessagingInfrastructure into the DI container.
 }
+
+

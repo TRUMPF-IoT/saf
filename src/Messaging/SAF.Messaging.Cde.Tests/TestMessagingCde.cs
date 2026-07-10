@@ -8,7 +8,8 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using NSubstitute;
-using Common;
+using SAF.Common;
+using SAF.Messaging.Contracts;
 using SAF.Communication.Cde;
 using Communication.PubSub.Interfaces;
 using Xunit;
@@ -116,3 +117,5 @@ public class TestMessagingCde
     {
     }
 }
+
+

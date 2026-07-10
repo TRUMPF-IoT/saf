@@ -6,7 +6,8 @@ namespace SAF.Messaging.InProcess;
 using System.Diagnostics;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
-using Common;
+using SAF.Common;
+using SAF.Messaging.Contracts;
 
 internal class InProcessMessaging : IInProcessMessagingInfrastructure, IDisposable
 {
@@ -224,3 +225,5 @@ internal class InProcessMessaging : IInProcessMessagingInfrastructure, IDisposab
         GC.SuppressFinalize(this);
     }
 }
+
+

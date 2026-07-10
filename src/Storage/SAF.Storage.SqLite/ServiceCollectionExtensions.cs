@@ -5,7 +5,7 @@
 namespace SAF.Storage.SqLite;
 using System.Data.SQLite;
 using Microsoft.Extensions.DependencyInjection;
-using Common;
+using SAF.Common;
 
 public static class ServiceCollectionExtensions
 {
@@ -33,3 +33,4 @@ public static class ServiceCollectionExtensions
         return new SQLiteConnection(config.ConnectionString);
     }
 }
+

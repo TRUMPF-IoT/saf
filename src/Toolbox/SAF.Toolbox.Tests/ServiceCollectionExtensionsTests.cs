@@ -10,7 +10,8 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using System.IO.Abstractions;
 using NSubstitute;
-using Common;
+using SAF.Common;
+using SAF.Messaging.Contracts;
 using Heartbeat;
 using RequestClient;
 using Toolbox.FileTransfer;
@@ -215,3 +216,5 @@ public class ServiceCollectionExtensionsTests
         Assert.Equal(userBasePath, directoryInfo.FullName);
     }
 }
+
+

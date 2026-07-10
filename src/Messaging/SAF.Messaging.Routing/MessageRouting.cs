@@ -3,7 +3,8 @@
 // SPDX-License-Identifier: MPL-2.0
 
 namespace SAF.Messaging.Routing;
-using Common;
+using SAF.Common;
+using SAF.Messaging.Contracts;
 
 /// <summary>
 /// Describes a Pub/Sub message route for use with IServiceCollection.AddRoutingMessagingInfrastructure.
@@ -105,3 +106,5 @@ internal class MessageRouting : IMessageRouting
         }
     }
 }
+
+

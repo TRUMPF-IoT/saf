@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: MPL-2.0
 
-namespace SAF.Common;
+namespace SAF.Messaging.Contracts;
 
 /// <summary>
 ///     Provides access to the publish / subscribe infrastructure of the underlying networking technology.
@@ -51,3 +51,4 @@ public interface IMessagingInfrastructure
     /// <param name="subscription">The subscription identifier object (returned by subscribe).</param>
     void Unsubscribe(object subscription);
 }
+

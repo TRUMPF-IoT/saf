@@ -3,7 +3,7 @@
 // SPDX-License-Identifier: MPL-2.0
 
 namespace SAF.Storage.SqLite;
-using Common;
+using SAF.Common;
 using System.Data.SQLite;
 
 public class Storage : IStorageInfrastructure, IDisposable
@@ -185,3 +185,4 @@ public class Storage : IStorageInfrastructure, IDisposable
     private static string CorrectLegacyAreas(string area)
         => area.Replace(".", "_").Replace("/", "_");
 }
+

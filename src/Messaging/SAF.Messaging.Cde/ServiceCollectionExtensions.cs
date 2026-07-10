@@ -7,7 +7,8 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using nsCDEngine.Engines;
 using nsCDEngine.Engines.ThingService;
-using Common;
+using SAF.Common;
+using SAF.Messaging.Contracts;
 using SAF.Communication.Cde;
 using SAF.Communication.PubSub.Cde;
 using Communication.PubSub.Interfaces;
@@ -103,3 +104,5 @@ public static class ServiceCollectionExtensions
         return collection;
     }
 }
+
+

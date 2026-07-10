@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: MPL-2.0
 
-namespace SAF.Common;
+namespace SAF.Messaging.Contracts;
 
 public interface IServiceMessageDispatcher
 {
@@ -37,3 +37,4 @@ public interface IServiceMessageDispatcher
     void DispatchMessage(string handlerTypeFullName, Message message);
     void DispatchMessage(Action<Message> handler, Message message);
 }
+

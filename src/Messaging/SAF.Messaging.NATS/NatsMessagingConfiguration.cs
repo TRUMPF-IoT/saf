@@ -4,6 +4,7 @@
 
 using NATS.Client.Core;
 using SAF.Common;
+using SAF.Messaging.Contracts;
 
 namespace SAF.Messaging.Nats;
 
@@ -76,3 +77,5 @@ internal class NatsMessagingConfiguration
 
     public TlsMode Mode => _config.TryGetValue("TlsOpts_Mode", out var mode) ? Enum.Parse<TlsMode>(mode) : TlsMode.Auto;
 }
+
+

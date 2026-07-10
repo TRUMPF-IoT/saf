@@ -3,7 +3,8 @@
 // SPDX-License-Identifier: MPL-2.0
 
 namespace SAF.Messaging.Cde;
-using Common;
+using SAF.Common;
+using SAF.Messaging.Contracts;
 
 public interface ICdeMessagingInfrastructure : IMessagingInfrastructure
 {
@@ -11,3 +12,5 @@ public interface ICdeMessagingInfrastructure : IMessagingInfrastructure
     // The specific instance can be retrieved like this: serviceProvider.GetService<ICdeMessagingInfrastructure>. 
     // Use IServiceCollection.AddCdeMessagingInfrastructure extension method to add ICdeMessagingInfrastructure into the DI container. 
 }
+
+

@@ -5,7 +5,7 @@
 namespace SAF.Messaging.Runtime;
 
 using Microsoft.Extensions.DependencyInjection;
-using SAF.Common;
+using SAF.Messaging.Contracts;
 using SAF.PluginSystem.Hosting.Contracts;
 
 public class PluginManifest : IPluginManifest
@@ -15,3 +15,5 @@ public class PluginManifest : IPluginManifest
         pluginServices.AddSingleton<IServiceMessageDispatcher, ServiceMessageDispatcher>();
     }
 }
+
+

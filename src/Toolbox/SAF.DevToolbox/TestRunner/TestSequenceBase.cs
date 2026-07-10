@@ -4,7 +4,8 @@
 
 namespace SAF.DevToolbox.TestRunner;
 using System.Collections.Concurrent;
-using Common;
+using SAF.Common;
+using SAF.Messaging.Contracts;
 
 public abstract class TestSequenceBase : IMessageHandler
 {
@@ -72,3 +73,5 @@ public abstract class TestSequenceBase : IMessageHandler
         public void Dispose() => _messaging.Unsubscribe(_subscriptionId);
     }
 }
+
+

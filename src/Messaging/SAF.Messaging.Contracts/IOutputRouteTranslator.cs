@@ -2,9 +2,10 @@
 //
 // SPDX-License-Identifier: MPL-2.0
 
-namespace SAF.Common;
+namespace SAF.Messaging.Contracts;
 
 public interface IOutputRouteTranslator
 {
     string TranslateRoute(string routePattern);
 }
+

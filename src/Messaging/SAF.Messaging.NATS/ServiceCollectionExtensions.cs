@@ -9,6 +9,7 @@ using Microsoft.Extensions.Logging;
 using NATS.Client.Core;
 using NATS.Net;
 using SAF.Common;
+using SAF.Messaging.Contracts;
 
 [assembly: InternalsVisibleTo("SAF.Messaging.Nats.Tests")]
 [assembly: InternalsVisibleTo("DynamicProxyGenAssembly2")]
@@ -210,3 +211,5 @@ public static class ServiceCollectionExtensions
         });
     }
 }
+
+

@@ -4,7 +4,8 @@
 
 namespace SAF.Services.SampleService1.Tests;
 using NSubstitute;
-using Common;
+using SAF.Common;
+using SAF.Messaging.Contracts;
 using MessageHandlers;
 using Xunit;
 
@@ -25,3 +26,5 @@ public class PingMessageHandlerTests
         meshMock.Received().Publish(Arg.Is<Message>(m => m.Topic == "ping/response" && m.Payload == "{\"id\":\"1\"}"));
     }
 }
+
+

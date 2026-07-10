@@ -8,6 +8,7 @@ using System.Collections.Concurrent;
 using SAF.Communication.PubSub.Cde.MessageProcessing;
 using SAF.Communication.PubSub.Interfaces;
 using SAF.Common;
+using SAF.Messaging.Contracts;
 using Xunit;
 
 public class BroadcastMessageQueueTests
@@ -139,3 +140,5 @@ public class BroadcastMessageQueueTests
         return new BroadcastMessage(topic, message, userId, RoutingOptions.All);
     }
 }
+
+

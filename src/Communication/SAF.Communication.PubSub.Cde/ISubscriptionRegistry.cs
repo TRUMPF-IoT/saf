@@ -3,7 +3,8 @@
 // SPDX-License-Identifier: MPL-2.0
 
 namespace SAF.Communication.PubSub.Cde;
-using Common;
+using SAF.Common;
+using SAF.Messaging.Contracts;
 using Interfaces;
 
 public interface ISubscriptionRegistry : IDisposable
@@ -11,3 +12,5 @@ public interface ISubscriptionRegistry : IDisposable
     public void Broadcast(Topic topic, Message message, string userId, RoutingOptions routingOptions);
     public Task ConnectAsync(CancellationToken token);
 }
+
+

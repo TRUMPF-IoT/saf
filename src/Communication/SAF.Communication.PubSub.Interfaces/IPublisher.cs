@@ -3,7 +3,8 @@
 // SPDX-License-Identifier: MPL-2.0
 
 namespace SAF.Communication.PubSub.Interfaces;
-using Common;
+using SAF.Common;
+using SAF.Messaging.Contracts;
 
 public interface IPublisher
 {
@@ -16,3 +17,5 @@ public interface IPublisher
     void Publish(Message message, string userId);
     void Publish(Message message, string userId, RoutingOptions routingOptions);
 }
+
+

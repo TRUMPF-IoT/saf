@@ -4,7 +4,8 @@
 
 namespace SAF.Services.SampleService2;
 using Microsoft.Extensions.Logging;
-using Common;
+using SAF.Common;
+using SAF.Messaging.Contracts;
 using SAF.PluginSystem.Hosting.Contracts;
 using Toolbox.Serialization;
 
@@ -89,3 +90,5 @@ public class MyService : IServicePlugin
         _log.LogInformation("My service killed.");
     }
 }
+
+

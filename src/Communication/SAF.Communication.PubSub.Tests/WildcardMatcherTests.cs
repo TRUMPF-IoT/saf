@@ -4,6 +4,7 @@
 
 namespace SAF.Communication.PubSub.Tests;
 using SAF.Common;
+using SAF.Messaging.Contracts;
 using Xunit;
 
 public class WildcardMatcherTests
@@ -21,3 +22,4 @@ public class WildcardMatcherTests
         Assert.False("begin/one/two/wrong".IsMatch(pattern));
     }
 }
+

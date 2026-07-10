@@ -4,7 +4,8 @@
 
 
 namespace SAF.Communication.PubSub.Interfaces;
-using Common;
+using SAF.Common;
+using SAF.Messaging.Contracts;
 
 public interface ISubscription : IDisposable
 {
@@ -18,3 +19,5 @@ public interface ISubscription : IDisposable
 
     void Unsubscribe();
 }
+
+

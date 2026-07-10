@@ -3,6 +3,7 @@
 // SPDX-License-Identifier: MPL-2.0
 
 using SAF.Common;
+using SAF.Messaging.Contracts;
 
 namespace SAF.Messaging.Nats;
 
@@ -20,3 +21,5 @@ public class NatsOutputRouteTranslator : IOutputRouteTranslator
 
     }
 }
+
+

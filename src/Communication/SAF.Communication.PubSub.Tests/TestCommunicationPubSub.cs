@@ -4,7 +4,8 @@
 
 namespace SAF.Communication.PubSub.Tests;
 
-using Common;
+using SAF.Common;
+using SAF.Messaging.Contracts;
 using Interfaces;
 using Xunit;
 
@@ -119,3 +120,5 @@ internal class TestRegistryLifetimeHandlerBase : RegistryLifetimeHandlerBase<Top
         DownEventFired = true;
     }
 }
+
+

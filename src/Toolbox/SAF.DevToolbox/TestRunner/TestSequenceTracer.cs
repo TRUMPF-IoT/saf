@@ -5,7 +5,8 @@
 namespace SAF.DevToolbox.TestRunner;
 using System.Diagnostics;
 using System.Text.Json;
-using Common;
+using SAF.Common;
+using SAF.Messaging.Contracts;
 
 internal class TestSequenceTracer : IDisposable
 {
@@ -141,3 +142,5 @@ internal class TestSequenceTracer : IDisposable
         return JsonSerializer.Serialize(parsedJson, new JsonSerializerOptions{WriteIndented = true});
     }
 }
+
+

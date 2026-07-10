@@ -10,6 +10,7 @@ using NSubstitute;
 using SAF.Communication.Cde;
 using SAF.Communication.PubSub.Interfaces;
 using SAF.Common;
+using SAF.Messaging.Contracts;
 using Xunit;
 using System.Collections.Concurrent;
 
@@ -145,3 +146,4 @@ public class SubscriptionTests
         raiseMethod?.DynamicInvoke(topic, version, msg);
     }
 }
+

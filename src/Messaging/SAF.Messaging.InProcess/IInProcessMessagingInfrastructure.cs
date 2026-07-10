@@ -3,7 +3,8 @@
 // SPDX-License-Identifier: MPL-2.0
 
 namespace SAF.Messaging.InProcess;
-using Common;
+using SAF.Common;
+using SAF.Messaging.Contracts;
 
 public interface IInProcessMessagingInfrastructure : IMessagingInfrastructure
 {
@@ -11,3 +12,5 @@ public interface IInProcessMessagingInfrastructure : IMessagingInfrastructure
     // The specific instance can be retrieved like this: serviceProvider.GetService<IInProcessMessagingInfrastructure>. 
     // Use IServiceCollection.AddInProcessMessagingInfrastructure extension method to add IInProcessMessagingInfrastructure into the DI container. 
 }
+
+

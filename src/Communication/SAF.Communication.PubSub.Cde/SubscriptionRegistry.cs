@@ -6,7 +6,8 @@ namespace SAF.Communication.PubSub.Cde;
 using nsCDEngine.BaseClasses;
 using nsCDEngine.Engines.ThingService;
 using nsCDEngine.ViewModels;
-using Common;
+using SAF.Common;
+using SAF.Messaging.Contracts;
 using SAF.Communication.Cde;
 using SAF.Communication.Cde.Utils;
 using MessageProcessing;
@@ -339,3 +340,5 @@ internal class SubscriptionRegistry : ISubscriptionRegistry
         _line.Broadcast(tsm);
     }
 }
+
+

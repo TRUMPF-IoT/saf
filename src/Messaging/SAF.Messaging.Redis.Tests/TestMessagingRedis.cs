@@ -4,7 +4,8 @@
 
 namespace SAF.Messaging.Redis.Tests;
 using NSubstitute;
-using Common;
+using SAF.Common;
+using SAF.Messaging.Contracts;
 using StackExchange.Redis;
 using System.Net;
 using Xunit;
@@ -102,3 +103,5 @@ public class TestMessagingRedis
         Assert.Throws<NotSupportedException>(() => storage.RemoveArea("global"));
     }
 }
+
+

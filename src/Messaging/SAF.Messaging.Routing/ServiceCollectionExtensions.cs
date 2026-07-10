@@ -10,6 +10,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.FileSystemGlobbing;
 using Microsoft.Extensions.Logging;
 using SAF.Common;
+using SAF.Messaging.Contracts;
 using SAF.PluginSystem.Hosting.Contracts;
 
 [assembly: InternalsVisibleTo("SAF.Messaging.Routing.Tests")]
@@ -156,3 +157,5 @@ public static class ServiceCollectionExtensions
         return $"Add{messagingTypeName[1..]}";
     }
 }
+
+

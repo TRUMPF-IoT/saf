@@ -4,7 +4,8 @@
 
 namespace SAF.Communication.PubSub.Cde.Tests;
 
-using Common;
+using SAF.Common;
+using SAF.Messaging.Contracts;
 using Communication.Cde;
 using Interfaces;
 using nsCDEngine.BaseClasses;
@@ -153,3 +154,5 @@ public class RemoteSubscriberTests
         return (IEnumerable<IReadOnlyList<Message>>)method.Invoke(null, [messages])!;
     }
 }
+
+

@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: MPL-2.0
 
-namespace SAF.Common;
+namespace SAF.Messaging.Contracts;
 
 /// <summary>
 ///     Represents a handler for a system message.
@@ -24,3 +24,4 @@ public interface IMessageHandler
     /// <param name="message">The message to handle.</param>
     void Handle(Message message);
 }
+

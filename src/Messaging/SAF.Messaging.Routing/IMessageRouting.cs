@@ -3,7 +3,8 @@
 // SPDX-License-Identifier: MPL-2.0
 
 namespace SAF.Messaging.Routing;
-using Common;
+using SAF.Common;
+using SAF.Messaging.Contracts;
 
 internal interface IMessageRouting
 {
@@ -11,3 +12,5 @@ internal interface IMessageRouting
     public MessageRoutingSubscription? Subscribe<TMessageHandler>(string routeFilterPattern) where TMessageHandler : IMessageHandler;
     public MessageRoutingSubscription? Subscribe(string routeFilterPattern, Action<Message> handler);
 }
+
+

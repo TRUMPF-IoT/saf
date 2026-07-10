@@ -5,7 +5,7 @@
 namespace SAF.Messaging.Runtime;
 
 using Microsoft.Extensions.Logging;
-using SAF.Common;
+using SAF.Messaging.Contracts;
 
 public class ServiceMessageDispatcher(ILogger<ServiceMessageDispatcher> log) : IServiceMessageDispatcher
 {
@@ -81,3 +81,5 @@ public class ServiceMessageDispatcher(ILogger<ServiceMessageDispatcher> log) : I
         }
     }
 }
+
+

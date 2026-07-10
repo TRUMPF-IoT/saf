@@ -5,6 +5,7 @@
 using System.Text;
 using NATS.Client.ObjectStore;
 using SAF.Common;
+using SAF.Messaging.Contracts;
 
 namespace SAF.Messaging.Nats;
 
@@ -92,3 +93,5 @@ public class Storage : IStorageInfrastructure, IDisposable
         _natsObjContext.JetStreamContext.Connection.DisposeAsync().AsTask().Wait();
     }
 }
+
+

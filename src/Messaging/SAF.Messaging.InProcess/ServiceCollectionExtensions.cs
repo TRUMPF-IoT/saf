@@ -6,6 +6,7 @@ using System.Runtime.CompilerServices;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using SAF.Common;
+using SAF.Messaging.Contracts;
 
 [assembly: InternalsVisibleTo("SAF.Messaging.InProcess.Tests")]
 [assembly: InternalsVisibleTo("DynamicProxyGenAssembly2")]
@@ -30,3 +31,4 @@ public static class ServiceCollectionExtensions
         => serviceProvider.GetService<IServiceMessageDispatcher>() ??
            throw new InvalidOperationException("IServiceMessageDispatcher is not available. Ensure SAF.Messaging.Runtime is loaded as a plugin and SAF.Messaging.Contracts.dll is included in PluginContractsSearchPattern.");
 }
+

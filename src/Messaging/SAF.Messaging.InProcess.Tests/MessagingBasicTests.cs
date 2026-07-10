@@ -5,7 +5,8 @@
 namespace SAF.Messaging.InProcess.Tests;
 
 using Microsoft.Extensions.Logging.Abstractions;
-using Common;
+using SAF.Common;
+using SAF.Messaging.Contracts;
 using SAF.Messaging.Runtime;
 using TestUtilities;
 using Xunit;
@@ -60,3 +61,5 @@ public class MessagingBasicTests
         Assert.True(publishContinued < subscriptionHit);
     }
 }
+
+

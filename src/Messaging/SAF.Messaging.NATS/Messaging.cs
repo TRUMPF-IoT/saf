@@ -6,6 +6,7 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using NATS.Client.Core;
 using SAF.Common;
+using SAF.Messaging.Contracts;
 
 namespace SAF.Messaging.Nats;
 
@@ -191,3 +192,5 @@ internal sealed class Messaging : INatsMessagingInfrastructure, IDisposable
         return null;
     }
 }
+
+

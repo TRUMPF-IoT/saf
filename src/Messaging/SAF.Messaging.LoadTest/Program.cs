@@ -5,7 +5,8 @@
 namespace SAF.Messaging.LoadTest;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
-using Common;
+using SAF.Common;
+using SAF.Messaging.Contracts;
 using SAF.Messaging.Runtime;
 using System.Diagnostics;
 using Redis;
@@ -105,3 +106,5 @@ class Program
         log?.LogInformation("[SYNC] Handlers used {0}ms.", sw.ElapsedMilliseconds);
     }
 }
+
+

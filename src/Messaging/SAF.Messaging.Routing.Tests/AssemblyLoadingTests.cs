@@ -6,7 +6,8 @@ namespace SAF.Messaging.Routing.Tests;
 using System.Reflection;
 using Microsoft.Extensions.DependencyInjection;
 using NSubstitute;
-using Common;
+using SAF.Common;
+using SAF.Messaging.Contracts;
 using Xunit;
 
 public class AssemblyLoadingTests
@@ -99,3 +100,5 @@ public class AssemblyLoadingTests
         Assert.Contains(Path.Combine(TestDataPath, "FilePatterns1", "My.Messaging.3.txt"), result);
     }
 }
+
+

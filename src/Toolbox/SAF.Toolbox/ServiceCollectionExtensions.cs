@@ -9,6 +9,7 @@ using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using SAF.Common;
+using SAF.Messaging.Contracts;
 using SAF.Toolbox.Heartbeat;
 using SAF.Toolbox.RequestClient;
 
@@ -114,3 +115,4 @@ public static class ServiceCollectionExtensions
         return services;
     }
 }
+
