@@ -39,7 +39,7 @@ public static class ServiceCollectionExtensions
                     sp.GetRequiredService<IPublisher>(),
                     sp.GetRequiredService<ISubscriber>(),
                     traceAction,
-                    sp));
+                    handlerType => (IMessageHandler)sp.GetRequiredService(handlerType)));
 
     public static IServiceCollection AddCdeStorageInfrastructure(this IServiceCollection collection)
         => collection.AddSingleton<IStorageInfrastructure, Storage>(sp =>
@@ -66,7 +66,7 @@ public static class ServiceCollectionExtensions
                     sp.GetRequiredService<ISubscriber>(),
                     null,
                     new CdeMessagingConfiguration(cfg),
-                    sp)))
+                    handlerType => (IMessageHandler)sp.GetRequiredService(handlerType))))
             .AddTransient(sp => sp.GetRequiredService<Func<MessagingConfiguration, ICdeMessagingInfrastructure>>().Invoke(config));
 
         return collection;

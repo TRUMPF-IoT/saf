@@ -4,7 +4,6 @@
 
 namespace SAF.Messaging.Redis;
 using System.Collections.Concurrent;
-using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using StackExchange.Redis;
@@ -28,7 +27,7 @@ internal class RedisMessage
 internal sealed class Messaging : IRedisMessagingInfrastructure, IDisposable
 {
     private readonly IConnectionMultiplexer _redis;
-    private readonly IServiceProvider? _serviceProvider;
+    private readonly Func<Type, IMessageHandler>? _handlerFactory;
     private readonly IServiceMessageDispatcher _serviceMessageDispatcher;
     private readonly Action<Message>? _traceAction;
     private readonly ILogger<Messaging> _log;
@@ -36,13 +35,13 @@ internal sealed class Messaging : IRedisMessagingInfrastructure, IDisposable
     private readonly ConcurrentDictionary<Guid, (string routeFilterPattern, Action<RedisChannel, RedisValue> handler)> _subscriptions = new();
     private readonly ConcurrentDictionary<Guid, string> _typedHandlerRegistrationBySubscriptionId = new();
 
-    public Messaging(ILogger<Messaging>? log, IConnectionMultiplexer redis, IServiceMessageDispatcher serviceMessageDispatcher, Action<Message>? traceAction, IServiceProvider? serviceProvider = null)
+    public Messaging(ILogger<Messaging>? log, IConnectionMultiplexer redis, IServiceMessageDispatcher serviceMessageDispatcher, Action<Message>? traceAction, Func<Type, IMessageHandler>? handlerFactory = null)
     {
         _log = log ?? NullLogger<Messaging>.Instance;
         _redis = redis;
         _serviceMessageDispatcher = serviceMessageDispatcher;
         _traceAction = traceAction;
-        _serviceProvider = serviceProvider;
+        _handlerFactory = handlerFactory;
     }
 
     public void Publish(Message message)
@@ -73,8 +72,8 @@ internal sealed class Messaging : IRedisMessagingInfrastructure, IDisposable
         _log.LogDebug($"Subscribe \"{typeof(TMessageHandler).Name}\" for route \"{routeFilterPattern}\".");
 
         var handlerTypeName = typeof(TMessageHandler).AssemblyQualifiedName ?? typeof(TMessageHandler).FullName ?? typeof(TMessageHandler).Name;
-        var handlerRegistrationId = _serviceProvider != null
-            ? _serviceMessageDispatcher.RegisterHandler(() => (IMessageHandler)_serviceProvider.GetRequiredService<TMessageHandler>(), handlerTypeName)
+        var handlerRegistrationId = _handlerFactory != null
+            ? _serviceMessageDispatcher.RegisterHandler(() => _handlerFactory(typeof(TMessageHandler)), handlerTypeName)
             : null;
 
         void Handler(Message message)

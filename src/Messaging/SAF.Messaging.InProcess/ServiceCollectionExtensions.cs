@@ -17,12 +17,20 @@ public static class ServiceCollectionExtensions
 {
     public static IServiceCollection AddInProcessMessagingInfrastructure(this IServiceCollection serviceCollection, Action<Message>? traceAction = null)
         => serviceCollection.AddTransient<IInProcessMessagingInfrastructure>(r =>
-            new InProcessMessaging(r.GetService<ILogger<InProcessMessaging>>(), ResolveMessageDispatcher(r), traceAction, r));
+            new InProcessMessaging(
+                r.GetService<ILogger<InProcessMessaging>>(),
+                ResolveMessageDispatcher(r),
+                traceAction,
+                handlerType => (IMessageHandler)r.GetRequiredService(handlerType)));
 
     internal static IServiceCollection AddInProcessMessagingInfrastructure(this IServiceCollection serviceCollection, MessagingConfiguration config)
     {
         serviceCollection.AddTransient(sp => new Func<MessagingConfiguration, IInProcessMessagingInfrastructure>(_ =>
-            new InProcessMessaging(sp.GetService<ILogger<InProcessMessaging>>(), ResolveMessageDispatcher(sp), null, sp)));
+            new InProcessMessaging(
+                sp.GetService<ILogger<InProcessMessaging>>(),
+                ResolveMessageDispatcher(sp),
+                null,
+                handlerType => (IMessageHandler)sp.GetRequiredService(handlerType))));
 
         return serviceCollection.AddTransient(sp => sp.GetRequiredService<Func<MessagingConfiguration, IInProcessMessagingInfrastructure>>().Invoke(config));
     }

@@ -4,7 +4,6 @@
 
 namespace SAF.Messaging.InProcess;
 using System.Diagnostics;
-using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using SAF.Common;
@@ -13,7 +12,7 @@ using SAF.Messaging.Contracts;
 internal class InProcessMessaging : IInProcessMessagingInfrastructure, IDisposable
 {
     private readonly ILogger<InProcessMessaging> _log;
-    private readonly IServiceProvider? _serviceProvider;
+    private readonly Func<Type, IMessageHandler>? _handlerFactory;
     private readonly IServiceMessageDispatcher _messageDispatcher;
     private Action<Message>? _traceAction;
 
@@ -24,12 +23,12 @@ internal class InProcessMessaging : IInProcessMessagingInfrastructure, IDisposab
     private readonly Dictionary<string, List<Action<Message>>> _subscriptionsByLambda = new();
     private const string MessagingKeySeparator = "###########";
 
-    public InProcessMessaging(ILogger<InProcessMessaging>? log, IServiceMessageDispatcher messageDispatcher, Action<Message>? traceAction = null, IServiceProvider? serviceProvider = null)
+    public InProcessMessaging(ILogger<InProcessMessaging>? log, IServiceMessageDispatcher messageDispatcher, Action<Message>? traceAction = null, Func<Type, IMessageHandler>? handlerFactory = null)
     {
         _log = log ?? NullLogger<InProcessMessaging>.Instance;
         _messageDispatcher = messageDispatcher;
         _traceAction = traceAction;
-        _serviceProvider = serviceProvider;
+        _handlerFactory = handlerFactory;
     }
         
     public object Subscribe<TMessageHandler>() where TMessageHandler : IMessageHandler
@@ -42,10 +41,10 @@ internal class InProcessMessaging : IInProcessMessagingInfrastructure, IDisposab
     {
         var handlerType = typeof(TMessageHandler);
         var handlerTypeName = handlerType.FullName ?? handlerType.Name;
-        if (_serviceProvider == null)
-            throw new InvalidOperationException($"Cannot subscribe handler '{handlerTypeName}' because no service provider is available for handler resolution.");
+        if (_handlerFactory == null)
+            throw new InvalidOperationException($"Cannot subscribe handler '{handlerTypeName}' because no handler factory is configured for typed handler resolution.");
 
-        var handlerRegistrationId = _messageDispatcher.RegisterHandler(() => (IMessageHandler)_serviceProvider.GetRequiredService<TMessageHandler>(), handlerTypeName);
+        var handlerRegistrationId = _messageDispatcher.RegisterHandler(() => _handlerFactory(handlerType), handlerTypeName);
         _log.LogDebug($"Subscribe {handlerType} to {routeFilterPattern}");
 
         _syncSubscriptionsByType.EnterWriteLock();

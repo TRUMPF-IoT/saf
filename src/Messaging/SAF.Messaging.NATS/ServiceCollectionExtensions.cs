@@ -64,7 +64,7 @@ public static class ServiceCollectionExtensions
                     sp.GetService<IOutputRouteTranslator>() ?? new NatsOutputRouteTranslator(),
                     ResolveMessageDispatcher(sp),
                     null,
-                    sp);
+                    handlerType => (IMessageHandler)sp.GetRequiredService(handlerType));
             }))
             .AddTransient(sp =>
                 sp.GetRequiredService<Func<MessagingConfiguration, INatsMessagingInfrastructure>>().Invoke(config));
@@ -196,7 +196,7 @@ public static class ServiceCollectionExtensions
                 sp.GetService<IOutputRouteTranslator>() ?? new NatsOutputRouteTranslator(),
                 ResolveMessageDispatcher(sp),
                 traceAction,
-                sp));
+                handlerType => (IMessageHandler)sp.GetRequiredService(handlerType)));
     }
 
     private static IServiceMessageDispatcher ResolveMessageDispatcher(IServiceProvider serviceProvider)

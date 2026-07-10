@@ -4,7 +4,6 @@
 
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
-using Microsoft.Extensions.DependencyInjection;
 using NATS.Client.Core;
 using System.Collections.Concurrent;
 using SAF.Common;
@@ -15,7 +14,7 @@ namespace SAF.Messaging.Nats;
 internal sealed class Messaging : INatsMessagingInfrastructure, IDisposable
 {
     private readonly INatsClient _natsClient;
-    private readonly IServiceProvider? _serviceProvider;
+    private readonly Func<Type, IMessageHandler>? _handlerFactory;
     private readonly INatsSubscriptionManager _subscriptionManager;
     private readonly IInputRouteTranslator _inputRouteTranslator;
     private readonly IOutputRouteTranslator _outputRouteTranslator;
@@ -28,11 +27,11 @@ internal sealed class Messaging : INatsMessagingInfrastructure, IDisposable
         INatsSubscriptionManager subscriptionManager,
         IInputRouteTranslator inputRouteTranslator,
         IOutputRouteTranslator outputRouteTranslator,
-        IServiceMessageDispatcher serviceMessageDispatcher, Action<Message>? traceAction, IServiceProvider? serviceProvider = null)
+        IServiceMessageDispatcher serviceMessageDispatcher, Action<Message>? traceAction, Func<Type, IMessageHandler>? handlerFactory = null)
     {
         _logger = logger ?? NullLogger<Messaging>.Instance;
         _natsClient = natsClient;
-        _serviceProvider = serviceProvider;
+        _handlerFactory = handlerFactory;
         _subscriptionManager = subscriptionManager;
         _inputRouteTranslator = inputRouteTranslator;
         _outputRouteTranslator = outputRouteTranslator;
@@ -69,8 +68,8 @@ internal sealed class Messaging : INatsMessagingInfrastructure, IDisposable
         _logger.LogDebug($"Subscribe \"{typeof(TMessageHandler).Name}\" for route \"{routeFilterPattern}\".");
 
         var handlerTypeName = typeof(TMessageHandler).AssemblyQualifiedName ?? typeof(TMessageHandler).FullName ?? typeof(TMessageHandler).Name;
-        var handlerRegistrationId = _serviceProvider != null
-            ? _serviceMessageDispatcher.RegisterHandler(() => (IMessageHandler)_serviceProvider.GetRequiredService<TMessageHandler>(), handlerTypeName)
+        var handlerRegistrationId = _handlerFactory != null
+            ? _serviceMessageDispatcher.RegisterHandler(() => _handlerFactory(typeof(TMessageHandler)), handlerTypeName)
             : null;
 
         void Handler(Message message)

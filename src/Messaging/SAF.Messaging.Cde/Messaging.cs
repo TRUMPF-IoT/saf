@@ -5,7 +5,6 @@
 
 namespace SAF.Messaging.Cde;
 using System.Collections.Concurrent;
-using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using SAF.Common;
@@ -18,7 +17,7 @@ using Communication.PubSub.Interfaces;
 internal class Messaging : ICdeMessagingInfrastructure
 {
     private readonly ILogger<Messaging> _log;
-    private readonly IServiceProvider? _serviceProvider;
+    private readonly Func<Type, IMessageHandler>? _handlerFactory;
     private readonly IServiceMessageDispatcher _dispatcher;
     private readonly IPublisher _publisher;
     private readonly ISubscriber _subscriber;
@@ -28,14 +27,14 @@ internal class Messaging : ICdeMessagingInfrastructure
     private readonly ConcurrentDictionary<string, (string pattern, ISubscription subscription)> _subscriptions = new();
     private readonly ConcurrentDictionary<string, string> _typedHandlerRegistrationBySubscriptionId = new();
 
-    public Messaging(ILogger<Messaging>? log, IServiceMessageDispatcher dispatcher, IPublisher publisher, ISubscriber subscriber, Action<Message>? traceAction, IServiceProvider? serviceProvider = null)
-        : this(log, dispatcher, publisher, subscriber, traceAction, new CdeMessagingConfiguration(), serviceProvider)
+    public Messaging(ILogger<Messaging>? log, IServiceMessageDispatcher dispatcher, IPublisher publisher, ISubscriber subscriber, Action<Message>? traceAction, Func<Type, IMessageHandler>? handlerFactory = null)
+        : this(log, dispatcher, publisher, subscriber, traceAction, new CdeMessagingConfiguration(), handlerFactory)
     { }
 
-    public Messaging(ILogger<Messaging>? log, IServiceMessageDispatcher dispatcher, IPublisher publisher, ISubscriber subscriber, Action<Message>? traceAction, CdeMessagingConfiguration config, IServiceProvider? serviceProvider = null)
+    public Messaging(ILogger<Messaging>? log, IServiceMessageDispatcher dispatcher, IPublisher publisher, ISubscriber subscriber, Action<Message>? traceAction, CdeMessagingConfiguration config, Func<Type, IMessageHandler>? handlerFactory = null)
     {
         _log = log ?? NullLogger<Messaging>.Instance;
-        _serviceProvider = serviceProvider;
+        _handlerFactory = handlerFactory;
         _dispatcher = dispatcher;
 
         _publisher = publisher;
@@ -61,8 +60,8 @@ internal class Messaging : ICdeMessagingInfrastructure
         _log.LogDebug($"Subscribe \"{typeof(TMessageHandler).Name}\" for route \"{routeFilterPattern}\", RelayOptions={_config.RoutingOptions}.");
 
         var handlerTypeName = typeof(TMessageHandler).AssemblyQualifiedName ?? typeof(TMessageHandler).FullName ?? typeof(TMessageHandler).Name;
-        var handlerRegistrationId = _serviceProvider != null
-            ? _dispatcher.RegisterHandler(() => (IMessageHandler)_serviceProvider.GetRequiredService<TMessageHandler>(), handlerTypeName)
+        var handlerRegistrationId = _handlerFactory != null
+            ? _dispatcher.RegisterHandler(() => _handlerFactory(typeof(TMessageHandler)), handlerTypeName)
             : null;
 
         var subscriptionId = InternalSubscribe(routeFilterPattern, message =>
