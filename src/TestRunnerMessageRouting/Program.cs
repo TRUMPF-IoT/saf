@@ -4,24 +4,26 @@
 
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Configuration;
-using SAF.Hosting;
-using SAF.Messaging.Cde;
-using SAF.Messaging.Redis;
-using SAF.Messaging.Routing;
-using SAF.Hosting.Diagnostics;
+using SAF.PluginSystem.Hosting;
 
 Console.Title = "SAF Message Routing Test Host";
 
-var host = Host.CreateDefaultBuilder(args)
-    .ConfigureServices((context, services) =>
-    {
-        services.AddCde(context.Configuration.GetSection("Cde").Bind)
-            .AddRoutingMessagingInfrastructure(context.Configuration.GetSection("MessageRouting").Bind)
-            .AddRedisStorageInfrastructure(context.Configuration.GetSection("Redis").Bind);
+var builder = Host.CreateApplicationBuilder(args);
 
-        services.AddHost(context.Configuration.GetSection("ServiceHost").Bind)
-            .AddHostDiagnostics();
-    })
-    .Build();
+var pluginAssemblySearchOptions = new PluginAssemblyFolderSearchOptions();
+builder.Configuration.GetSection("PluginAssemblies").Bind(pluginAssemblySearchOptions);
+pluginAssemblySearchOptions.SearchRootPath = Path.GetFullPath(
+    Path.Combine(AppContext.BaseDirectory, pluginAssemblySearchOptions.SearchRootPath));
+
+builder.AddPluginSystem(builder.Configuration.GetSection("PluginSystem").Bind)
+    .AddPluginAssemblyFolderContainer(options =>
+    {
+        options.SearchRootPath = pluginAssemblySearchOptions.SearchRootPath;
+        options.Recursive = pluginAssemblySearchOptions.Recursive;
+        options.IncludePatterns = pluginAssemblySearchOptions.IncludePatterns;
+        options.ExcludePatterns = pluginAssemblySearchOptions.ExcludePatterns;
+    });
+
+var host = builder.Build();
 
 await host.RunAsync();

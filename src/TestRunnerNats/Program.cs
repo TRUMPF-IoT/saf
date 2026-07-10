@@ -4,12 +4,9 @@
 
 namespace TestRunnerNats;
 
-using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Hosting;
-using SAF.Hosting;
-using SAF.Messaging.Nats;
-using SAF.Hosting.Diagnostics;
+using SAF.PluginSystem.Hosting;
 
 public static class Program
 {
@@ -17,14 +14,23 @@ public static class Program
     {
         Console.Title = "SAF Nats Test Host";
 
-        var host = Host.CreateDefaultBuilder(args)
-            .ConfigureServices((context, services) =>
+        var builder = Host.CreateApplicationBuilder(args);
+
+        var pluginAssemblySearchOptions = new PluginAssemblyFolderSearchOptions();
+        builder.Configuration.GetSection("PluginAssemblies").Bind(pluginAssemblySearchOptions);
+        pluginAssemblySearchOptions.SearchRootPath = Path.GetFullPath(
+            Path.Combine(AppContext.BaseDirectory, pluginAssemblySearchOptions.SearchRootPath));
+
+        builder.AddPluginSystem(builder.Configuration.GetSection("PluginSystem").Bind)
+            .AddPluginAssemblyFolderContainer(options =>
             {
-                services.AddHost(context.Configuration.GetSection("ServiceHost").Bind)
-                    .AddHostDiagnostics();
-                services.AddNatsInfrastructure(context.Configuration.GetSection("Nats").Bind);
-            })
-            .Build();
+                options.SearchRootPath = pluginAssemblySearchOptions.SearchRootPath;
+                options.Recursive = pluginAssemblySearchOptions.Recursive;
+                options.IncludePatterns = pluginAssemblySearchOptions.IncludePatterns;
+                options.ExcludePatterns = pluginAssemblySearchOptions.ExcludePatterns;
+            });
+
+        var host = builder.Build();
 
         await host.RunAsync();
     }

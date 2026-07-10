@@ -3,10 +3,7 @@
 // SPDX-License-Identifier: MPL-2.0
 
 using Microsoft.Extensions.Configuration;
-using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
-using SAF.Common;
-using SAF.Messaging.InProcess;
 using SAF.PluginSystem.Hosting;
 
 Console.Title = "SAF InProcess Test Host";
@@ -18,7 +15,7 @@ builder.Configuration.GetSection("PluginAssemblies").Bind(pluginAssemblySearchOp
 pluginAssemblySearchOptions.SearchRootPath = Path.GetFullPath(
     Path.Combine(AppContext.BaseDirectory, pluginAssemblySearchOptions.SearchRootPath));
 
-builder.AddPluginSystem(_ => { })
+builder.AddPluginSystem(builder.Configuration.GetSection("PluginSystem").Bind)
     .AddPluginAssemblyFolderContainer(options =>
     {
         options.SearchRootPath = pluginAssemblySearchOptions.SearchRootPath;
@@ -26,9 +23,6 @@ builder.AddPluginSystem(_ => { })
         options.IncludePatterns = pluginAssemblySearchOptions.IncludePatterns;
         options.ExcludePatterns = pluginAssemblySearchOptions.ExcludePatterns;
     });
-
-builder.Services.AddInProcessMessagingInfrastructure()
-    .AddSingleton<IMessagingInfrastructure>(sp => sp.GetRequiredService<IInProcessMessagingInfrastructure>());
 
 var host = builder.Build();
 

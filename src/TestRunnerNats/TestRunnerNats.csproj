@@ -17,6 +17,7 @@ SPDX-License-Identifier: MPL-2.0
         <PackageReference Include="Microsoft.Extensions.Configuration.Binder" />
         <PackageReference Include="Microsoft.Extensions.Configuration.Json" />
         <PackageReference Include="Microsoft.Extensions.DependencyInjection" />
+        <PackageReference Include="Microsoft.Extensions.Hosting" />
         <PackageReference Include="Microsoft.Extensions.Logging" />
         <PackageReference Include="Microsoft.Extensions.Logging.Configuration" />
         <PackageReference Include="Microsoft.Extensions.Logging.Console" />
@@ -24,8 +25,8 @@ SPDX-License-Identifier: MPL-2.0
 
 
     <ItemGroup>
-        <ProjectReference Include="..\Hosting\SAF.Hosting\SAF.Hosting.csproj" />
         <ProjectReference Include="..\Messaging\SAF.Messaging.Nats\SAF.Messaging.Nats.csproj" />
+        <ProjectReference Include="..\PluginSystem\SAF.PluginSystem.Hosting\SAF.PluginSystem.Hosting.csproj" />
         <ProjectReference Include="..\SAF.Common\SAF.Common.csproj" />
         <ProjectReference Include="..\Services\SAF.Services.SampleService1\SAF.Services.SampleService1.csproj" />
         <ProjectReference Include="..\Services\SAF.Services.SampleService2\SAF.Services.SampleService2.csproj" />
