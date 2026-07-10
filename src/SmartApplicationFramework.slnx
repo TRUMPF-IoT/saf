@@ -81,6 +81,5 @@ SPDX-License-Identifier: MPL-2.0
   <Project Path="TestRunnerMessageRouting/TestRunnerMessageRouting.csproj" />
   <Project Path="TestRunnerNats/TestRunnerNats.csproj" />
   <Project Path="TestRunnerRedis/TestRunnerRedis.csproj" />
-  <Project Path="TestSequenceRunner/TestSequenceRunner.csproj" />
   <Project Path="TestUtilities/TestUtilities.csproj" />
 </Solution>
