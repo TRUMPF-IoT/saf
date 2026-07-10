@@ -13,6 +13,7 @@ SPDX-License-Identifier: MPL-2.0
     <Project Path="Communication/SAF.Communication.PubSub/SAF.Communication.PubSub.csproj" />
   </Folder>
   <Folder Name="/Messaging/">
+    <Project Path="Messaging/SAF.Messaging.Contracts/SAF.Messaging.Contracts.csproj" />
     <Project Path="Messaging/SAF.Messaging.Cde.Tests/SAF.Messaging.Cde.Tests.csproj" />
     <Project Path="Messaging/SAF.Messaging.Cde/SAF.Messaging.Cde.csproj" />
     <Project Path="Messaging/SAF.Messaging.InProcess.Tests/SAF.Messaging.InProcess.Tests.csproj" />
@@ -22,6 +23,7 @@ SPDX-License-Identifier: MPL-2.0
     <Project Path="Messaging/SAF.Messaging.Nats/SAF.Messaging.Nats.csproj" />
     <Project Path="Messaging/SAF.Messaging.Redis.Tests/SAF.Messaging.Redis.Tests.csproj" />
     <Project Path="Messaging/SAF.Messaging.Redis/SAF.Messaging.Redis.csproj" />
+    <Project Path="Messaging/SAF.Messaging.Runtime/SAF.Messaging.Runtime.csproj" />
     <Project Path="Messaging/SAF.Messaging.Routing.Tests/SAF.Messaging.Routing.Tests.csproj" />
     <Project Path="Messaging/SAF.Messaging.Routing/SAF.Messaging.Routing.csproj" />
   </Folder>

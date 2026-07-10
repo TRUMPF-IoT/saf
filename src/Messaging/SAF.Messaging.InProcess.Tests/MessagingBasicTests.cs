@@ -6,6 +6,7 @@ namespace SAF.Messaging.InProcess.Tests;
 
 using Microsoft.Extensions.Logging.Abstractions;
 using Common;
+using SAF.Messaging.Runtime;
 using TestUtilities;
 using Xunit;
 

@@ -50,7 +50,7 @@ public static class ServiceCollectionExtensions
                 var redisCfg = new RedisConfiguration { ConnectionString = msgCfg.ConnectionString ?? string.Empty };
                 return new Messaging(sp.GetRequiredService<ILogger<Messaging>>(),
                     CreateRedisConnection(redisCfg, sp.GetRequiredService<ILogger<Messaging>>()).multiplexer,
-                    sp.GetRequiredService<IServiceMessageDispatcher>(),
+                    ResolveMessageDispatcher(sp),
                     null);
             }))
             .AddTransient(sp => sp.GetRequiredService<Func<MessagingConfiguration, IRedisMessagingInfrastructure>>().Invoke(config));
@@ -125,9 +125,13 @@ public static class ServiceCollectionExtensions
         return serviceCollection.AddTransient<IRedisMessagingInfrastructure>(r =>
             new Messaging(r.GetRequiredService<ILogger<Messaging>>(),
                 CreateRedisConnection(config, r.GetRequiredService<ILogger<Messaging>>()).multiplexer,
-                r.GetRequiredService<IServiceMessageDispatcher>(),
+                ResolveMessageDispatcher(r),
                 traceAction));
     }
+
+    private static IServiceMessageDispatcher ResolveMessageDispatcher(IServiceProvider serviceProvider)
+        => serviceProvider.GetService<IServiceMessageDispatcher>() ??
+           throw new InvalidOperationException("IServiceMessageDispatcher is not available. Ensure SAF.Messaging.Runtime is loaded as a plugin and SAF.Messaging.Contracts.dll is included in PluginContractsSearchPattern.");
 
     private static IServiceCollection AddRedisStorageInfrastructure(this IServiceCollection serviceCollection, RedisConfiguration config)
     {

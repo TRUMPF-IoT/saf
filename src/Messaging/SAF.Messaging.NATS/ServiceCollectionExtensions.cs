@@ -61,7 +61,7 @@ public static class ServiceCollectionExtensions
                     new NatsSubscriptionManager(),
                     sp.GetService<IInputRouteTranslator>() ?? new NatsInputRouteTranslator(),
                     sp.GetService<IOutputRouteTranslator>() ?? new NatsOutputRouteTranslator(),
-                    sp.GetRequiredService<IServiceMessageDispatcher>(),
+                    ResolveMessageDispatcher(sp),
                     null);
             }))
             .AddTransient(sp =>
@@ -192,9 +192,13 @@ public static class ServiceCollectionExtensions
                 new NatsSubscriptionManager(),
                 sp.GetService<IInputRouteTranslator>() ?? new NatsInputRouteTranslator(),
                 sp.GetService<IOutputRouteTranslator>() ?? new NatsOutputRouteTranslator(),
-                sp.GetRequiredService<IServiceMessageDispatcher>(),
+                ResolveMessageDispatcher(sp),
                 traceAction));
     }
+
+    private static IServiceMessageDispatcher ResolveMessageDispatcher(IServiceProvider serviceProvider)
+        => serviceProvider.GetService<IServiceMessageDispatcher>() ??
+           throw new InvalidOperationException("IServiceMessageDispatcher is not available. Ensure SAF.Messaging.Runtime is loaded as a plugin and SAF.Messaging.Contracts.dll is included in PluginContractsSearchPattern.");
 
     private static IServiceCollection AddNatsStorageInfrastructure(this IServiceCollection serviceCollection,
         NatsConfiguration config)

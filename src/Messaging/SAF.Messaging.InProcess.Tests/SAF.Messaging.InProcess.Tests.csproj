@@ -28,6 +28,7 @@ SPDX-License-Identifier: MPL-2.0
   <ItemGroup>
     <ProjectReference Include="..\..\TestUtilities\TestUtilities.csproj" />
     <ProjectReference Include="..\SAF.Messaging.InProcess\SAF.Messaging.InProcess.csproj" />
+    <ProjectReference Include="..\SAF.Messaging.Runtime\SAF.Messaging.Runtime.csproj" />
   </ItemGroup>
 
 </Project>

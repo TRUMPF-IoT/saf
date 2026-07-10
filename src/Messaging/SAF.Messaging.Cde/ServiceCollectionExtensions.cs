@@ -34,7 +34,7 @@ public static class ServiceCollectionExtensions
         => collection.AddCdePubSubServices()
             .AddTransient<ICdeMessagingInfrastructure>(sp =>
                 new Messaging(sp.GetService<ILogger<Messaging>>(),
-                    sp.GetRequiredService<IServiceMessageDispatcher>(),
+                    ResolveMessageDispatcher(sp),
                     sp.GetRequiredService<IPublisher>(),
                     sp.GetRequiredService<ISubscriber>(),
                     traceAction));
@@ -59,7 +59,7 @@ public static class ServiceCollectionExtensions
         collection.AddCdePubSubServices()
             .AddTransient(sp => new Func<MessagingConfiguration, ICdeMessagingInfrastructure>(cfg =>
                 new Messaging(sp.GetService<ILogger<Messaging>>(),
-                    sp.GetRequiredService<IServiceMessageDispatcher>(),
+                    ResolveMessageDispatcher(sp),
                     sp.GetRequiredService<IPublisher>(),
                     sp.GetRequiredService<ISubscriber>(),
                     null,
@@ -68,6 +68,10 @@ public static class ServiceCollectionExtensions
 
         return collection;
     }
+
+    private static IServiceMessageDispatcher ResolveMessageDispatcher(IServiceProvider serviceProvider)
+        => serviceProvider.GetService<IServiceMessageDispatcher>() ??
+           throw new InvalidOperationException("IServiceMessageDispatcher is not available. Ensure SAF.Messaging.Runtime is loaded as a plugin and SAF.Messaging.Contracts.dll is included in PluginContractsSearchPattern.");
 
     private static IServiceCollection AddCdePubSubServices(this IServiceCollection collection)
     {

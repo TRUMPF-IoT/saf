@@ -2,9 +2,10 @@
 //
 // SPDX-License-Identifier: MPL-2.0
 
-namespace SAF.Common;
+namespace SAF.Messaging.Runtime;
 
 using Microsoft.Extensions.Logging;
+using SAF.Common;
 
 public class ServiceMessageDispatcher(ILogger<ServiceMessageDispatcher> log) : IServiceMessageDispatcher
 {

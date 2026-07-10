@@ -6,6 +6,7 @@ namespace SAF.Messaging.LoadTest;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Common;
+using SAF.Messaging.Runtime;
 using System.Diagnostics;
 using Redis;
 using InProcess;
