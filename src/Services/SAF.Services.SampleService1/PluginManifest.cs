@@ -3,10 +3,12 @@
 // SPDX-License-Identifier: MPL-2.0
 
 namespace SAF.Services.SampleService1;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using AnyOtherInternalLogic;
 using MessageHandlers;
 using SAF.PluginSystem.Hosting.Contracts;
+using SAF.PluginSystem.Hosting.Extensions;
 using Toolbox;
 
 public class PluginManifest : IPluginManifest
@@ -19,9 +21,13 @@ public class PluginManifest : IPluginManifest
         pluginServices.AddTransient<PingMessageHandler>();
 
         // "microservice" settings
-        pluginServices.AddServiceConfiguration<MyServiceConfiguration>(context.HostConfiguration, nameof(MySpecialService));
+        var serviceConfigRoot = context.PluginConfiguration.GetSection(nameof(MySpecialService)).Exists()
+            ? context.PluginConfiguration
+            : context.HostConfiguration;
+
+        pluginServices.AddServiceConfiguration<MyServiceConfiguration>(serviceConfigRoot, nameof(MySpecialService));
 
         // "microservices"
-        pluginServices.AddSingleton<IServicePlugin, MySpecialService>();
+        pluginServices.AddServicePlugin<MySpecialService>();
     }
 }

@@ -12,7 +12,13 @@ public class PluginManifest : IPluginManifest
 {
     public void ConfigureServices(IPluginSystemHostContext context, IServiceCollection pluginServices)
     {
+        var routingConfig = context.PluginConfiguration.GetSection("MessageRouting");
+        if (!routingConfig.Exists())
+        {
+            routingConfig = context.HostConfiguration.GetSection("MessageRouting");
+        }
+
         pluginServices.AddRoutingMessagingInfrastructure(config =>
-            context.HostConfiguration.GetSection("MessageRouting").Bind(config));
+            routingConfig.Bind(config));
     }
 }

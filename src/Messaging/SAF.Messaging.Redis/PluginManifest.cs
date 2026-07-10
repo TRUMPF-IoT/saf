@@ -11,6 +11,12 @@ public class PluginManifest : IPluginManifest
 {
     public void ConfigureServices(IPluginSystemHostContext context, IServiceCollection pluginServices)
     {
-        pluginServices.AddRedisInfrastructure(c => context.HostConfiguration.GetSection("Redis").Bind(c));
+        var redisConfig = context.PluginConfiguration.GetSection("Redis");
+        if (!redisConfig.Exists())
+        {
+            redisConfig = context.HostConfiguration.GetSection("Redis");
+        }
+
+        pluginServices.AddRedisInfrastructure(c => redisConfig.Bind(c));
     }
 }

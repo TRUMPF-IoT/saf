@@ -8,6 +8,7 @@ SPDX-License-Identifier: MPL-2.0
 
   <PropertyGroup>
     <Description>Smart Application Framework (SAF) messaging infrastructure for Redis based communication.</Description>
+    <EnableDynamicLoading>true</EnableDynamicLoading>
   </PropertyGroup>
 
   <ItemGroup>
@@ -16,8 +17,18 @@ SPDX-License-Identifier: MPL-2.0
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\..\PluginSystem\SAF.PluginSystem.Hosting.Contracts\SAF.PluginSystem.Hosting.Contracts.csproj" />
-    <ProjectReference Include="..\..\SAF.Common\SAF.Common.csproj" />
+    <ProjectReference Include="..\..\PluginSystem\SAF.PluginSystem.Hosting.Contracts\SAF.PluginSystem.Hosting.Contracts.csproj">
+      <Private>False</Private>
+      <ExcludeAssets>runtime</ExcludeAssets>
+    </ProjectReference>
+    <ProjectReference Include="..\..\PluginSystem\SAF.PluginSystem.Hosting.Extensions\SAF.PluginSystem.Hosting.Extensions.csproj">
+      <Private>False</Private>
+      <ExcludeAssets>runtime</ExcludeAssets>
+    </ProjectReference>
+    <ProjectReference Include="..\..\SAF.Common\SAF.Common.csproj">
+      <Private>False</Private>
+      <ExcludeAssets>runtime</ExcludeAssets>
+    </ProjectReference>
     <ProjectReference Include="..\..\Toolbox\SAF.Toolbox\SAF.Toolbox.csproj" />
   </ItemGroup>
  

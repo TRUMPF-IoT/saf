@@ -11,6 +11,12 @@ public class PluginManifest : IPluginManifest
 {
     public void ConfigureServices(IPluginSystemHostContext context, IServiceCollection pluginServices)
     {
-        pluginServices.AddCdeInfrastructure(c => context.HostConfiguration.GetSection("Cde").Bind(c));
+        var cdeConfig = context.PluginConfiguration.GetSection("Cde");
+        if (!cdeConfig.Exists())
+        {
+            cdeConfig = context.HostConfiguration.GetSection("Cde");
+        }
+
+        pluginServices.AddCdeInfrastructure(c => cdeConfig.Bind(c));
     }
 }

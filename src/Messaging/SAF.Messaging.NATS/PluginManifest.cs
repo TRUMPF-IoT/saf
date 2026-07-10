@@ -12,6 +12,12 @@ public class PluginManifest : IPluginManifest
 {
     public void ConfigureServices(IPluginSystemHostContext context, IServiceCollection pluginServices)
     {
-        pluginServices.AddNatsInfrastructure(c => context.HostConfiguration.GetSection("Nats").Bind(c));
+        var natsConfig = context.PluginConfiguration.GetSection("Nats");
+        if (!natsConfig.Exists())
+        {
+            natsConfig = context.HostConfiguration.GetSection("Nats");
+        }
+
+        pluginServices.AddNatsInfrastructure(c => natsConfig.Bind(c));
     }
 }

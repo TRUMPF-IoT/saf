@@ -12,11 +12,23 @@ public class PluginManifest : IPluginManifest
 {
     public void ConfigureServices(IPluginSystemHostContext context, IServiceCollection pluginServices)
     {
+        var sqLiteSection = context.PluginConfiguration.GetSection("SqLite");
+        if (!sqLiteSection.Exists())
+        {
+            sqLiteSection = context.HostConfiguration.GetSection("SqLite");
+        }
+
+        var legacySqLiteSection = context.PluginConfiguration.GetSection("SqLiteConfiguration");
+        if (!legacySqLiteSection.Exists())
+        {
+            legacySqLiteSection = context.HostConfiguration.GetSection("SqLiteConfiguration");
+        }
+
         pluginServices.AddSqLiteStorageInfrastructure(config =>
         {
             config.ConnectionString =
-                context.HostConfiguration["SqLite:ConnectionString"]
-                ?? context.HostConfiguration["SqLiteConfiguration:ConnectionString"]
+                sqLiteSection["ConnectionString"]
+                ?? legacySqLiteSection["ConnectionString"]
                 ?? string.Empty;
         });
     }
