@@ -32,10 +32,10 @@ SPDX-License-Identifier: MPL-2.0
 	</ItemGroup>
 
 	<ItemGroup>
-		<ProjectReference Include="..\Messaging\SAF.Messaging.Cde\SAF.Messaging.Cde.csproj" />
-		<ProjectReference Include="..\PluginSystem\SAF.PluginSystem.Hosting\SAF.PluginSystem.Hosting.csproj" />
-		<ProjectReference Include="..\SAF.Common\SAF.Common.csproj" />
-		<ProjectReference Include="..\Services\SAF.Services.SampleService1\SAF.Services.SampleService1.csproj" />
+		<ProjectReference Include="..\..\Messaging\SAF.Messaging.Cde\SAF.Messaging.Cde.csproj" />
+		<ProjectReference Include="..\..\PluginSystem\SAF.PluginSystem.Hosting\SAF.PluginSystem.Hosting.csproj" />
+		<ProjectReference Include="..\..\SAF.Common\SAF.Common.csproj" />
+		<ProjectReference Include="..\TestPlugins\SAF.Services.SampleService1\SAF.Services.SampleService1.csproj" />
 	</ItemGroup>
 
 </Project>

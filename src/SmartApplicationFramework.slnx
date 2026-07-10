@@ -40,10 +40,19 @@ SPDX-License-Identifier: MPL-2.0
     <Project Path="PluginSystem/TestPlugins/TestPlugin.PublicDependencyA/TestPlugin.PublicDependencyA.csproj" />
     <Project Path="PluginSystem/TestPlugins/TestPlugin.PublicDependencyB/TestPlugin.PublicDependencyB.csproj" />
   </Folder>
-  <Folder Name="/Services/">
-    <Project Path="Services/SAF.Services.SampleService1.Tests/SAF.Services.SampleService1.Tests.csproj" />
-    <Project Path="Services/SAF.Services.SampleService1/SAF.Services.SampleService1.csproj" />
-    <Project Path="Services/SAF.Services.SampleService2/SAF.Services.SampleService2.csproj" />
+  <Folder Name="/Tests/TestPlugins/">
+    <Project Path="Tests/TestPlugins/SAF.Services.SampleService1.Tests/SAF.Services.SampleService1.Tests.csproj" />
+    <Project Path="Tests/TestPlugins/SAF.Services.SampleService1/SAF.Services.SampleService1.csproj" />
+    <Project Path="Tests/TestPlugins/SAF.Services.SampleService2/SAF.Services.SampleService2.csproj" />
+  </Folder>
+  <Folder Name="/Tests/">
+    <Project Path="Tests/TestRunnerCde/TestRunnerCde.csproj" />
+    <Project Path="Tests/TestRunnerCdeService1/TestRunnerCdeService1.csproj" />
+    <Project Path="Tests/TestRunnerCdeService2/TestRunnerCdeService2.csproj" />
+    <Project Path="Tests/TestRunnerConsole/TestRunnerConsole.csproj" />
+    <Project Path="Tests/TestRunnerMessageRouting/TestRunnerMessageRouting.csproj" />
+    <Project Path="Tests/TestRunnerNats/TestRunnerNats.csproj" />
+    <Project Path="Tests/TestRunnerRedis/TestRunnerRedis.csproj" />
   </Folder>
   <Folder Name="/Storage/">
     <Project Path="Storage/SAF.Storage.LightDb.Test/SAF.Storage.LiteDb.Test.csproj" />
@@ -67,12 +76,5 @@ SPDX-License-Identifier: MPL-2.0
     <File Path=".editorconfig" />
   </Folder>
   <Project Path="SAF.Common/SAF.Common.csproj" />
-  <Project Path="TestRunnerCde/TestRunnerCde.csproj" />
-  <Project Path="TestRunnerCdeService1/TestRunnerCdeService1.csproj" />
-  <Project Path="TestRunnerCdeService2/TestRunnerCdeService2.csproj" />
-  <Project Path="TestRunnerConsole/TestRunnerConsole.csproj" />
-  <Project Path="TestRunnerMessageRouting/TestRunnerMessageRouting.csproj" />
-  <Project Path="TestRunnerNats/TestRunnerNats.csproj" />
-  <Project Path="TestRunnerRedis/TestRunnerRedis.csproj" />
   <Project Path="TestUtilities/TestUtilities.csproj" />
 </Solution>
