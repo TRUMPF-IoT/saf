@@ -11,12 +11,14 @@ using SAF.Messaging.Contracts;
 
 internal class InProcessMessaging : IInProcessMessagingInfrastructure, IDisposable
 {
+    private sealed record TypedSubscription(Type HandlerType, string RouteFilterPattern);
+
     private readonly ILogger<InProcessMessaging> _log;
     private readonly IServiceMessageDispatcher _messageDispatcher;
     private Action<Message>? _traceAction;
 
     private readonly ReaderWriterLockSlim _syncSubscriptionsByType = new(LockRecursionPolicy.SupportsRecursion);
-    private readonly Dictionary<string, List<string>> _subscriptionsByType = new();
+    private readonly Dictionary<string, List<Type>> _subscriptionsByType = new();
 
     private readonly ReaderWriterLockSlim _syncSubscriptionsByLambda = new(LockRecursionPolicy.SupportsRecursion);
     private readonly Dictionary<string, List<Action<Message>>> _subscriptionsByLambda = new();
@@ -38,7 +40,6 @@ internal class InProcessMessaging : IInProcessMessagingInfrastructure, IDisposab
     public object Subscribe<TMessageHandler>(string routeFilterPattern) where TMessageHandler : IMessageHandler
     {
         var handlerType = typeof(TMessageHandler);
-        var handlerTypeName = handlerType.FullName ?? handlerType.Name;
         _log.LogDebug($"Subscribe {handlerType} to {routeFilterPattern}");
 
         _syncSubscriptionsByType.EnterWriteLock();
@@ -46,11 +47,11 @@ internal class InProcessMessaging : IInProcessMessagingInfrastructure, IDisposab
         {
             if (_subscriptionsByType.TryGetValue(routeFilterPattern, out var handlerList))
             {
-                handlerList.Add(handlerTypeName);
+                handlerList.Add(handlerType);
             }
             else
             {
-                _subscriptionsByType.Add(routeFilterPattern, new List<string> { handlerTypeName });
+                _subscriptionsByType.Add(routeFilterPattern, new List<Type> { handlerType });
             }
         }
         finally
@@ -58,7 +59,7 @@ internal class InProcessMessaging : IInProcessMessagingInfrastructure, IDisposab
             _syncSubscriptionsByType.ExitWriteLock();
         }
 
-        return $"{handlerTypeName}{MessagingKeySeparator}{routeFilterPattern}";
+        return new TypedSubscription(handlerType, routeFilterPattern);
     }
 
     public object Subscribe(string routeFilterPattern, Action<Message> handler)
@@ -100,8 +101,8 @@ internal class InProcessMessaging : IInProcessMessagingInfrastructure, IDisposab
                 if (!message.Topic.IsMatch(kvp.Key))
                     continue;
 
-                foreach (var handlerTypeName in kvp.Value)
-                    subscriptionsToRun.Add(PrepareTaskWithErrorHandler(handlerTypeName, () => _messageDispatcher.DispatchMessage(handlerTypeName, message)));
+                foreach (var handlerType in kvp.Value)
+                    subscriptionsToRun.Add(PrepareTaskWithErrorHandler(handlerType.ToString(), () => _messageDispatcher.DispatchMessage(handlerType, message)));
             }
         }
         finally
@@ -132,6 +133,32 @@ internal class InProcessMessaging : IInProcessMessagingInfrastructure, IDisposab
 
     public void Unsubscribe(object subscription)
     {
+        if (subscription is TypedSubscription typedSubscription)
+        {
+            var handlerType = typedSubscription.HandlerType;
+            var routeFilterPattern = typedSubscription.RouteFilterPattern;
+
+            _syncSubscriptionsByType.EnterWriteLock();
+            try
+            {
+                if (_subscriptionsByType.TryGetValue(routeFilterPattern, out var handlerTypes))
+                {
+                    handlerTypes.Remove(handlerType);
+
+                    if (handlerTypes.Count == 0)
+                    {
+                        _subscriptionsByType.Remove(routeFilterPattern);
+                    }
+                }
+            }
+            finally
+            {
+                _syncSubscriptionsByType.ExitWriteLock();
+            }
+
+            return;
+        }
+
         if (subscription is not string subscriptionKey || string.IsNullOrWhiteSpace(subscriptionKey))
             return;
 
@@ -140,15 +167,15 @@ internal class InProcessMessaging : IInProcessMessagingInfrastructure, IDisposab
         if (kvp.Length != 2)
             return;
 
-        var handlerType = kvp[0];
-        var routeFilterPattern = kvp[1];
+        var handlerHashCode = kvp[0];
+        var lambdaRouteFilterPattern = kvp[1];
 
         _syncSubscriptionsByLambda.EnterWriteLock();
         try
         {
-            if (_subscriptionsByLambda.TryGetValue(routeFilterPattern, out var handlers))
+            if (_subscriptionsByLambda.TryGetValue(lambdaRouteFilterPattern, out var handlers))
             {
-                var toBeRemoved = handlers.Where(h => $"{h.GetHashCode()}" == handlerType).ToArray();
+                var toBeRemoved = handlers.Where(h => $"{h.GetHashCode()}" == handlerHashCode).ToArray();
                 foreach (var action in toBeRemoved)
                 {
                     handlers.Remove(action);
@@ -156,31 +183,13 @@ internal class InProcessMessaging : IInProcessMessagingInfrastructure, IDisposab
 
                 if (handlers.Count == 0)
                 {
-                    _subscriptionsByLambda.Remove(routeFilterPattern);
+                    _subscriptionsByLambda.Remove(lambdaRouteFilterPattern);
                 }
             }
         }
         finally
         {
             _syncSubscriptionsByLambda.ExitWriteLock();
-        }
-
-        _syncSubscriptionsByType.EnterWriteLock();
-        try
-        {
-            if (_subscriptionsByType.TryGetValue(routeFilterPattern, out var handlerTypes))
-            {
-                handlerTypes.Remove(handlerType);
-
-                if (handlerTypes.Count == 0)
-                {
-                    _subscriptionsByType.Remove(routeFilterPattern);
-                }
-            }
-        }
-        finally
-        {
-            _syncSubscriptionsByType.ExitWriteLock();
         }
     }
 

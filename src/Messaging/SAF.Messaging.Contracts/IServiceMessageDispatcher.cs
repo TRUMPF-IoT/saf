@@ -6,50 +6,8 @@ namespace SAF.Messaging.Contracts;
 
 public interface IServiceMessageDispatcher
 {
-    /// <summary>
-    /// Registers a message handler factory and returns a unique registration id.
-    /// </summary>
-    /// <param name="handlerFactory">The factory method which provides the handler.</param>
-    /// <param name="displayName">Optional display name used for diagnostics.</param>
-    /// <returns>The unique registration id for the handler factory.</returns>
-    string RegisterHandler(Func<IMessageHandler> handlerFactory, string? displayName = null);
-
-    /// <summary>
-    /// Unregisters a handler factory by registration id.
-    /// </summary>
-    /// <param name="handlerRegistrationId">The registration id returned by RegisterHandler.</param>
-    void UnregisterHandler(string handlerRegistrationId);
-
-    /// <summary>
-    /// Adds a message handler to the message dispatcher.
-    /// Usually this is done at assembly scan type during start up of a SAF service host.
-    /// Call this only when using messaging infrastructure outside a hosted service.
-    /// </summary>
-    /// <param name="handlerFactory">The factory method which provides the handler.</param>
-    void AddHandler<TMessageHandler>(Func<IMessageHandler> handlerFactory) where TMessageHandler : IMessageHandler;
-
-    /// <summary>
-    /// Adds a message handler to the message dispatcher.
-    /// Usually this is done at assembly scan type during start up of a SAF service host.
-    /// Call this only when using messaging infrastructure outside a hosted service.
-    /// </summary>
-    /// <param name="handlerType">The handler type.</param>
-    /// <param name="handlerFactory">The factory method which provides the handler.</param>
-    void AddHandler(Type handlerType, Func<IMessageHandler> handlerFactory);
-
-    /// <summary>
-    /// Adds a message handler to the message dispatcher.
-    /// Usually this is done at assembly scan type during start up of a SAF service host.
-    /// Call this only when using messaging infrastructure outside a hosted service.
-    /// </summary>
-    /// <param name="handlerTypeName">The full type name of the handler type.</param>
-    /// <param name="handlerFactory">The factory method which provides the handler.</param>
-    void AddHandler(string handlerTypeName, Func<IMessageHandler> handlerFactory);
-
     void DispatchMessage<TMessageHandler>(Message message) where TMessageHandler : IMessageHandler;
     void DispatchMessage(Type handlerType, Message message);
-    void DispatchMessageByRegistration(string handlerRegistrationId, Message message);
-    void DispatchMessage(string handlerTypeFullName, Message message);
     void DispatchMessage(Action<Message> handler, Message message);
 }
 

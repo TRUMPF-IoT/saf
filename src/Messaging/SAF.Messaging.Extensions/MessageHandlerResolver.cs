@@ -11,21 +11,18 @@ internal sealed class MessageHandlerResolver(IServiceProvider serviceProvider) :
 {
     private readonly IServiceProvider _serviceProvider = serviceProvider;
 
-    public bool CanResolve(string handlerTypeFullName)
-        => ResolveRegisteredHandler(handlerTypeFullName) is not null;
-
-    public IMessageHandler Resolve(string handlerTypeFullName)
+    public IMessageHandler Resolve(Type handlerType)
     {
-        var handler = ResolveRegisteredHandler(handlerTypeFullName);
+        var handler = ResolveRegisteredHandler(handlerType);
         if (handler is null)
-            throw new InvalidOperationException($"Handler '{handlerTypeFullName}' is not supported by resolver '{GetType().FullName}'.");
+            throw new InvalidOperationException($"Handler '{handlerType}' is not supported by resolver '{GetType().FullName}'.");
 
         return handler;
     }
 
-    private IMessageHandler? ResolveRegisteredHandler(string handlerTypeFullName)
+    private IMessageHandler? ResolveRegisteredHandler(Type handlerType)
     {
         var handlers = _serviceProvider.GetServices<IMessageHandler>();
-        return handlers.FirstOrDefault(h => h.GetType().FullName == handlerTypeFullName);
+        return handlers.FirstOrDefault(h => h.GetType() == handlerType);
     }
 }

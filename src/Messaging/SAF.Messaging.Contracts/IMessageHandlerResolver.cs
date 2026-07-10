@@ -6,6 +6,5 @@ namespace SAF.Messaging.Contracts;
 
 public interface IMessageHandlerResolver
 {
-    bool CanResolve(string handlerTypeFullName);
-    IMessageHandler Resolve(string handlerTypeFullName);
+    IMessageHandler Resolve(Type handlerType);
 }
