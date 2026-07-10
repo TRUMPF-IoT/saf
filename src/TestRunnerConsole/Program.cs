@@ -6,21 +6,30 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using SAF.Common;
-using SAF.Hosting;
-using SAF.Hosting.Diagnostics;
 using SAF.Messaging.InProcess;
+using SAF.PluginSystem.Hosting;
 
 Console.Title = "SAF InProcess Test Host";
 
-var host = Host.CreateDefaultBuilder(args)
-    .ConfigureServices((context, services) =>
-    {
-        services.AddHost(context.Configuration.GetSection("ServiceHost").Bind)
-            .AddHostDiagnostics();
+var builder = Host.CreateApplicationBuilder(args);
 
-        services.AddInProcessMessagingInfrastructure()
-            .AddSingleton<IMessagingInfrastructure>(sp => sp.GetRequiredService<IInProcessMessagingInfrastructure>());
-    })
-    .Build();
+var pluginAssemblySearchOptions = new PluginAssemblyFolderSearchOptions();
+builder.Configuration.GetSection("PluginAssemblies").Bind(pluginAssemblySearchOptions);
+pluginAssemblySearchOptions.SearchRootPath = Path.GetFullPath(
+    Path.Combine(AppContext.BaseDirectory, pluginAssemblySearchOptions.SearchRootPath));
+
+builder.AddPluginSystem(_ => { })
+    .AddPluginAssemblyFolderContainer(options =>
+    {
+        options.SearchRootPath = pluginAssemblySearchOptions.SearchRootPath;
+        options.Recursive = pluginAssemblySearchOptions.Recursive;
+        options.IncludePatterns = pluginAssemblySearchOptions.IncludePatterns;
+        options.ExcludePatterns = pluginAssemblySearchOptions.ExcludePatterns;
+    });
+
+builder.Services.AddInProcessMessagingInfrastructure()
+    .AddSingleton<IMessagingInfrastructure>(sp => sp.GetRequiredService<IInProcessMessagingInfrastructure>());
+
+var host = builder.Build();
 
 await host.RunAsync();
