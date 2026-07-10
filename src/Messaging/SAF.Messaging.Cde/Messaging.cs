@@ -17,7 +17,6 @@ using Communication.PubSub.Interfaces;
 internal class Messaging : ICdeMessagingInfrastructure
 {
     private readonly ILogger<Messaging> _log;
-    private readonly Func<Type, IMessageHandler>? _handlerFactory;
     private readonly IServiceMessageDispatcher _dispatcher;
     private readonly IPublisher _publisher;
     private readonly ISubscriber _subscriber;
@@ -25,16 +24,14 @@ internal class Messaging : ICdeMessagingInfrastructure
     private readonly CdeMessagingConfiguration _config;
 
     private readonly ConcurrentDictionary<string, (string pattern, ISubscription subscription)> _subscriptions = new();
-    private readonly ConcurrentDictionary<string, string> _typedHandlerRegistrationBySubscriptionId = new();
 
-    public Messaging(ILogger<Messaging>? log, IServiceMessageDispatcher dispatcher, IPublisher publisher, ISubscriber subscriber, Action<Message>? traceAction, Func<Type, IMessageHandler>? handlerFactory = null)
-        : this(log, dispatcher, publisher, subscriber, traceAction, new CdeMessagingConfiguration(), handlerFactory)
+    public Messaging(ILogger<Messaging>? log, IServiceMessageDispatcher dispatcher, IPublisher publisher, ISubscriber subscriber, Action<Message>? traceAction)
+        : this(log, dispatcher, publisher, subscriber, traceAction, new CdeMessagingConfiguration())
     { }
 
-    public Messaging(ILogger<Messaging>? log, IServiceMessageDispatcher dispatcher, IPublisher publisher, ISubscriber subscriber, Action<Message>? traceAction, CdeMessagingConfiguration config, Func<Type, IMessageHandler>? handlerFactory = null)
+    public Messaging(ILogger<Messaging>? log, IServiceMessageDispatcher dispatcher, IPublisher publisher, ISubscriber subscriber, Action<Message>? traceAction, CdeMessagingConfiguration config)
     {
         _log = log ?? NullLogger<Messaging>.Instance;
-        _handlerFactory = handlerFactory;
         _dispatcher = dispatcher;
 
         _publisher = publisher;
@@ -59,23 +56,11 @@ internal class Messaging : ICdeMessagingInfrastructure
     {
         _log.LogDebug($"Subscribe \"{typeof(TMessageHandler).Name}\" for route \"{routeFilterPattern}\", RelayOptions={_config.RoutingOptions}.");
 
-        var handlerTypeName = typeof(TMessageHandler).AssemblyQualifiedName ?? typeof(TMessageHandler).FullName ?? typeof(TMessageHandler).Name;
-        var handlerRegistrationId = _handlerFactory != null
-            ? _dispatcher.RegisterHandler(() => _handlerFactory(typeof(TMessageHandler)), handlerTypeName)
-            : null;
-
-        var subscriptionId = InternalSubscribe(routeFilterPattern, message =>
+        return InternalSubscribe(routeFilterPattern, message =>
         {
             try
             {
-                if (handlerRegistrationId != null)
-                {
-                    _dispatcher.DispatchMessageByRegistration(handlerRegistrationId, message);
-                }
-                else
-                {
-                    _dispatcher.DispatchMessage<TMessageHandler>(message);
-                }
+                _dispatcher.DispatchMessage<TMessageHandler>(message);
             }
             catch (Exception e) // Exceptions in CDE callbacks are omitted, when not explicitly caught and logged!
             {
@@ -83,11 +68,6 @@ internal class Messaging : ICdeMessagingInfrastructure
                 throw;
             }
         });
-
-        if (handlerRegistrationId != null)
-            _typedHandlerRegistrationBySubscriptionId.TryAdd(subscriptionId, handlerRegistrationId);
-
-        return subscriptionId;
     }
 
     public object Subscribe(Action<Message> handler) => Subscribe("*", handler);
@@ -126,11 +106,6 @@ internal class Messaging : ICdeMessagingInfrastructure
             return;
         }
 
-        if (_typedHandlerRegistrationBySubscriptionId.TryRemove(subscriptionId, out var handlerRegistrationId))
-        {
-            _dispatcher.UnregisterHandler(handlerRegistrationId);
-        }
-
         sub.subscription.Unsubscribe();
         _log.LogDebug($"Unsubscribed subscription \"{subscriptionId}\" for channel \"{sub.pattern}\"");
     }
@@ -145,6 +120,7 @@ internal class Messaging : ICdeMessagingInfrastructure
 
         return subscriptionId;
     }
+
 }
 
 

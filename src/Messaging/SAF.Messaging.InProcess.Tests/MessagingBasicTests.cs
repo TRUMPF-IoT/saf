@@ -16,7 +16,7 @@ public class MessagingBasicTests
     [Fact]
     public async Task ExactMatchHits()
     {
-        var dispatcher = new ServiceMessageDispatcher(NullLogger<ServiceMessageDispatcher>.Instance);
+        var dispatcher = new ServiceMessageDispatcher(NullLogger<ServiceMessageDispatcher>.Instance, Array.Empty<IMessageHandlerResolver>());
         var sut = new InProcessMessaging(NullLogger<InProcessMessaging>.Instance, dispatcher);
         var hit = false;
 
@@ -30,7 +30,7 @@ public class MessagingBasicTests
     [Fact]
     public async Task WildcardMatchHits()
     {
-        var dispatcher = new ServiceMessageDispatcher(NullLogger<ServiceMessageDispatcher>.Instance);
+        var dispatcher = new ServiceMessageDispatcher(NullLogger<ServiceMessageDispatcher>.Instance, Array.Empty<IMessageHandlerResolver>());
         var sut = new InProcessMessaging(NullLogger<InProcessMessaging>.Instance, dispatcher);
         var hit = false;
 
@@ -44,7 +44,7 @@ public class MessagingBasicTests
     [Fact]
     public async Task PublishDoesntBlock()
     {
-        var dispatcher = new ServiceMessageDispatcher(NullLogger<ServiceMessageDispatcher>.Instance);
+        var dispatcher = new ServiceMessageDispatcher(NullLogger<ServiceMessageDispatcher>.Instance, Array.Empty<IMessageHandlerResolver>());
         var sut = new InProcessMessaging(NullLogger<InProcessMessaging>.Instance, dispatcher);
         var subscriptionHit = DateTimeOffset.MinValue;
 

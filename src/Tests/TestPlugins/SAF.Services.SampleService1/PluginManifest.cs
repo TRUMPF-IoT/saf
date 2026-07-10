@@ -7,6 +7,8 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using AnyOtherInternalLogic;
 using MessageHandlers;
+using SAF.Messaging.Contracts;
+using SAF.Messaging.Extensions;
 using SAF.PluginSystem.Hosting.Contracts;
 using SAF.PluginSystem.Hosting.Extensions;
 using Toolbox;
@@ -17,8 +19,9 @@ public class PluginManifest : IPluginManifest
     {
         // dependencies
         pluginServices.AddTransient<MyInternalDependency>();
-        pluginServices.AddTransient<CatchAllMessageHandler>();
-        pluginServices.AddTransient<PingMessageHandler>();
+        pluginServices.AddSingleton<IMessageHandler, CatchAllMessageHandler>();
+        pluginServices.AddSingleton<IMessageHandler, PingMessageHandler>();
+        pluginServices.AddMessageHandlerResolver();
 
         // "microservice" settings
         var serviceConfigRoot = context.PluginConfiguration.GetSection(nameof(MySpecialService)).Exists()

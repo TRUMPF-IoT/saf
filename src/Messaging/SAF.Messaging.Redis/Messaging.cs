@@ -27,21 +27,18 @@ internal class RedisMessage
 internal sealed class Messaging : IRedisMessagingInfrastructure, IDisposable
 {
     private readonly IConnectionMultiplexer _redis;
-    private readonly Func<Type, IMessageHandler>? _handlerFactory;
     private readonly IServiceMessageDispatcher _serviceMessageDispatcher;
     private readonly Action<Message>? _traceAction;
     private readonly ILogger<Messaging> _log;
 
     private readonly ConcurrentDictionary<Guid, (string routeFilterPattern, Action<RedisChannel, RedisValue> handler)> _subscriptions = new();
-    private readonly ConcurrentDictionary<Guid, string> _typedHandlerRegistrationBySubscriptionId = new();
 
-    public Messaging(ILogger<Messaging>? log, IConnectionMultiplexer redis, IServiceMessageDispatcher serviceMessageDispatcher, Action<Message>? traceAction, Func<Type, IMessageHandler>? handlerFactory = null)
+    public Messaging(ILogger<Messaging>? log, IConnectionMultiplexer redis, IServiceMessageDispatcher serviceMessageDispatcher, Action<Message>? traceAction)
     {
         _log = log ?? NullLogger<Messaging>.Instance;
         _redis = redis;
         _serviceMessageDispatcher = serviceMessageDispatcher;
         _traceAction = traceAction;
-        _handlerFactory = handlerFactory;
     }
 
     public void Publish(Message message)
@@ -71,23 +68,11 @@ internal sealed class Messaging : IRedisMessagingInfrastructure, IDisposable
     {
         _log.LogDebug($"Subscribe \"{typeof(TMessageHandler).Name}\" for route \"{routeFilterPattern}\".");
 
-        var handlerTypeName = typeof(TMessageHandler).AssemblyQualifiedName ?? typeof(TMessageHandler).FullName ?? typeof(TMessageHandler).Name;
-        var handlerRegistrationId = _handlerFactory != null
-            ? _serviceMessageDispatcher.RegisterHandler(() => _handlerFactory(typeof(TMessageHandler)), handlerTypeName)
-            : null;
-
         void Handler(Message message)
         {
             try
             {
-                if (handlerRegistrationId != null)
-                {
-                    _serviceMessageDispatcher.DispatchMessageByRegistration(handlerRegistrationId, message);
-                }
-                else
-                {
-                    _serviceMessageDispatcher.DispatchMessage<TMessageHandler>(message);
-                }
+                _serviceMessageDispatcher.DispatchMessage<TMessageHandler>(message);
             }
             catch (Exception e) // Exceptions in redis callbacks are omitted, when not explicitly caught and logged!
             {
@@ -96,19 +81,7 @@ internal sealed class Messaging : IRedisMessagingInfrastructure, IDisposable
             }
         }
 
-        var subscription = SubscribeMessageHandler(routeFilterPattern, Handler);
-        if (subscription is Guid subscriptionId)
-        {
-            if (handlerRegistrationId != null)
-                _typedHandlerRegistrationBySubscriptionId.TryAdd(subscriptionId, handlerRegistrationId);
-
-            return subscriptionId;
-        }
-
-        if (handlerRegistrationId != null)
-            _serviceMessageDispatcher.UnregisterHandler(handlerRegistrationId);
-
-        return new object();
+        return SubscribeMessageHandler(routeFilterPattern, Handler) ?? new object();
     }
 
     public object Subscribe(Action<Message> handler) => Subscribe(".*", handler);
@@ -145,11 +118,6 @@ internal sealed class Messaging : IRedisMessagingInfrastructure, IDisposable
         {
             _log.LogWarning($"Unsubscribe failed. Subscription not active anymore: \"{subscriptionGuid}\".");
             return;
-        }
-
-        if (_typedHandlerRegistrationBySubscriptionId.TryRemove(subscriptionGuid, out var handlerRegistrationId))
-        {
-            _serviceMessageDispatcher.UnregisterHandler(handlerRegistrationId);
         }
 
         try

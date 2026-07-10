@@ -52,8 +52,7 @@ public static class ServiceCollectionExtensions
                 return new Messaging(sp.GetRequiredService<ILogger<Messaging>>(),
                     CreateRedisConnection(redisCfg, sp.GetRequiredService<ILogger<Messaging>>()).multiplexer,
                     ResolveMessageDispatcher(sp),
-                    null,
-                    handlerType => (IMessageHandler)sp.GetRequiredService(handlerType));
+                    null);
             }))
             .AddTransient(sp => sp.GetRequiredService<Func<MessagingConfiguration, IRedisMessagingInfrastructure>>().Invoke(config));
 
@@ -128,8 +127,7 @@ public static class ServiceCollectionExtensions
             new Messaging(r.GetRequiredService<ILogger<Messaging>>(),
                 CreateRedisConnection(config, r.GetRequiredService<ILogger<Messaging>>()).multiplexer,
                 ResolveMessageDispatcher(r),
-                traceAction,
-                handlerType => (IMessageHandler)r.GetRequiredService(handlerType)));
+                traceAction));
     }
 
     private static IServiceMessageDispatcher ResolveMessageDispatcher(IServiceProvider serviceProvider)

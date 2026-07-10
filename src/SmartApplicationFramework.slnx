@@ -16,6 +16,7 @@ SPDX-License-Identifier: MPL-2.0
     <Project Path="Messaging/SAF.Messaging.Contracts/SAF.Messaging.Contracts.csproj" />
     <Project Path="Messaging/SAF.Messaging.Cde.Tests/SAF.Messaging.Cde.Tests.csproj" />
     <Project Path="Messaging/SAF.Messaging.Cde/SAF.Messaging.Cde.csproj" />
+    <Project Path="Messaging/SAF.Messaging.Extensions/SAF.Messaging.Extensions.csproj" />
     <Project Path="Messaging/SAF.Messaging.InProcess.Tests/SAF.Messaging.InProcess.Tests.csproj" />
     <Project Path="Messaging/SAF.Messaging.InProcess/SAF.Messaging.InProcess.csproj" />
     <Project Path="Messaging/SAF.Messaging.LoadTest/SAF.Messaging.LoadTest.csproj" />
