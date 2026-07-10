@@ -17,7 +17,6 @@ internal class MySpecialService : IServicePlugin
     private readonly ILogger<MySpecialService> _log;
     private readonly IMessagingInfrastructure _messaging;
     private readonly MyServiceConfiguration _config;
-    private readonly IConfiguration _hostConfig;
 
     private readonly List<object> _subscriptions = new();
 
@@ -25,13 +24,11 @@ internal class MySpecialService : IServicePlugin
         MyInternalDependency internalDependency,
         IMessagingInfrastructure messaging,
         MyServiceConfiguration serviceConfig,
-        IOptionsMonitor<MyServiceConfiguration> monitoredConfig,
-        IConfiguration hostConfig)
+        IOptionsMonitor<MyServiceConfiguration> monitoredConfig)
     {
         _log = log;
         _messaging = messaging;
         _config = serviceConfig;
-        _hostConfig = hostConfig;
 
         internalDependency.SayHello();
 
