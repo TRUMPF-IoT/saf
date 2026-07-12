@@ -24,7 +24,7 @@ internal class RedisMessage
     public Message? Message { get; set; }
 }
 
-internal sealed class Messaging : IRedisMessagingInfrastructure, IDisposable
+internal sealed class Messaging : IMessagingInfrastructure, IDisposable
 {
     private readonly IConnectionMultiplexer _redis;
     private readonly IServiceMessageDispatcher _serviceMessageDispatcher;

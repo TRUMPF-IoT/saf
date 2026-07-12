@@ -10,7 +10,7 @@ using SAF.Messaging.Contracts;
 
 namespace SAF.Messaging.Nats;
 
-internal sealed class Messaging : INatsMessagingInfrastructure, IDisposable
+internal sealed class Messaging : IMessagingInfrastructure, IDisposable
 {
     private readonly INatsClient _natsClient;
     private readonly INatsSubscriptionManager _subscriptionManager;

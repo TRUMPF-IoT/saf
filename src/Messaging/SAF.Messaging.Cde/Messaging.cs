@@ -14,7 +14,7 @@ using Communication.PubSub.Interfaces;
 /// <summary>
 /// Coordinates the publishing and receiving of messages via the C-DEngine.
 /// </summary>
-internal class Messaging : ICdeMessagingInfrastructure
+internal class Messaging : IMessagingInfrastructure
 {
     private readonly ILogger<Messaging> _log;
     private readonly IServiceMessageDispatcher _dispatcher;

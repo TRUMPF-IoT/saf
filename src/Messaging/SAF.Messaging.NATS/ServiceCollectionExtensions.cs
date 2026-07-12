@@ -25,7 +25,12 @@ public static class ServiceCollectionExtensions
         var config = new NatsConfiguration();
         configure(config);
 
-        return serviceCollection.AddNatsMessagingInfrastructure(config, traceAction);
+        return serviceCollection
+            .AddKeyedSingleton<IMessagingInfrastructureFactory>(MessagingInfrastructureKeys.Nats,
+                (sp, _) => new DelegatingMessagingInfrastructureFactory(
+                    MessagingInfrastructureKeys.Nats,
+                    cfg => CreateMessagingInfrastructure(sp, cfg)))
+            .AddSingleton<IMessagingInfrastructure>(sp => CreateMessagingInfrastructure(sp, config, traceAction));
     }
 
     public static IServiceCollection AddNatsStorageInfrastructure(this IServiceCollection serviceCollection,
@@ -45,30 +50,7 @@ public static class ServiceCollectionExtensions
         configure.Invoke(config);
 
         return serviceCollection.AddNatsMessagingInfrastructure(config, traceAction)
-            .AddNatsStorageInfrastructure(config)
-            .AddSingleton<IMessagingInfrastructure>(sp => sp.GetRequiredService<INatsMessagingInfrastructure>());
-    }
-
-
-    internal static IServiceCollection AddNatsMessagingInfrastructure(this IServiceCollection serviceCollection,
-        MessagingConfiguration config)
-    {
-        serviceCollection
-            .AddTransient(sp => new Func<MessagingConfiguration, INatsMessagingInfrastructure>(cfg =>
-            {
-                var natsCfg = CreateNatsConfiguration(cfg);
-                return new Messaging(sp.GetRequiredService<ILogger<Messaging>>(),
-                    CreateNatsClient(natsCfg, sp.GetRequiredService<ILogger<Messaging>>()),
-                    new NatsSubscriptionManager(),
-                    sp.GetService<IInputRouteTranslator>() ?? new NatsInputRouteTranslator(),
-                    sp.GetService<IOutputRouteTranslator>() ?? new NatsOutputRouteTranslator(),
-                    ResolveMessageDispatcher(sp),
-                    null);
-            }))
-            .AddTransient(sp =>
-                sp.GetRequiredService<Func<MessagingConfiguration, INatsMessagingInfrastructure>>().Invoke(config));
-
-        return serviceCollection;
+            .AddNatsStorageInfrastructure(config);
     }
 
     private static NatsConfiguration CreateNatsConfiguration(MessagingConfiguration config)
@@ -186,16 +168,24 @@ public static class ServiceCollectionExtensions
 
     private static IServiceCollection AddNatsMessagingInfrastructure(this IServiceCollection serviceCollection,
         NatsConfiguration config, Action<Message>? traceAction)
-    {
-        return serviceCollection.AddTransient<INatsMessagingInfrastructure>(sp =>
-            new Messaging(sp.GetRequiredService<ILogger<Messaging>>(),
-                CreateNatsClient(config, sp.GetRequiredService<ILogger<Messaging>>()),
-                new NatsSubscriptionManager(),
-                sp.GetService<IInputRouteTranslator>() ?? new NatsInputRouteTranslator(),
-                sp.GetService<IOutputRouteTranslator>() ?? new NatsOutputRouteTranslator(),
-                ResolveMessageDispatcher(sp),
-                traceAction));
-    }
+        => serviceCollection
+            .AddKeyedSingleton<IMessagingInfrastructureFactory>(MessagingInfrastructureKeys.Nats,
+                (sp, _) => new DelegatingMessagingInfrastructureFactory(
+                    MessagingInfrastructureKeys.Nats,
+                    cfg => CreateMessagingInfrastructure(sp, cfg)))
+            .AddSingleton<IMessagingInfrastructure>(sp => CreateMessagingInfrastructure(sp, config, traceAction));
+
+    private static IMessagingInfrastructure CreateMessagingInfrastructure(IServiceProvider serviceProvider, MessagingConfiguration config)
+        => CreateMessagingInfrastructure(serviceProvider, CreateNatsConfiguration(config), null);
+
+    private static IMessagingInfrastructure CreateMessagingInfrastructure(IServiceProvider serviceProvider, NatsConfiguration config, Action<Message>? traceAction)
+        => new Messaging(serviceProvider.GetRequiredService<ILogger<Messaging>>(),
+            CreateNatsClient(config, serviceProvider.GetRequiredService<ILogger<Messaging>>()),
+            new NatsSubscriptionManager(),
+            serviceProvider.GetService<IInputRouteTranslator>() ?? new NatsInputRouteTranslator(),
+            serviceProvider.GetService<IOutputRouteTranslator>() ?? new NatsOutputRouteTranslator(),
+            ResolveMessageDispatcher(serviceProvider),
+            traceAction);
 
     private static IServiceMessageDispatcher ResolveMessageDispatcher(IServiceProvider serviceProvider)
         => serviceProvider.GetService<IServiceMessageDispatcher>() ??

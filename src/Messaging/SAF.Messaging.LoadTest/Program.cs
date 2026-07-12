@@ -42,8 +42,7 @@ class Program
 
     static void TestInProcess(IServiceCollection sc, int n, int msWait)
     {
-        sc.AddInProcessMessagingInfrastructure()
-            .AddSingleton<IMessagingInfrastructure>(sp => sp.GetRequiredService<IInProcessMessagingInfrastructure>());
+        sc.AddInProcessMessagingInfrastructure();
         using (var sp = sc.BuildServiceProvider())
         {
             RunMessagingLoadTest(sp, n, msWait);

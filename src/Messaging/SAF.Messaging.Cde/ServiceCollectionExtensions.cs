@@ -33,7 +33,11 @@ public static class ServiceCollectionExtensions
 
     public static IServiceCollection AddCdeMessagingInfrastructure(this IServiceCollection collection, Action<Message>? traceAction = null)
         => collection.AddCdePubSubServices()
-            .AddTransient<ICdeMessagingInfrastructure>(sp =>
+            .AddKeyedSingleton<IMessagingInfrastructureFactory>(MessagingInfrastructureKeys.Cde,
+                (sp, _) => new DelegatingMessagingInfrastructureFactory(
+                    MessagingInfrastructureKeys.Cde,
+                    cfg => CreateMessagingInfrastructure(sp, cfg)))
+            .AddSingleton<IMessagingInfrastructure>(sp =>
                 new Messaging(sp.GetService<ILogger<Messaging>>(),
                     ResolveMessageDispatcher(sp),
                     sp.GetRequiredService<IPublisher>(),
@@ -51,24 +55,16 @@ public static class ServiceCollectionExtensions
     {
         return collection.AddCde(configure)
             .AddCdeMessagingInfrastructure(traceAction)
-            .AddCdeStorageInfrastructure()
-            .AddSingleton<IMessagingInfrastructure>(sp => sp.GetRequiredService<ICdeMessagingInfrastructure>());
+            .AddCdeStorageInfrastructure();
     }
 
-    internal static IServiceCollection AddCdeMessagingInfrastructure(this IServiceCollection collection, MessagingConfiguration config)
-    {
-        collection.AddCdePubSubServices()
-            .AddTransient(sp => new Func<MessagingConfiguration, ICdeMessagingInfrastructure>(cfg =>
-                new Messaging(sp.GetService<ILogger<Messaging>>(),
-                    ResolveMessageDispatcher(sp),
-                    sp.GetRequiredService<IPublisher>(),
-                    sp.GetRequiredService<ISubscriber>(),
-                    null,
-                    new CdeMessagingConfiguration(cfg))))
-            .AddTransient(sp => sp.GetRequiredService<Func<MessagingConfiguration, ICdeMessagingInfrastructure>>().Invoke(config));
-
-        return collection;
-    }
+    private static IMessagingInfrastructure CreateMessagingInfrastructure(IServiceProvider serviceProvider, MessagingConfiguration config)
+        => new Messaging(serviceProvider.GetService<ILogger<Messaging>>(),
+            ResolveMessageDispatcher(serviceProvider),
+            serviceProvider.GetRequiredService<IPublisher>(),
+            serviceProvider.GetRequiredService<ISubscriber>(),
+            null,
+            new CdeMessagingConfiguration(config));
 
     private static IServiceMessageDispatcher ResolveMessageDispatcher(IServiceProvider serviceProvider)
         => serviceProvider.GetService<IServiceMessageDispatcher>() ??

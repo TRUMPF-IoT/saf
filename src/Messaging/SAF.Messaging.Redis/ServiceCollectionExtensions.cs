@@ -21,7 +21,12 @@ public static class ServiceCollectionExtensions
         var config = new RedisConfiguration();
         configure.Invoke(config);
 
-        return serviceCollection.AddRedisMessagingInfrastructure(config, traceAction);
+        return serviceCollection
+            .AddKeyedSingleton<IMessagingInfrastructureFactory>(MessagingInfrastructureKeys.Redis,
+                (sp, _) => new DelegatingMessagingInfrastructureFactory(
+                    MessagingInfrastructureKeys.Redis,
+                    cfg => CreateMessagingInfrastructure(sp, cfg)))
+            .AddSingleton<IMessagingInfrastructure>(sp => CreateMessagingInfrastructure(sp, config, traceAction));
     }
 
     public static IServiceCollection AddRedisStorageInfrastructure(this IServiceCollection serviceCollection, Action<RedisConfiguration> configure)
@@ -38,25 +43,7 @@ public static class ServiceCollectionExtensions
         configure.Invoke(config);
 
         return serviceCollection.AddRedisMessagingInfrastructure(config, traceAction)
-            .AddRedisStorageInfrastructure(config)
-            .AddSingleton<IMessagingInfrastructure>(sp => sp.GetRequiredService<IRedisMessagingInfrastructure>());
-    }
-
-    internal static IServiceCollection AddRedisMessagingInfrastructure(this IServiceCollection serviceCollection, MessagingConfiguration config)
-    {
-        serviceCollection
-            .AddTransient(sp => new Func<MessagingConfiguration, IRedisMessagingInfrastructure>(cfg =>
-            {
-                var msgCfg = new RedisMessagingConfiguration(cfg);
-                var redisCfg = new RedisConfiguration { ConnectionString = msgCfg.ConnectionString ?? string.Empty };
-                return new Messaging(sp.GetRequiredService<ILogger<Messaging>>(),
-                    CreateRedisConnection(redisCfg, sp.GetRequiredService<ILogger<Messaging>>()).multiplexer,
-                    ResolveMessageDispatcher(sp),
-                    null);
-            }))
-            .AddTransient(sp => sp.GetRequiredService<Func<MessagingConfiguration, IRedisMessagingInfrastructure>>().Invoke(config));
-
-        return serviceCollection;
+            .AddRedisStorageInfrastructure(config);
     }
 
     private static (IConnectionMultiplexer multiplexer, ConfigurationOptions options) CreateRedisConnection(RedisConfiguration config, ILogger logger)
@@ -122,13 +109,25 @@ public static class ServiceCollectionExtensions
     }
 
     private static IServiceCollection AddRedisMessagingInfrastructure(this IServiceCollection serviceCollection, RedisConfiguration config, Action<Message>? traceAction)
+        => serviceCollection
+            .AddKeyedSingleton<IMessagingInfrastructureFactory>(MessagingInfrastructureKeys.Redis,
+                (sp, _) => new DelegatingMessagingInfrastructureFactory(
+                    MessagingInfrastructureKeys.Redis,
+                    cfg => CreateMessagingInfrastructure(sp, cfg)))
+            .AddSingleton<IMessagingInfrastructure>(r => CreateMessagingInfrastructure(r, config, traceAction));
+
+    private static IMessagingInfrastructure CreateMessagingInfrastructure(IServiceProvider serviceProvider, MessagingConfiguration config)
     {
-        return serviceCollection.AddTransient<IRedisMessagingInfrastructure>(r =>
-            new Messaging(r.GetRequiredService<ILogger<Messaging>>(),
-                CreateRedisConnection(config, r.GetRequiredService<ILogger<Messaging>>()).multiplexer,
-                ResolveMessageDispatcher(r),
-                traceAction));
+        var msgCfg = new RedisMessagingConfiguration(config);
+        var redisCfg = new RedisConfiguration { ConnectionString = msgCfg.ConnectionString ?? string.Empty };
+        return CreateMessagingInfrastructure(serviceProvider, redisCfg, null);
     }
+
+    private static IMessagingInfrastructure CreateMessagingInfrastructure(IServiceProvider serviceProvider, RedisConfiguration config, Action<Message>? traceAction)
+        => new Messaging(serviceProvider.GetRequiredService<ILogger<Messaging>>(),
+            CreateRedisConnection(config, serviceProvider.GetRequiredService<ILogger<Messaging>>()).multiplexer,
+            ResolveMessageDispatcher(serviceProvider),
+            traceAction);
 
     private static IServiceMessageDispatcher ResolveMessageDispatcher(IServiceProvider serviceProvider)
         => serviceProvider.GetService<IServiceMessageDispatcher>() ??

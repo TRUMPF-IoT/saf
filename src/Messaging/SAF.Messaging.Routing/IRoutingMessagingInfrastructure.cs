@@ -9,9 +9,8 @@ using SAF.Messaging.Contracts;
 
 public interface IRoutingMessagingInfrastructure : IMessagingInfrastructure
 {
-    // Defined only to support specific Redis IMessagingInfrastructure in DI containers.
-    // The specific instance can be retrieved like this: serviceProvider.GetService<IRedisMessagingInfrastructure>.
-    // Use IServiceCollection.AddRedisMessagingInfrastructure extension method to add IRedisMessagingInfrastructure into the DI container.
+    // The specific instance can be retrieved like this: serviceProvider.GetService<IRoutingMessagingInfrastructure>.
+    // Use IServiceCollection.AddRoutingMessagingInfrastructure extension method to add IRoutingMessagingInfrastructure into the DI container.
 }
 
 

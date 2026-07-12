@@ -9,7 +9,7 @@ using Microsoft.Extensions.Logging.Abstractions;
 using SAF.Common;
 using SAF.Messaging.Contracts;
 
-internal class InProcessMessaging : IInProcessMessagingInfrastructure, IDisposable
+internal class InProcessMessaging : IMessagingInfrastructure, IDisposable
 {
     private sealed record TypedSubscription(Type HandlerType, string RouteFilterPattern);
 

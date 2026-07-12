@@ -16,16 +16,15 @@ namespace SAF.Messaging.InProcess;
 public static class ServiceCollectionExtensions
 {
     public static IServiceCollection AddInProcessMessagingInfrastructure(this IServiceCollection serviceCollection, Action<Message>? traceAction = null)
-        => serviceCollection.AddTransient<IInProcessMessagingInfrastructure>(r =>
-            new InProcessMessaging(r.GetService<ILogger<InProcessMessaging>>(), ResolveMessageDispatcher(r), traceAction));
+        => serviceCollection
+            .AddKeyedSingleton<IMessagingInfrastructureFactory>(MessagingInfrastructureKeys.InProcess,
+                (sp, _) => new DelegatingMessagingInfrastructureFactory(
+                    MessagingInfrastructureKeys.InProcess,
+                    cfg => CreateMessagingInfrastructure(sp, cfg, traceAction)))
+            .AddSingleton<IMessagingInfrastructure>(r => CreateMessagingInfrastructure(r, new MessagingConfiguration(), traceAction));
 
-    internal static IServiceCollection AddInProcessMessagingInfrastructure(this IServiceCollection serviceCollection, MessagingConfiguration config)
-    {
-        serviceCollection.AddTransient(sp => new Func<MessagingConfiguration, IInProcessMessagingInfrastructure>(_ =>
-            new InProcessMessaging(sp.GetService<ILogger<InProcessMessaging>>(), ResolveMessageDispatcher(sp))));
-
-        return serviceCollection.AddTransient(sp => sp.GetRequiredService<Func<MessagingConfiguration, IInProcessMessagingInfrastructure>>().Invoke(config));
-    }
+    private static IMessagingInfrastructure CreateMessagingInfrastructure(IServiceProvider serviceProvider, MessagingConfiguration _, Action<Message>? traceAction = null)
+        => new InProcessMessaging(serviceProvider.GetService<ILogger<InProcessMessaging>>(), ResolveMessageDispatcher(serviceProvider), traceAction);
 
     private static IServiceMessageDispatcher ResolveMessageDispatcher(IServiceProvider serviceProvider)
         => serviceProvider.GetService<IServiceMessageDispatcher>() ??

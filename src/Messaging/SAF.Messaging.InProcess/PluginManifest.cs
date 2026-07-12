@@ -13,7 +13,6 @@ public class PluginManifest : IPluginManifest
     public void ConfigureServices(IPluginSystemHostContext context, IServiceCollection pluginServices)
     {
         pluginServices.AddInProcessMessagingInfrastructure();
-        pluginServices.AddSingleton<IMessagingInfrastructure>(sp => sp.GetRequiredService<IInProcessMessagingInfrastructure>());
     }
 }
 
