@@ -4,6 +4,7 @@
 
 namespace SAF.Messaging.Runtime;
 
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using SAF.Messaging.Contracts;
 using SAF.PluginSystem.Hosting.Contracts;
@@ -12,7 +13,23 @@ public class PluginManifest : IPluginManifest
 {
     public void ConfigureServices(IPluginSystemHostContext context, IServiceCollection pluginServices)
     {
+        var primaryKey = context.PluginConfiguration.GetSection("Messaging")["PrimaryKey"]
+                         ?? context.HostConfiguration.GetSection("Messaging")["PrimaryKey"];
+
+        if (string.IsNullOrWhiteSpace(primaryKey))
+            throw new InvalidOperationException("Messaging.PrimaryKey must be configured explicitly. Example: Messaging:PrimaryKey = Routing.");
+
         pluginServices.AddSingleton<IServiceMessageDispatcher, ServiceMessageDispatcher>();
+        pluginServices.AddSingleton<IMessagingInfrastructure>(sp => ResolveMainMessagingInfrastructure(sp, primaryKey));
+    }
+
+    private static IMessagingInfrastructure ResolveMainMessagingInfrastructure(IServiceProvider serviceProvider, string primaryKey)
+    {
+        var factory = serviceProvider.GetKeyedService<IMessagingInfrastructureFactory>(primaryKey);
+        if (factory == null)
+            throw new InvalidOperationException($"No IMessagingInfrastructureFactory registered for Messaging.PrimaryKey '{primaryKey}'.");
+
+        return factory.Create(new MessagingConfiguration { Key = primaryKey });
     }
 }
 

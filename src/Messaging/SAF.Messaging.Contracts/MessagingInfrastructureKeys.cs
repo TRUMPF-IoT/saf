@@ -9,6 +9,7 @@ namespace SAF.Messaging.Contracts;
 /// </summary>
 public static class MessagingInfrastructureKeys
 {
+    public const string Routing = "Routing";
     public const string InProcess = "InProcess";
     public const string Redis = "Redis";
     public const string Cde = "Cde";

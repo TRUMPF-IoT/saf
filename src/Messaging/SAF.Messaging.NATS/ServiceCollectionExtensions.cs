@@ -29,8 +29,7 @@ public static class ServiceCollectionExtensions
             .AddKeyedSingleton<IMessagingInfrastructureFactory>(MessagingInfrastructureKeys.Nats,
                 (sp, _) => new DelegatingMessagingInfrastructureFactory(
                     MessagingInfrastructureKeys.Nats,
-                    cfg => CreateMessagingInfrastructure(sp, cfg)))
-            .AddSingleton<IMessagingInfrastructure>(sp => CreateMessagingInfrastructure(sp, config, traceAction));
+                    cfg => CreateMessagingInfrastructure(sp, cfg)));
     }
 
     public static IServiceCollection AddNatsStorageInfrastructure(this IServiceCollection serviceCollection,
@@ -172,8 +171,7 @@ public static class ServiceCollectionExtensions
             .AddKeyedSingleton<IMessagingInfrastructureFactory>(MessagingInfrastructureKeys.Nats,
                 (sp, _) => new DelegatingMessagingInfrastructureFactory(
                     MessagingInfrastructureKeys.Nats,
-                    cfg => CreateMessagingInfrastructure(sp, cfg)))
-            .AddSingleton<IMessagingInfrastructure>(sp => CreateMessagingInfrastructure(sp, config, traceAction));
+                    cfg => CreateMessagingInfrastructure(sp, cfg)));
 
     private static IMessagingInfrastructure CreateMessagingInfrastructure(IServiceProvider serviceProvider, MessagingConfiguration config)
         => CreateMessagingInfrastructure(serviceProvider, CreateNatsConfiguration(config), null);

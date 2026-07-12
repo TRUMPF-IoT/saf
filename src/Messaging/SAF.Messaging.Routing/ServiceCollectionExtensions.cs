@@ -30,12 +30,18 @@ public static class ServiceCollectionExtensions
         configure(config);
 
         return serviceCollection.AddRoutingMessagingInfrastructure(config)
-            .AddSingleton<IMessagingInfrastructure>(sp => sp.GetRequiredService<IRoutingMessagingInfrastructure>());
+            .AddKeyedSingleton<IMessagingInfrastructureFactory>(MessagingInfrastructureKeys.Routing,
+                (sp, _) => new DelegatingMessagingInfrastructureFactory(
+                    MessagingInfrastructureKeys.Routing,
+                    _ => CreateRoutingMessagingInfrastructure(sp, config)));
     }
 
     private static IServiceCollection AddRoutingMessagingInfrastructure(this IServiceCollection serviceCollection, Configuration config)
         => serviceCollection.AddTransient<IRoutingMessagingInfrastructure>(sp =>
-            new Messaging(sp.GetService<ILogger<Messaging>>(), BuildMessageRouting(sp, config)));
+            CreateRoutingMessagingInfrastructure(sp, config));
+
+    private static IRoutingMessagingInfrastructure CreateRoutingMessagingInfrastructure(IServiceProvider serviceProvider, Configuration config)
+        => new Messaging(serviceProvider.GetService<ILogger<Messaging>>(), BuildMessageRouting(serviceProvider, config));
 
     private static MessageRouting[] BuildMessageRouting(IServiceProvider serviceProvider, Configuration config)
     {

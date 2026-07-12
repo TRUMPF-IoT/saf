@@ -25,8 +25,7 @@ public static class ServiceCollectionExtensions
             .AddKeyedSingleton<IMessagingInfrastructureFactory>(MessagingInfrastructureKeys.Redis,
                 (sp, _) => new DelegatingMessagingInfrastructureFactory(
                     MessagingInfrastructureKeys.Redis,
-                    cfg => CreateMessagingInfrastructure(sp, cfg)))
-            .AddSingleton<IMessagingInfrastructure>(sp => CreateMessagingInfrastructure(sp, config, traceAction));
+                    cfg => CreateMessagingInfrastructure(sp, cfg)));
     }
 
     public static IServiceCollection AddRedisStorageInfrastructure(this IServiceCollection serviceCollection, Action<RedisConfiguration> configure)
@@ -113,8 +112,7 @@ public static class ServiceCollectionExtensions
             .AddKeyedSingleton<IMessagingInfrastructureFactory>(MessagingInfrastructureKeys.Redis,
                 (sp, _) => new DelegatingMessagingInfrastructureFactory(
                     MessagingInfrastructureKeys.Redis,
-                    cfg => CreateMessagingInfrastructure(sp, cfg)))
-            .AddSingleton<IMessagingInfrastructure>(r => CreateMessagingInfrastructure(r, config, traceAction));
+                    cfg => CreateMessagingInfrastructure(sp, cfg)));
 
     private static IMessagingInfrastructure CreateMessagingInfrastructure(IServiceProvider serviceProvider, MessagingConfiguration config)
     {

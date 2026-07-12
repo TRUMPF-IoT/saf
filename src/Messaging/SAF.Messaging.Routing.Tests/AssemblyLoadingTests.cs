@@ -29,7 +29,7 @@ public class AssemblyLoadingTests
         services.AddRoutingMessagingInfrastructure(config => config.Routings = TestRoutings);
 
         Assert.Contains(services, sd => sd.ServiceType == typeof(IRoutingMessagingInfrastructure));
-        Assert.Contains(services, sd => sd.ServiceType == typeof(IMessagingInfrastructure));
+        Assert.Contains(services, sd => sd.ServiceType == typeof(IMessagingInfrastructureFactory) && sd.IsKeyedService && Equals(sd.ServiceKey, MessagingInfrastructureKeys.Routing));
     }
 
     [Fact]

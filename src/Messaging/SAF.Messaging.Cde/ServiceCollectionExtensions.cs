@@ -36,13 +36,7 @@ public static class ServiceCollectionExtensions
             .AddKeyedSingleton<IMessagingInfrastructureFactory>(MessagingInfrastructureKeys.Cde,
                 (sp, _) => new DelegatingMessagingInfrastructureFactory(
                     MessagingInfrastructureKeys.Cde,
-                    cfg => CreateMessagingInfrastructure(sp, cfg)))
-            .AddSingleton<IMessagingInfrastructure>(sp =>
-                new Messaging(sp.GetService<ILogger<Messaging>>(),
-                    ResolveMessageDispatcher(sp),
-                    sp.GetRequiredService<IPublisher>(),
-                    sp.GetRequiredService<ISubscriber>(),
-                    traceAction));
+                    cfg => CreateMessagingInfrastructure(sp, cfg)));
 
     public static IServiceCollection AddCdeStorageInfrastructure(this IServiceCollection collection)
         => collection.AddSingleton<IStorageInfrastructure, Storage>(sp =>
