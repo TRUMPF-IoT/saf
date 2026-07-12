@@ -29,7 +29,7 @@ public static class ServiceCollectionExtensions
             .AddKeyedSingleton<IMessagingInfrastructureFactory>(MessagingInfrastructureKeys.Nats,
                 (sp, _) => new DelegatingMessagingInfrastructureFactory(
                     MessagingInfrastructureKeys.Nats,
-                    cfg => CreateMessagingInfrastructure(sp, cfg)));
+                    cfg => CreateMessagingInfrastructure(sp, cfg, config, traceAction)));
     }
 
     public static IServiceCollection AddNatsStorageInfrastructure(this IServiceCollection serviceCollection,
@@ -171,10 +171,17 @@ public static class ServiceCollectionExtensions
             .AddKeyedSingleton<IMessagingInfrastructureFactory>(MessagingInfrastructureKeys.Nats,
                 (sp, _) => new DelegatingMessagingInfrastructureFactory(
                     MessagingInfrastructureKeys.Nats,
-                    cfg => CreateMessagingInfrastructure(sp, cfg)));
+                    cfg => CreateMessagingInfrastructure(sp, cfg, config, traceAction)));
 
-    private static IMessagingInfrastructure CreateMessagingInfrastructure(IServiceProvider serviceProvider, MessagingConfiguration config)
-        => CreateMessagingInfrastructure(serviceProvider, CreateNatsConfiguration(config), null);
+    private static IMessagingInfrastructure CreateMessagingInfrastructure(IServiceProvider serviceProvider, MessagingConfiguration config, NatsConfiguration defaultConfiguration, Action<Message>? traceAction)
+    {
+        if (config.Config is null || config.Config.Count == 0)
+        {
+            return CreateMessagingInfrastructure(serviceProvider, defaultConfiguration, traceAction);
+        }
+
+        return CreateMessagingInfrastructure(serviceProvider, CreateNatsConfiguration(config), traceAction);
+    }
 
     private static IMessagingInfrastructure CreateMessagingInfrastructure(IServiceProvider serviceProvider, NatsConfiguration config, Action<Message>? traceAction)
         => new Messaging(serviceProvider.GetRequiredService<ILogger<Messaging>>(),

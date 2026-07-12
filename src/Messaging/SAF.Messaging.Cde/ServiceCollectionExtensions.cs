@@ -58,7 +58,7 @@ public static class ServiceCollectionExtensions
             serviceProvider.GetRequiredService<IPublisher>(),
             serviceProvider.GetRequiredService<ISubscriber>(),
             null,
-            new CdeMessagingConfiguration(config));
+            config.Config is null || config.Config.Count == 0 ? new CdeMessagingConfiguration() : new CdeMessagingConfiguration(config));
 
     private static IServiceMessageDispatcher ResolveMessageDispatcher(IServiceProvider serviceProvider)
         => serviceProvider.GetService<IServiceMessageDispatcher>() ??

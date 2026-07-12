@@ -25,7 +25,7 @@ public static class ServiceCollectionExtensions
             .AddKeyedSingleton<IMessagingInfrastructureFactory>(MessagingInfrastructureKeys.Redis,
                 (sp, _) => new DelegatingMessagingInfrastructureFactory(
                     MessagingInfrastructureKeys.Redis,
-                    cfg => CreateMessagingInfrastructure(sp, cfg)));
+                    cfg => CreateMessagingInfrastructure(sp, cfg, config, traceAction)));
     }
 
     public static IServiceCollection AddRedisStorageInfrastructure(this IServiceCollection serviceCollection, Action<RedisConfiguration> configure)
@@ -112,13 +112,23 @@ public static class ServiceCollectionExtensions
             .AddKeyedSingleton<IMessagingInfrastructureFactory>(MessagingInfrastructureKeys.Redis,
                 (sp, _) => new DelegatingMessagingInfrastructureFactory(
                     MessagingInfrastructureKeys.Redis,
-                    cfg => CreateMessagingInfrastructure(sp, cfg)));
+                    cfg => CreateMessagingInfrastructure(sp, cfg, config, traceAction)));
 
-    private static IMessagingInfrastructure CreateMessagingInfrastructure(IServiceProvider serviceProvider, MessagingConfiguration config)
+    private static IMessagingInfrastructure CreateMessagingInfrastructure(IServiceProvider serviceProvider, MessagingConfiguration config, RedisConfiguration defaultConfiguration, Action<Message>? traceAction)
     {
+        if (config.Config is null || config.Config.Count == 0)
+        {
+            return CreateMessagingInfrastructure(serviceProvider, defaultConfiguration, traceAction);
+        }
+
         var msgCfg = new RedisMessagingConfiguration(config);
-        var redisCfg = new RedisConfiguration { ConnectionString = msgCfg.ConnectionString ?? string.Empty };
-        return CreateMessagingInfrastructure(serviceProvider, redisCfg, null);
+        var redisCfg = new RedisConfiguration
+        {
+            ConnectionString = msgCfg.ConnectionString ?? defaultConfiguration.ConnectionString,
+            Timeout = defaultConfiguration.Timeout
+        };
+
+        return CreateMessagingInfrastructure(serviceProvider, redisCfg, traceAction);
     }
 
     private static IMessagingInfrastructure CreateMessagingInfrastructure(IServiceProvider serviceProvider, RedisConfiguration config, Action<Message>? traceAction)
