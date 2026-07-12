@@ -15,15 +15,6 @@ public class MessagingConfiguration
     public string Key { get; set; } = string.Empty;
 
     /// <summary>
-    /// Backward-compatible alias for <see cref="Key"/>.
-    /// </summary>
-    public string Type
-    {
-        get => Key;
-        set => Key = value;
-    }
-
-    /// <summary>
     /// Gets or sets backend-specific configuration values.
     /// </summary>
     public IDictionary<string, string>? Config { get; set; }
