@@ -14,6 +14,7 @@ public static class HostApplicationBuilderExtensions
     private const string PluginSystemSectionName = "PluginSystem";
     private const string ServiceHostSectionName = "ServiceHost";
     private const string BuiltInPluginAssemblyPatterns = "SAF.Hosting.dll;SAF.Messaging.Runtime.dll";
+    private const string BuiltInPluginContractsSearchPattern = "SAF.Common.dll;SAF.Messaging.Contracts.dll";
 
     /// <summary>
     /// Adds the SAF host using configuration from the default "PluginSystem" and "ServiceHost" sections.
@@ -26,7 +27,7 @@ public static class HostApplicationBuilderExtensions
         ArgumentNullException.ThrowIfNull(builder);
 
         var pluginSystemBuilder = builder.AddPluginSystem(
-            options => builder.Configuration.GetSection(PluginSystemSectionName).Bind(options));
+            options => ConfigurePluginSystem(options, builder.Configuration));
 
         builder.Services.AddServiceHostInfo(builder.Configuration);
         RegisterBuiltInPluginAssemblies(pluginSystemBuilder);
@@ -48,7 +49,7 @@ public static class HostApplicationBuilderExtensions
         ArgumentNullException.ThrowIfNull(builder);
         ArgumentNullException.ThrowIfNull(configurePluginSystem);
 
-        var pluginSystemBuilder = builder.AddPluginSystem(configurePluginSystem);
+        var pluginSystemBuilder = builder.AddPluginSystem(options => ConfigurePluginSystem(options, configurePluginSystem));
 
         builder.Services.AddServiceHostInfo(builder.Configuration);
         RegisterBuiltInPluginAssemblies(pluginSystemBuilder);
@@ -68,6 +69,40 @@ public static class HostApplicationBuilderExtensions
             options.ExcludePatterns = string.Empty;
         });
     }
+
+    private static void ConfigurePluginSystem(PluginSystemOptions options, IConfiguration configuration)
+    {
+        ArgumentNullException.ThrowIfNull(options);
+        ArgumentNullException.ThrowIfNull(configuration);
+
+        configuration.GetSection(PluginSystemSectionName).Bind(options);
+        ApplyBuiltInPluginSystemDefaults(options);
+    }
+
+    private static void ConfigurePluginSystem(PluginSystemOptions options, Action<PluginSystemOptions> configurePluginSystem)
+    {
+        ArgumentNullException.ThrowIfNull(options);
+        ArgumentNullException.ThrowIfNull(configurePluginSystem);
+
+        configurePluginSystem(options);
+        ApplyBuiltInPluginSystemDefaults(options);
+    }
+
+    private static void ApplyBuiltInPluginSystemDefaults(PluginSystemOptions options)
+    {
+        ArgumentNullException.ThrowIfNull(options);
+
+        options.PluginContractsSearchPattern = MergePatterns(
+            BuiltInPluginContractsSearchPattern,
+            options.PluginContractsSearchPattern);
+    }
+
+    private static string MergePatterns(params string?[] patternGroups)
+        => string.Join(";",
+            patternGroups
+                .Where(static patterns => !string.IsNullOrWhiteSpace(patterns))
+                .SelectMany(static patterns => patterns!.Split(';', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries))
+                .Distinct(StringComparer.OrdinalIgnoreCase));
 
     private static SafHostBuilder CreateSafHostBuilder(
         IPluginSystemHostBuilder pluginSystemBuilder,

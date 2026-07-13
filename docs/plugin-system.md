@@ -208,7 +208,7 @@ public class OrderConsumer(IPluginServiceProvider pluginServices)
 }
 ```
 
-> The host must include the contracts assembly in `PluginContractsSearchPattern` so the plugin system can recognise the public types.
+> The host must make the contracts assembly discoverable through `PluginContractsSearchPattern` so the plugin system can recognise the public types. When you use `AddSafHost()`, SAF's own contract assemblies are already included and your configured patterns only need to cover additional application-specific contracts.
 
 ---
 

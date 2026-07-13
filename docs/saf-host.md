@@ -61,7 +61,9 @@ Controls how plug-ins are discovered and configured:
 |---|---|---|
 | `PluginSettingsRootPath` | `./config` | Root directory for per-plugin `pluginsettings.json` files |
 | `PluginSettingsFilePath` | `./pluginsettings.json` | Path relative to `PluginSettingsRootPath` for the plugin's settings file |
-| `PluginContractsSearchPattern` | *(empty)* | Semicolon-separated glob patterns for assemblies exposing public plugin service types |
+| `PluginContractsSearchPattern` | `SAF.Common.dll;SAF.Messaging.Contracts.dll` via `AddSafHost()` | Semicolon-separated glob patterns for additional assemblies exposing public plugin service types |
+
+`AddSafHost()` always includes SAF's built-in contract assemblies and appends any `PluginContractsSearchPattern` entries from configuration, so applications only need to specify additional contracts such as `MyApp.Contracts.dll`.
 
 ### ServiceHost section
 
