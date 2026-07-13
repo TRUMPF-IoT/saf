@@ -28,6 +28,13 @@ public static class HostApplicationBuilderExtensions
             options => builder.Configuration.GetSection(PluginSystemSectionName).Bind(options));
 
         builder.Services.AddServiceHostInfo(builder.Configuration);
+        pluginSystemBuilder.AddPluginAssemblyFolderContainer(options =>
+        {
+            options.SearchRootPath = AppContext.BaseDirectory;
+            options.Recursive = false;
+            options.IncludePatterns = "SAF.Hosting.dll";
+            options.ExcludePatterns = string.Empty;
+        });
 
         return CreateSafHostBuilder(pluginSystemBuilder, builder.Configuration);
     }
@@ -49,6 +56,13 @@ public static class HostApplicationBuilderExtensions
         var pluginSystemBuilder = builder.AddPluginSystem(configurePluginSystem);
 
         builder.Services.AddServiceHostInfo(builder.Configuration);
+        pluginSystemBuilder.AddPluginAssemblyFolderContainer(options =>
+        {
+            options.SearchRootPath = AppContext.BaseDirectory;
+            options.Recursive = false;
+            options.IncludePatterns = "SAF.Hosting.dll";
+            options.ExcludePatterns = string.Empty;
+        });
 
         return CreateSafHostBuilder(pluginSystemBuilder, builder.Configuration);
     }
