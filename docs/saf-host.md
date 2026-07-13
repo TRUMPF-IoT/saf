@@ -30,7 +30,14 @@ var host = builder.Build();
 await host.RunAsync();
 ```
 
-`AddSafHost()` reads plugin system configuration from the `"PluginSystem"` section and service host info from the `"ServiceHost"` section of your configuration (e.g. `appsettings.json`).
+`AddSafHost()` reads plugin system configuration from the `"PluginSystem"` section and service host info from the `"ServiceHost"` section of your configuration (e.g. `appsettings.json`). It also registers SAF's built-in plugin assemblies from the application base directory using an explicit allow-list.
+
+At the moment the built-in list contains:
+
+- `SAF.Hosting.dll`
+- `SAF.Messaging.Runtime.dll`
+
+This ensures that host-level SAF features continue to work even when those assemblies are referenced directly by `SAF.Hosting` instead of being added through an application-specific plugin scan.
 
 ---
 
@@ -127,6 +134,10 @@ builder.AddSafHost(pluginSystemOptions =>
 ---
 
 ## Plugin Assembly Discovery
+
+`AddSafHost()` already registers SAF's built-in plugin assemblies (`SAF.Hosting.dll` and `SAF.Messaging.Runtime.dll`) from `AppContext.BaseDirectory`.
+
+Additional `AddPluginAssemblyFolderContainer` calls should therefore be used for application-specific or externally deployed plugins.
 
 The `AddPluginAssemblyFolderContainer` call controls which DLL files are scanned for `IPluginManifest` implementations.
 

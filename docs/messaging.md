@@ -46,7 +46,9 @@ graph LR
     I -->|injected into| PB[Plugin B]
 ```
 
-The `SAF.Messaging.Runtime` plugin **must** be loaded as a plug-in (by placing its assembly in the plug-in scan folder) to provide `IMessagingInfrastructure`. It reads `Messaging:PrimaryKey` from configuration to decide which registered factory to use.
+The `SAF.Messaging.Runtime` plugin provides `IMessagingInfrastructure` by reading `Messaging:PrimaryKey` from configuration and selecting the matching registered factory.
+
+When you use `builder.AddSafHost()`, `SAF.Messaging.Runtime.dll` is loaded automatically as one of SAF's built-in plugin assemblies. If you use the plugin system without `SAF.Hosting`, you must ensure that the assembly is included in your own plugin discovery configuration.
 
 ---
 
@@ -313,7 +315,7 @@ Add to configuration:
 { "Messaging": { "PrimaryKey": "MyBroker" } }
 ```
 
-The `SAF.Messaging.Runtime` plugin will resolve your factory and register it as `IMessagingInfrastructure`.
+The `SAF.Messaging.Runtime` plugin will resolve your factory and register it as `IMessagingInfrastructure`. With `AddSafHost()`, the runtime plugin is loaded automatically; otherwise include it in your own plugin discovery setup.
 
 ---
 

@@ -16,7 +16,9 @@ SAF uses the plugin system as its foundation and adds messaging, storage, and ho
 
 ### IPluginManifest
 
-Every plug-in assembly must contain **exactly one** public class implementing `IPluginManifest`. This is the single entry point the plugin system uses to configure the plug-in's DI container.
+Every plug-in assembly should contain **exactly one** concrete class implementing `IPluginManifest`. This is the single entry point the plugin system uses to configure the plug-in's DI container.
+
+During discovery, the plugin loader instantiates the first concrete, non-abstract `IPluginManifest` implementation it finds and ignores assemblies that only contain the interface or other non-instantiable types.
 
 ```csharp
 using Microsoft.Extensions.DependencyInjection;

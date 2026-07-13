@@ -17,7 +17,7 @@ This document describes every breaking change and the steps needed to migrate fr
 | Plugin settings | Single config file | Per-plugin `pluginsettings.json` resolved via `IPluginSystemHostContext` |
 | C-DEngine infrastructure | `AddCdeInfrastructure()` (messaging + storage in one call) | Separate: `AddCdeMessagingInfrastructure()`, `AddCdeStorageInfrastructure()` |
 | Messaging namespace | `SAF.Common.IMessagingInfrastructure` | `SAF.Messaging.Contracts.IMessagingInfrastructure` |
-| Runtime plugin | Not required | `SAF.Messaging.Runtime` must be loaded as a plug-in |
+| Runtime plugin | Not required | `SAF.Messaging.Runtime` must be available to the plugin system; `AddSafHost()` loads it automatically as a built-in plug-in |
 | `IMessagingInfrastructure` registration | Direct `IServiceCollection` singleton | Factory pattern: `IMessagingInfrastructureFactory` (keyed) + `SAF.Messaging.Runtime` resolves the primary |
 | Storage namespace | `SAF.Common.IStorageInfrastructure` | Still `SAF.Common.IStorageInfrastructure` (unchanged) |
 | Cross-plugin services | Not supported | `IPluginServiceProvider` |
@@ -155,17 +155,18 @@ Update `using` directives from `SAF.Common` to `SAF.Messaging.Contracts` whereve
 
 ---
 
-## Step 4 — Add SAF.Messaging.Runtime as a Plugin
+## Step 4 — Ensure SAF.Messaging.Runtime Is Discoverable
 
 In 11.x the `IMessagingInfrastructure` singleton is no longer registered directly by the host. Instead, `SAF.Messaging.Runtime` acts as a plug-in that resolves and registers the primary infrastructure based on `Messaging:PrimaryKey`.
 
-**Action:** Include `SAF.Messaging.Runtime.dll` in your plugin folder scan or configure `IncludePatterns` to pick it up automatically.
+If your application uses `builder.AddSafHost()`, no extra configuration is required for the runtime plugin: `AddSafHost()` loads `SAF.Messaging.Runtime.dll` automatically as a built-in plug-in.
+
+If you use the plugin system without `SAF.Hosting`, you must include `SAF.Messaging.Runtime.dll` in your own plugin discovery configuration.
 
 ```csharp
 ps.AddPluginAssemblyFolderContainer(options =>
 {
     options.SearchRootPath = AppContext.BaseDirectory;
-    // Include the runtime plugin explicitly or use a broader pattern
     options.IncludePatterns = "SAF.Messaging.Runtime.dll;MyApp.Plugin.*.dll";
 });
 ```
@@ -300,7 +301,7 @@ Update your `.csproj` files:
 - [ ] Rename `RegisterDependencies(IServiceCollection)` → `ConfigureServices(IPluginSystemHostContext, IServiceCollection)`
 - [ ] Update `using SAF.Common` → `using SAF.Messaging.Contracts` for messaging types
 - [ ] Configure `Messaging:PrimaryKey` in `appsettings.json`
-- [ ] Ensure `SAF.Messaging.Runtime.dll` is in the plugin scan folder
+- [ ] Ensure `SAF.Messaging.Runtime.dll` is discoverable by the plugin system (automatic with `AddSafHost()`)
 - [ ] Replace manual lifecycle background tasks with `IServicePlugin` / `ILifecycleServicePlugin`
 - [ ] Move plugin-specific config to per-plugin `pluginsettings.json` files
 - [ ] Replace `AddCdeInfrastructure()` with separate `AddCdeMessagingInfrastructure()` + `AddCdeStorageInfrastructure()`
