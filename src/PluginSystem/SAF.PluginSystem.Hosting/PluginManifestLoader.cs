@@ -15,7 +15,7 @@ internal sealed class PluginManifestLoader : IPluginManifestLoader
 
         foreach (var type in assembly.GetTypes())
         {
-            if (!typeof(IPluginManifest).IsAssignableFrom(type))
+            if (!type.IsClass || type.IsAbstract || !typeof(IPluginManifest).IsAssignableFrom(type))
             {
                 continue;
             }

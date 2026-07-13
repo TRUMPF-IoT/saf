@@ -47,7 +47,7 @@ public class PluginManifestTests
     }
 
     [Fact]
-    public void AddSafHost_RegistersBridgePluginAssemblyContainer()
+    public void AddSafHost_LoadsPluginManifestsFromDirectlyReferencedAssemblies()
     {
         var services = new ServiceCollection();
         services.AddSingleton<ILoggerFactory>(NullLoggerFactory.Instance);
@@ -65,8 +65,13 @@ public class PluginManifestTests
 
         var provider = services.BuildServiceProvider();
         var pluginAssemblyContainers = provider.GetServices<IPluginAssemblyContainer>().ToList();
+        var manifestTypeNames = pluginAssemblyContainers
+            .SelectMany(static container => container.GetPluginManifests())
+            .Select(static manifest => manifest.GetType().FullName)
+            .ToList();
 
         Assert.Single(pluginAssemblyContainers);
-        Assert.Single(pluginAssemblyContainers[0].GetPluginManifests());
+        Assert.Contains("SAF.Hosting.PluginManifest", manifestTypeNames);
+        Assert.Contains("SAF.Messaging.Runtime.PluginManifest", manifestTypeNames);
     }
 }

@@ -13,6 +13,7 @@ public static class HostApplicationBuilderExtensions
 {
     private const string PluginSystemSectionName = "PluginSystem";
     private const string ServiceHostSectionName = "ServiceHost";
+    private const string BuiltInPluginAssemblyPatterns = "SAF.Hosting.dll;SAF.Messaging.Runtime.dll";
 
     /// <summary>
     /// Adds the SAF host using configuration from the default "PluginSystem" and "ServiceHost" sections.
@@ -28,13 +29,7 @@ public static class HostApplicationBuilderExtensions
             options => builder.Configuration.GetSection(PluginSystemSectionName).Bind(options));
 
         builder.Services.AddServiceHostInfo(builder.Configuration);
-        pluginSystemBuilder.AddPluginAssemblyFolderContainer(options =>
-        {
-            options.SearchRootPath = AppContext.BaseDirectory;
-            options.Recursive = false;
-            options.IncludePatterns = "SAF.Hosting.dll";
-            options.ExcludePatterns = string.Empty;
-        });
+        RegisterBuiltInPluginAssemblies(pluginSystemBuilder);
 
         return CreateSafHostBuilder(pluginSystemBuilder, builder.Configuration);
     }
@@ -56,15 +51,22 @@ public static class HostApplicationBuilderExtensions
         var pluginSystemBuilder = builder.AddPluginSystem(configurePluginSystem);
 
         builder.Services.AddServiceHostInfo(builder.Configuration);
+        RegisterBuiltInPluginAssemblies(pluginSystemBuilder);
+
+        return CreateSafHostBuilder(pluginSystemBuilder, builder.Configuration);
+    }
+
+    private static void RegisterBuiltInPluginAssemblies(IPluginSystemHostBuilder pluginSystemBuilder)
+    {
+        ArgumentNullException.ThrowIfNull(pluginSystemBuilder);
+
         pluginSystemBuilder.AddPluginAssemblyFolderContainer(options =>
         {
             options.SearchRootPath = AppContext.BaseDirectory;
             options.Recursive = false;
-            options.IncludePatterns = "SAF.Hosting.dll";
+            options.IncludePatterns = BuiltInPluginAssemblyPatterns;
             options.ExcludePatterns = string.Empty;
         });
-
-        return CreateSafHostBuilder(pluginSystemBuilder, builder.Configuration);
     }
 
     private static SafHostBuilder CreateSafHostBuilder(
