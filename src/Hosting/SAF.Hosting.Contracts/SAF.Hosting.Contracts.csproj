@@ -1,0 +1,19 @@
+<!--
+SPDX-FileCopyrightText: 2017-2026 TRUMPF Laser SE
+
+SPDX-License-Identifier: MPL-2.0
+-->
+
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <Description>SAF hosting contracts – public interfaces and options for SAF host applications.</Description>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\PluginSystem\SAF.PluginSystem.Hosting.Contracts\SAF.PluginSystem.Hosting.Contracts.csproj" />
+  </ItemGroup>
+
+</Project>

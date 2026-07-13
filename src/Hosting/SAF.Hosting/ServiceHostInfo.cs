@@ -8,12 +8,12 @@ using SAF.Common;
 
 internal class ServiceHostInfo : IServiceHostInfo
 {
-    private readonly ServiceHostInfoOptions _options;
+    private readonly ServiceHostOptions _options;
     private readonly Func<string> _initializeId;
 
     private string? _id;
 
-    internal ServiceHostInfo(ServiceHostInfoOptions options, Func<string> initializeId)
+    internal ServiceHostInfo(ServiceHostOptions options, Func<string> initializeId)
     {
         ArgumentNullException.ThrowIfNull(options);
         ArgumentNullException.ThrowIfNull(initializeId);

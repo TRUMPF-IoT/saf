@@ -29,6 +29,7 @@ SPDX-License-Identifier: MPL-2.0
     <Project Path="Messaging/SAF.Messaging.Routing/SAF.Messaging.Routing.csproj" />
   </Folder>
   <Folder Name="/Hosting/">
+    <Project Path="Hosting/SAF.Hosting.Contracts/SAF.Hosting.Contracts.csproj" />
     <Project Path="Hosting/SAF.Hosting/SAF.Hosting.csproj" />
   </Folder>
   <Folder Name="/PluginSystem/">

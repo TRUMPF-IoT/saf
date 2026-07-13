@@ -6,7 +6,6 @@ namespace TestRunnerNats;
 
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Hosting;
-using SAF.Common.Diagnostics;
 using SAF.Hosting;
 using SAF.PluginSystem.Hosting;
 
@@ -23,17 +22,16 @@ public static class Program
         pluginAssemblySearchOptions.SearchRootPath = Path.GetFullPath(
             Path.Combine(AppContext.BaseDirectory, pluginAssemblySearchOptions.SearchRootPath));
 
-        builder.AddPluginSystem(builder.Configuration.GetSection("PluginSystem").Bind)
-            .AddPluginAssemblyFolderContainer(options =>
-            {
-                options.SearchRootPath = pluginAssemblySearchOptions.SearchRootPath;
-                options.Recursive = pluginAssemblySearchOptions.Recursive;
-                options.IncludePatterns = pluginAssemblySearchOptions.IncludePatterns;
-                options.ExcludePatterns = pluginAssemblySearchOptions.ExcludePatterns;
-            });
-
-        builder.Services.AddServiceHostInfo(builder.Configuration);
-        builder.Services.AddHostDiagnostics();
+        builder.AddSafHost()
+            .ConfigurePluginSystem(plugins => plugins
+                .AddPluginAssemblyFolderContainer(options =>
+                {
+                    options.SearchRootPath = pluginAssemblySearchOptions.SearchRootPath;
+                    options.Recursive = pluginAssemblySearchOptions.Recursive;
+                    options.IncludePatterns = pluginAssemblySearchOptions.IncludePatterns;
+                    options.ExcludePatterns = pluginAssemblySearchOptions.ExcludePatterns;
+                }))
+            .AddHostDiagnostics();
 
         var host = builder.Build();
 
