@@ -31,7 +31,7 @@ public static class Program
                 options.ExcludePatterns = pluginAssemblySearchOptions.ExcludePatterns;
             });
 
-        builder.Services.AddSafDiagnostics();
+        builder.Services.AddHostDiagnostics();
 
         var host = builder.Build();
 

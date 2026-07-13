@@ -29,7 +29,7 @@ builder.AddPluginSystem(builder.Configuration.GetSection("PluginSystem").Bind)
         options.ExcludePatterns = pluginAssemblySearchOptions.ExcludePatterns;
     });
 
-builder.Services.AddSafDiagnostics();
+builder.Services.AddHostDiagnostics();
 
 var host = builder.Build();
 

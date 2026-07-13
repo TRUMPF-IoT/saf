@@ -8,6 +8,6 @@ using Microsoft.Extensions.DependencyInjection;
 
 public static class ServiceCollectionExtensions
 {
-    public static IServiceCollection AddSafDiagnostics(this IServiceCollection services)
+    public static IServiceCollection AddHostDiagnostics(this IServiceCollection services)
         => services.AddHostedService<ServiceHostDiagnostics>();
 }
