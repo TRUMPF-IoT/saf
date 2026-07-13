@@ -1,17 +1,32 @@
 # Smart Application Framework (SAF)
 
-![License](https://img.shields.io/github/license/trumpf-iot/saf)
-![Nuget](https://img.shields.io/nuget/v/SAF.Common)
-![.NET Core](https://github.com/trumpf-iot/saf/actions/workflows/dotnet-core.yml/badge.svg?branch=master)
+[![License](https://img.shields.io/github/license/trumpf-iot/saf)](https://github.com/TRUMPF-IoT/saf/blob/master/LICENSE)
+[![NuGet](https://img.shields.io/nuget/v/SAF.Common)](https://www.nuget.org/packages/SAF.Common)
+[![.NET](https://github.com/trumpf-iot/saf/actions/workflows/dotnet-core.yml/badge.svg?branch=master)](https://github.com/trumpf-iot/saf/actions/workflows/dotnet-core.yml)
 
-The Smart Application Framework (SAF) is an open-source and cross-plattform framework for building distributed applications across cloud and edge. It allows developers to build resilient, stateless and stateful plug-ins that run on cloud and edge.
+SAF is an open-source, cross-platform framework for building distributed applications across cloud and edge.
+It is designed around isolated plug-ins that communicate through messaging, so application components stay loosely coupled, independently deployable, and easy to evolve.
 
-SAF runs on [.NET Core](https://dotnet) and can easily be integrated into [ASP.NET Core](https://docs.microsoft.com/aspnet/core) applications. It utilizes Microsoft's .NET Core [Dependency Injection](https://docs.microsoft.com/aspnet/core/fundamentals/dependency-injection) to provide a main DI container that loads various plug-ins. At its base, it provides exchangeable messaging and storage infrastructure as well as a logging interface.
+## Project Summary
 
-## Get Started
+SAF builds on top of the .NET Generic Host and provides a production-focused foundation for modular systems:
 
-To get started find the overview documentation in the [SAF docs](https://trumpf-iot.github.io/saf/).
+- **Plugin system** with assembly isolation and dedicated DI containers per plug-in
+- **SAF host integration** for plug-in discovery, host identity, and consistent startup wiring
+- **Exchangeable messaging infrastructure** (In-Process, Redis, NATS, C-DEngine, Routing)
+- **Exchangeable storage infrastructure** (LiteDB, SQLite, Redis, C-DEngine)
+- **Toolbox services** such as Heartbeat, Request/Reply, and File Transfer helpers
+
+This combination allows teams to run the same architectural model in both edge and cloud scenarios while keeping infrastructure choices flexible.
+
+## Read the Full Documentation
+
+For architecture details, package-level guidance, and end-to-end setup instructions, see the generated GitHub Pages documentation:
+
+- **https://trumpf-iot.github.io/saf/**
+
+Start with the overview and continue with Getting Started, Plugin System, Messaging, Storage, and Toolbox sections.
 
 ## How to Engage, Contribute, and Give Feedback
 
-Some of the best ways to contribute are to try things out, file issues, join in design conversations, and make pull-requests.
+Contributions are welcome. Try SAF in your own projects, open issues, join design discussions, and submit pull requests.
