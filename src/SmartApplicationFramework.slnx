@@ -52,9 +52,7 @@ SPDX-License-Identifier: MPL-2.0
     <Project Path="PluginSystem/TestPlugins/TestPlugin.PublicDependencyB/TestPlugin.PublicDependencyB.csproj" />
   </Folder>
   <Folder Name="/Tests/TestPlugins/">
-    <Project Path="Tests/TestPlugins/SAF.Services.SampleService1.Tests/SAF.Services.SampleService1.Tests.csproj" />
     <Project Path="Tests/TestPlugins/SAF.Services.SampleService1/SAF.Services.SampleService1.csproj" />
-    <Project Path="Tests/TestPlugins/SAF.Services.SampleService2.Tests/SAF.Services.SampleService2.Tests.csproj" />
     <Project Path="Tests/TestPlugins/SAF.Services.SampleService2/SAF.Services.SampleService2.csproj" />
   </Folder>
   <Folder Name="/Tests/">
@@ -73,8 +71,6 @@ SPDX-License-Identifier: MPL-2.0
     <Project Path="Storage/SAF.Storage.SQLite/SAF.Storage.SQLite.csproj" />
   </Folder>
   <Folder Name="/Toolbox/">
-    <Project Path="Toolbox/SAF.DevToolbox.Tests/SAF.DevToolbox.Tests.csproj" />
-    <Project Path="Toolbox/SAF.DevToolbox/SAF.DevToolbox.csproj" />
     <Project Path="Toolbox/SAF.Toolbox.Tests/SAF.Toolbox.Tests.csproj" />
     <Project Path="Toolbox/SAF.Toolbox/SAF.Toolbox.csproj" />
   </Folder>
