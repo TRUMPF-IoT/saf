@@ -3,5 +3,5 @@
 :: Start file for the Ping/Pong example between two CDE-services.
 :: This file had to be executed with administrator privilegs.
 :: The sender (service2) must be started first to avoid error messages.
-start "" /d "%~dp0\TestRunnerCdeService2\bin\Debug\netcoreapp3.1" "%~dp0\TestRunnerCdeService2\bin\Debug\netcoreapp3.1\TestRunnerCdeService2.exe"
-start "" /d "%~dp0\TestRunnerCdeService1\bin\Debug\netcoreapp3.1" "%~dp0\TestRunnerCdeService1\bin\Debug\netcoreapp3.1\TestRunnerCdeService1.exe"
+start "" /d "%~dp0\Tests\TestRunnerCdeService2\bin\Debug\net10.0" "%~dp0\Tests\TestRunnerCdeService2\bin\Debug\net10.0\TestRunnerCdeService2.exe"
+start "" /d "%~dp0\Tests\TestRunnerCdeService1\bin\Debug\net10.0" "%~dp0\Tests\TestRunnerCdeService1\bin\Debug\net10.0\TestRunnerCdeService1.exe"
