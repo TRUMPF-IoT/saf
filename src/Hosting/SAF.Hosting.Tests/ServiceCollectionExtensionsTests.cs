@@ -8,6 +8,7 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using NSubstitute;
 using SAF.Common;
+using SAF.PluginSystem.Hosting.Contracts;
 using Xunit;
 
 public class ServiceCollectionExtensionsTests
@@ -97,5 +98,67 @@ public class ServiceCollectionExtensionsTests
         Assert.Equal("ConfiguredType", hostInfo.ServiceHostType);
         Assert.Equal("configured-user", hostInfo.FileSystemUserBasePath);
         Assert.Equal("configured-install", hostInfo.FileSystemInstallationPath);
+    }
+
+    [Fact]
+    public void AddServiceHostInfo_RegistersHostServiceForwarderForIServiceHostInfo()
+    {
+        var services = new ServiceCollection();
+
+        services.AddServiceHostInfo(static _ => { });
+
+        var provider = services.BuildServiceProvider();
+        var forwarder = provider.GetRequiredService<IHostServiceForwarder>();
+        Assert.IsType<HostServiceForwarder<IServiceHostInfo>>(forwarder);
+    }
+
+    [Fact]
+    public void AddServiceHostInfo_ForwarderMakesIServiceHostInfoResolvableInPluginContainer()
+    {
+        var services = new ServiceCollection();
+        services.AddServiceHostInfo(opts => opts.ServiceHostType = "ForwardedType");
+
+        var hostProvider = services.BuildServiceProvider();
+        var forwarder = hostProvider.GetRequiredService<IHostServiceForwarder>();
+
+        var pluginServices = new ServiceCollection();
+        forwarder.Forward(pluginServices);
+
+        var pluginHostInfo = pluginServices.BuildServiceProvider().GetRequiredService<IServiceHostInfo>();
+        Assert.Equal("ForwardedType", pluginHostInfo.ServiceHostType);
+    }
+
+    [Fact]
+    public void AddServiceHostInfo_ForwarderForwardsSameInstanceAsHostContainer()
+    {
+        var services = new ServiceCollection();
+        services.AddServiceHostInfo(static _ => { });
+
+        var hostProvider = services.BuildServiceProvider();
+        var hostInfo = hostProvider.GetRequiredService<IServiceHostInfo>();
+
+        var forwarder = hostProvider.GetRequiredService<IHostServiceForwarder>();
+        var pluginServices = new ServiceCollection();
+        forwarder.Forward(pluginServices);
+
+        var pluginHostInfo = pluginServices.BuildServiceProvider().GetRequiredService<IServiceHostInfo>();
+        Assert.Same(hostInfo, pluginHostInfo);
+    }
+
+    [Fact]
+    public void AddServiceHostInfo_ForwarderHonorsStackedCodeBasedConfigureOverride()
+    {
+        var services = new ServiceCollection();
+        services.AddServiceHostInfo(opts => opts.ServiceHostType = "FromConfig");
+        services.Configure<ServiceHostOptions>(opts => opts.ServiceHostType = "FromCode");
+
+        var hostProvider = services.BuildServiceProvider();
+        var forwarder = hostProvider.GetRequiredService<IHostServiceForwarder>();
+
+        var pluginServices = new ServiceCollection();
+        forwarder.Forward(pluginServices);
+
+        var pluginHostInfo = pluginServices.BuildServiceProvider().GetRequiredService<IServiceHostInfo>();
+        Assert.Equal("FromCode", pluginHostInfo.ServiceHostType);
     }
 }
