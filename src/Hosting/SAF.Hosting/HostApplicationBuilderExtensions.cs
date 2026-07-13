@@ -13,7 +13,7 @@ public static class HostApplicationBuilderExtensions
 {
     private const string PluginSystemSectionName = "PluginSystem";
     private const string ServiceHostSectionName = "ServiceHost";
-    private const string BuiltInPluginAssemblyPatterns = "SAF.Hosting.dll;SAF.Messaging.Runtime.dll";
+    private const string BuiltInPluginAssemblyPatterns = "SAF.Messaging.Runtime.dll";
     private const string BuiltInPluginContractsSearchPattern = "SAF.Common.dll;SAF.Messaging.Contracts.dll";
 
     /// <summary>
@@ -29,7 +29,7 @@ public static class HostApplicationBuilderExtensions
         var pluginSystemBuilder = builder.AddPluginSystem(
             options => ConfigurePluginSystem(options, builder.Configuration));
 
-        builder.Services.AddServiceHostInfo(builder.Configuration);
+        builder.Services.AddServiceHostInfo(builder.Configuration.GetSection(ServiceHostSectionName).Bind);
         RegisterBuiltInPluginAssemblies(pluginSystemBuilder);
 
         return CreateSafHostBuilder(pluginSystemBuilder, builder.Configuration);
@@ -51,7 +51,7 @@ public static class HostApplicationBuilderExtensions
 
         var pluginSystemBuilder = builder.AddPluginSystem(options => ConfigurePluginSystem(options, configurePluginSystem));
 
-        builder.Services.AddServiceHostInfo(builder.Configuration);
+        builder.Services.AddServiceHostInfo(builder.Configuration.GetSection(ServiceHostSectionName).Bind);
         RegisterBuiltInPluginAssemblies(pluginSystemBuilder);
 
         return CreateSafHostBuilder(pluginSystemBuilder, builder.Configuration);

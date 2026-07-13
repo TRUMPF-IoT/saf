@@ -25,7 +25,7 @@ public class ServiceCollectionExtensionsTests
     {
         var services = new ServiceCollection();
 
-        Assert.Throws<ArgumentNullException>(() => services.AddServiceHostInfo((IConfiguration)null!));
+        Assert.Throws<ArgumentNullException>(() => services.AddServiceHostInfo(null!));
     }
 
     [Fact]
@@ -34,14 +34,18 @@ public class ServiceCollectionExtensionsTests
         var storage = Substitute.For<IStorageInfrastructure>();
         storage.GetString("saf/hostid").Returns("existing-host-id");
 
+        var configuration = new ConfigurationBuilder()
+            .AddInMemoryCollection(new Dictionary<string, string?>
+            {
+                ["ServiceHost:ServiceHostType"] = "UnitTest",
+                ["ServiceHost:FileSystemUserBasePath"] = "user-path",
+                ["ServiceHost:FileSystemInstallationPath"] = "install-path"
+            })
+            .Build();
+
         var services = new ServiceCollection();
         services.AddSingleton(storage);
-        services.AddServiceHostInfo(options =>
-        {
-            options.ServiceHostType = "UnitTest";
-            options.FileSystemUserBasePath = "user-path";
-            options.FileSystemInstallationPath = "install-path";
-        });
+        services.AddServiceHostInfo(configuration.GetSection("ServiceHost").Bind);
 
         var provider = services.BuildServiceProvider();
         var hostInfo = provider.GetRequiredService<IServiceHostInfo>();
@@ -57,10 +61,11 @@ public class ServiceCollectionExtensionsTests
     public void AddServiceHostInfo_WhenStorageIdMissing_GeneratesAndPersistsId()
     {
         var storage = Substitute.For<IStorageInfrastructure>();
+        var configuration = new ConfigurationBuilder().Build();
 
         var services = new ServiceCollection();
         services.AddSingleton(storage);
-        services.AddServiceHostInfo();
+        services.AddServiceHostInfo(configuration.GetSection("ServiceHost").Bind);
 
         var provider = services.BuildServiceProvider();
         var hostInfo = provider.GetRequiredService<IServiceHostInfo>();
@@ -83,7 +88,7 @@ public class ServiceCollectionExtensionsTests
             .Build();
 
         var services = new ServiceCollection();
-        services.AddServiceHostInfo(configuration);
+        services.AddServiceHostInfo(configuration.GetSection("ServiceHost").Bind);
 
         var provider = services.BuildServiceProvider();
         var hostInfo = provider.GetRequiredService<IServiceHostInfo>();

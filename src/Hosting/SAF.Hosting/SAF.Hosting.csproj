@@ -27,4 +27,8 @@ SPDX-License-Identifier: MPL-2.0
     <ProjectReference Include="..\..\PluginSystem\SAF.PluginSystem.Hosting\SAF.PluginSystem.Hosting.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <InternalsVisibleTo Include="$(AssemblyName).Tests" />
+  </ItemGroup>
+
 </Project>

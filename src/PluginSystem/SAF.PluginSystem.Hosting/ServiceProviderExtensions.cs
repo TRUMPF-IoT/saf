@@ -23,6 +23,9 @@ internal static class ServiceProviderExtensions
 
         services.AddSingleton(_ => sp.GetRequiredService<IFileSystem>());
 
+        foreach (var forwarder in sp.GetServices<IHostServiceForwarder>())
+            forwarder.Forward(services);
+
         return sp;
     }
 

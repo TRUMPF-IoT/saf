@@ -4,53 +4,37 @@
 
 namespace SAF.Hosting;
 
-using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Options;
 using SAF.Common;
+using SAF.PluginSystem.Hosting.Contracts;
 
-public static class ServiceCollectionExtensions
+internal static class ServiceCollectionExtensions
 {
-    private const string ServiceHostSectionName = "ServiceHost";
     private const string HostIdStorageKey = "saf/hostid";
 
     /// <summary>
-    /// Adds a legacy-compatible <see cref="IServiceHostInfo"/> with default options.
+    /// Adds a <see cref="IServiceHostInfo"/> using options from the "ServiceHost" configuration section.
     /// </summary>
     /// <param name="services">The service collection to configure.</param>
-    /// <returns>The same service collection for chaining.</returns>
-    public static IServiceCollection AddServiceHostInfo(this IServiceCollection services)
-        => services.AddServiceHostInfo(static _ => { });
-
-    /// <summary>
-    /// Adds a legacy-compatible <see cref="IServiceHostInfo"/> using options from the "ServiceHost" configuration section.
-    /// </summary>
-    /// <param name="services">The service collection to configure.</param>
-    /// <param name="configuration">The root configuration used to bind service host options.</param>
-    /// <returns>The same service collection for chaining.</returns>
-    public static IServiceCollection AddServiceHostInfo(this IServiceCollection services, IConfiguration configuration)
-    {
-        ArgumentNullException.ThrowIfNull(configuration);
-        return services.AddServiceHostInfo(configuration.GetSection(ServiceHostSectionName).Bind);
-    }
-
-    /// <summary>
-    /// Adds a legacy-compatible <see cref="IServiceHostInfo"/> using the provided options callback.
-    /// </summary>
-    /// <param name="services">The service collection to configure.</param>
-    /// <param name="configure">Callback to configure host info options.</param>
+    /// <param name="configure">An action to configure the <see cref="ServiceHostOptions"/>.</param>
     /// <returns>The same service collection for chaining.</returns>
     public static IServiceCollection AddServiceHostInfo(this IServiceCollection services, Action<ServiceHostOptions> configure)
     {
         ArgumentNullException.ThrowIfNull(services);
         ArgumentNullException.ThrowIfNull(configure);
 
+        services.Configure(configure);
         services.AddSingleton<IServiceHostInfo>(sp =>
         {
-            var options = new ServiceHostOptions();
-            configure(options);
-
+            var options = sp.GetRequiredService<IOptions<ServiceHostOptions>>().Value;
             return new ServiceHostInfo(options, () => GetOrInitializeHostId(sp.GetService<IStorageInfrastructure>()));
         });
+
+        // Bridge: forward the configured service into every plugin container.
+        // Runs before each plugin manifest's ConfigureServices, so plugins always receive
+        // the IServiceHostInfo that includes all code-based Configure<ServiceHostOptions> calls.
+        services.AddSingleton<IHostServiceForwarder, HostServiceForwarder<IServiceHostInfo>>();
 
         return services;
     }

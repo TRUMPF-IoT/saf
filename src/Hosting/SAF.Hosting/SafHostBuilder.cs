@@ -4,6 +4,7 @@
 
 namespace SAF.Hosting;
 
+using Microsoft.Extensions.DependencyInjection;
 using SAF.Common.Diagnostics;
 using SAF.PluginSystem.Hosting.Contracts;
 
@@ -12,7 +13,7 @@ internal sealed class SafHostBuilder(IPluginSystemHostBuilder pluginSystemHostBu
     public ISafHostBuilder ConfigureHostInfo(Action<ServiceHostOptions> configure)
     {
         ArgumentNullException.ThrowIfNull(configure);
-        pluginSystemHostBuilder.Services.AddServiceHostInfo(configure);
+        pluginSystemHostBuilder.Services.Configure(configure);
         return this;
     }
 

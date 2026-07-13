@@ -10,42 +10,11 @@ using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using NSubstitute;
-using SAF.Common;
 using SAF.PluginSystem.Hosting.Contracts;
 using Xunit;
 
 public class PluginManifestTests
 {
-    [Fact]
-    public void ConfigureServices_RegistersIServiceHostInfo()
-    {
-        var configuration = new ConfigurationBuilder()
-            .AddInMemoryCollection(new Dictionary<string, string?>
-            {
-                ["ServiceHost:Id"] = "bridge-host-id",
-                ["ServiceHost:ServiceHostType"] = "BridgeType",
-                ["ServiceHost:FileSystemUserBasePath"] = "bridge-user-path",
-                ["ServiceHost:FileSystemInstallationPath"] = "bridge-install-path"
-            })
-            .Build();
-
-        var context = Substitute.For<IPluginSystemHostContext>();
-        context.HostConfiguration.Returns(configuration);
-
-        var services = new ServiceCollection();
-        var manifest = new PluginManifest();
-
-        manifest.ConfigureServices(context, services);
-
-        var provider = services.BuildServiceProvider();
-        var hostInfo = provider.GetRequiredService<IServiceHostInfo>();
-
-        Assert.Equal("bridge-host-id", hostInfo.Id);
-        Assert.Equal("BridgeType", hostInfo.ServiceHostType);
-        Assert.Equal("bridge-user-path", hostInfo.FileSystemUserBasePath);
-        Assert.Equal("bridge-install-path", hostInfo.FileSystemInstallationPath);
-    }
-
     [Fact]
     public void AddSafHost_LoadsPluginManifestsFromDirectlyReferencedAssemblies()
     {
@@ -71,7 +40,7 @@ public class PluginManifestTests
             .ToList();
 
         Assert.Single(pluginAssemblyContainers);
-        Assert.Contains("SAF.Hosting.PluginManifest", manifestTypeNames);
+        Assert.DoesNotContain("SAF.Hosting.PluginManifest", manifestTypeNames);
         Assert.Contains("SAF.Messaging.Runtime.PluginManifest", manifestTypeNames);
     }
 }

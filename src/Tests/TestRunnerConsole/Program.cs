@@ -24,7 +24,8 @@ builder.AddSafHost()
             options.Recursive = pluginAssemblySearchOptions.Recursive;
             options.IncludePatterns = pluginAssemblySearchOptions.IncludePatterns;
             options.ExcludePatterns = pluginAssemblySearchOptions.ExcludePatterns;
-        }));
+        }))
+    .ConfigureHostInfo(options => options.ServiceHostType = "InProcess Test Host");
 
 var host = builder.Build();
 
