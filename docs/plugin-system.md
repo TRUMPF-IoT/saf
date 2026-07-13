@@ -6,7 +6,8 @@ The plugin system (`SAF.PluginSystem.*`) is a **SAF-independent** assembly loadi
 - Creates an **isolated `IServiceProvider`** for each discovered plug-in
 - Forwards a set of **shared services** (from the host container) into every plugin container
 - Manages the lifecycle of `IServicePlugin` and `ILifecycleServicePlugin` implementations
-- Allows **typed cross-plugin service resolution** through `IPluginServiceProvider`
+- Makes **public contract services** available for constructor injection in every plugin container
+- Provides `IPluginServiceProvider` as a fallback for dynamic/late-bound cross-plugin resolution
 
 SAF uses the plugin system as its foundation and adds messaging, storage, and host-info on top, but the plugin system itself has no dependency on SAF.
 
@@ -162,15 +163,51 @@ graph TB
     HOST -->|forwarded| PA
     HOST -->|forwarded| PB
 
-    PB -->|IPluginServiceProvider.GetService IMyContract| PSP
-    PSP -->|queries all containers| A_PUB
+    A_PUB -->|injected into every plugin container| PB
 ```
 
 **Key rules:**
 
 - Services registered in a plugin container are **private by default** — other plugins cannot resolve them unless they are registered against a **publicly accessible interface** (an interface in a shared "contracts" assembly).
-- `IPluginServiceProvider` is the only mechanism for one plugin to consume a service from another plugin. It aggregates all plugin containers.
-- If multiple plugins register the same interface, `GetService<T>()` throws; use `GetServices<T>()` instead.
+- Public contract services registered in any plugin container are **injected into every other plugin container** automatically — consume them via normal constructor injection.
+- `IPluginServiceProvider` is available as a fallback for dynamic or late-bound scenarios but is a Service Locator — prefer constructor injection.
+- If multiple plugins register the same interface and `IPluginServiceProvider` is used, `GetService<T>()` throws; use `GetServices<T>()` instead.
+- Host services are **not** forwarded automatically. Only the services listed below and any `IHostServiceForwarder` registrations are bridged into plugin containers.
+
+### Services forwarded into every plugin container
+
+| Service | Notes |
+|---|---|
+| `ILoggerFactory` / `ILogger<T>` | Shared logging pipeline |
+| `IPluginServiceProvider` | Cross-plugin service resolution |
+| `IPluginSystemHostEnvironment` | Environment name, settings root path |
+| `IFileSystem` | Abstracted file system |
+
+Additional services can be bridged explicitly via `IHostServiceForwarder` (see below).
+
+### IHostServiceForwarder
+
+To forward an additional host service into every plugin container, register a `HostServiceForwarder<T>` in the host's `IServiceCollection`:
+
+```csharp
+// Register the service in the host container
+services.AddSingleton<MySharedService>();
+
+// Bridge it into every plugin container
+services.AddSingleton<IHostServiceForwarder, HostServiceForwarder<MySharedService>>();
+```
+
+`HostServiceForwarder<T>` is resolved from the host container (receiving the already-built singleton via constructor injection) and calls `pluginServices.AddSingleton(instance)` for each plugin — one shared instance, no factory, no service locator.
+
+Implement `IHostServiceForwarder` directly for more control, e.g. to register a service under a different interface:
+
+```csharp
+public sealed class MyForwarder(MySharedService service) : IHostServiceForwarder
+{
+    public void Forward(IServiceCollection pluginServices)
+        => pluginServices.AddSingleton<IMyContract>(service);
+}
+```
 
 ---
 
@@ -195,10 +232,29 @@ pluginServices.AddSingleton<IOrderService, OrderServiceImpl>();
 
 ### Consuming a Public Service from Another Plugin
 
-In Plugin B, inject `IPluginServiceProvider` and resolve:
+The plugin system automatically makes public contract services available in every plugin container. Consume them via **constructor injection** — no service locator needed:
 
 ```csharp
-public class OrderConsumer(IPluginServiceProvider pluginServices)
+// Plugin B — IOrderService is injected directly from Plugin A's registration
+public class OrderConsumer(IOrderService orderService)
+{
+    public void ProcessOrders()
+    {
+        var orders = orderService.GetPending();
+        // ...
+    }
+}
+```
+
+> The host must make the contracts assembly discoverable through `PluginContractsSearchPattern` so the plugin system can recognise the public types. When you use `AddSafHost()`, SAF's own contract assemblies are already included and your configured patterns only need to cover additional application-specific contracts.
+
+### IPluginServiceProvider (fallback only)
+
+For dynamic or late-bound scenarios where the service type is not known at compile time, `IPluginServiceProvider` is available. Prefer constructor injection whenever possible — `IPluginServiceProvider` is a Service Locator.
+
+```csharp
+// Use only when constructor injection is not applicable
+public class DynamicConsumer(IPluginServiceProvider pluginServices)
 {
     public void ProcessOrders()
     {
@@ -207,8 +263,6 @@ public class OrderConsumer(IPluginServiceProvider pluginServices)
     }
 }
 ```
-
-> The host must make the contracts assembly discoverable through `PluginContractsSearchPattern` so the plugin system can recognise the public types. When you use `AddSafHost()`, SAF's own contract assemblies are already included and your configured patterns only need to cover additional application-specific contracts.
 
 ---
 
@@ -230,14 +284,15 @@ pluginSystemBuilder.AddPluginAssemblyFolderContainer(options =>
     options.IncludePatterns = "MyApp.Plugin.*.dll";
 });
 
-// Register host services that should be available in every plugin container
+// Register host services that should be forwarded into every plugin container
 builder.Services.AddSingleton<IMySharedService, MySharedService>();
+builder.Services.AddSingleton<IHostServiceForwarder, HostServiceForwarder<IMySharedService>>();
 
 var host = builder.Build();
 await host.RunAsync();
 ```
 
-Any service registered in `builder.Services` before `Build()` is automatically forwarded into plugin containers. This is how SAF injects `IMessagingInfrastructure` and `IStorageInfrastructure`.
+Services are **not** forwarded into plugin containers automatically. Use `IHostServiceForwarder` / `HostServiceForwarder<T>` to bridge specific host services explicitly.
 
 ---
 

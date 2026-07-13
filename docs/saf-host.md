@@ -34,10 +34,7 @@ await host.RunAsync();
 
 At the moment the built-in list contains:
 
-- `SAF.Hosting.dll`
 - `SAF.Messaging.Runtime.dll`
-
-This ensures that host-level SAF features continue to work even when those assemblies are referenced directly by `SAF.Hosting` instead of being added through an application-specific plugin scan.
 
 ---
 
@@ -137,7 +134,7 @@ builder.AddSafHost(pluginSystemOptions =>
 
 ## Plugin Assembly Discovery
 
-`AddSafHost()` already registers SAF's built-in plugin assemblies (`SAF.Hosting.dll` and `SAF.Messaging.Runtime.dll`) from `AppContext.BaseDirectory`.
+`AddSafHost()` already registers SAF's built-in plugin assembly (`SAF.Messaging.Runtime.dll`) from `AppContext.BaseDirectory`.
 
 Additional `AddPluginAssemblyFolderContainer` calls should therefore be used for application-specific or externally deployed plugins.
 
@@ -194,6 +191,24 @@ public class MyPlugin(IServiceHostInfo hostInfo)
     }
 }
 ```
+
+`IServiceHostInfo` is registered once in the host container by `AddSafHost()` and forwarded into every plugin container automatically via `IHostServiceForwarder`. Plugins receive the same singleton instance that the host uses, including any programmatic overrides applied via `ConfigureHostInfo`.
+
+---
+
+## Forwarding Host Services into Plugin Containers
+
+The plugin system calls all `IHostServiceForwarder` registrations before each plugin manifest's `ConfigureServices` runs. SAF uses this to bridge `IServiceHostInfo` into the isolated plugin containers without re-creating it.
+
+You can forward additional host-level services the same way using the built-in `HostServiceForwarder<T>`:
+
+```csharp
+// Anywhere in host setup — e.g. your own ServiceCollectionExtensions
+services.AddSingleton<MySharedSingleton>();
+services.AddSingleton<IHostServiceForwarder, HostServiceForwarder<MySharedSingleton>>();
+```
+
+`HostServiceForwarder<T>` receives the already-resolved host singleton via constructor injection and registers the **same instance** in each plugin container — no factory, no service locator.
 
 ---
 
