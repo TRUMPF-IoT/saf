@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: MPL-2.0
 
-namespace SAF.Common.Contracts;
+namespace SAF.Messaging.Contracts;
 
 /// <summary>
 /// The standard response message for all responses.
@@ -12,9 +12,10 @@ namespace SAF.Common.Contracts;
 public class MessageResponse<TResponseType, TErrorDetailsType>
 {
     /// <summary>
-    /// The message response. All results are listed here. 
+    /// The message response. All results are listed here.
     /// </summary>
     public TResponseType Response { get; set; } = default!;
+
     /// <summary>
     /// The aggregate error response.
     /// </summary>
@@ -22,7 +23,7 @@ public class MessageResponse<TResponseType, TErrorDetailsType>
 }
 
 /// <summary>
-/// The Error response object. Contains a title, type and details
+/// The Error response object. Contains a title, type and details.
 /// </summary>
 /// <typeparam name="TErrorDetailsType">The details type.</typeparam>
 public class ResponseError<TErrorDetailsType>
@@ -31,10 +32,12 @@ public class ResponseError<TErrorDetailsType>
     /// The error type that describes the error.
     /// </summary>
     public string Type { get; set; } = default!;
+
     /// <summary>
-    /// The short title for the error. 
+    /// The short title for the error.
     /// </summary>
     public string Title { get; set; } = default!;
+
     /// <summary>
     /// A detailed object for the error.
     /// </summary>

@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: MPL-2.0
 
-namespace SAF.Common.Contracts;
+namespace SAF.Messaging.Contracts;
 
 /// <summary>
 /// The base class for all messages treated as "request".

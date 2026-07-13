@@ -6,7 +6,6 @@ namespace SAF.Toolbox.Tests;
 using NSubstitute;
 using SAF.Common;
 using SAF.Messaging.Contracts;
-using Common.Contracts;
 using Heartbeat;
 using SAF.Toolbox.Serialization;
 using Xunit;
