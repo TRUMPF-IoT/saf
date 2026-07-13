@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: MPL-2.0
 
-namespace SAF.Storage.LiteDb.Test;
+namespace SAF.Storage.LiteDb.Tests;
 using Xunit;
 using LiteDB;
 

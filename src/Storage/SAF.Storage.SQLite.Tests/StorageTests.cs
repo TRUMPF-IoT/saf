@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: MPL-2.0
 
-namespace SAF.Storage.SQLite.Test;
+namespace SAF.Storage.SQLite.Tests;
 using System.Data.SQLite;
 using Xunit;
 

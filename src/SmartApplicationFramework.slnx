@@ -58,13 +58,15 @@ SPDX-License-Identifier: MPL-2.0
     <Project Path="Tests/TestRunnerRedis/TestRunnerRedis.csproj" />
   </Folder>
   <Folder Name="/Storage/">
-    <Project Path="Storage/SAF.Storage.LiteDb.Test/SAF.Storage.LiteDb.Test.csproj">
+    <Project Path="Storage/SAF.Storage.LiteDb.Tests/SAF.Storage.LiteDb.Tests.csproj">
       <Build Solution="Debug|*" Project="false" />
     </Project>
     <Project Path="Storage/SAF.Storage.LiteDb/SAF.Storage.LiteDb.csproj">
       <Build Solution="Debug|*" Project="false" />
     </Project>
-    <Project Path="Storage/SAF.Storage.SQLite.Test/SAF.Storage.SQLite.Test.csproj" />
+    <Project Path="Storage/SAF.Storage.SQLite.Tests/SAF.Storage.SQLite.Tests.csproj">
+      <Build Solution="Debug|*" Project="false" />
+    </Project>
     <Project Path="Storage/SAF.Storage.SQLite/SAF.Storage.SQLite.csproj" />
   </Folder>
   <Folder Name="/Toolbox/">
