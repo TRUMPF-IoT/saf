@@ -15,27 +15,29 @@ SPDX-License-Identifier: MPL-2.0
     <None Remove="C-DEngineSDK.cdel" />
   </ItemGroup>
 
-  <ItemGroup>
-    <PackageReference Include="C-DEngine" />
-    <PackageReference Include="Microsoft.Extensions.DependencyInjection" />
-    <PackageReference Include="Microsoft.Extensions.Logging" />
-    <PackageReference Include="Microsoft.Extensions.Logging.Configuration" />
-    <PackageReference Include="Microsoft.Extensions.Logging.Console" />
-	  <PackageReference Include="Microsoft.NET.Test.Sdk" />
-    <PackageReference Include="NSubstitute" />
-    <PackageReference Include="xunit.v3" />
-    <PackageReference Include="xunit.runner.visualstudio">
-      <PrivateAssets>all</PrivateAssets>
-      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
-    </PackageReference>
-    <PackageReference Include="coverlet.collector">
-      <PrivateAssets>all</PrivateAssets>
-      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
-    </PackageReference>
-  </ItemGroup>
+	<ItemGroup>
+		<PackageReference Include="C-DEngine" />
+		<PackageReference Include="Microsoft.Extensions.Configuration" />
+		<PackageReference Include="Microsoft.Extensions.DependencyInjection" />
+		<PackageReference Include="Microsoft.Extensions.Logging" />
+		<PackageReference Include="Microsoft.Extensions.Logging.Configuration" />
+		<PackageReference Include="Microsoft.Extensions.Logging.Console" />
+		<PackageReference Include="Microsoft.NET.Test.Sdk" />
+		<PackageReference Include="NSubstitute" />
+		<PackageReference Include="xunit.v3" />
+		<PackageReference Include="xunit.runner.visualstudio">
+			<PrivateAssets>all</PrivateAssets>
+			<IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+		</PackageReference>
+		<PackageReference Include="coverlet.collector">
+			<PrivateAssets>all</PrivateAssets>
+			<IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+		</PackageReference>
+	</ItemGroup>
 
-  <ItemGroup>
-    <ProjectReference Include="..\SAF.Messaging.Cde\SAF.Messaging.Cde.csproj" />
-  </ItemGroup>
+	<ItemGroup>
+		<ProjectReference Include="..\SAF.Messaging.Cde\SAF.Messaging.Cde.csproj" />
+		<ProjectReference Include="..\..\PluginSystem\SAF.PluginSystem.Hosting.Contracts\SAF.PluginSystem.Hosting.Contracts.csproj" />
+	</ItemGroup>
 
 </Project>
