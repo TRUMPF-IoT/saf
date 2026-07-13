@@ -5,6 +5,7 @@
 namespace SAF.Messaging.Cde;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using SAF.Messaging.Cde.Diagnostics;
 using SAF.PluginSystem.Hosting.Contracts;
 
 public class PluginManifest : IPluginManifest
@@ -18,5 +19,10 @@ public class PluginManifest : IPluginManifest
         }
 
         pluginServices.AddCdeInfrastructure(c => cdeConfig.Bind(c));
+
+        if (cdeConfig.GetValue<bool>("EnableDiagnostics"))
+        {
+            pluginServices.AddCdeDiagnostics();
+        }
     }
 }
