@@ -9,7 +9,6 @@ using nsCDEngine.ViewModels;
 using NSubstitute;
 using SAF.Communication.Cde;
 using SAF.Communication.PubSub.Interfaces;
-using SAF.Common;
 using SAF.Messaging.Contracts;
 using Xunit;
 using System.Collections.Concurrent;

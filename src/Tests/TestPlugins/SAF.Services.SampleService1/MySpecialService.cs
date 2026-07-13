@@ -3,10 +3,9 @@
 // SPDX-License-Identifier: MPL-2.0
 
 namespace SAF.Services.SampleService1;
-using Microsoft.Extensions.Configuration;
+
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
-using SAF.Common;
 using SAF.Messaging.Contracts;
 using SAF.PluginSystem.Hosting.Contracts;
 using AnyOtherInternalLogic;
@@ -36,7 +35,7 @@ internal class MySpecialService : IServicePlugin
         monitoredConfig.OnChange(OnServiceConfigurationChanged);
     }
 
-    public Task StartAsync(CancellationToken cancelToken)
+    public Task StartAsync(CancellationToken token)
     {
         _subscriptions.AddRange(
         [
@@ -62,7 +61,7 @@ internal class MySpecialService : IServicePlugin
         return Task.CompletedTask;
     }
 
-    public Task StopAsync(CancellationToken cancelToken)
+    public Task StopAsync(CancellationToken token)
     {
         _log.LogInformation("My special service stopped.");
         UnsubscribeAll();

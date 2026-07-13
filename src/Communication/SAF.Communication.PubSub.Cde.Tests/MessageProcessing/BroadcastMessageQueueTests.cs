@@ -7,7 +7,6 @@ namespace SAF.Communication.PubSub.Cde.Tests.MessageProcessing;
 using System.Collections.Concurrent;
 using SAF.Communication.PubSub.Cde.MessageProcessing;
 using SAF.Communication.PubSub.Interfaces;
-using SAF.Common;
 using SAF.Messaging.Contracts;
 using Xunit;
 
@@ -112,14 +111,14 @@ public class BroadcastMessageQueueTests
     public void Enqueue_ConcurrentAdds_StartsOnlyOneProcessingLoop()
     {
         const int totalMessages = 50;
-        var taskIds = new ConcurrentDictionary<int?, byte>();
+        var taskIds = new ConcurrentDictionary<int, byte>();
         var totalProcessed = 0;
 
         using var allMessagesEnqueued = new ManualResetEventSlim();
         using var doneEvent = new ManualResetEventSlim();
         var queue = new BroadcastMessageQueue((_, messages) =>
         {
-            taskIds.TryAdd(Task.CurrentId, 0);
+            taskIds.TryAdd(Task.CurrentId ?? -1, 0);
 
             allMessagesEnqueued.Wait(TestContext.Current.CancellationToken);
 

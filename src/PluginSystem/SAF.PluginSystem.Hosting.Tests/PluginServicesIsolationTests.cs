@@ -7,7 +7,6 @@ namespace SAF.PluginSystem.Hosting.Tests;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using NSubstitute;
-using System.IO.Abstractions;
 using System.Linq;
 using TestPlugin.PublicDependencyA;
 using Testably.Abstractions;
@@ -17,7 +16,7 @@ using Xunit.Abstractions;
 public class PluginServicesIsolationTests
 {
     private readonly ILoggerFactory _loggerFactory;
-    private readonly ILogger<PluginServiceProvider> _logger;
+    private readonly ILogger<PluginServicesContainer> _logger;
     private readonly IPluginSystemHostContext _hostContext;
     private readonly IPluginAssemblyContainer _pluginContainer;
     private readonly IServiceProvider _applicationServiceProvider;
@@ -26,7 +25,7 @@ public class PluginServicesIsolationTests
     public PluginServicesIsolationTests(ITestOutputHelper outputHelper)
     {
         _loggerFactory = LoggerFactory.Create(builder => builder.AddXunit(outputHelper, LogLevel.Trace).SetMinimumLevel(LogLevel.Warning));
-        _logger = _loggerFactory.CreateLogger<PluginServiceProvider>();
+        _logger = _loggerFactory.CreateLogger<PluginServicesContainer>();
 
         _hostContext = Substitute.For<IPluginSystemHostContext>();
         _applicationServiceProvider = Substitute.For<IServiceProvider>();

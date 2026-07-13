@@ -3,10 +3,10 @@
 // SPDX-License-Identifier: MPL-2.0
 
 namespace SAF.Messaging.Routing;
+
 using System.Collections.Concurrent;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
-using SAF.Common;
 using SAF.Messaging.Contracts;
 
 internal sealed class RoutingSubscription : IDisposable

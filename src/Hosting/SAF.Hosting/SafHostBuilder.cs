@@ -4,7 +4,6 @@
 
 namespace SAF.Hosting;
 
-using Microsoft.Extensions.DependencyInjection;
 using SAF.Common.Diagnostics;
 using SAF.PluginSystem.Hosting.Contracts;
 

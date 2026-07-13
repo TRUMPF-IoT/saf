@@ -3,8 +3,8 @@
 // SPDX-License-Identifier: MPL-2.0
 
 namespace SAF.Services.SampleService1.MessageHandlers;
+
 using Microsoft.Extensions.Logging;
-using SAF.Common;
 using SAF.Messaging.Contracts;
 
 public class CatchAllMessageHandler : IMessageHandler

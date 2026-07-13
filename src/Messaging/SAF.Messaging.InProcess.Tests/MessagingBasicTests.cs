@@ -5,7 +5,6 @@
 namespace SAF.Messaging.InProcess.Tests;
 
 using Microsoft.Extensions.Logging.Abstractions;
-using SAF.Common;
 using SAF.Messaging.Contracts;
 using SAF.Messaging.Runtime;
 using TestUtilities;

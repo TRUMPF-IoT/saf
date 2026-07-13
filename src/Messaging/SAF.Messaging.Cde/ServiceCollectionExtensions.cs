@@ -52,7 +52,7 @@ public static class ServiceCollectionExtensions
             .AddCdeStorageInfrastructure();
     }
 
-    private static IMessagingInfrastructure CreateMessagingInfrastructure(IServiceProvider serviceProvider, MessagingConfiguration config)
+    private static Messaging CreateMessagingInfrastructure(IServiceProvider serviceProvider, MessagingConfiguration config)
         => new Messaging(serviceProvider.GetService<ILogger<Messaging>>(),
             ResolveMessageDispatcher(serviceProvider),
             serviceProvider.GetRequiredService<IPublisher>(),

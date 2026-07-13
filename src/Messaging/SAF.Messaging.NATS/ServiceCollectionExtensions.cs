@@ -173,7 +173,7 @@ public static class ServiceCollectionExtensions
                     MessagingInfrastructureKeys.Nats,
                     cfg => CreateMessagingInfrastructure(sp, cfg, config, traceAction)));
 
-    private static IMessagingInfrastructure CreateMessagingInfrastructure(IServiceProvider serviceProvider, MessagingConfiguration config, NatsConfiguration defaultConfiguration, Action<Message>? traceAction)
+    private static Messaging CreateMessagingInfrastructure(IServiceProvider serviceProvider, MessagingConfiguration config, NatsConfiguration defaultConfiguration, Action<Message>? traceAction)
     {
         if (config.Config is null || config.Config.Count == 0)
         {
@@ -183,7 +183,7 @@ public static class ServiceCollectionExtensions
         return CreateMessagingInfrastructure(serviceProvider, CreateNatsConfiguration(config), traceAction);
     }
 
-    private static IMessagingInfrastructure CreateMessagingInfrastructure(IServiceProvider serviceProvider, NatsConfiguration config, Action<Message>? traceAction)
+    private static Messaging CreateMessagingInfrastructure(IServiceProvider serviceProvider, NatsConfiguration config, Action<Message>? traceAction)
         => new Messaging(serviceProvider.GetRequiredService<ILogger<Messaging>>(),
             CreateNatsClient(config, serviceProvider.GetRequiredService<ILogger<Messaging>>()),
             new NatsSubscriptionManager(),

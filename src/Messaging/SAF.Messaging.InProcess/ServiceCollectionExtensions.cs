@@ -5,7 +5,6 @@
 using System.Runtime.CompilerServices;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
-using SAF.Common;
 using SAF.Messaging.Contracts;
 
 [assembly: InternalsVisibleTo("SAF.Messaging.InProcess.Tests")]
@@ -20,9 +19,9 @@ public static class ServiceCollectionExtensions
             .AddKeyedSingleton<IMessagingInfrastructureFactory>(MessagingInfrastructureKeys.InProcess,
                 (sp, _) => new DelegatingMessagingInfrastructureFactory(
                     MessagingInfrastructureKeys.InProcess,
-                    cfg => CreateMessagingInfrastructure(sp, cfg, traceAction)));
+                    cfg => CreateMessagingInfrastructure(sp, traceAction)));
 
-    private static IMessagingInfrastructure CreateMessagingInfrastructure(IServiceProvider serviceProvider, MessagingConfiguration _, Action<Message>? traceAction = null)
+    private static InProcessMessaging CreateMessagingInfrastructure(IServiceProvider serviceProvider, Action<Message>? traceAction = null)
         => new InProcessMessaging(serviceProvider.GetService<ILogger<InProcessMessaging>>(), ResolveMessageDispatcher(serviceProvider), traceAction);
 
     private static IServiceMessageDispatcher ResolveMessageDispatcher(IServiceProvider serviceProvider)

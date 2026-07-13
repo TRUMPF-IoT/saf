@@ -16,6 +16,8 @@ internal class ServiceHostDiagnostics(
     IEnumerable<IPluginManifest> pluginManifests,
     IServiceProvider serviceProvider) : IHostedService
 {
+    private static readonly JsonSerializerOptions _jsonOptions = new() { WriteIndented = true };
+
     public Task StartAsync(CancellationToken cancellationToken)
         => Task.Run(CollectAndSaveDiagnostics, cancellationToken);
 
@@ -43,7 +45,7 @@ internal class ServiceHostDiagnostics(
                 File.Delete(targetFile);
             }
 
-            var serializedInfo = JsonSerializer.Serialize(nodeInfo, new JsonSerializerOptions { WriteIndented = true });
+            var serializedInfo = JsonSerializer.Serialize(nodeInfo, _jsonOptions);
             File.WriteAllText(targetFile, serializedInfo);
         }
         catch (Exception ex)

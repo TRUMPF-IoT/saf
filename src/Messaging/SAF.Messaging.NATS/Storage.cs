@@ -5,7 +5,6 @@
 using System.Text;
 using NATS.Client.ObjectStore;
 using SAF.Common;
-using SAF.Messaging.Contracts;
 
 namespace SAF.Messaging.Nats;
 

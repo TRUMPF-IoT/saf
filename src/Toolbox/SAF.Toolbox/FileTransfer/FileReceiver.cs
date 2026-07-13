@@ -2,7 +2,6 @@
 //
 // SPDX-License-Identifier: MPL-2.0
 
-using SAF.Common;
 using SAF.Messaging.Contracts;
 using SAF.Toolbox.FileTransfer.Messages;
 using SAF.Toolbox.Serialization;

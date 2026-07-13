@@ -10,7 +10,7 @@ using NSubstitute;
 
 public class PluginServicesContainerTests
 {
-    private readonly ILogger<PluginServiceProvider> _logger;
+    private readonly ILogger<PluginServicesContainer> _logger;
     private readonly IPluginSystemHostContext _hostContext;
     private readonly IPluginManifest _pluginManifest;
     private readonly IPluginAssemblyContainer _pluginContainer;
@@ -19,7 +19,7 @@ public class PluginServicesContainerTests
 
     public PluginServicesContainerTests()
     {
-        _logger = Substitute.For<ILogger<PluginServiceProvider>>();
+        _logger = Substitute.For<ILogger<PluginServicesContainer>>();
         _hostContext = Substitute.For<IPluginSystemHostContext>();
         _applicationServiceProvider = Substitute.For<IServiceProvider>();
         _publicServiceTypeRegistry = Substitute.For<IPublicServiceTypeRegistry>();

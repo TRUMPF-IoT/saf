@@ -3,9 +3,9 @@
 // SPDX-License-Identifier: MPL-2.0
 
 namespace SAF.Messaging.LoadTest;
+
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
-using SAF.Common;
 using SAF.Messaging.Contracts;
 using SAF.Messaging.Runtime;
 using System.Diagnostics;

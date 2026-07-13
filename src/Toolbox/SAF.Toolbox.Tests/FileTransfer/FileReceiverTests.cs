@@ -9,7 +9,6 @@ using NSubstitute;
 using SAF.Toolbox.FileTransfer;
 using SAF.Toolbox.FileTransfer.Messages;
 using SAF.Toolbox.Serialization;
-using SAF.Common;
 using SAF.Messaging.Contracts;
 using Xunit;
 

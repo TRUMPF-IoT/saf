@@ -5,7 +5,6 @@
 namespace SAF.Communication.PubSub.Tests;
 
 using SAF.Common;
-using SAF.Messaging.Contracts;
 using Interfaces;
 using Xunit;
 

@@ -47,12 +47,12 @@ internal sealed class Messaging : IMessagingInfrastructure, IDisposable
         catch (NullReferenceException nre)
         {
             // catch in case the DI container disposed in parallel
-            _logger.LogWarning(nre, $"Handled NullReferenceException while publishing message {message.Topic}");
+            _logger.LogWarning(nre, "Handled NullReferenceException while publishing message {Topic}", message.Topic);
         }
         catch (ObjectDisposedException ode)
         {
             // catch in case the DI container disposed already
-            _logger.LogInformation(ode, $"Handled ObjectDisposedException while publishing message {message.Topic}");
+            _logger.LogInformation(ode, "Handled ObjectDisposedException while publishing message {Topic}", message.Topic);
         }
     }
 
@@ -61,7 +61,7 @@ internal sealed class Messaging : IMessagingInfrastructure, IDisposable
 
     public object Subscribe<TMessageHandler>(string routeFilterPattern) where TMessageHandler : IMessageHandler
     {
-        _logger.LogDebug($"Subscribe \"{typeof(TMessageHandler).Name}\" for route \"{routeFilterPattern}\".");
+        _logger.LogDebug("Subscribe {HandlerName} for route {RoutePattern}.", typeof(TMessageHandler).Name, routeFilterPattern);
 
         void Handler(Message message)
         {
@@ -71,8 +71,7 @@ internal sealed class Messaging : IMessagingInfrastructure, IDisposable
             }
             catch (Exception e)
             {
-                _logger.LogError(e,
-                    $"Exception while trying to dispatch message \"{message.Topic}\" from NATS callback!");
+                _logger.LogError(e, "Exception while trying to dispatch message {Topic} from NATS callback!", message.Topic);
                 throw;
             }
         }
@@ -91,7 +90,7 @@ internal sealed class Messaging : IMessagingInfrastructure, IDisposable
 
     public object Subscribe(string routeFilterPattern, Action<Message> handler)
     {
-        _logger.LogDebug($"Subscribe \"lambda handler\" for route \"{routeFilterPattern}\".");
+        _logger.LogDebug("Subscribe lambda handler for route {RoutePattern}.", routeFilterPattern);
 
         void Handler(Message message)
         {
@@ -101,8 +100,7 @@ internal sealed class Messaging : IMessagingInfrastructure, IDisposable
             }
             catch (Exception e)
             {
-                _logger.LogError(e,
-                    $"Exception while trying to dispatch message \"{message.Topic}\" from NATS callback!");
+                _logger.LogError(e, "Exception while trying to dispatch message {Topic} from NATS callback!", message.Topic);
                 throw;
             }
         }
@@ -114,13 +112,13 @@ internal sealed class Messaging : IMessagingInfrastructure, IDisposable
     {
         if(subscription is not Guid subscriptionGuid)
         {
-            _logger.LogWarning($"Unsubscribe failed. Invalid subscription object passed: \"{subscription}\".");
+            _logger.LogWarning("Unsubscribe failed. Invalid subscription object passed: {Subscription}.", subscription);
             return;
         }
 
         if(!_subscriptionManager.TryRemove(subscriptionGuid, out var storedSubscription))
         {
-            _logger.LogWarning($"Unsubscribe failed. Subscription not active anymore: \"{subscriptionGuid}\".");
+            _logger.LogWarning("Unsubscribe failed. Subscription not active anymore: {SubscriptionGuid}.", subscriptionGuid);
             return;
         }
 
@@ -131,15 +129,15 @@ internal sealed class Messaging : IMessagingInfrastructure, IDisposable
         catch (NullReferenceException nre)
         {
             // catch in case the DI container disposed in parallel
-            _logger.LogWarning(nre, $"Handled NullReferenceException while unsubscribing pattern {storedSubscription.routeFilterPattern}");
+            _logger.LogWarning(nre, "Handled NullReferenceException while unsubscribing pattern {RoutePattern}", storedSubscription.routeFilterPattern);
         }
         catch (ObjectDisposedException ode)
         {
             // catch in case the DI container disposed already
-            _logger.LogInformation(ode, $"Handled ObjectDisposedException while unsubscribing pattern {storedSubscription.routeFilterPattern}");
+            _logger.LogInformation(ode, "Handled ObjectDisposedException while unsubscribing pattern {RoutePattern}", storedSubscription.routeFilterPattern);
         }
 
-        _logger.LogDebug($"Unsubscribed subscription \"{subscriptionGuid}\" for channel \"{storedSubscription.routeFilterPattern}\"");
+        _logger.LogDebug("Unsubscribed subscription {SubscriptionId} for channel {RoutePattern}", subscriptionGuid, storedSubscription.routeFilterPattern);
     }
 
     public void Dispose()
@@ -187,12 +185,12 @@ internal sealed class Messaging : IMessagingInfrastructure, IDisposable
         catch (NullReferenceException nre)
         {
             // catch in case the DI container disposed in parallel
-            _logger.LogWarning(nre, $"Handled NullReferenceException while subscribing pattern {routeFilterPattern}");
+            _logger.LogWarning(nre, "Handled NullReferenceException while subscribing pattern {RoutePattern}", routeFilterPattern);
         }
         catch (ObjectDisposedException ode)
         {
             // catch in case the DI container disposed already
-            _logger.LogInformation(ode, $"Handled ObjectDisposedException while subscribing pattern {routeFilterPattern}");
+            _logger.LogInformation(ode, "Handled ObjectDisposedException while subscribing pattern {RoutePattern}", routeFilterPattern);
         }
 
         return null;

@@ -55,6 +55,20 @@ public class ServiceMessageDispatcher : IServiceMessageDispatcher
         }
     }
 
+    public void DispatchMessage(Action<Message> handler, Message message)
+    {
+        _log.LogDebug("Dispatching message {MessageTopic} with lambda handler of target {TargetType}.",
+            message.Topic, handler.Target?.ToString());
+        try
+        {
+            handler(message);
+        } catch (Exception e)
+        {
+            _log.LogError(e, "Error while processing message {MessageTopic} with lambda handler of target {TargetType}",
+                message.Topic, handler.Target?.ToString());
+        }
+    }
+
     private bool TryResolveHandler(Type handlerType, out IMessageHandlerResolver resolver, out IMessageHandler handler)
     {
         foreach (var candidateResolver in _messageHandlerResolvers)
@@ -108,21 +122,4 @@ public class ServiceMessageDispatcher : IServiceMessageDispatcher
                 message.Topic, handlerDisplayName);
         }
     }
-
-    public void DispatchMessage(Action<Message> handler, Message message)
-    {
-        _log.LogDebug("Dispatching message {MessageTopic} with lambda handler of target {TargetType}.",
-            message.Topic, handler.Target?.ToString());
-        try
-        {
-            handler(message);
-        }
-        catch (Exception e)
-        {
-            _log.LogError(e, "Error while processing message {MessageTopic} with lambda handler of target {TargetType}",
-                message.Topic, handler.Target?.ToString());
-        }
-    }
 }
-
-

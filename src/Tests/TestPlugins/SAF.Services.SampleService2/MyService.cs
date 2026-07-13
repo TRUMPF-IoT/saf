@@ -3,8 +3,8 @@
 // SPDX-License-Identifier: MPL-2.0
 
 namespace SAF.Services.SampleService2;
+
 using Microsoft.Extensions.Logging;
-using SAF.Common;
 using SAF.Messaging.Contracts;
 using SAF.PluginSystem.Hosting.Contracts;
 using Toolbox.Serialization;

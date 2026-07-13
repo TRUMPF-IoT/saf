@@ -3,8 +3,8 @@
 // SPDX-License-Identifier: MPL-2.0
 
 namespace SAF.Messaging.Routing.Tests;
+
 using NSubstitute;
-using SAF.Common;
 using SAF.Messaging.Contracts;
 using Xunit;
 

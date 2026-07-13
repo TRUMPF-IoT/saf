@@ -4,7 +4,7 @@
 
 
 namespace SAF.Messaging.Redis;
-using SAF.Common;
+
 using SAF.Messaging.Contracts;
 
 internal class RedisMessagingConfiguration

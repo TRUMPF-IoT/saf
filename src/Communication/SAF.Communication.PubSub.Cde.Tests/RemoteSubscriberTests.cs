@@ -4,7 +4,6 @@
 
 namespace SAF.Communication.PubSub.Cde.Tests;
 
-using SAF.Common;
 using SAF.Messaging.Contracts;
 using Communication.Cde;
 using Interfaces;

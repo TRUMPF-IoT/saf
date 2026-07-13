@@ -3,8 +3,8 @@
 // SPDX-License-Identifier: MPL-2.0
 
 namespace SAF.Toolbox.Tests;
+
 using NSubstitute;
-using SAF.Common;
 using SAF.Messaging.Contracts;
 using Heartbeat;
 using SAF.Toolbox.Serialization;

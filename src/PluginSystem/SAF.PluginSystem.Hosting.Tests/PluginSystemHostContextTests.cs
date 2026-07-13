@@ -8,7 +8,6 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using NSubstitute;
 using Contracts;
-using System.IO.Abstractions;
 using Testably.Abstractions;
 
 public class PluginSystemHostContextTests

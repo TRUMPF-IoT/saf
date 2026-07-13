@@ -3,7 +3,7 @@
 // SPDX-License-Identifier: MPL-2.0
 
 namespace SAF.Communication.PubSub.Interfaces;
-using SAF.Common;
+
 using SAF.Messaging.Contracts;
 
 public interface IPublisher

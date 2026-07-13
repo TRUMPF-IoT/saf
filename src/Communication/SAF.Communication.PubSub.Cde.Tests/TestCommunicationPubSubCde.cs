@@ -3,9 +3,9 @@
 // SPDX-License-Identifier: MPL-2.0
 
 namespace SAF.Communication.PubSub.Cde.Tests;
+
 using NSubstitute;
 using Xunit;
-using SAF.Common;
 using SAF.Messaging.Contracts;
 using SAF.Communication.Cde;
 using Interfaces;

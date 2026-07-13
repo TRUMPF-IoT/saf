@@ -3,7 +3,6 @@
 // SPDX-License-Identifier: MPL-2.0
 
 using NATS.Client.Core;
-using SAF.Common;
 using SAF.Messaging.Contracts;
 
 namespace SAF.Messaging.Nats;

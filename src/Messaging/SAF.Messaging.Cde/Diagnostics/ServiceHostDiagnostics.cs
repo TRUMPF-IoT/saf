@@ -3,12 +3,12 @@
 // SPDX-License-Identifier: MPL-2.0
 
 namespace SAF.Messaging.Cde.Diagnostics;
+
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using nsCDEngine.BaseClasses;
 using Microsoft.Extensions.DependencyInjection;
 using SAF.Common;
-using SAF.Messaging.Contracts;
 using IHostedService = Microsoft.Extensions.Hosting.IHostedService;
 
 internal class ServiceHostDiagnostics : IHostedService

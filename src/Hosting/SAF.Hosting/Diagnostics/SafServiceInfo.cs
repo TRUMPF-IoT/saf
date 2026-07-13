@@ -29,7 +29,7 @@ public class SafServiceInfo
 
     public string Name { get; set; } = string.Empty;
 
-    public string FriendlyName { get; set; } = string.Empty;
+    public string FriendlyName { get; set; }
 
     public string Version { get; set; } = string.Empty;
 

@@ -3,10 +3,10 @@
 // SPDX-License-Identifier: MPL-2.0
 
 namespace SAF.Communication.PubSub.Cde;
+
 using nsCDEngine.BaseClasses;
 using nsCDEngine.Engines.ThingService;
 using nsCDEngine.ViewModels;
-using SAF.Common;
 using SAF.Messaging.Contracts;
 using SAF.Communication.Cde;
 using SAF.Communication.Cde.Utils;

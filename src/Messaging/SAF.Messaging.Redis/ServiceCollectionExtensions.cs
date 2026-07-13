@@ -114,7 +114,7 @@ public static class ServiceCollectionExtensions
                     MessagingInfrastructureKeys.Redis,
                     cfg => CreateMessagingInfrastructure(sp, cfg, config, traceAction)));
 
-    private static IMessagingInfrastructure CreateMessagingInfrastructure(IServiceProvider serviceProvider, MessagingConfiguration config, RedisConfiguration defaultConfiguration, Action<Message>? traceAction)
+    private static Messaging CreateMessagingInfrastructure(IServiceProvider serviceProvider, MessagingConfiguration config, RedisConfiguration defaultConfiguration, Action<Message>? traceAction)
     {
         if (config.Config is null || config.Config.Count == 0)
         {
@@ -131,7 +131,7 @@ public static class ServiceCollectionExtensions
         return CreateMessagingInfrastructure(serviceProvider, redisCfg, traceAction);
     }
 
-    private static IMessagingInfrastructure CreateMessagingInfrastructure(IServiceProvider serviceProvider, RedisConfiguration config, Action<Message>? traceAction)
+    private static Messaging CreateMessagingInfrastructure(IServiceProvider serviceProvider, RedisConfiguration config, Action<Message>? traceAction)
         => new Messaging(serviceProvider.GetRequiredService<ILogger<Messaging>>(),
             CreateRedisConnection(config, serviceProvider.GetRequiredService<ILogger<Messaging>>()).multiplexer,
             ResolveMessageDispatcher(serviceProvider),

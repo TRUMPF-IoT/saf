@@ -3,9 +3,9 @@
 // SPDX-License-Identifier: MPL-2.0
 
 namespace SAF.Messaging.Redis;
+
 using StackExchange.Redis;
 using SAF.Common;
-using SAF.Messaging.Contracts;
 
 public class Storage : IStorageInfrastructure, IDisposable
 {

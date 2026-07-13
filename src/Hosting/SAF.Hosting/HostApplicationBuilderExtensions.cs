@@ -53,7 +53,7 @@ public static class HostApplicationBuilderExtensions
         return CreateSafHostBuilder(pluginSystemBuilder, builder.Configuration);
     }
 
-    private static ISafHostBuilder CreateSafHostBuilder(
+    private static SafHostBuilder CreateSafHostBuilder(
         IPluginSystemHostBuilder pluginSystemBuilder,
         IConfiguration configuration)
     {

@@ -10,7 +10,7 @@ using Microsoft.Extensions.Logging;
 
 /// <inheritdoc />
 public sealed class PluginServicesContainer(
-    ILogger<PluginServiceProvider> logger,
+    ILogger<PluginServicesContainer> logger,
     IPluginSystemHostContext hostContext,
     IServiceProvider applicationServiceProvider,
     IEnumerable<IPluginAssemblyContainer> pluginContainers,

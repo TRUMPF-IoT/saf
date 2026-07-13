@@ -5,7 +5,6 @@
 using NATS.Client.Core;
 using NATS.Client.ObjectStore;
 using NSubstitute;
-using SAF.Common;
 using SAF.Messaging.Contracts;
 using Xunit;
 

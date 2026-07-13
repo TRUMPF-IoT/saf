@@ -4,7 +4,6 @@
 
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
-using SAF.Common;
 using SAF.Messaging.Contracts;
 using System.Runtime.CompilerServices;
 
@@ -40,7 +39,7 @@ public static class ServiceCollectionExtensions
         => serviceCollection.AddTransient<IRoutingMessagingInfrastructure>(sp =>
             CreateRoutingMessagingInfrastructure(sp, config));
 
-    private static IRoutingMessagingInfrastructure CreateRoutingMessagingInfrastructure(IServiceProvider serviceProvider, Configuration config)
+    private static Messaging CreateRoutingMessagingInfrastructure(IServiceProvider serviceProvider, Configuration config)
         => new Messaging(serviceProvider.GetService<ILogger<Messaging>>(), BuildMessageRouting(serviceProvider, config));
 
     private static MessageRouting[] BuildMessageRouting(IServiceProvider serviceProvider, Configuration config)
