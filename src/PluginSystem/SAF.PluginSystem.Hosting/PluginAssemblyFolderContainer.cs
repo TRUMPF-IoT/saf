@@ -22,13 +22,28 @@ public class PluginAssemblyFolderContainer(
     private readonly ILogger _logger = loggerFactory.CreateLogger<PluginAssemblyFolderContainer>();
     private readonly IPluginManifestLoader _manifestLoader = manifestLoader;
     private readonly IFileSystem _fileSystem = fileSystem;
+    private IReadOnlyList<IPluginManifest>? _cachedManifests;
+    private readonly Lock _cacheLock = new();
 
     private PluginAssemblyFolderSearchOptions SearchOptions { get; } = options;
 
+    /// <summary>
+    /// Returns all <see cref="IPluginManifest"/> instances discovered in the configured folder.
+    /// Results are cached after the first call so that assemblies are loaded only once.
+    /// </summary>
     public IEnumerable<IPluginManifest> GetPluginManifests()
     {
-        var pluginAssemblyPaths = GetPluginAssemblyPaths();
-        return LoadManifests(pluginAssemblyPaths);
+        lock (_cacheLock)
+        {
+            if (_cachedManifests is not null)
+            {
+                return _cachedManifests;
+            }
+
+            var pluginAssemblyPaths = GetPluginAssemblyPaths();
+            _cachedManifests = [.. LoadManifests(pluginAssemblyPaths)];
+            return _cachedManifests;
+        }
     }
 
     private List<string> GetPluginAssemblyPaths()

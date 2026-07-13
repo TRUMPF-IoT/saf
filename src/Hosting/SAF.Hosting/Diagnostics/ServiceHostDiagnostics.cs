@@ -9,12 +9,14 @@ using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using SAF.Common;
 using SAF.PluginSystem.Hosting.Contracts;
+using System.IO.Abstractions;
 using System.Text.Json;
 
 internal class ServiceHostDiagnostics(
     ILogger<ServiceHostDiagnostics> log,
-    IEnumerable<IPluginManifest> pluginManifests,
-    IServiceProvider serviceProvider) : IHostedService
+    IEnumerable<IPluginAssemblyContainer> pluginAssemblyContainers,
+    IServiceProvider serviceProvider,
+    IFileSystem fileSystem) : IHostedService
 {
     private static readonly JsonSerializerOptions _jsonOptions = new() { WriteIndented = true };
 
@@ -28,25 +30,26 @@ internal class ServiceHostDiagnostics(
         try
         {
             var hostInfo = serviceProvider.GetService<IServiceHostInfo>();
+            var pluginManifests = pluginAssemblyContainers.SelectMany(c => c.GetPluginManifests());
             var nodeInfo = new SafNodeInfo(hostInfo, pluginManifests);
 
             var basePath = string.IsNullOrWhiteSpace(hostInfo?.FileSystemUserBasePath)
-                ? Path.Combine(AppContext.BaseDirectory, "tempfs")
+                ? fileSystem.Path.Combine(AppContext.BaseDirectory, "tempfs")
                 : hostInfo!.FileSystemUserBasePath;
 
-            var targetDir = Path.Combine(basePath, "diagnostics");
-            Directory.CreateDirectory(targetDir);
+            var targetDir = fileSystem.Path.Combine(basePath, "diagnostics");
+            fileSystem.Directory.CreateDirectory(targetDir);
 
-            var safeHostId = string.Concat(nodeInfo.HostId.Select(c => Path.GetInvalidFileNameChars().Contains(c) ? '_' : c));
-            var targetFile = Path.Combine(targetDir, $"SafServiceHost_{safeHostId}.json");
+            var safeHostId = string.Concat(nodeInfo.HostId.Select(c => fileSystem.Path.GetInvalidFileNameChars().Contains(c) ? '_' : c));
+            var targetFile = fileSystem.Path.Combine(targetDir, $"SafServiceHost_{safeHostId}.json");
 
-            if (File.Exists(targetFile))
+            if (fileSystem.File.Exists(targetFile))
             {
-                File.Delete(targetFile);
+                fileSystem.File.Delete(targetFile);
             }
 
             var serializedInfo = JsonSerializer.Serialize(nodeInfo, _jsonOptions);
-            File.WriteAllText(targetFile, serializedInfo);
+            fileSystem.File.WriteAllText(targetFile, serializedInfo);
         }
         catch (Exception ex)
         {

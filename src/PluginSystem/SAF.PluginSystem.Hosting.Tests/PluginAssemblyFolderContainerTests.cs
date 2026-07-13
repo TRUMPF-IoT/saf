@@ -4,7 +4,10 @@
 
 namespace SAF.PluginSystem.Hosting.Tests;
 
+using Contracts;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging.Abstractions;
+using NSubstitute;
 using System.Reflection;
 using Testably.Abstractions;
 
@@ -192,5 +195,76 @@ public class PluginAssemblyFolderContainerTests
 
         // Assert
         Assert.Single(result);
+    }
+
+    [Fact]
+    public void GetPluginManifests_ReturnsSameInstance_OnSecondCall()
+    {
+        // Arrange
+        var options = new PluginAssemblyFolderSearchOptions
+        {
+            SearchRootPath = AppContext.BaseDirectory,
+            IncludePatterns = "SAF.PluginSystem.Hosting.Tests.dll",
+            ExcludePatterns = string.Empty,
+            Recursive = false
+        };
+        var container = new PluginAssemblyFolderContainer(_loggerFactory, _manifestLoader, options, _fileSystem);
+
+        // Act
+        var firstCall = container.GetPluginManifests();
+        var secondCall = container.GetPluginManifests();
+
+        // Assert – must be the exact same list instance, not just equal content
+        Assert.Same(firstCall, secondCall);
+    }
+
+    [Fact]
+    public void GetPluginManifests_LoadsAssembliesOnlyOnce()
+    {
+        // Arrange
+        var manifestLoader = Substitute.For<IPluginManifestLoader>();
+        manifestLoader.LoadPluginManifest(Arg.Any<Assembly>())
+            .Returns(Substitute.For<IPluginManifest>());
+
+        var options = new PluginAssemblyFolderSearchOptions
+        {
+            SearchRootPath = AppContext.BaseDirectory,
+            IncludePatterns = "SAF.PluginSystem.Hosting.Tests.dll",
+            ExcludePatterns = string.Empty,
+            Recursive = false
+        };
+        var container = new PluginAssemblyFolderContainer(_loggerFactory, manifestLoader, options, _fileSystem);
+
+        // Act – call twice
+        _ = container.GetPluginManifests().ToList();
+        _ = container.GetPluginManifests().ToList();
+
+        // Assert – manifest loader is called exactly once per assembly, not twice
+        manifestLoader.Received(1).LoadPluginManifest(Arg.Any<Assembly>());
+    }
+
+    [Fact]
+    public void GetPluginManifests_ReturnsSameManifestInstances_OnSecondCall()
+    {
+        // Arrange
+        var manifest = Substitute.For<IPluginManifest>();
+        var manifestLoader = Substitute.For<IPluginManifestLoader>();
+        manifestLoader.LoadPluginManifest(Arg.Any<Assembly>()).Returns(manifest);
+
+        var options = new PluginAssemblyFolderSearchOptions
+        {
+            SearchRootPath = AppContext.BaseDirectory,
+            IncludePatterns = "SAF.PluginSystem.Hosting.Tests.dll",
+            ExcludePatterns = string.Empty,
+            Recursive = false
+        };
+        var container = new PluginAssemblyFolderContainer(_loggerFactory, manifestLoader, options, _fileSystem);
+
+        // Act
+        var firstCall = container.GetPluginManifests().ToList();
+        var secondCall = container.GetPluginManifests().ToList();
+
+        // Assert – same manifest objects returned, not new ones
+        Assert.Equal(firstCall, secondCall);
     }
 }
