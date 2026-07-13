@@ -10,7 +10,13 @@ on:
     branches: [ main ]
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
+  # For pull_request events github.head_ref contains the source branch name (e.g. "feature/foo").
+  # For a plain push to that same branch, github.head_ref is empty and we fall back to github.ref
+  # which becomes "refs/heads/feature/foo". Both resolve to the same logical group by stripping
+  # the refs/heads/ prefix via the replace expression.
+  # Result: a push to a branch with an open PR lands in the same concurrency group as the PR build,
+  # so only the latest run survives and duplicate work is avoided.
+  group: ${{ github.workflow }}-${{ github.head_ref || github.ref_name }}
   cancel-in-progress: true
 
 jobs:
