@@ -34,9 +34,9 @@ public class PluginManifestTests
         var factory = provider.GetKeyedService<IMessagingInfrastructureFactory>(MessagingInfrastructureKeys.Redis);
         Assert.NotNull(factory);
 
-        // Verify IStorageInfrastructure is also registered
-        var storage = provider.GetService<IStorageInfrastructure>();
-        Assert.NotNull(storage);
+        // Verify IStorageInfrastructure is registered (don't instantiate it as it requires Redis connection)
+        var storageDescriptor = services.FirstOrDefault(d => d.ServiceType == typeof(IStorageInfrastructure));
+        Assert.NotNull(storageDescriptor);
     }
 
     [Fact]
@@ -56,6 +56,10 @@ public class PluginManifestTests
         // Verify IMessagingInfrastructureFactory is registered with the Redis key
         var factory = provider.GetKeyedService<IMessagingInfrastructureFactory>(MessagingInfrastructureKeys.Redis);
         Assert.NotNull(factory);
+
+        // Verify IStorageInfrastructure is registered
+        var storageDescriptor = services.FirstOrDefault(d => d.ServiceType == typeof(IStorageInfrastructure));
+        Assert.NotNull(storageDescriptor);
     }
 
     [Fact]
@@ -73,6 +77,10 @@ public class PluginManifestTests
         // Verify IMessagingInfrastructureFactory is registered with the Redis key
         var factory = provider.GetKeyedService<IMessagingInfrastructureFactory>(MessagingInfrastructureKeys.Redis);
         Assert.NotNull(factory);
+
+        // Verify IStorageInfrastructure is registered
+        var storageDescriptor = services.FirstOrDefault(d => d.ServiceType == typeof(IStorageInfrastructure));
+        Assert.NotNull(storageDescriptor);
     }
 
     private static IPluginSystemHostContext CreateContext(
