@@ -31,7 +31,7 @@ public class Subscriber : ISubscriber, IDisposable
     private readonly CancellationTokenSource _tokenSource;
     private bool _disposed;
 
-    private readonly Dictionary<string, CountdownEvent> _subscriptions = new(); // temporarly used to broadcast a subscribe request to all known registered nodes
+    private readonly Dictionary<string, CountdownEvent> _subscriptions = new(); // Temporarily used to broadcast a subscribe request to all known registered nodes.
     private readonly ConcurrentDictionary<Guid, ISubscription> _subscribers = new();
     private readonly ManualResetEventSlim _registryDiscoveredEvent = new(false);
 

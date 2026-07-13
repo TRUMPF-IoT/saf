@@ -72,7 +72,7 @@ internal sealed class Messaging : IMessagingInfrastructure, IDisposable
             catch (Exception e)
             {
                 _logger.LogError(e,
-                    $"Exception while trying to dispatch message \"{message.Topic}\" from redis callback!");
+                    $"Exception while trying to dispatch message \"{message.Topic}\" from NATS callback!");
                 throw;
             }
         }
@@ -102,7 +102,7 @@ internal sealed class Messaging : IMessagingInfrastructure, IDisposable
             catch (Exception e)
             {
                 _logger.LogError(e,
-                    $"Exception while trying to dispatch message \"{message.Topic}\" from redis callback!");
+                    $"Exception while trying to dispatch message \"{message.Topic}\" from NATS callback!");
                 throw;
             }
         }

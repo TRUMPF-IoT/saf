@@ -36,7 +36,7 @@ internal class RegistrySubscriptionResponse : RegistrySubscriptionRequest
 /// Manages the subscriptions of other nodes (each represented by <see cref="RemoteSubscriber"/>).
 /// These will be registered by a subscription event. These subscriptions are used by the parent
 /// <see cref="Publisher"/> to send Messages to all registered subscribers. This class also handles
-/// events for example discovery request or subsciber alive request.
+/// events for example discovery requests or subscriber alive requests.
 /// </summary>
 internal class SubscriptionRegistry : ISubscriptionRegistry
 {

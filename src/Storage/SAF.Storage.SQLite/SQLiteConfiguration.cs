@@ -2,9 +2,9 @@
 //
 // SPDX-License-Identifier: MPL-2.0
 
-namespace SAF.Storage.SqLite;
+namespace SAF.Storage.SQLite;
 
-public class SqLiteConfiguration
+public class SQLiteConfiguration
 {
     public string ConnectionString { get; set; } = string.Empty;
 }

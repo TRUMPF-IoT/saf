@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: MPL-2.0
 
-namespace SAF.Storage.SqLite;
+namespace SAF.Storage.SQLite;
 using SAF.Common;
 using System.Data.SQLite;
 
