@@ -31,6 +31,9 @@ public class PluginServicesContainerTests
         _pluginContainer.GetPluginManifests().Returns(pluginManifests);
     }
 
+    private static Task DisposeContainerAsync(PluginServicesContainer pluginServicesContainer) =>
+        pluginServicesContainer.DisposeAsync().AsTask();
+
     [Fact]
     public async Task GetPluginServices_ShouldInitializePlugins_WhenCalled()
     {
@@ -101,43 +104,47 @@ public class PluginServicesContainerTests
         _logger.DidNotReceive().LogInformation("Starting plug-in search and initialization.");
     }
 
-    #region DisposeAsync Tests
-
     /// <summary>
-    /// Tests that DisposeAsync completes without error when called.
+    /// Tests that DisposeAsync does not throw for supported initialization scenarios.
     /// </summary>
-    [Fact]
-    public async Task DisposeAsync_CompletesSuccessfully_WhenCalled()
+    [Theory]
+    [MemberData(nameof(GetDisposeAsyncNoThrowScenarios))]
+    public async Task DisposeAsync_DoesNotThrow_ForSupportedScenarios(Action<PluginServicesContainer> setup)
     {
         // Arrange
         var pluginServicesContainer = new PluginServicesContainer(
             _logger, _hostContext, _applicationServiceProvider, [_pluginContainer], _publicServiceTypeRegistry);
+        setup(pluginServicesContainer);
 
-        // Initialize to populate service providers
-        pluginServicesContainer.GetPluginServices();
+        // Act
+        var exception = await Record.ExceptionAsync(() => DisposeContainerAsync(pluginServicesContainer));
 
-        // Act & Assert - should not throw
-        await pluginServicesContainer.DisposeAsync();
+        // Assert
+        Assert.Null(exception);
     }
 
     /// <summary>
-    /// Tests that DisposeAsync returns early if already disposed (idempotent).
+    /// Tests that DisposeAsync remains idempotent when called repeatedly.
     /// </summary>
-    [Fact]
-    public async Task DisposeAsync_ReturnsEarlyIfAlreadyDisposed_Idempotent()
+    [Theory]
+    [InlineData(2)]
+    [InlineData(3)]
+    public async Task DisposeAsync_DoesNotThrow_WhenCalledMultipleTimes(int disposeCalls)
     {
         // Arrange
         var pluginServicesContainer = new PluginServicesContainer(
             _logger, _hostContext, _applicationServiceProvider, [_pluginContainer], _publicServiceTypeRegistry);
-
         pluginServicesContainer.GetPluginServices();
 
         // Act
-        await pluginServicesContainer.DisposeAsync();
-        // Second call - should return immediately due to _disposed flag
-        await pluginServicesContainer.DisposeAsync();
+        var exceptions = new List<Exception?>();
+        for (var i = 0; i < disposeCalls; i++)
+        {
+            exceptions.Add(await Record.ExceptionAsync(() => DisposeContainerAsync(pluginServicesContainer)));
+        }
 
-        // Assert - no exception thrown
+        // Assert
+        Assert.All(exceptions, Assert.Null);
     }
 
     /// <summary>
@@ -152,214 +159,13 @@ public class PluginServicesContainerTests
 
         var pluginServicesContainer = new PluginServicesContainer(
             _logger, _hostContext, _applicationServiceProvider, [emptyPluginContainer], _publicServiceTypeRegistry);
-
         pluginServicesContainer.GetPluginServices();
-
-        // Act & Assert (should not throw)
-        await pluginServicesContainer.DisposeAsync();
-    }
-
-    /// <summary>
-    /// Tests that DisposeAsync disposes public services collection.
-    /// </summary>
-    [Fact]
-    public async Task DisposeAsync_DisposesPublicServicesCollection_Correctly()
-    {
-        // Arrange
-        var pluginServicesContainer = new PluginServicesContainer(
-            _logger, _hostContext, _applicationServiceProvider, [_pluginContainer], _publicServiceTypeRegistry);
-
-        // Initialize both plugin and public services
-        pluginServicesContainer.GetPluginServices();
-        pluginServicesContainer.GetPublicServices();
-
-        // Act & Assert
-        // Should not throw even with public services
-        await pluginServicesContainer.DisposeAsync();
-    }
-
-    /// <summary>
-    /// Tests that DisposeAsync thread-safely uses lock for synchronization.
-    /// </summary>
-    [Fact]
-    public async Task DisposeAsync_IsThreadSafe_WhenCalledConcurrently()
-    {
-        // Arrange
-        var pluginServicesContainer = new PluginServicesContainer(
-            _logger, _hostContext, _applicationServiceProvider, [_pluginContainer], _publicServiceTypeRegistry);
-
-        pluginServicesContainer.GetPluginServices();
-
-        var disposedCount = 0;
-        var lockObj = new object();
-
-        // Create multiple tasks calling DisposeAsync concurrently
-        var tasks = Enumerable.Range(0, 5)
-            .Select(async _ =>
-            {
-                await pluginServicesContainer.DisposeAsync();
-                lock (lockObj)
-                {
-                    disposedCount++;
-                }
-            })
-            .ToList();
 
         // Act
-        await Task.WhenAll(tasks);
+        var exception = await Record.ExceptionAsync(() => DisposeContainerAsync(pluginServicesContainer));
 
         // Assert
-        Assert.Equal(5, disposedCount); // All tasks completed
-    }
-
-    /// <summary>
-    /// Tests that DisposeAsync properly filters null service providers.
-    /// </summary>
-    [Fact]
-    public async Task DisposeAsync_FiltersNullProviders_Correctly()
-    {
-        // Arrange
-        var pluginServicesContainer = new PluginServicesContainer(
-            _logger, _hostContext, _applicationServiceProvider, [_pluginContainer], _publicServiceTypeRegistry);
-
-        pluginServicesContainer.GetPluginServices();
-
-        // Act & Assert
-        // Should not throw even if some providers are null
-        await pluginServicesContainer.DisposeAsync();
-    }
-
-    /// <summary>
-    /// Tests that DisposeAsync correctly appends public services collection to disposal list.
-    /// </summary>
-    [Fact]
-    public async Task DisposeAsync_IncludesPublicServicesInDisposalList_Always()
-    {
-        // Arrange
-        var pluginServicesContainer = new PluginServicesContainer(
-            _logger, _hostContext, _applicationServiceProvider, [_pluginContainer], _publicServiceTypeRegistry);
-
-        // Call only GetPluginServices, not GetPublicServices
-        pluginServicesContainer.GetPluginServices();
-
-        // Act
-        await pluginServicesContainer.DisposeAsync();
-
-        // Assert
-        // Should not throw - public services should be included even if not explicitly accessed
-    }
-
-    /// <summary>
-    /// Tests that DisposeAsync filters OfType correctly to only IServiceProvider instances.
-    /// </summary>
-    [Fact]
-    public async Task DisposeAsync_FiltersOfType_Correctly()
-    {
-        // Arrange
-        var pluginServicesContainer = new PluginServicesContainer(
-            _logger, _hostContext, _applicationServiceProvider, [_pluginContainer], _publicServiceTypeRegistry);
-
-        pluginServicesContainer.GetPluginServices();
-
-        // Act
-        await pluginServicesContainer.DisposeAsync();
-
-        // Assert
-        // Should only dispose providers that are IServiceProvider
-    }
-
-    /// <summary>
-    /// Tests that DisposeAsync acquires and releases lock properly (no deadlock).
-    /// </summary>
-    [Fact]
-    public async Task DisposeAsync_AcquiresLockForDisposal_Correctly()
-    {
-        // Arrange
-        var pluginServicesContainer = new PluginServicesContainer(
-            _logger, _hostContext, _applicationServiceProvider, [_pluginContainer], _publicServiceTypeRegistry);
-
-        pluginServicesContainer.GetPluginServices();
-
-        // Act
-        await pluginServicesContainer.DisposeAsync();
-
-        // Assert
-        // If we can call DisposeAsync without deadlock, the lock was properly managed
-    }
-
-    /// <summary>
-    /// Tests that DisposeAsync uses ConfigureAwait(false) for correct context propagation.
-    /// </summary>
-    [Fact]
-    public async Task DisposeAsync_DisposeProviderAsync_UsesConfigureAwaitFalse()
-    {
-        // Arrange
-        var pluginServicesContainer = new PluginServicesContainer(
-            _logger, _hostContext, _applicationServiceProvider, [_pluginContainer], _publicServiceTypeRegistry);
-
-        pluginServicesContainer.GetPluginServices();
-
-        // Act
-        await pluginServicesContainer.DisposeAsync();
-
-        // Assert
-        // Completes successfully without context issues
-    }
-
-    /// <summary>
-    /// Tests that _disposed flag prevents multiple disposal attempts.
-    /// </summary>
-    [Fact]
-    public async Task DisposeAsync_SetDisposedFlag_PreventsMultipleDisposals()
-    {
-        // Arrange
-        var pluginServicesContainer = new PluginServicesContainer(
-            _logger, _hostContext, _applicationServiceProvider, [_pluginContainer], _publicServiceTypeRegistry);
-
-        pluginServicesContainer.GetPluginServices();
-
-        // Act
-        await pluginServicesContainer.DisposeAsync();
-        await pluginServicesContainer.DisposeAsync();
-        await pluginServicesContainer.DisposeAsync();
-
-        // Assert - should complete without error
-        // Multiple dispose calls should be safe due to _disposed flag
-    }
-
-    /// <summary>
-    /// Tests that DisposeAsync does not initialize services if not already initialized.
-    /// </summary>
-    [Fact]
-    public async Task DisposeAsync_WithoutInitialization_DoesNotThrow()
-    {
-        // Arrange
-        var pluginServicesContainer = new PluginServicesContainer(
-            _logger, _hostContext, _applicationServiceProvider, [_pluginContainer], _publicServiceTypeRegistry);
-
-        // Don't call GetPluginServices or GetPublicServices
-
-        // Act & Assert
-        await pluginServicesContainer.DisposeAsync();
-    }
-
-    /// <summary>
-    /// Tests that DisposeAsync properly builds list of providers before disposing.
-    /// </summary>
-    [Fact]
-    public async Task DisposeAsync_BuildsProviderListBeforeDisposing_Correctly()
-    {
-        // Arrange
-        var pluginServicesContainer = new PluginServicesContainer(
-            _logger, _hostContext, _applicationServiceProvider, [_pluginContainer], _publicServiceTypeRegistry);
-
-        pluginServicesContainer.GetPluginServices();
-
-        // Act
-        await pluginServicesContainer.DisposeAsync();
-
-        // Assert
-        // Should have collected providers from _pluginServiceCollections and _publicServicesOnlyCollection
+        Assert.Null(exception);
     }
 
     /// <summary>
@@ -379,52 +185,54 @@ public class PluginServicesContainerTests
 
         var pluginServicesContainer = new PluginServicesContainer(
             _logger, _hostContext, _applicationServiceProvider, [pluginContainer1, pluginContainer2], _publicServiceTypeRegistry);
-
         pluginServicesContainer.GetPluginServices();
 
         // Act
-        await pluginServicesContainer.DisposeAsync();
+        var exception = await Record.ExceptionAsync(() => DisposeContainerAsync(pluginServicesContainer));
 
-        // Assert - should not throw
+        // Assert
+        Assert.Null(exception);
     }
 
     /// <summary>
-    /// Tests that DisposeAsync correctly selects and appends service providers.
+    /// Tests that DisposeAsync is thread-safe when invoked concurrently.
     /// </summary>
     [Fact]
-    public async Task DisposeAsync_SelectsAndAppendsProviders_Correctly()
+    public async Task DisposeAsync_IsThreadSafe_WhenCalledConcurrently()
     {
         // Arrange
         var pluginServicesContainer = new PluginServicesContainer(
             _logger, _hostContext, _applicationServiceProvider, [_pluginContainer], _publicServiceTypeRegistry);
-
         pluginServicesContainer.GetPluginServices();
 
         // Act
-        await pluginServicesContainer.DisposeAsync();
+        var disposeTasks = Enumerable.Range(0, 5)
+            .Select(_ => Record.ExceptionAsync(() => DisposeContainerAsync(pluginServicesContainer)));
+        var exceptions = await Task.WhenAll(disposeTasks);
 
         // Assert
-        // All providers should have been collected and disposed
+        Assert.All(exceptions, Assert.Null);
     }
 
     /// <summary>
-    /// Tests that DisposeAsync runs disposal foreach loop correctly.
+    /// Provides setup scenarios for DisposeAsync no-throw tests.
     /// </summary>
-    [Fact]
-    public async Task DisposeAsync_IteratesThroughAllProviders_Correctly()
+    public static IEnumerable<object[]> GetDisposeAsyncNoThrowScenarios()
     {
-        // Arrange
-        var pluginServicesContainer = new PluginServicesContainer(
-            _logger, _hostContext, _applicationServiceProvider, [_pluginContainer], _publicServiceTypeRegistry);
+        yield return [new Action<PluginServicesContainer>(container =>
+        {
+            container.GetPluginServices();
+        })];
 
-        pluginServicesContainer.GetPluginServices();
+        yield return [new Action<PluginServicesContainer>(container =>
+        {
+            container.GetPluginServices();
+            container.GetPublicServices();
+        })];
 
-        // Act
-        await pluginServicesContainer.DisposeAsync();
-
-        // Assert
-        // Should iterate through all providers without error
+        yield return [new Action<PluginServicesContainer>(_ =>
+        {
+            // Intentionally left blank: verify dispose without initialization.
+        })];
     }
-
-    #endregion
 }
