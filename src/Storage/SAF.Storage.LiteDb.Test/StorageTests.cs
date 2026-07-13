@@ -8,12 +8,12 @@ using LiteDB;
 
 public class StorageTests : IDisposable
 {
-    private const string DbName = "Filename=LocalLightDb.db;Connection=direct";
+    private const string DbName = "Filename=LocalLiteDb.db;Connection=direct";
 
     public StorageTests()
     {
-        if(File.Exists("LocalLightDb.db"))
-            File.Delete("LocalLightDb.db");
+        if(File.Exists("LocalLiteDb.db"))
+            File.Delete("LocalLiteDb.db");
     }
 
     [Fact]
