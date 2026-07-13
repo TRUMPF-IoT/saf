@@ -7,6 +7,7 @@ namespace TestRunnerNats;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Hosting;
 using SAF.Common.Diagnostics;
+using SAF.Hosting;
 using SAF.PluginSystem.Hosting;
 
 public static class Program
@@ -31,6 +32,7 @@ public static class Program
                 options.ExcludePatterns = pluginAssemblySearchOptions.ExcludePatterns;
             });
 
+        builder.Services.AddServiceHostInfo(builder.Configuration);
         builder.Services.AddHostDiagnostics();
 
         var host = builder.Build();

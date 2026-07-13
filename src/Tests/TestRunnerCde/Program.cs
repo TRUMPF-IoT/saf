@@ -5,6 +5,7 @@
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Hosting;
 using SAF.Common.Diagnostics;
+using SAF.Hosting;
 using SAF.PluginSystem.Hosting;
 
 Console.Title = "SAF CDE Test Host";
@@ -25,6 +26,7 @@ builder.AddPluginSystem(builder.Configuration.GetSection("PluginSystem").Bind)
         options.ExcludePatterns = pluginAssemblySearchOptions.ExcludePatterns;
     });
 
+builder.Services.AddServiceHostInfo(builder.Configuration);
 builder.Services.AddHostDiagnostics();
 
 var host = builder.Build();

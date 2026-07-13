@@ -7,6 +7,7 @@ namespace SAF.Common.Diagnostics;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
+using SAF.Common;
 using SAF.PluginSystem.Hosting.Contracts;
 using System.Text.Json;
 

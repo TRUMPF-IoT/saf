@@ -4,6 +4,7 @@
 
 namespace SAF.Common.Diagnostics;
 
+using SAF.Common;
 using SAF.PluginSystem.Hosting.Contracts;
 
 public class SafNodeInfo
