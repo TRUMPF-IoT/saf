@@ -287,3 +287,7 @@ indent_size = 4
 end_of_line = crlf
 dotnet_code_quality_unused_parameters = all:suggestion
 indent_style = space
+
+# suppress CA1873 warnings
+[*.{cs}]
+dotnet_diagnostic.CA1873.severity = none

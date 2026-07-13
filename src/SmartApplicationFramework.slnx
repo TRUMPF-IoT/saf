@@ -81,6 +81,7 @@ SPDX-License-Identifier: MPL-2.0
     <File Path="../.github/workflows/dotnet-core.yml" />
     <File Path="../Directory.Build.props" />
     <File Path="../Directory.Packages.props" />
+    <File Path="../README.md" />
     <File Path=".editorconfig" />
   </Folder>
   <Project Path="SAF.Common.Tests/SAF.Common.Tests.csproj" />
