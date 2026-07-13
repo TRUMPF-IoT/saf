@@ -11,24 +11,27 @@ using SAF.PluginSystem.Hosting.Contracts;
 using AnyOtherInternalLogic;
 using MessageHandlers;
 using Toolbox.Serialization;
+using SAF.Common;
 
 internal class MySpecialService : IServicePlugin
 {
     private readonly ILogger<MySpecialService> _log;
     private readonly IMessagingInfrastructure _messaging;
     private readonly MyServiceConfiguration _config;
-
+    private readonly IServiceHostInfo _hostInfo;
     private readonly List<object> _subscriptions = new();
 
     public MySpecialService(ILogger<MySpecialService> log,
         MyInternalDependency internalDependency,
         IMessagingInfrastructure messaging,
         MyServiceConfiguration serviceConfig,
-        IOptionsMonitor<MyServiceConfiguration> monitoredConfig)
+        IOptionsMonitor<MyServiceConfiguration> monitoredConfig,
+        IServiceHostInfo hostInfo)
     {
         _log = log;
         _messaging = messaging;
         _config = serviceConfig;
+        _hostInfo = hostInfo;
 
         internalDependency.SayHello();
 
@@ -56,7 +59,8 @@ internal class MySpecialService : IServicePlugin
             })
         ]);
 
-        _log.LogInformation("My special service started.");
+        _log.LogInformation("My special service started, configuration: {MyNumericSetting}, {MyStringSetting}", _config.MyNumericSetting, _config.MyStringSetting);
+        _log.LogInformation("Service host information: {Id}, {ServiceHostType}, {FileSystemUserBasePath}, {FileSystemInstallationPath}", _hostInfo.Id, _hostInfo.ServiceHostType, _hostInfo.FileSystemUserBasePath, _hostInfo.FileSystemInstallationPath);
 
         return Task.CompletedTask;
     }
