@@ -85,4 +85,51 @@ public class ServiceProviderExtensionsTests
 
         Assert.Same(pluginServices, capturedCollection);
     }
+
+    [Fact]
+    public void RedirectCommonServices_WhenPluginProviderDisposed_DoesNotDisposeHostLoggerFactory()
+    {
+        var hostLoggerFactory = Substitute.For<ILoggerFactory>();
+        var hostServices = BuildHostServices();
+        hostServices.AddSingleton(hostLoggerFactory);
+        var hostProvider = hostServices.BuildServiceProvider();
+        var pluginServices = new ServiceCollection();
+        hostProvider.RedirectCommonServices(pluginServices);
+
+        var pluginProvider = pluginServices.BuildServiceProvider();
+        _ = pluginProvider.GetRequiredService<ILoggerFactory>();
+
+        pluginProvider.Dispose();
+
+        hostLoggerFactory.DidNotReceive().Dispose();
+    }
+
+    [Fact]
+    public void RedirectCommonServices_ResolvesLoggerFactoryLazily()
+    {
+        var hostLoggerFactory = Substitute.For<ILoggerFactory>();
+        var hostServices = new ServiceCollection();
+        var loggerFactoryResolutions = 0;
+        hostServices.AddSingleton<ILoggerFactory>(_ =>
+        {
+            loggerFactoryResolutions++;
+            return hostLoggerFactory;
+        });
+        hostServices.AddTransient(typeof(ILogger<>), typeof(Logger<>));
+        hostServices.AddSingleton(Substitute.For<IPluginServiceProvider>());
+        hostServices.AddSingleton(Substitute.For<IPluginSystemHostEnvironment>());
+        hostServices.AddSingleton(Substitute.For<IFileSystem>());
+        var hostProvider = hostServices.BuildServiceProvider();
+
+        var pluginServices = new ServiceCollection();
+        hostProvider.RedirectCommonServices(pluginServices);
+
+        Assert.Equal(0, loggerFactoryResolutions);
+
+        var pluginProvider = pluginServices.BuildServiceProvider();
+        Assert.Equal(0, loggerFactoryResolutions);
+
+        _ = pluginProvider.GetRequiredService<ILoggerFactory>();
+        Assert.Equal(1, loggerFactoryResolutions);
+    }
 }

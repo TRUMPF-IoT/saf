@@ -14,7 +14,7 @@ internal static class ServiceProviderExtensions
 {
     public static IServiceProvider RedirectCommonServices(this IServiceProvider sp, IServiceCollection services)
     {
-        services.AddSingleton(_ => sp.GetRequiredService<ILoggerFactory>());
+        services.AddSingleton<ILoggerFactory>(_ => new NonOwningLoggerFactory(sp.GetRequiredService<ILoggerFactory>()));
         services.AddTransient(_ => sp.GetRequiredService<ILogger>());
         services.AddTransient(typeof(ILogger<>), typeof(Logger<>));
 
@@ -60,4 +60,5 @@ internal static class ServiceProviderExtensions
 
         return null;
     }
+
 }
