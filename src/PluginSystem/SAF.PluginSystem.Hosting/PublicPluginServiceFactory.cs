@@ -69,7 +69,7 @@ internal sealed class PublicPluginServiceFactory<TService> : IPublicPluginServic
     {
         if (_ownedDescriptor.KeyedImplementationInstance is not null)
         {
-            return _ownedDescriptor.ImplementationInstance;
+            return _ownedDescriptor.KeyedImplementationInstance;
         }
         if (_ownedDescriptor.KeyedImplementationFactory is not null)
         {

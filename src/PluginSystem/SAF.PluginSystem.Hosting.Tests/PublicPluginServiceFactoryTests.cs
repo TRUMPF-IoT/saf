@@ -15,6 +15,25 @@ public class PublicPluginServiceFactoryTests
     private sealed class TestService : ITestService;
 
     [Fact]
+    public void Resolve_ShouldReturnKeyedImplementationInstance_WhenRegisteredAsKeyedSingletonInstance()
+    {
+        // Arrange
+        object serviceKey = "plugin-a";
+        ITestService serviceInstance = new TestService();
+        ServiceDescriptor serviceDescriptor = ServiceDescriptor.KeyedSingleton(typeof(ITestService), serviceKey, serviceInstance);
+
+        object publicPluginServiceFactory = CreateFactoryInstance(typeof(ITestService), serviceDescriptor, serviceKey);
+
+        using ServiceProvider serviceProvider = new ServiceCollection().BuildServiceProvider();
+
+        // Act
+        object? resolved = Resolve(publicPluginServiceFactory, serviceProvider);
+
+        // Assert
+        Assert.Same(serviceInstance, resolved);
+    }
+
+    [Fact]
     public async Task Resolve_ShouldCreateSingletonOnlyOnce_WhenCalledConcurrently()
     {
         // Arrange
@@ -53,6 +72,16 @@ public class PublicPluginServiceFactoryTests
 
         return Activator.CreateInstance(closedFactoryType, serviceDescriptor)
             ?? throw new InvalidOperationException($"Failed to create factory instance for service type {serviceType.FullName}.");
+    }
+
+    private static object CreateFactoryInstance(Type serviceType, ServiceDescriptor serviceDescriptor, object? serviceKey)
+    {
+        Assembly hostingAssembly = typeof(PluginServicesContainer).Assembly;
+        Type publicFactoryTypeDefinition = hostingAssembly.GetType("SAF.PluginSystem.Hosting.PublicPluginServiceFactory`1", throwOnError: true)!;
+        Type closedFactoryType = publicFactoryTypeDefinition.MakeGenericType(serviceType);
+
+        return Activator.CreateInstance(closedFactoryType, serviceDescriptor, serviceKey)
+            ?? throw new InvalidOperationException($"Failed to create keyed factory instance for service type {serviceType.FullName}.");
     }
 
     private static object? Resolve(object publicPluginServiceFactory, IServiceProvider serviceProvider)
