@@ -5,12 +5,13 @@
 namespace SAF.PluginSystem.Hosting;
 
 using System.Collections.Concurrent;
+using System.Diagnostics.CodeAnalysis;
 using System.Reflection;
 using System.Runtime.ExceptionServices;
 
 internal static class NonOwningServiceProxy
 {
-    private static readonly ConcurrentDictionary<Type, Func<object, object>> ProxyFactories = new();
+    private static readonly ConcurrentDictionary<Type, Func<object, object>> _proxyFactories = new();
 
     public static object WrapIfRequired(object service, Type serviceType)
     {
@@ -27,20 +28,20 @@ internal static class NonOwningServiceProxy
             return service;
         }
 
-        var proxyFactory = ProxyFactories.GetOrAdd(serviceType, CreateProxyFactory);
+        var proxyFactory = _proxyFactories.GetOrAdd(serviceType, CreateProxyFactory);
         return proxyFactory(service);
     }
 
     private static Func<object, object> CreateProxyFactory(Type serviceType)
     {
         var createProxyMethod = typeof(NonOwningServiceProxy)
-            .GetMethod(nameof(CreateProxy), BindingFlags.NonPublic | BindingFlags.Static)!
+            .GetMethod(nameof(CreateProxy), BindingFlags.Public | BindingFlags.Static)!
             .MakeGenericMethod(serviceType);
 
         return service => createProxyMethod.Invoke(null, [service])!;
     }
 
-    private static object CreateProxy<TService>(object service)
+    public static object CreateProxy<TService>(object service)
         where TService : class
     {
         var proxy = DispatchProxy.Create<TService, NonOwningDispatchProxy<TService>>();
@@ -48,15 +49,16 @@ internal static class NonOwningServiceProxy
         return proxy;
     }
 
+    [SuppressMessage(
+        "Design",
+        "S3260:Non-derived classes should not be inheritable",
+        Justification = "DispatchProxy.Create requires a non-sealed proxy type.")]
     private class NonOwningDispatchProxy<TService> : DispatchProxy
         where TService : class
     {
         private TService? _service;
 
-        public void Initialize(TService service)
-        {
-            _service = service;
-        }
+        public void Initialize(TService service) => _service = service;
 
         protected override object? Invoke(MethodInfo? targetMethod, object?[]? args)
         {

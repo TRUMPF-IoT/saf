@@ -29,71 +29,91 @@ public class PluginAssemblyFolderContainerTests
     }
 
     [Fact]
-    public void GetPluginAssemblyPaths_ConsidersSubdirectories()
+    public void GetPluginManifests_ConsidersSubdirectories_WhenRecursiveIsEnabled()
     {
         // Arrange
+        var testDirectory = Path.Combine(AppContext.BaseDirectory, $"test-plugins-{Guid.NewGuid():N}");
+        _fileSystem.Directory.CreateDirectory(testDirectory);
+        var subDirectory = Path.Combine(testDirectory, "sub");
+        _fileSystem.Directory.CreateDirectory(subDirectory);
+
+        _fileSystem.File.Copy(Path.Combine(AppContext.BaseDirectory, "SAF.PluginSystem.Hosting.Tests.dll"), Path.Combine(testDirectory, "root.include.dll"));
+        _fileSystem.File.Copy(Path.Combine(AppContext.BaseDirectory, "SAF.PluginSystem.Hosting.Tests.dll"), Path.Combine(subDirectory, "subdir.include.dll"));
+        _fileSystem.File.Copy(Path.Combine(AppContext.BaseDirectory, "SAF.PluginSystem.Hosting.Tests.dll"), Path.Combine(testDirectory, "root.exclude.dll"));
+
+        var manifestLoader = Substitute.For<IPluginManifestLoader>();
+        manifestLoader.LoadPluginManifest(Arg.Any<Assembly>()).Returns(Substitute.For<IPluginManifest>());
+
         var options = new PluginAssemblyFolderSearchOptions
         {
-            SearchRootPath = _testPluginsPath,
-            IncludePatterns = "*.txt",
+            SearchRootPath = testDirectory,
+            IncludePatterns = "*.dll",
             ExcludePatterns = "*.exclude.*",
             Recursive = true
         };
-        var container = new PluginAssemblyFolderContainer(NullLoggerFactory.Instance, new PluginManifestLoader(), options, _fileSystem);
+        var container = new PluginAssemblyFolderContainer(_loggerFactory, manifestLoader, options, _fileSystem);
 
         // Act
-        var searchMethod = container.GetType().GetMethod("GetPluginAssemblyPaths", BindingFlags.NonPublic | BindingFlags.Instance)!;
-        var result = (searchMethod.Invoke(container, null) as List<string>)!;
+        var result = container.GetPluginManifests().ToList();
 
         // Assert
         Assert.Equal(2, result.Count);
-        Assert.True(result.TrueForAll(f => !f.Contains("exclude")));
-        Assert.NotNull(result.SingleOrDefault(f => f.Contains("root.include.txt")));
-        Assert.NotNull(result.SingleOrDefault(f => f.Contains("subdir.include.txt")));
+        manifestLoader.Received(2).LoadPluginManifest(Arg.Any<Assembly>());
     }
 
     [Fact]
-    public void GetPluginAssemblyPaths_DoesNotConsiderSubdirectories()
+    public void GetPluginManifests_DoesNotConsiderSubdirectories_WhenRecursiveIsDisabled()
     {
         // Arrange
+        var testDirectory = Path.Combine(AppContext.BaseDirectory, $"test-plugins-{Guid.NewGuid():N}");
+        _fileSystem.Directory.CreateDirectory(testDirectory);
+        var subDirectory = Path.Combine(testDirectory, "sub");
+        _fileSystem.Directory.CreateDirectory(subDirectory);
+
+        _fileSystem.File.Copy(Path.Combine(AppContext.BaseDirectory, "SAF.PluginSystem.Hosting.Tests.dll"), Path.Combine(testDirectory, "root.include.dll"));
+        _fileSystem.File.Copy(Path.Combine(AppContext.BaseDirectory, "SAF.PluginSystem.Hosting.Tests.dll"), Path.Combine(subDirectory, "subdir.include.dll"));
+
+        var manifestLoader = Substitute.For<IPluginManifestLoader>();
+        manifestLoader.LoadPluginManifest(Arg.Any<Assembly>()).Returns(Substitute.For<IPluginManifest>());
+
         var options = new PluginAssemblyFolderSearchOptions
         {
-            SearchRootPath = _testPluginsPath,
-            IncludePatterns = "*.txt",
+            SearchRootPath = testDirectory,
+            IncludePatterns = "*.dll",
             ExcludePatterns = "*.exclude.*",
             Recursive = false
         };
-        var container = new PluginAssemblyFolderContainer(_loggerFactory, _manifestLoader, options, _fileSystem);
+        var container = new PluginAssemblyFolderContainer(_loggerFactory, manifestLoader, options, _fileSystem);
 
         // Act
-        var searchMethod = container.GetType().GetMethod("GetPluginAssemblyPaths", BindingFlags.NonPublic | BindingFlags.Instance)!;
-        var result = (searchMethod.Invoke(container, null) as List<string>)!;
+        var result = container.GetPluginManifests().ToList();
 
         // Assert
         Assert.Single(result);
-        Assert.DoesNotContain("exclude", result[0]);
-        Assert.Contains("root.include.txt", result[0]);
+        manifestLoader.Received(1).LoadPluginManifest(Arg.Any<Assembly>());
     }
 
     [Fact]
-    public void GetPluginAssemblyPaths_ReturnsNoResult_WhenSearchPathNotFound()
+    public void GetPluginManifests_ReturnsNoResult_WhenSearchPathNotFound()
     {
         // Arrange
+        var manifestLoader = Substitute.For<IPluginManifestLoader>();
+
         var options = new PluginAssemblyFolderSearchOptions
         {
             SearchRootPath = Path.Combine(AppContext.BaseDirectory, "not-existing"),
-            IncludePatterns = "*.txt",
+            IncludePatterns = "*.dll",
             ExcludePatterns = "*.exclude.*",
             Recursive = true
         };
-        var container = new PluginAssemblyFolderContainer(_loggerFactory, _manifestLoader, options, _fileSystem);
+        var container = new PluginAssemblyFolderContainer(_loggerFactory, manifestLoader, options, _fileSystem);
 
         // Act
-        var searchMethod = container.GetType().GetMethod("GetPluginAssemblyPaths", BindingFlags.NonPublic | BindingFlags.Instance)!;
-        var result = (searchMethod.Invoke(container, null) as List<string>)!;
+        var result = container.GetPluginManifests().ToList();
 
         // Assert
         Assert.Empty(result);
+        manifestLoader.DidNotReceive().LoadPluginManifest(Arg.Any<Assembly>());
     }
 
     [Fact]

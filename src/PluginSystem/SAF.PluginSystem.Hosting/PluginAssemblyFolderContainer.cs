@@ -80,7 +80,7 @@ public class PluginAssemblyFolderContainer(
         return result;
     }
 
-    private IEnumerable<IPluginManifest> LoadManifests(List<string> pluginAssemblyPaths)
+    private List<IPluginManifest> LoadManifests(List<string> pluginAssemblyPaths)
     {
         List<IPluginManifest> manifests = [];
 
