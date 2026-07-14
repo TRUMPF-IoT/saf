@@ -13,6 +13,7 @@ internal sealed class PublicPluginServiceFactory<TService> : IPublicPluginServic
     private readonly ServiceDescriptor _ownedDescriptor;
 
     private readonly bool _isKeyedService = false;
+    private readonly object _cacheLock = new();
 
     private object? _cachedInstance;
 
@@ -46,13 +47,21 @@ internal sealed class PublicPluginServiceFactory<TService> : IPublicPluginServic
 
     public object? Resolve(IServiceProvider serviceProvider)
     {
-        if(_isKeyedService)
+        if(_cachedInstance is not null)
         {
-            return _cachedInstance ??= ResolveKeyedInternal(serviceProvider, _serviceKey);
+            return _cachedInstance;
         }
-        else
+
+        lock(_cacheLock)
         {
-            return _cachedInstance ??= ResolveInternal(serviceProvider);
+            if(_isKeyedService)
+            {
+                return _cachedInstance ??= ResolveKeyedInternal(serviceProvider, _serviceKey);
+            }
+            else
+            {
+                return _cachedInstance ??= ResolveInternal(serviceProvider);
+            }
         }
     }
 
