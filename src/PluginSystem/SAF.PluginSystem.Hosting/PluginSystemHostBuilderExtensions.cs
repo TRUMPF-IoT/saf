@@ -25,7 +25,7 @@ public static class PluginSystemHostBuilderExtensions
 
         var uniqueOptionsKey = $"{nameof(PluginAssemblyFolderSearchOptions)}_{Guid.NewGuid():N}";
         hostBuilder.Services.Configure(uniqueOptionsKey, configureSearch);
-        hostBuilder.Services.AddTransient<IPluginAssemblyContainer, PluginAssemblyFolderContainer>(sp =>
+        hostBuilder.Services.AddSingleton<IPluginAssemblyContainer, PluginAssemblyFolderContainer>(sp =>
         {
             var namedOptionsAccessor = sp.GetRequiredService<IOptionsMonitor<PluginAssemblyFolderSearchOptions>>();
             var options = namedOptionsAccessor.Get(uniqueOptionsKey);
