@@ -84,15 +84,34 @@ internal sealed class PluginServicesLocatorBuilder
                 if (publicServiceDescriptor.IsKeyedService)
                 {
                     AddKeyedService(_pluginServices.ServiceCollection,
-                        (sp, key) => pluginServiceLocator.GetKeyedService(publicServiceDescriptor.ServiceType, key)!, publicServiceDescriptor);
+                        (_, key) => ResolveImportedService(pluginServiceLocator, publicServiceDescriptor, key), publicServiceDescriptor);
                 }
                 else
                 {
                     AddService(_pluginServices.ServiceCollection,
-                        sp => pluginServiceLocator.GetService(publicServiceDescriptor.ServiceType)!, publicServiceDescriptor);
+                        _ => ResolveImportedService(pluginServiceLocator, publicServiceDescriptor), publicServiceDescriptor);
                 }
             }
         }
+    }
+
+    private static object ResolveImportedService(ImportedServiceLocator pluginServiceLocator, ServiceDescriptor publicServiceDescriptor, object? serviceKey = null)
+    {
+        var service = serviceKey is null
+            ? pluginServiceLocator.GetService(publicServiceDescriptor.ServiceType)
+            : pluginServiceLocator.GetKeyedService(publicServiceDescriptor.ServiceType, serviceKey);
+
+        if (service is null)
+        {
+            throw new InvalidOperationException($"Failed to resolve imported service for service type {publicServiceDescriptor.ServiceType.FullName} and key {serviceKey}.");
+        }
+
+        if (publicServiceDescriptor.Lifetime != ServiceLifetime.Singleton)
+        {
+            return service;
+        }
+
+        return NonOwningServiceProxy.WrapIfRequired(service, publicServiceDescriptor.ServiceType);
     }
 
     private static void AddKeyedService(IServiceCollection target, Func<IServiceProvider, object?, object> implementationFactory, ServiceDescriptor publicServiceDescriptor)
