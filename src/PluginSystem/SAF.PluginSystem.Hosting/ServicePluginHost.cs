@@ -65,7 +65,14 @@ internal class ServicePluginHost(ILogger<ServicePluginHost> logger, IPluginServi
 
         foreach (var plugin in lifecyclePlugins)
         {
-            await plugin.StartingAsync(linkedCts.Token).ConfigureAwait(false);
+            try
+            {
+                await plugin.StartingAsync(linkedCts.Token).ConfigureAwait(false);
+            }
+            catch (Exception ex)
+            {
+                logger.LogError(ex, "Failed to execute StartingAsync for service plug-in.");
+            }
         }
     }
 
@@ -77,7 +84,14 @@ internal class ServicePluginHost(ILogger<ServicePluginHost> logger, IPluginServi
 
         foreach (var plugin in lifecyclePlugins)
         {
-            await plugin.StartedAsync(linkedCts.Token).ConfigureAwait(false);
+            try
+            {
+                await plugin.StartedAsync(linkedCts.Token).ConfigureAwait(false);
+            }
+            catch (Exception ex)
+            {
+                logger.LogError(ex, "Failed to execute StartedAsync for service plug-in.");
+            }
         }
     }
 
@@ -89,7 +103,14 @@ internal class ServicePluginHost(ILogger<ServicePluginHost> logger, IPluginServi
 
         foreach (var plugin in lifecyclePlugins)
         {
-            await plugin.StoppingAsync(linkedCts.Token).ConfigureAwait(false);
+            try
+            {
+                await plugin.StoppingAsync(linkedCts.Token).ConfigureAwait(false);
+            }
+            catch (Exception ex)
+            {
+                logger.LogError(ex, "Failed to execute StoppingAsync for service plug-in.");
+            }
         }
     }
 
@@ -101,7 +122,14 @@ internal class ServicePluginHost(ILogger<ServicePluginHost> logger, IPluginServi
 
         foreach (var plugin in lifecyclePlugins)
         {
-            await plugin.StoppedAsync(linkedCts.Token).ConfigureAwait(false);
+            try
+            {
+                await plugin.StoppedAsync(linkedCts.Token).ConfigureAwait(false);
+            }
+            catch (Exception ex)
+            {
+                logger.LogError(ex, "Failed to execute StoppedAsync for service plug-in.");
+            }
         }
     }
 

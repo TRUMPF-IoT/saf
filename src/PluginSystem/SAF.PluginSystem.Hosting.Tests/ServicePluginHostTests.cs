@@ -113,6 +113,27 @@ public class ServicePluginHostTests
     }
 
     [Fact]
+    public async Task StartingAsync_ShouldLogErrorAndContinue_WhenLifecyclePluginThrows()
+    {
+        // Arrange
+        var failingLifecyclePlugin = Substitute.For<ILifecycleServicePlugin>();
+        var succeedingLifecyclePlugin = Substitute.For<ILifecycleServicePlugin>();
+        failingLifecyclePlugin.StartingAsync(Arg.Any<CancellationToken>())
+            .Returns(Task.FromException(new Exception("Starting failed")));
+        _pluginServiceProvider.GetService(Arg.Is(typeof(IEnumerable<IServicePlugin>)))
+            .Returns(new List<IServicePlugin>() { failingLifecyclePlugin, succeedingLifecyclePlugin });
+
+        var service = new ServicePluginHost(_logger, _pluginServicesContainer);
+
+        // Act
+        await service.StartingAsync(CancellationToken.None);
+
+        // Assert
+        await succeedingLifecyclePlugin.Received(1).StartingAsync(Arg.Any<CancellationToken>());
+        _logger.Received(1).LogError(Arg.Any<Exception?>(), "Failed to execute StartingAsync for service plug-in.");
+    }
+
+    [Fact]
     public async Task StartedAsync_ShouldCallStartedAsyncOnAllLifecyclePlugins()
     {
         // Arrange
@@ -129,6 +150,27 @@ public class ServicePluginHostTests
         // Assert
         await lifecyclePlugin1.Received(1).StartedAsync(Arg.Any<CancellationToken>());
         await lifecyclePlugin2.Received(1).StartedAsync(Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task StartedAsync_ShouldLogErrorAndContinue_WhenLifecyclePluginThrows()
+    {
+        // Arrange
+        var failingLifecyclePlugin = Substitute.For<ILifecycleServicePlugin>();
+        var succeedingLifecyclePlugin = Substitute.For<ILifecycleServicePlugin>();
+        failingLifecyclePlugin.StartedAsync(Arg.Any<CancellationToken>())
+            .Returns(Task.FromException(new Exception("Started failed")));
+        _pluginServiceProvider.GetService(Arg.Is(typeof(IEnumerable<IServicePlugin>)))
+            .Returns(new List<IServicePlugin>() { failingLifecyclePlugin, succeedingLifecyclePlugin });
+
+        var service = new ServicePluginHost(_logger, _pluginServicesContainer);
+
+        // Act
+        await service.StartedAsync(CancellationToken.None);
+
+        // Assert
+        await succeedingLifecyclePlugin.Received(1).StartedAsync(Arg.Any<CancellationToken>());
+        _logger.Received(1).LogError(Arg.Any<Exception?>(), "Failed to execute StartedAsync for service plug-in.");
     }
 
     [Fact]
@@ -151,6 +193,27 @@ public class ServicePluginHostTests
     }
 
     [Fact]
+    public async Task StoppingAsync_ShouldLogErrorAndContinue_WhenLifecyclePluginThrows()
+    {
+        // Arrange
+        var failingLifecyclePlugin = Substitute.For<ILifecycleServicePlugin>();
+        var succeedingLifecyclePlugin = Substitute.For<ILifecycleServicePlugin>();
+        failingLifecyclePlugin.StoppingAsync(Arg.Any<CancellationToken>())
+            .Returns(Task.FromException(new Exception("Stopping failed")));
+        _pluginServiceProvider.GetService(Arg.Is(typeof(IEnumerable<IServicePlugin>)))
+            .Returns(new List<IServicePlugin>() { failingLifecyclePlugin, succeedingLifecyclePlugin });
+
+        var service = new ServicePluginHost(_logger, _pluginServicesContainer);
+
+        // Act
+        await service.StoppingAsync(CancellationToken.None);
+
+        // Assert
+        await succeedingLifecyclePlugin.Received(1).StoppingAsync(Arg.Any<CancellationToken>());
+        _logger.Received(1).LogError(Arg.Any<Exception?>(), "Failed to execute StoppingAsync for service plug-in.");
+    }
+
+    [Fact]
     public async Task StoppedAsync_ShouldCallStoppedAsyncOnAllLifecyclePlugins()
     {
         // Arrange
@@ -167,5 +230,26 @@ public class ServicePluginHostTests
         // Assert
         await lifecyclePlugin1.Received(1).StoppedAsync(Arg.Any<CancellationToken>());
         await lifecyclePlugin2.Received(1).StoppedAsync(Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task StoppedAsync_ShouldLogErrorAndContinue_WhenLifecyclePluginThrows()
+    {
+        // Arrange
+        var failingLifecyclePlugin = Substitute.For<ILifecycleServicePlugin>();
+        var succeedingLifecyclePlugin = Substitute.For<ILifecycleServicePlugin>();
+        failingLifecyclePlugin.StoppedAsync(Arg.Any<CancellationToken>())
+            .Returns(Task.FromException(new Exception("Stopped failed")));
+        _pluginServiceProvider.GetService(Arg.Is(typeof(IEnumerable<IServicePlugin>)))
+            .Returns(new List<IServicePlugin>() { failingLifecyclePlugin, succeedingLifecyclePlugin });
+
+        var service = new ServicePluginHost(_logger, _pluginServicesContainer);
+
+        // Act
+        await service.StoppedAsync(CancellationToken.None);
+
+        // Assert
+        await succeedingLifecyclePlugin.Received(1).StoppedAsync(Arg.Any<CancellationToken>());
+        _logger.Received(1).LogError(Arg.Any<Exception?>(), "Failed to execute StoppedAsync for service plug-in.");
     }
 }
