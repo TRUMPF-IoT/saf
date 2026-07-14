@@ -39,147 +39,109 @@ SAF uses a **factory pattern** so the same messaging backend can be used both as
 
 ```mermaid
 graph LR
-    HC[Host Container] -->|keyed singleton| F["IMessagingInfrastructureFactory\n(key = 'InProcess')"]
+    MPLUG["Messaging plug-in\n(e.g. SAF.Messaging.InProcess)"] -->|keyed singleton| F["IMessagingInfrastructureFactory\n(key = 'InProcess')"]
     RUNTIME["SAF.Messaging.Runtime\n(PluginManifest)"] -->|reads Messaging:PrimaryKey| F
     RUNTIME -->|registers| I[IMessagingInfrastructure]
-    I -->|injected into| PA[Plugin A]
-    I -->|injected into| PB[Plugin B]
+    I -->|imported into| PA[Plugin A]
+    I -->|imported into| PB[Plugin B]
 ```
 
-The `SAF.Messaging.Runtime` plugin provides `IMessagingInfrastructure` by reading `Messaging:PrimaryKey` from configuration and selecting the matching registered factory.
+Each messaging implementation is itself a **plug-in**: its `PluginManifest` registers a keyed `IMessagingInfrastructureFactory`. The separate `SAF.Messaging.Runtime` plug-in reads `Messaging:PrimaryKey` from configuration, selects the matching factory, and registers the resulting `IMessagingInfrastructure` (plus `IServiceMessageDispatcher`). Because these types live in `SAF.Messaging.Contracts.dll` — a public contract assembly — they are imported into every plugin container.
 
-When you use `builder.AddSafHost()`, `SAF.Messaging.Runtime.dll` is loaded automatically as one of SAF's built-in plugin assemblies. If you use the plugin system without `SAF.Hosting`, you must ensure that the assembly is included in your own plugin discovery configuration.
+**You do not register messaging in host code.** Instead you:
+1. Make the implementation DLL discoverable (add it to a plugin folder container's `IncludePatterns`, e.g. `SAF.Messaging.InProcess.dll`).
+2. Set `Messaging:PrimaryKey` to that implementation's key.
+3. Provide the implementation's configuration section (e.g. `Redis`, `Nats`) where required.
+
+When you use `builder.AddSafHost()`, `SAF.Messaging.Runtime.dll` is loaded automatically and `SAF.Messaging.Contracts.dll` is added to `PluginContractsSearchPattern` for you. If you use the plugin system without `SAF.Hosting`, you must include both yourself.
 
 ---
 
 ## Available Implementations
 
+For each implementation, add its DLL to your plugin discovery `IncludePatterns` and set `Messaging:PrimaryKey`. The `Add*Infrastructure` extension methods shown are what each plug-in's own `PluginManifest` calls internally — you normally only supply configuration.
+
 ### In-Process (Development / Tests)
 
 Messages are dispatched synchronously within the same process. No external dependencies.
 
-**Package:** `SAF.Messaging.InProcess`
-
-```csharp
-builder.Services.AddInProcessMessagingInfrastructure();
-```
-
-Configuration:
+**Package / plug-in DLL:** `SAF.Messaging.InProcess` (`SAF.Messaging.InProcess.dll`)
 
 ```json
-{ "Messaging": { "PrimaryKey": "InProcess" } }
+{
+  "Messaging": { "PrimaryKey": "InProcess" }
+}
 ```
 
 ### Redis
 
-Backed by [StackExchange.Redis](https://github.com/StackExchange/StackExchange.Redis). Suitable for multi-process or multi-machine deployments.
+Backed by [StackExchange.Redis](https://github.com/StackExchange/StackExchange.Redis). Suitable for multi-process or multi-machine deployments. The Redis plug-in registers **both** a messaging factory and `IStorageInfrastructure`.
 
-**Package:** `SAF.Messaging.Redis`
-
-```csharp
-builder.Services.AddRedisMessagingInfrastructure(cfg =>
-{
-    cfg.ConnectionString = "localhost:6379";
-    cfg.Timeout = 5000;
-});
-```
-
-Also provides Redis-backed storage:
-
-```csharp
-builder.Services.AddRedisInfrastructure(cfg =>
-{
-    cfg.ConnectionString = "localhost:6379";
-});
-// registers both IMessagingInfrastructureFactory and IStorageInfrastructure
-```
-
-Configuration:
+**Package / plug-in DLL:** `SAF.Messaging.Redis` (`SAF.Messaging.Redis.dll`)
 
 ```json
-{ "Messaging": { "PrimaryKey": "Redis" } }
+{
+  "Messaging": { "PrimaryKey": "Redis" },
+  "Redis": {
+    "ConnectionString": "localhost:6379",
+    "Timeout": 60000
+  }
+}
 ```
+
+> The plug-in reads the `Redis` section from the plugin settings file, falling back to host configuration.
 
 ### NATS
 
-Backed by [NATS.Net](https://nats.io). High-performance, cloud-native messaging.
+Backed by [NATS.Net](https://nats.io). High-performance, cloud-native messaging. Also provides NATS-backed storage.
 
-**Package:** `SAF.Messaging.NATS`
-
-```csharp
-builder.Services.AddNatsMessagingInfrastructure(cfg =>
-{
-    cfg.Url = "nats://localhost:4222";
-});
-```
-
-Also provides NATS-backed storage:
-
-```csharp
-builder.Services.AddNatsInfrastructure(cfg =>
-{
-    cfg.Url = "nats://localhost:4222";
-});
-```
-
-Configuration:
+**Package / plug-in DLL:** `SAF.Messaging.NATS` (`SAF.Messaging.Nats.dll`)
 
 ```json
-{ "Messaging": { "PrimaryKey": "Nats" } }
+{
+  "Messaging": { "PrimaryKey": "Nats" },
+  "Nats": { "Url": "nats://localhost:4222" }
+}
 ```
 
 ### C-DEngine
 
 Backed by [C-DEngine](https://github.com/TRUMPF-IoT/C-DEngine), a mesh-network framework for industrial IoT.
 
-**Package:** `SAF.Messaging.Cde`
-
-```csharp
-builder.Services.AddCdeMessagingInfrastructure(cfg => { /* CDE options */ });
-```
-
-Configuration:
+**Package / plug-in DLL:** `SAF.Messaging.Cde` (`SAF.Messaging.Cde.dll`)
 
 ```json
-{ "Messaging": { "PrimaryKey": "Cde" } }
+{
+  "Messaging": { "PrimaryKey": "Cde" },
+  "Cde": { /* C-DEngine options */ }
+}
 ```
 
 ### Routing (Multiple Brokers)
 
-Routes messages across multiple messaging infrastructures based on topic patterns.
+Routes messages across multiple messaging infrastructures based on topic patterns. Load the routing plug-in **and** each backend plug-in it references (e.g. `SAF.Messaging.InProcess.dll;SAF.Messaging.Redis.dll;SAF.Messaging.Routing.dll`), then configure the routes under `MessageRouting`.
 
-**Package:** `SAF.Messaging.Routing`
-
-```csharp
-// Register two backends first
-builder.Services.AddInProcessMessagingInfrastructure();
-builder.Services.AddRedisMessagingInfrastructure(cfg => cfg.ConnectionString = "localhost:6379");
-
-// Configure routing between them
-builder.Services.AddRoutingMessagingInfrastructure(cfg =>
-{
-    cfg.Routings = new[]
-    {
-        new RoutingConfiguration
-        {
-            Messaging = new MessagingConfiguration { Key = MessagingInfrastructureKeys.InProcess },
-            PublishPatterns = new[] { "local/.*" },
-            SubscriptionPatterns = new[] { "local/.*" }
-        },
-        new RoutingConfiguration
-        {
-            Messaging = new MessagingConfiguration { Key = MessagingInfrastructureKeys.Redis },
-            PublishPatterns = new[] { "remote/.*" },
-            SubscriptionPatterns = new[] { "remote/.*" }
-        }
-    };
-});
-```
-
-Configuration:
+**Package / plug-in DLL:** `SAF.Messaging.Routing` (`SAF.Messaging.Routing.dll`)
 
 ```json
-{ "Messaging": { "PrimaryKey": "Routing" } }
+{
+  "Messaging": { "PrimaryKey": "Routing" },
+  "MessageRouting": {
+    "Routings": [
+      {
+        "Messaging": { "Key": "InProcess" },
+        "PublishPatterns": [ "local/.*" ],
+        "SubscriptionPatterns": [ "local/.*" ]
+      },
+      {
+        "Messaging": { "Key": "Redis" },
+        "PublishPatterns": [ "remote/.*" ],
+        "SubscriptionPatterns": [ "remote/.*" ]
+      }
+    ]
+  },
+  "Redis": { "ConnectionString": "localhost:6379" }
+}
 ```
 
 ---
@@ -300,22 +262,32 @@ public class MyCustomMessaging : IMessagingInfrastructure
 }
 ```
 
-Register as a keyed factory:
+Expose it through a plug-in. Provide an extension method that registers a keyed factory, then call it from your plug-in's `PluginManifest` (mirroring how the built-in implementations work):
 
 ```csharp
-builder.Services.AddKeyedSingleton<IMessagingInfrastructureFactory>("MyBroker",
-    (sp, _) => new DelegatingMessagingInfrastructureFactory(
-        "MyBroker",
-        cfg => new MyCustomMessaging()));
+public static class ServiceCollectionExtensions
+{
+    public static IServiceCollection AddMyBrokerMessagingInfrastructure(this IServiceCollection services)
+        => services.AddKeyedSingleton<IMessagingInfrastructureFactory>("MyBroker",
+            (sp, _) => new DelegatingMessagingInfrastructureFactory(
+                "MyBroker",
+                cfg => new MyCustomMessaging()));
+}
+
+public class PluginManifest : IPluginManifest
+{
+    public void ConfigureServices(IPluginSystemHostContext context, IServiceCollection pluginServices)
+        => pluginServices.AddMyBrokerMessagingInfrastructure();
+}
 ```
 
-Add to configuration:
+Deploy the plug-in DLL (add it to your plugin discovery `IncludePatterns`) and select it:
 
 ```json
 { "Messaging": { "PrimaryKey": "MyBroker" } }
 ```
 
-The `SAF.Messaging.Runtime` plugin will resolve your factory and register it as `IMessagingInfrastructure`. With `AddSafHost()`, the runtime plugin is loaded automatically; otherwise include it in your own plugin discovery setup.
+The `SAF.Messaging.Runtime` plugin resolves your keyed factory and registers it as `IMessagingInfrastructure`. With `AddSafHost()`, the runtime plugin is loaded automatically; otherwise include `SAF.Messaging.Runtime.dll` in your own plugin discovery setup.
 
 ---
 

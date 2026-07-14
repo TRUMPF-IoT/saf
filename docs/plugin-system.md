@@ -135,36 +135,49 @@ StoppingAsync → StopAsync  → StoppedAsync
 
 ## DI Containers
 
-The plugin system maintains one DI container per plugin, all of which share services forwarded from the host container.
+The plugin system maintains one DI container per plugin. The host forwards a fixed set of common services into every plugin container, while public contract services registered by one plugin are imported into the others.
 
 ```mermaid
 graph TB
     subgraph HOST["Host Container (IHostApplicationBuilder.Services)"]
-        MSG[IMessagingInfrastructure]
-        STO[IStorageInfrastructure]
         LOG[ILoggerFactory]
         CFG[IConfiguration]
+        FS[IFileSystem]
         PSP[IPluginServiceProvider]
+        ENV[IPluginSystemHostEnvironment]
+    end
+
+    subgraph MP["Messaging/Storage Plugin Containers"]
+        MSG["IMessagingInfrastructure\n(via Runtime plugin)"]
+        STO[IStorageInfrastructure]
     end
 
     subgraph PA["Plugin A Container"]
-        MSG_A[IMessagingInfrastructure ←shared]
-        STO_A[IStorageInfrastructure ←shared]
+        MSG_A[IMessagingInfrastructure ←imported]
+        STO_A[IStorageInfrastructure ←imported]
         A_PRIV[PrivateServiceA]
         A_PUB[IMyContract → MyServiceA]
     end
 
     subgraph PB["Plugin B Container"]
-        MSG_B[IMessagingInfrastructure ←shared]
-        STO_B[IStorageInfrastructure ←shared]
+        MSG_B[IMessagingInfrastructure ←imported]
+        STO_B[IStorageInfrastructure ←imported]
         B_PRIV[PrivateServiceB]
     end
 
     HOST -->|forwarded| PA
     HOST -->|forwarded| PB
 
-    A_PUB -->|injected into every plugin container| PB
+    MSG -->|imported public| MSG_A
+    MSG -->|imported public| MSG_B
+    STO -->|imported public| STO_A
+    STO -->|imported public| STO_B
+
+    A_PUB -->|imported public| PB
 ```
+
+> `IMessagingInfrastructure` and `IStorageInfrastructure` are ordinary public contract services provided by the messaging/storage plug-ins — they reach other plugin containers through the same import mechanism as any application contract, not through host forwarding.
+
 
 **Key rules:**
 
@@ -298,13 +311,17 @@ Services are **not** forwarded into plugin containers automatically. Use `IHostS
 
 ## Plugin Settings
 
-Each plugin can have its own `pluginsettings.json` file. The plugin system loads it from:
+All plugins share a single plugin settings file, exposed to each manifest as `context.PluginConfiguration`. The plugin system loads it from:
 
 ```
-{PluginSettingsRootPath}/{AssemblyName}/pluginsettings.json
+{PluginSettingsRootPath}/{PluginSettingsFilePath}
 ```
 
-Access it via `context.PluginConfiguration` in `ConfigureServices`:
+with `PluginSettingsRootPath` defaulting to `.` and `PluginSettingsFilePath` defaulting to `./pluginsettings.json`. An optional environment-specific overlay named `{file}.{EnvironmentName}.json` (e.g. `pluginsettings.Development.json`) is layered on top if present. Both paths come from the `PluginSystem` configuration section.
+
+Because the file is shared, plugins keep their settings under distinct top-level sections (the built-in messaging/storage plugins use `Messaging`, `Redis`, `Nats`, `LiteDb`, `SQLite`, `MessageRouting`).
+
+Access your section via `context.PluginConfiguration` in `ConfigureServices`:
 
 ```csharp
 public void ConfigureServices(IPluginSystemHostContext context, IServiceCollection pluginServices)
@@ -314,7 +331,7 @@ public void ConfigureServices(IPluginSystemHostContext context, IServiceCollecti
 }
 ```
 
-Example `config/MyApp.Plugin.Publisher/pluginsettings.json`:
+Example `pluginsettings.json`:
 
 ```json
 {
@@ -324,6 +341,9 @@ Example `config/MyApp.Plugin.Publisher/pluginsettings.json`:
   }
 }
 ```
+
+> A plugin may also fall back to host configuration (`context.HostConfiguration`) — the built-in plugins read their section from `PluginConfiguration` first and fall back to `HostConfiguration`. In the simplest setups you can point `PluginSettingsFilePath` at the host's `appsettings.json` and keep everything in one file.
+
 
 ---
 

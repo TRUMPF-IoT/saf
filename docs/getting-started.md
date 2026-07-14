@@ -9,19 +9,21 @@ This guide walks you through creating a minimal SAF application from scratch: a 
 
 ## NuGet Packages
 
-Add the following packages to your host project:
+Reference the messaging/storage implementations in your **host** project. They are deployed as **plug-in assemblies** (their DLLs must end up next to the host binary so the plugin system can discover them) — you do **not** register them directly in code:
 
 ```xml
 <PackageReference Include="SAF.Hosting" />
 <PackageReference Include="SAF.Messaging.InProcess" />
-<PackageReference Include="SAF.Messaging.Runtime" />
 <PackageReference Include="SAF.Storage.LiteDb" />
 ```
+
+> `SAF.Messaging.Runtime` is pulled in transitively and auto-loaded by `AddSafHost` — you don't need to reference or configure it explicitly.
 
 Plug-in projects reference only the contracts:
 
 ```xml
 <PackageReference Include="SAF.PluginSystem.Hosting.Contracts" />
+<PackageReference Include="SAF.PluginSystem.Hosting.Extensions" />
 <PackageReference Include="SAF.Messaging.Contracts" />
 <PackageReference Include="SAF.Common" />
 ```
@@ -30,33 +32,29 @@ Plug-in projects reference only the contracts:
 
 ## Step 1 — Create the Host
 
-Create a console application `MyApp.Host` and configure the SAF host:
+Create a console application `MyApp.Host` and configure the SAF host. Infrastructure is **not** registered in code — it is loaded as plug-ins and selected via configuration:
 
 ```csharp
 // Program.cs
+using Microsoft.Extensions.Hosting;
 using SAF.Hosting;
-using SAF.Messaging.InProcess;
-using SAF.Messaging.Runtime;
-using SAF.Storage.LiteDb;
+using SAF.PluginSystem.Hosting;
 
 var builder = Host.CreateApplicationBuilder(args);
 
-// 1. Add the SAF host. It reads plugin settings from appsettings.json ("PluginSystem" section).
+// Add the SAF host. It binds the "PluginSystem" and "ServiceHost" configuration sections,
+// auto-loads SAF.Messaging.Runtime.dll, and adds SAF.Common.dll + SAF.Messaging.Contracts.dll
+// to the plugin contracts search pattern automatically.
 builder.AddSafHost()
-    // 2. Tell the plugin system where to look for plug-in assemblies.
+    // Tell the plugin system which assemblies to scan for IPluginManifest implementations.
+    // Include your own plug-ins AND the messaging/storage implementation plug-ins.
     .ConfigurePluginSystem(ps => ps.AddPluginAssemblyFolderContainer(options =>
     {
         options.SearchRootPath = AppContext.BaseDirectory;
-        options.IncludePatterns = "MyApp.Plugin.*.dll";
+        options.IncludePatterns =
+            "MyApp.Plugin.*.dll;SAF.Messaging.InProcess.dll;SAF.Storage.LiteDb.dll";
         options.Recursive = false;
     }));
-
-// 3. Register messaging infrastructure (in-process for development).
-builder.Services.AddInProcessMessagingInfrastructure();
-
-// 4. Register storage infrastructure.
-builder.Services.AddLiteDbStorageInfrastructure(cfg =>
-    cfg.ConnectionString = "Filename=app.db;Mode=Shared");
 
 var host = builder.Build();
 await host.RunAsync();
@@ -67,9 +65,8 @@ await host.RunAsync();
 ```json
 {
   "PluginSystem": {
-    "PluginSettingsRootPath": "./config",
-    "PluginSettingsFilePath": "./pluginsettings.json",
-    "PluginContractsSearchPattern": "MyApp.Contracts.dll"
+    "PluginSettingsRootPath": ".",
+    "PluginSettingsFilePath": "./pluginsettings.json"
   },
   "ServiceHost": {
     "Id": "my-app-node-1",
@@ -78,11 +75,19 @@ await host.RunAsync();
   },
   "Messaging": {
     "PrimaryKey": "InProcess"
+  },
+  "LiteDb": {
+    "ConnectionString": "Filename=app.db;Mode=Shared"
   }
 }
 ```
 
-> **Note:** `Messaging:PrimaryKey` tells `SAF.Messaging.Runtime` which registered messaging factory to use as the primary `IMessagingInfrastructure`. The value must match a key registered by one of the `Add*MessagingInfrastructure` calls (`InProcess`, `Redis`, `Nats`, `Routing`, …).
+> **How infrastructure gets wired:**
+> - The `SAF.Messaging.InProcess` plug-in registers a keyed `IMessagingInfrastructureFactory` under the key `"InProcess"`.
+> - The auto-loaded `SAF.Messaging.Runtime` plug-in reads `Messaging:PrimaryKey` and exposes the matching factory's output as the `IMessagingInfrastructure` that plug-ins inject.
+> - The `SAF.Storage.LiteDb` plug-in reads the `LiteDb` section and registers `IStorageInfrastructure`.
+>
+> `Messaging:PrimaryKey` must match a loaded messaging plug-in's key: `InProcess`, `Redis`, `Nats`, `Cde`, or `Routing`.
 
 ---
 
@@ -101,8 +106,7 @@ public class PluginManifest : IPluginManifest
 {
     public void ConfigureServices(IPluginSystemHostContext context, IServiceCollection pluginServices)
     {
-        pluginServices.AddSingleton<PublisherService>();
-        pluginServices.AddHostedServicePlugin<PublisherService>();
+        pluginServices.AddServicePlugin<PublisherService>();
     }
 }
 ```
@@ -134,7 +138,7 @@ public class PublisherService(IMessagingInfrastructure messaging) : IServicePlug
 }
 ```
 
-> `AddHostedServicePlugin<T>` (from `SAF.PluginSystem.Hosting.Extensions`) is a convenience method that registers `T` both as itself and as `IServicePlugin`, so the plugin system starts and stops it automatically.
+> `AddServicePlugin<T>` (from `SAF.PluginSystem.Hosting.Extensions`) registers `T` as an `IServicePlugin`, so the plugin system starts and stops it automatically. If other services in the same plug-in container also need `T` by its concrete type, register it additionally with `AddSingleton<T>()`.
 
 ---
 
@@ -153,8 +157,7 @@ public class PluginManifest : IPluginManifest
 {
     public void ConfigureServices(IPluginSystemHostContext context, IServiceCollection pluginServices)
     {
-        pluginServices.AddSingleton<SubscriberService>();
-        pluginServices.AddHostedServicePlugin<SubscriberService>();
+        pluginServices.AddServicePlugin<SubscriberService>();
     }
 }
 ```
@@ -213,7 +216,7 @@ MyApp/
     └── SubscriberService.cs
 ```
 
-Build and publish the plug-in assemblies next to the host binary (or into a subfolder). The `IncludePatterns` setting controls which DLLs are scanned for `IPluginManifest` implementations.
+Build and publish the plug-in assemblies next to the host binary. The `IncludePatterns` setting controls which DLLs are scanned for `IPluginManifest` implementations. Remember this must also include the messaging and storage implementation DLLs (`SAF.Messaging.InProcess.dll`, `SAF.Storage.LiteDb.dll`) since those are plug-ins too. `SAF.Messaging.Runtime.dll` is added automatically by `AddSafHost`.
 
 ---
 

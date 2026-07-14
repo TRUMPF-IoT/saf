@@ -34,72 +34,60 @@ The **area** parameter acts as a namespace. Two entries with the same key but di
 
 ## Available Implementations
 
+Like messaging, each storage backend is a **plug-in**: its `PluginManifest` reads a configuration section and registers `IStorageInfrastructure`. You do not register storage in host code — you deploy the plug-in DLL (add it to your plugin discovery `IncludePatterns`) and provide its configuration section. `IStorageInfrastructure` lives in `SAF.Common.dll` (a public contract assembly, added to `PluginContractsSearchPattern` automatically by `AddSafHost()`), so it is imported into every plugin container.
+
+> Load **one** storage plug-in per host. Loading several would register competing `IStorageInfrastructure` implementations.
+
 ### LiteDB
 
 Embedded NoSQL database. Zero external dependencies, suitable for single-node deployments.
 
-**Package:** `SAF.Storage.LiteDb`
+**Plug-in DLL:** `SAF.Storage.LiteDb.dll`
 
-```csharp
-builder.Services.AddLiteDbStorageInfrastructure(cfg =>
+```json
 {
-    cfg.ConnectionString = "Filename=app.db;Mode=Shared";
-});
+  "LiteDb": { "ConnectionString": "Filename=app.db;Mode=Shared" }
+}
 ```
 
-`ConnectionString` follows the [LiteDB connection string format](https://www.litedb.org/docs/connection-string/).
+`ConnectionString` follows the [LiteDB connection string format](https://www.litedb.org/docs/connection-string/). The plug-in also accepts the legacy section name `LiteDbConfiguration`.
 
 ### SQLite
 
 Embedded relational database, using `System.Data.SQLite`.
 
-**Package:** `SAF.Storage.SQLite`
+**Plug-in DLL:** `SAF.Storage.SQLite.dll`
 
-```csharp
-builder.Services.AddSQLiteStorageInfrastructure(cfg =>
+```json
 {
-    cfg.ConnectionString = "Data Source=app.db;Version=3;";
-});
+  "SQLite": { "ConnectionString": "Data Source=app.db;Version=3;" }
+}
 ```
+
+The plug-in also accepts the legacy section name `SQLiteConfiguration`.
 
 ### Redis
 
-Uses the same Redis connection as the messaging infrastructure. Suitable for shared state across multiple host instances.
+The `SAF.Messaging.Redis` plug-in registers `IStorageInfrastructure` alongside its messaging factory. Load `SAF.Messaging.Redis.dll` and configure the shared `Redis` section — the same connection backs both messaging and storage. Suitable for shared state across multiple host instances.
 
-**Package:** `SAF.Messaging.Redis`
+**Plug-in DLL:** `SAF.Messaging.Redis.dll`
 
-```csharp
-// Storage only
-builder.Services.AddRedisStorageInfrastructure(cfg =>
+```json
 {
-    cfg.ConnectionString = "localhost:6379";
-});
-
-// Or combined with Redis messaging in one call
-builder.Services.AddRedisInfrastructure(cfg =>
-{
-    cfg.ConnectionString = "localhost:6379";
-});
+  "Redis": { "ConnectionString": "localhost:6379" }
+}
 ```
 
 ### NATS (JetStream KV)
 
-Uses NATS JetStream as a key/value backend.
+The `SAF.Messaging.NATS` plug-in registers NATS JetStream-backed `IStorageInfrastructure` alongside its messaging factory. Load `SAF.Messaging.Nats.dll` and configure the shared `Nats` section.
 
-**Package:** `SAF.Messaging.NATS`
+**Plug-in DLL:** `SAF.Messaging.Nats.dll`
 
-```csharp
-// Storage only
-builder.Services.AddNatsStorageInfrastructure(cfg =>
+```json
 {
-    cfg.Url = "nats://localhost:4222";
-});
-
-// Or combined with NATS messaging
-builder.Services.AddNatsInfrastructure(cfg =>
-{
-    cfg.Url = "nats://localhost:4222";
-});
+  "Nats": { "Url": "nats://localhost:4222" }
+}
 ```
 
 ---
@@ -218,11 +206,17 @@ public class InMemoryStorage : IStorageInfrastructure
 }
 ```
 
-Register it:
+Register it from a plug-in's `PluginManifest`, so `IStorageInfrastructure` becomes an imported public service for all other plugins:
 
 ```csharp
-builder.Services.AddSingleton<IStorageInfrastructure, InMemoryStorage>();
+public class PluginManifest : IPluginManifest
+{
+    public void ConfigureServices(IPluginSystemHostContext context, IServiceCollection pluginServices)
+        => pluginServices.AddSingleton<IStorageInfrastructure, InMemoryStorage>();
+}
 ```
+
+Deploy the plug-in DLL by adding it to your plugin discovery `IncludePatterns`.
 
 ---
 

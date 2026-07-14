@@ -1,6 +1,6 @@
 # SAF Host
 
-The SAF Host is the top-level composition root for a SAF application. It wraps .NET's `IHostApplicationBuilder` (i.e. `Host.CreateApplicationBuilder`) and wires together the plugin system, service host info, infrastructure registrations, and optional diagnostics.
+The SAF Host is the top-level composition root for a SAF application. It wraps .NET's `IHostApplicationBuilder` (i.e. `Host.CreateApplicationBuilder`) and wires together the plugin system, service host info, and optional diagnostics. Messaging and storage infrastructure are **not** registered by the host directly — they are supplied by dedicated plug-ins and selected through configuration (see below).
 
 ## How It Fits Together
 
@@ -18,16 +18,27 @@ graph LR
 ```csharp
 var builder = Host.CreateApplicationBuilder(args);
 
-builder.AddSafHost();
-
-// Register at least one messaging infrastructure factory
-builder.Services.AddInProcessMessagingInfrastructure();
-
-// Register at least one storage infrastructure
-builder.Services.AddLiteDbStorageInfrastructure(c => c.ConnectionString = "Filename=app.db");
+builder.AddSafHost()
+    .ConfigurePluginSystem(ps => ps.AddPluginAssemblyFolderContainer(options =>
+    {
+        options.SearchRootPath = AppContext.BaseDirectory;
+        // Include your plug-ins AND the messaging/storage implementation plug-ins.
+        options.IncludePatterns =
+            "MyApp.Plugin.*.dll;SAF.Messaging.InProcess.dll;SAF.Storage.LiteDb.dll";
+        options.Recursive = false;
+    }));
 
 var host = builder.Build();
 await host.RunAsync();
+```
+
+Messaging and storage are provided by plug-ins, selected via configuration:
+
+```json
+{
+  "Messaging": { "PrimaryKey": "InProcess" },
+  "LiteDb":    { "ConnectionString": "Filename=app.db" }
+}
 ```
 
 `AddSafHost()` reads plugin system configuration from the `"PluginSystem"` section and service host info from the `"ServiceHost"` section of your configuration (e.g. `appsettings.json`). It also registers SAF's built-in plugin assemblies from the application base directory using an explicit allow-list.
@@ -214,39 +225,51 @@ services.AddSingleton<IHostServiceForwarder, HostServiceForwarder<MySharedSingle
 
 ## DI Container Layout
 
+The host container holds services that `AddSafHost()` forwards into every plugin container (`IServiceHostInfo`, loggers, configuration, `IPluginServiceProvider`, `IFileSystem`, `IPluginSystemHostEnvironment`).
+
+`IMessagingInfrastructure` and `IStorageInfrastructure` are **not** in the host container. They are registered inside the messaging/storage **plugin** containers and shared with other plugin containers as *public services* (because their contract assemblies — `SAF.Messaging.Contracts.dll`, `SAF.Common.dll` — are in `PluginContractsSearchPattern`).
+
 ```mermaid
 graph TB
     subgraph "Main (Host) Container"
         direction TB
-        MSI[IMessagingInfrastructure]
-        SSI[IStorageInfrastructure]
         SHI[IServiceHostInfo]
         LOG[ILogger / ILoggerFactory]
         CFG[IConfiguration]
+        FS[IFileSystem]
+        PSP[IPluginServiceProvider]
+    end
+
+    subgraph "Messaging Plugin Container"
+        MSF["IMessagingInfrastructureFactory\n(keyed, e.g. 'InProcess')"]
+    end
+
+    subgraph "Runtime Plugin Container"
+        MSI["IMessagingInfrastructure\n(resolves primary factory)"]
+        DISP[IServiceMessageDispatcher]
+    end
+
+    subgraph "Storage Plugin Container"
+        SSI[IStorageInfrastructure]
     end
 
     subgraph "Plugin A Container"
-        MSI_A[IMessagingInfrastructure\n(same instance)]
-        SSI_A[IStorageInfrastructure\n(same instance)]
-        SHI_A[IServiceHostInfo\n(same instance)]
-        PA_PRIV[PrivateServiceA\n(isolated)]
+        MSI_A["IMessagingInfrastructure\n(imported public service)"]
+        SSI_A["IStorageInfrastructure\n(imported public service)"]
+        SHI_A["IServiceHostInfo\n(forwarded)"]
+        PA_PRIV["PrivateServiceA\n(isolated)"]
     end
 
-    subgraph "Plugin B Container"
-        MSI_B[IMessagingInfrastructure\n(same instance)]
-        SSI_B[IStorageInfrastructure\n(same instance)]
-        SHI_B[IServiceHostInfo\n(same instance)]
-        PB_PRIV[PrivateServiceB\n(isolated)]
-    end
-
-    MSI -->|shared| MSI_A
-    MSI -->|shared| MSI_B
-    SSI -->|shared| SSI_A
-    SSI -->|shared| SSI_B
-    SHI -->|shared| SHI_A
-    SHI -->|shared| SHI_B
+    SHI -->|forwarded| SHI_A
+    MSF -->|imported| MSI
+    MSI -->|imported public| MSI_A
+    SSI -->|imported public| SSI_A
 ```
 
-Infrastructure services from the main container are forwarded into every plugin container. Private plugin services remain invisible to other plugins.
+**Two distinct sharing mechanisms:**
+- **Host → plugin forwarding** (`IServiceHostInfo`, loggers, `IFileSystem`, …) via `IHostServiceForwarder` / `RedirectCommonServices`.
+- **Plugin → plugin imports** for public contract types (`IMessagingInfrastructure`, `IMessagingInfrastructureFactory`, `IServiceMessageDispatcher`, `IStorageInfrastructure`) matched by `PluginContractsSearchPattern`.
+
+Private plugin services (registered against non-contract types) remain invisible to other plugins.
 
 > For a full explanation of the DI model, see [Plugin System — DI Containers](./plugin-system.md#di-containers).

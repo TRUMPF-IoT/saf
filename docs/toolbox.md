@@ -134,10 +134,10 @@ public class OrderResponder(IMessagingInfrastructure messaging) : IMessageHandle
             Status  = "Confirmed"
         };
 
-        // Reply to the dynamically generated reply topic carried in the request
+        // Reply to the reply channel carried in the request
         messaging.Publish(new Message
         {
-            Topic   = request.ReplyTopic,
+            Topic   = request.ReplyTo!,
             Payload = JsonSerializer.Serialize(response)
         });
     }
@@ -180,65 +180,61 @@ Transfers files between SAF hosts by chunking them over the messaging infrastruc
 
 | Type | Description |
 |---|---|
-| `IFileSender` | Splits a file into chunks and publishes them |
-| `IFileReceiver` | Subscribes to chunks and reassembles the file |
-| `IStatefulFileReceiver` | Stateful receiver with events (`Completed`, `Progress`, `Error`) |
+| `IFileSender` | Chunks a file and transfers it to a topic (`SendAsync(topic, fullFilePath, timeoutMs)`) |
+| `IStatefulFileReceiverFactory` | Creates a stateful receiver bound to a destination folder (`CreateForFolder(folderPath)`) |
+| `IStatefulFileReceiver` | Reassembles incoming chunks; raises `TargetFilePathResolved`, `BeforeFileReceived`, `FileReceived` |
+| `IFileReceiver` | Wires a stateful receiver to a topic (`Subscribe(topic, receiver)` / `Unsubscribe`) |
 
 ### Registration
 
 ```csharp
 pluginServices.AddFileHandling();
 pluginServices.AddFileSender();
-pluginServices.AddFileReceiver();
-// or for the stateful variant:
-pluginServices.AddStatefulFileReceiver();
+pluginServices.AddFileReceiver();  // also registers IStatefulFileReceiverFactory
 ```
 
 ### Sending a File
 
+`SendAsync` takes the destination topic, the full path of the file, and a timeout in milliseconds. It returns a `FileTransferStatus`.
+
 ```csharp
 public class FirmwareUpdater(IFileSender sender)
 {
-    public async Task SendFirmwareAsync(string filePath, string targetTopic)
+    public async Task<FileTransferStatus> SendFirmwareAsync(string filePath, string targetTopic)
     {
-        await sender.SendAsync(new FileSenderOptions
-        {
-            FilePath    = filePath,
-            TargetTopic = targetTopic,
-            ChunkSize   = 64 * 1024  // 64 KB chunks
-        });
+        return await sender.SendAsync(targetTopic, filePath, timeoutMs: 60_000)
+            .ConfigureAwait(false);
     }
 }
 ```
 
 ### Receiving a File (Stateful)
 
-```csharp
-public class FirmwareReceiver : IServicePlugin
-{
-    private readonly IStatefulFileReceiverFactory _factory;
-    private IStatefulFileReceiver? _receiver;
+Create a receiver for a destination folder, subscribe it to a topic via `IFileReceiver`, and handle the `FileReceived` event.
 
-    public FirmwareReceiver(IStatefulFileReceiverFactory factory) => _factory = factory;
+```csharp
+public class FirmwareReceiver(
+    IFileReceiver fileReceiver,
+    IStatefulFileReceiverFactory receiverFactory) : IServicePlugin
+{
+    private const string Topic = "firmware/update";
+    private IStatefulFileReceiver? _receiver;
 
     public Task StartAsync(CancellationToken token)
     {
-        _receiver = _factory.Create(new FileReceiverOptions
-        {
-            SubscribeTopic    = @"firmware/update/.*",
-            DestinationFolder = "./firmware"
-        });
+        _receiver = receiverFactory.CreateForFolder("./firmware");
 
-        _receiver.Completed += (_, e) =>
-            Console.WriteLine($"Firmware received: {e.FilePath}");
+        _receiver.FileReceived += (_, e) =>
+            Console.WriteLine($"Firmware received: {e.LocalFileFullName}");
 
-        _receiver.Start();
+        fileReceiver.Subscribe(Topic, _receiver);
         return Task.CompletedTask;
     }
 
     public Task StopAsync(CancellationToken token)
     {
-        _receiver?.Stop();
+        fileReceiver.Unsubscribe(Topic);
+        _receiver?.Dispose();
         return Task.CompletedTask;
     }
 }
@@ -265,6 +261,5 @@ pluginServices.AddRequestClient();          // request/reply helper
 pluginServices.AddFileHandling();           // IDirectoryInfo
 
 pluginServices.AddFileSender();             // IFileSender
-pluginServices.AddFileReceiver();           // IFileReceiver
-pluginServices.AddStatefulFileReceiver();   // IStatefulFileReceiverFactory
+pluginServices.AddFileReceiver();           // IFileReceiver + IStatefulFileReceiverFactory
 ```

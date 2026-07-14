@@ -14,13 +14,13 @@ This document describes every breaking change and the steps needed to migrate fr
 | Plugin interface | `IServiceAssemblyManifest` with `RegisterDependencies(IServiceCollection)` | `IPluginManifest` with `ConfigureServices(IPluginSystemHostContext, IServiceCollection)` |
 | Plugin lifecycle | None / manual | `IServicePlugin` / `ILifecycleServicePlugin` |
 | Plugin context | Not available | `IPluginSystemHostContext` (host config, plugin config, environment) |
-| Plugin settings | Single config file | Per-plugin `pluginsettings.json` resolved via `IPluginSystemHostContext` |
-| C-DEngine infrastructure | `AddCdeInfrastructure()` (messaging + storage in one call) | Separate: `AddCdeMessagingInfrastructure()`, `AddCdeStorageInfrastructure()` |
+| Plugin settings | Single config file | Shared plugin settings file via `IPluginSystemHostContext.PluginConfiguration` (with host-config fallback) |
+| Infrastructure registration | `AddCdeInfrastructure()` etc. on the host `IServiceCollection` | Messaging/storage are **plug-ins**; loaded by DLL discovery and selected via configuration (`Messaging:PrimaryKey`, backend sections) |
 | Messaging namespace | `SAF.Common.IMessagingInfrastructure` | `SAF.Messaging.Contracts.IMessagingInfrastructure` |
 | Runtime plugin | Not required | `SAF.Messaging.Runtime` must be available to the plugin system; `AddSafHost()` loads it automatically as a built-in plug-in |
-| `IMessagingInfrastructure` registration | Direct `IServiceCollection` singleton | Factory pattern: `IMessagingInfrastructureFactory` (keyed) + `SAF.Messaging.Runtime` resolves the primary |
+| `IMessagingInfrastructure` registration | Direct `IServiceCollection` singleton | Factory pattern: a messaging plug-in registers a keyed `IMessagingInfrastructureFactory`; `SAF.Messaging.Runtime` resolves the primary via `Messaging:PrimaryKey` |
 | Storage namespace | `SAF.Common.IStorageInfrastructure` | Still `SAF.Common.IStorageInfrastructure` (unchanged) |
-| Cross-plugin services | Not supported | `IPluginServiceProvider` |
+| Cross-plugin services | Not supported | Public contract services imported across plugin containers; `IPluginServiceProvider` for dynamic resolution |
 
 ---
 
@@ -49,24 +49,21 @@ builder.AddSafHost()
     .ConfigurePluginSystem(ps => ps.AddPluginAssemblyFolderContainer(options =>
     {
         options.SearchRootPath = AppContext.BaseDirectory;
-        options.IncludePatterns = "MyApp.Plugin.*.dll";
+        // Include your plug-ins AND the infrastructure plug-ins you want to load.
+        options.IncludePatterns = "MyApp.Plugin.*.dll;SAF.Messaging.Cde.dll";
     }));
-
-// Infrastructure registered separately
-builder.Services.AddCdeMessagingInfrastructure(cfg => { /* ... */ });
-builder.Services.AddCdeStorageInfrastructure(cfg => { /* ... */ });
 
 var host = builder.Build();
 await host.RunAsync();
 ```
 
-Configuration that was previously passed as callbacks is now in `appsettings.json`:
+Infrastructure is **not** registered in host code anymore. Instead you deploy the infrastructure plug-in DLLs and select/configure them through configuration (`appsettings.json` or the plugin settings file):
 
 ```json
 {
   "PluginSystem": {
-    "PluginSettingsRootPath": "./config",
-    "PluginContractsSearchPattern": "MyApp.Contracts.dll"
+    "PluginSettingsRootPath": ".",
+    "PluginSettingsFilePath": "./pluginsettings.json"
   },
   "ServiceHost": {
     "Id": "node-1",
@@ -221,15 +218,10 @@ public class MyWorker(IMessagingInfrastructure messaging) : IServicePlugin
 Register in the manifest:
 
 ```csharp
-pluginServices.AddSingleton<MyWorker>();
 pluginServices.AddServicePlugin<MyWorker>();
 ```
 
-Or use the convenience extension:
-
-```csharp
-pluginServices.AddHostedServicePlugin<MyWorker>();
-```
+If other services in the same plug-in container also need `MyWorker` by its concrete type, additionally register `pluginServices.AddSingleton<MyWorker>()`.
 
 ---
 
@@ -241,13 +233,7 @@ Configuration was typically read directly from `IConfiguration` injected from th
 
 ### After
 
-Each plugin can have its own `pluginsettings.json` file placed in:
-
-```
-{PluginSettingsRootPath}/{AssemblyName}/pluginsettings.json
-```
-
-Access via `context.PluginConfiguration`:
+All plugins share a single plugin settings file, resolved from `{PluginSettingsRootPath}/{PluginSettingsFilePath}` (defaults: `.` and `./pluginsettings.json`) plus an optional `{file}.{EnvironmentName}.json` overlay. Each plugin reads its own top-level section. It is exposed as `context.PluginConfiguration`:
 
 ```csharp
 public void ConfigureServices(IPluginSystemHostContext context, IServiceCollection pluginServices)
@@ -257,28 +243,28 @@ public void ConfigureServices(IPluginSystemHostContext context, IServiceCollecti
 }
 ```
 
-You can still read from `context.HostConfiguration` for shared/host-level configuration.
+You can still read from `context.HostConfiguration` for shared/host-level configuration. In the simplest setups, point `PluginSettingsFilePath` at the host's `appsettings.json` and keep everything in one file.
 
 ---
 
-## Step 7 — Migrate Infrastructure Registration
+## Step 7 — Deploy Infrastructure as Plug-ins
 
-### C-DEngine
+In 10.x you registered messaging and storage on the host `IServiceCollection` (e.g. `AddCdeInfrastructure()`, `AddRedisMessagingInfrastructure()`). In 11.x each infrastructure is a **plug-in**; the `Add*Infrastructure` extension methods are called by the plug-in's own `PluginManifest`, not by your host.
 
-| Before | After |
+To migrate, for each infrastructure you used:
+
+1. **Deploy the plug-in DLL** and make it discoverable via a plugin folder container's `IncludePatterns` (e.g. `SAF.Messaging.Cde.dll`, `SAF.Messaging.Redis.dll`, `SAF.Storage.LiteDb.dll`).
+2. **Select the messaging backend** with `Messaging:PrimaryKey` (`Cde`, `Redis`, `Nats`, `InProcess`, `Routing`).
+3. **Provide the backend's configuration section** (`Cde`, `Redis`, `Nats`, `LiteDb`, `SQLite`, `MessageRouting`).
+
+| 10.x host call | 11.x plug-in + configuration |
 |---|---|
-| `services.AddCdeInfrastructure(cfg => { })` | `builder.Services.AddCdeMessagingInfrastructure(cfg => { })` |
-| | `builder.Services.AddCdeStorageInfrastructure(cfg => { })` |
+| `services.AddCdeInfrastructure(...)` | Load `SAF.Messaging.Cde.dll`; `Messaging:PrimaryKey = "Cde"`; `Cde` section |
+| `services.AddRedisInfrastructure(...)` | Load `SAF.Messaging.Redis.dll`; `Messaging:PrimaryKey = "Redis"`; `Redis` section (provides messaging **and** storage) |
+| `services.AddLiteDbStorageInfrastructure(...)` | Load `SAF.Storage.LiteDb.dll`; `LiteDb` section |
+| `services.AddSQLiteStorageInfrastructure(...)` | Load `SAF.Storage.SQLite.dll`; `SQLite` section |
 
-### Redis
-
-| Before | After |
-|---|---|
-| `services.AddRedisMessagingInfrastructure("localhost:6379")` | `builder.Services.AddRedisMessagingInfrastructure(cfg => cfg.ConnectionString = "localhost:6379")` |
-
-### Storage
-
-LiteDB and SQLite registrations are unchanged in their API shape; only ensure they are called on `builder.Services`, not on a standalone `ServiceCollection`.
+See [Messaging Infrastructure](./messaging.md) and [Storage Infrastructure](./storage.md) for the exact configuration sections.
 
 ---
 
@@ -300,8 +286,8 @@ Update your `.csproj` files:
 - [ ] Rename `IServiceAssemblyManifest` → `IPluginManifest`
 - [ ] Rename `RegisterDependencies(IServiceCollection)` → `ConfigureServices(IPluginSystemHostContext, IServiceCollection)`
 - [ ] Update `using SAF.Common` → `using SAF.Messaging.Contracts` for messaging types
-- [ ] Configure `Messaging:PrimaryKey` in `appsettings.json`
+- [ ] Configure `Messaging:PrimaryKey` in configuration
 - [ ] Ensure `SAF.Messaging.Runtime.dll` is discoverable by the plugin system (automatic with `AddSafHost()`)
-- [ ] Replace manual lifecycle background tasks with `IServicePlugin` / `ILifecycleServicePlugin`
-- [ ] Move plugin-specific config to per-plugin `pluginsettings.json` files
-- [ ] Replace `AddCdeInfrastructure()` with separate `AddCdeMessagingInfrastructure()` + `AddCdeStorageInfrastructure()`
+- [ ] Replace manual lifecycle background tasks with `IServicePlugin` / `ILifecycleServicePlugin` registered via `AddServicePlugin<T>()`
+- [ ] Move plugin configuration into the shared plugin settings file (or host `appsettings.json`) under a per-plugin section
+- [ ] Deploy messaging/storage as plug-ins (add their DLLs to `IncludePatterns`) instead of calling `Add*Infrastructure()` on the host
