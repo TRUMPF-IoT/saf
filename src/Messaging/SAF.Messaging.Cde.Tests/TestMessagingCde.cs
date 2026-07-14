@@ -42,7 +42,7 @@ public class TestMessagingCde
         test.Patterns.Returns(["*"]);
         subscriber.Subscribe(Arg.Any<RoutingOptions>(), Arg.Any<string>()).Returns(test);
 
-        Messaging messaging = new(null, smd, publisher, subscriber, null);
+        Messaging messaging = new(null, smd, publisher, subscriber);
         messaging.Unsubscribe(null!);
         test.DidNotReceive().Unsubscribe();
         messaging.Unsubscribe("");
