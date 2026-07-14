@@ -267,4 +267,40 @@ public class PluginAssemblyFolderContainerTests
         // Assert – same manifest objects returned, not new ones
         Assert.Equal(firstCall, secondCall);
     }
+
+    [Fact]
+    public void GetPluginManifests_ContinuesWhenAssemblyCannotBeLoaded()
+    {
+        // Arrange
+        var testDirectory = Path.Combine(AppContext.BaseDirectory, $"test-plugins-{Guid.NewGuid():N}");
+        _fileSystem.Directory.CreateDirectory(testDirectory);
+
+        var invalidAssemblyPath = Path.Combine(testDirectory, "invalid.native.dll");
+        _fileSystem.File.WriteAllBytes(invalidAssemblyPath, [0x01, 0x02, 0x03, 0x04]);
+
+        var validAssemblyPath = Path.Combine(testDirectory, "valid.managed.dll");
+        _fileSystem.File.Copy(Path.Combine(AppContext.BaseDirectory, "SAF.PluginSystem.Hosting.Tests.dll"), validAssemblyPath);
+
+        var manifest = Substitute.For<IPluginManifest>();
+        var manifestLoader = Substitute.For<IPluginManifestLoader>();
+        manifestLoader.LoadPluginManifest(Arg.Any<Assembly>()).Returns(manifest);
+
+        var options = new PluginAssemblyFolderSearchOptions
+        {
+            SearchRootPath = testDirectory,
+            IncludePatterns = "*.dll",
+            ExcludePatterns = string.Empty,
+            Recursive = false
+        };
+
+        var container = new PluginAssemblyFolderContainer(_loggerFactory, manifestLoader, options, _fileSystem);
+
+        // Act
+        var result = container.GetPluginManifests().ToList();
+
+        // Assert
+        Assert.Single(result);
+        Assert.Same(manifest, result[0]);
+        manifestLoader.Received(1).LoadPluginManifest(Arg.Any<Assembly>());
+    }
 }

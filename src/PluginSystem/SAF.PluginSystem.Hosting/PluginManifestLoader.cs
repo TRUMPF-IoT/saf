@@ -13,7 +13,7 @@ internal sealed class PluginManifestLoader : IPluginManifestLoader
     {
         ArgumentNullException.ThrowIfNull(assembly);
 
-        foreach (var type in assembly.GetTypes())
+        foreach (var type in GetLoadableTypes(assembly))
         {
             if (!type.IsClass || type.IsAbstract || !typeof(IPluginManifest).IsAssignableFrom(type))
             {
@@ -24,5 +24,17 @@ internal sealed class PluginManifestLoader : IPluginManifestLoader
         }
 
         return null;
+    }
+
+    private static IEnumerable<Type> GetLoadableTypes(Assembly assembly)
+    {
+        try
+        {
+            return assembly.GetTypes();
+        }
+        catch (ReflectionTypeLoadException ex)
+        {
+            return ex.Types.OfType<Type>();
+        }
     }
 }

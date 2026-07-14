@@ -6,6 +6,8 @@ namespace SAF.PluginSystem.Hosting.Tests;
 
 using Contracts;
 using Microsoft.Extensions.DependencyInjection;
+using NSubstitute;
+using System.Reflection;
 
 public class AssemblyExtensionsTests
 {
@@ -41,5 +43,24 @@ public class AssemblyExtensionsTests
 
         // Assert
         Assert.Null(result);
+    }
+
+    [Fact]
+    public void LoadPluginManifest_ShouldReturnPluginManifest_WhenAssemblyGetTypesThrowsReflectionTypeLoadException()
+    {
+        // Arrange
+        var assembly = Substitute.For<Assembly>();
+        var reflectionTypeLoadException = new ReflectionTypeLoadException(
+            [typeof(string), null, typeof(TestPluginManifest)],
+            [new TypeLoadException("Type load failed")]);
+
+        assembly.GetTypes().Returns(_ => throw reflectionTypeLoadException);
+
+        // Act
+        var result = _manifestLoader.LoadPluginManifest(assembly);
+
+        // Assert
+        Assert.NotNull(result);
+        Assert.IsType<TestPluginManifest>(result);
     }
 }

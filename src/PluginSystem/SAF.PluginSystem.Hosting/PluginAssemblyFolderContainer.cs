@@ -8,8 +8,10 @@ using Contracts;
 using Microsoft.Extensions.FileSystemGlobbing;
 using Microsoft.Extensions.Logging;
 using System.Collections.Generic;
-using System.Runtime.Loader;
+using System.IO;
 using System.IO.Abstractions;
+using System.Reflection;
+using System.Runtime.Loader;
 
 /// <inheritdoc />
 public class PluginAssemblyFolderContainer(
@@ -80,6 +82,8 @@ public class PluginAssemblyFolderContainer(
 
     private IEnumerable<IPluginManifest> LoadManifests(List<string> pluginAssemblyPaths)
     {
+        List<IPluginManifest> manifests = [];
+
         foreach (var pluginAssemblyPath in pluginAssemblyPaths)
         {
             _logger.LogDebug("Create AssemblyLoadContext for {PluginAssemblyPath}", pluginAssemblyPath);
@@ -93,18 +97,26 @@ public class PluginAssemblyFolderContainer(
                 ? AssemblyLoadContext.Default
                 : new PluginAssemblyLoadContext(loggerFactory, pluginAssemblyPath, _fileSystem);
 
-            var assembly = pluginLoadContext.LoadFromAssemblyPath(pluginAssemblyPath);
-            var manifest = _manifestLoader.LoadPluginManifest(assembly);
-
-            if (manifest == null)
+            try
             {
-                _logger.LogWarning("Can't find manifest in {Assembly} from {AssemblyLocation}, skipping assembly.", assembly, assembly.Location);
-                continue;
+                var assembly = pluginLoadContext.LoadFromAssemblyPath(pluginAssemblyPath);
+                var manifest = _manifestLoader.LoadPluginManifest(assembly);
+
+                if (manifest == null)
+                {
+                    _logger.LogWarning("Can't find manifest in {Assembly} from {AssemblyLocation}, skipping assembly.", assembly, assembly.Location);
+                    continue;
+                }
+
+                _logger.LogDebug("Found manifest in {Assembly} from {AssemblyLocation}", assembly, assembly.Location);
+                manifests.Add(manifest);
             }
-
-            _logger.LogDebug("Found manifest in {Assembly} from {AssemblyLocation}", assembly, assembly.Location);
-
-            yield return manifest;
+            catch (Exception ex) when (ex is BadImageFormatException or FileLoadException or FileNotFoundException or ReflectionTypeLoadException or TypeLoadException)
+            {
+                _logger.LogError(ex, "Failed to load plugin manifest from {PluginAssemblyPath}, skipping assembly.", pluginAssemblyPath);
+            }
         }
+
+        return manifests;
     }
 }
