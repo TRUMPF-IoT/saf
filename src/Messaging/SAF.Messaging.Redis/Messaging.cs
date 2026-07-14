@@ -28,22 +28,20 @@ internal sealed class Messaging : IMessagingInfrastructure, IDisposable
 {
     private readonly IConnectionMultiplexer _redis;
     private readonly IServiceMessageDispatcher _serviceMessageDispatcher;
-    private readonly Action<Message>? _traceAction;
     private readonly ILogger<Messaging> _log;
 
     private readonly ConcurrentDictionary<Guid, (string routeFilterPattern, Action<RedisChannel, RedisValue> handler)> _subscriptions = new();
 
-    public Messaging(ILogger<Messaging>? log, IConnectionMultiplexer redis, IServiceMessageDispatcher serviceMessageDispatcher, Action<Message>? traceAction)
+    public Messaging(ILogger<Messaging>? log, IConnectionMultiplexer redis, IServiceMessageDispatcher serviceMessageDispatcher)
     {
         _log = log ?? NullLogger<Messaging>.Instance;
         _redis = redis;
         _serviceMessageDispatcher = serviceMessageDispatcher;
-        _traceAction = traceAction;
     }
 
     public void Publish(Message message)
     {
-        _traceAction?.Invoke(message);
+        _log.LogTrace("Publishing message for topic {Topic}.", message.Topic);
         try
         {
             var redisPayload = JsonSerializer.Serialize(new RedisMessage {Message = message, Version = RedisMessageVersion.Latest});

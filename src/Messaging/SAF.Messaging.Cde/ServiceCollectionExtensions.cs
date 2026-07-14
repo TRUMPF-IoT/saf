@@ -31,7 +31,7 @@ public static class ServiceCollectionExtensions
             });
     }
 
-    public static IServiceCollection AddCdeMessagingInfrastructure(this IServiceCollection collection, Action<Message>? traceAction = null)
+    public static IServiceCollection AddCdeMessagingInfrastructure(this IServiceCollection collection)
         => collection.AddCdePubSubServices()
             .AddKeyedSingleton<IMessagingInfrastructureFactory>(MessagingInfrastructureKeys.Cde,
                 (sp, _) => new DelegatingMessagingInfrastructureFactory(
@@ -45,10 +45,10 @@ public static class ServiceCollectionExtensions
             return new Storage(sp.GetService<ILogger<Storage>>());
         });
 
-    public static IServiceCollection AddCdeInfrastructure(this IServiceCollection collection, Action<CdeConfiguration> configure, Action<Message>? traceAction = null)
+    public static IServiceCollection AddCdeInfrastructure(this IServiceCollection collection, Action<CdeConfiguration> configure)
     {
         return collection.AddCde(configure)
-            .AddCdeMessagingInfrastructure(traceAction)
+            .AddCdeMessagingInfrastructure()
             .AddCdeStorageInfrastructure();
     }
 
@@ -57,7 +57,6 @@ public static class ServiceCollectionExtensions
             ResolveMessageDispatcher(serviceProvider),
             serviceProvider.GetRequiredService<IPublisher>(),
             serviceProvider.GetRequiredService<ISubscriber>(),
-            null,
             config.Config is null || config.Config.Count == 0 ? new CdeMessagingConfiguration() : new CdeMessagingConfiguration(config));
 
     private static IServiceMessageDispatcher ResolveMessageDispatcher(IServiceProvider serviceProvider)

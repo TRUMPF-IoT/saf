@@ -17,14 +17,13 @@ internal sealed class Messaging : IMessagingInfrastructure, IDisposable
     private readonly IInputRouteTranslator _inputRouteTranslator;
     private readonly IOutputRouteTranslator _outputRouteTranslator;
     private readonly IServiceMessageDispatcher _serviceMessageDispatcher;
-    private readonly Action<Message>? _traceAction;
     private readonly ILogger<Messaging> _logger;
 
     public Messaging(ILogger<Messaging>? logger, INatsClient natsClient,
         INatsSubscriptionManager subscriptionManager,
         IInputRouteTranslator inputRouteTranslator,
         IOutputRouteTranslator outputRouteTranslator,
-        IServiceMessageDispatcher serviceMessageDispatcher, Action<Message>? traceAction)
+        IServiceMessageDispatcher serviceMessageDispatcher)
     {
         _logger = logger ?? NullLogger<Messaging>.Instance;
         _natsClient = natsClient;
@@ -32,12 +31,11 @@ internal sealed class Messaging : IMessagingInfrastructure, IDisposable
         _inputRouteTranslator = inputRouteTranslator;
         _outputRouteTranslator = outputRouteTranslator;
         _serviceMessageDispatcher = serviceMessageDispatcher;
-        _traceAction = traceAction;
     }
 
     public void Publish(Message message)
     {
-        _traceAction?.Invoke(message);
+        _logger.LogTrace("Publishing message for topic {Topic}.", message.Topic);
 
         try
         {

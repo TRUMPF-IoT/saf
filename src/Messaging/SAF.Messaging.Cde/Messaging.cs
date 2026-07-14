@@ -20,16 +20,15 @@ internal class Messaging : IMessagingInfrastructure
     private readonly IServiceMessageDispatcher _dispatcher;
     private readonly IPublisher _publisher;
     private readonly ISubscriber _subscriber;
-    private readonly Action<Message>? _traceAction;
     private readonly CdeMessagingConfiguration _config;
 
     private readonly ConcurrentDictionary<string, (string pattern, ISubscription subscription)> _subscriptions = new();
 
-    public Messaging(ILogger<Messaging>? log, IServiceMessageDispatcher dispatcher, IPublisher publisher, ISubscriber subscriber, Action<Message>? traceAction)
-        : this(log, dispatcher, publisher, subscriber, traceAction, new CdeMessagingConfiguration())
+    public Messaging(ILogger<Messaging>? log, IServiceMessageDispatcher dispatcher, IPublisher publisher, ISubscriber subscriber)
+        : this(log, dispatcher, publisher, subscriber, new CdeMessagingConfiguration())
     { }
 
-    public Messaging(ILogger<Messaging>? log, IServiceMessageDispatcher dispatcher, IPublisher publisher, ISubscriber subscriber, Action<Message>? traceAction, CdeMessagingConfiguration config)
+    public Messaging(ILogger<Messaging>? log, IServiceMessageDispatcher dispatcher, IPublisher publisher, ISubscriber subscriber, CdeMessagingConfiguration config)
     {
         _log = log ?? NullLogger<Messaging>.Instance;
         _dispatcher = dispatcher;
@@ -37,15 +36,13 @@ internal class Messaging : IMessagingInfrastructure
         _publisher = publisher;
         _subscriber = subscriber;
 
-        _traceAction = traceAction;
-
         _config = config;
     }
 
     public void Publish(Message message)
     {
         _log.LogDebug($"Publish message \"{message.Topic}\" with RelayOptions={_config.RoutingOptions}.");
-        _traceAction?.Invoke(message);
+        _log.LogTrace("Publishing message for topic {Topic}.", message.Topic);
 
         _publisher.Publish(message, _config.RoutingOptions);
     }

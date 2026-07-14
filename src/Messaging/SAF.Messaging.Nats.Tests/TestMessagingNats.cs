@@ -21,7 +21,7 @@ public class TestMessagingNats
         var subscriptionManager = Substitute.For<INatsSubscriptionManager>();
         var natsClient = Substitute.For<INatsClient>();
 
-        var messaging = new Messaging(null, natsClient, subscriptionManager, inputRouteTranslator, outputRouteTranslator, smd, null);
+        var messaging = new Messaging(null, natsClient, subscriptionManager, inputRouteTranslator, outputRouteTranslator, smd);
         messaging.Unsubscribe(null!);
         subscriptionManager.DidNotReceive().TryRemove(Arg.Any<Guid>(), out _);
 

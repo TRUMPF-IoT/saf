@@ -15,7 +15,6 @@ internal class InProcessMessaging : IMessagingInfrastructure, IDisposable
 
     private readonly ILogger<InProcessMessaging> _log;
     private readonly IServiceMessageDispatcher _messageDispatcher;
-    private Action<Message>? _traceAction;
 
     private readonly ReaderWriterLockSlim _syncSubscriptionsByType = new(LockRecursionPolicy.SupportsRecursion);
     private readonly Dictionary<string, List<Type>> _subscriptionsByType = new();
@@ -24,11 +23,10 @@ internal class InProcessMessaging : IMessagingInfrastructure, IDisposable
     private readonly Dictionary<string, List<Action<Message>>> _subscriptionsByLambda = new();
     private const string MessagingKeySeparator = "###########";
 
-    public InProcessMessaging(ILogger<InProcessMessaging>? log, IServiceMessageDispatcher messageDispatcher, Action<Message>? traceAction = null)
+    public InProcessMessaging(ILogger<InProcessMessaging>? log, IServiceMessageDispatcher messageDispatcher)
     {
         _log = log ?? NullLogger<InProcessMessaging>.Instance;
         _messageDispatcher = messageDispatcher;
-        _traceAction = traceAction;
     }
         
     public object Subscribe<TMessageHandler>() where TMessageHandler : IMessageHandler
@@ -89,7 +87,7 @@ internal class InProcessMessaging : IMessagingInfrastructure, IDisposable
     public void Publish(Message message)
     {
         _log.LogDebug($"Publish to {message.Topic}");
-        _traceAction?.Invoke(message);
+        _log.LogTrace("Publishing message for topic {Topic}.", message.Topic);
 
         var subscriptionsToRun = new List<Func<Task>>();
 
@@ -206,7 +204,6 @@ internal class InProcessMessaging : IMessagingInfrastructure, IDisposable
     protected virtual void Dispose(bool disposing)
     {
         if (!disposing) return;
-        _traceAction = null;
 
         _syncSubscriptionsByLambda.EnterWriteLock();
         try

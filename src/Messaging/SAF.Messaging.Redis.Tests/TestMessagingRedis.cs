@@ -20,7 +20,7 @@ public class TestMessagingRedis
         var subscriber = Substitute.For<ISubscriber>();
         connectionMultiplexer.GetSubscriber().Returns(subscriber);
 
-        Messaging messaging = new(null, connectionMultiplexer, smd, null);
+        Messaging messaging = new(null, connectionMultiplexer, smd);
         messaging.Unsubscribe(null!);
         subscriber.DidNotReceive().Unsubscribe(Arg.Any<RedisChannel>(), Arg.Any<Action<RedisChannel, RedisValue>>(), Arg.Any<CommandFlags>());
         messaging.Unsubscribe("");

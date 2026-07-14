@@ -14,15 +14,15 @@ namespace SAF.Messaging.InProcess;
 
 public static class ServiceCollectionExtensions
 {
-    public static IServiceCollection AddInProcessMessagingInfrastructure(this IServiceCollection serviceCollection, Action<Message>? traceAction = null)
+    public static IServiceCollection AddInProcessMessagingInfrastructure(this IServiceCollection serviceCollection)
         => serviceCollection
             .AddKeyedSingleton<IMessagingInfrastructureFactory>(MessagingInfrastructureKeys.InProcess,
                 (sp, _) => new DelegatingMessagingInfrastructureFactory(
                     MessagingInfrastructureKeys.InProcess,
-                    cfg => CreateMessagingInfrastructure(sp, traceAction)));
+                    cfg => CreateMessagingInfrastructure(sp)));
 
-    private static InProcessMessaging CreateMessagingInfrastructure(IServiceProvider serviceProvider, Action<Message>? traceAction = null)
-        => new InProcessMessaging(serviceProvider.GetService<ILogger<InProcessMessaging>>(), ResolveMessageDispatcher(serviceProvider), traceAction);
+    private static InProcessMessaging CreateMessagingInfrastructure(IServiceProvider serviceProvider)
+        => new InProcessMessaging(serviceProvider.GetService<ILogger<InProcessMessaging>>(), ResolveMessageDispatcher(serviceProvider));
 
     private static IServiceMessageDispatcher ResolveMessageDispatcher(IServiceProvider serviceProvider)
         => serviceProvider.GetService<IServiceMessageDispatcher>() ??

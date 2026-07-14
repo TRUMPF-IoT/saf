@@ -20,7 +20,7 @@ namespace SAF.Messaging.Nats;
 public static class ServiceCollectionExtensions
 {
     public static IServiceCollection AddNatsMessagingInfrastructure(this IServiceCollection serviceCollection,
-        Action<NatsConfiguration> configure, Action<Message>? traceAction = null)
+        Action<NatsConfiguration> configure)
     {
         var config = new NatsConfiguration();
         configure(config);
@@ -29,7 +29,7 @@ public static class ServiceCollectionExtensions
             .AddKeyedSingleton<IMessagingInfrastructureFactory>(MessagingInfrastructureKeys.Nats,
                 (sp, _) => new DelegatingMessagingInfrastructureFactory(
                     MessagingInfrastructureKeys.Nats,
-                    cfg => CreateMessagingInfrastructure(sp, cfg, config, traceAction)));
+                    cfg => CreateMessagingInfrastructure(sp, cfg, config)));
     }
 
     public static IServiceCollection AddNatsStorageInfrastructure(this IServiceCollection serviceCollection,
@@ -43,12 +43,12 @@ public static class ServiceCollectionExtensions
 
 
     public static IServiceCollection AddNatsInfrastructure(this IServiceCollection serviceCollection,
-        Action<NatsConfiguration> configure, Action<Message>? traceAction = null)
+        Action<NatsConfiguration> configure)
     {
         var config = new NatsConfiguration();
         configure.Invoke(config);
 
-        return serviceCollection.AddNatsMessagingInfrastructure(config, traceAction)
+        return serviceCollection.AddNatsMessagingInfrastructure(config)
             .AddNatsStorageInfrastructure(config);
     }
 
@@ -166,31 +166,30 @@ public static class ServiceCollectionExtensions
     }
 
     private static IServiceCollection AddNatsMessagingInfrastructure(this IServiceCollection serviceCollection,
-        NatsConfiguration config, Action<Message>? traceAction)
+        NatsConfiguration config)
         => serviceCollection
             .AddKeyedSingleton<IMessagingInfrastructureFactory>(MessagingInfrastructureKeys.Nats,
                 (sp, _) => new DelegatingMessagingInfrastructureFactory(
                     MessagingInfrastructureKeys.Nats,
-                    cfg => CreateMessagingInfrastructure(sp, cfg, config, traceAction)));
+                    cfg => CreateMessagingInfrastructure(sp, cfg, config)));
 
-    private static Messaging CreateMessagingInfrastructure(IServiceProvider serviceProvider, MessagingConfiguration config, NatsConfiguration defaultConfiguration, Action<Message>? traceAction)
+    private static Messaging CreateMessagingInfrastructure(IServiceProvider serviceProvider, MessagingConfiguration config, NatsConfiguration defaultConfiguration)
     {
         if (config.Config is null || config.Config.Count == 0)
         {
-            return CreateMessagingInfrastructure(serviceProvider, defaultConfiguration, traceAction);
+            return CreateMessagingInfrastructure(serviceProvider, defaultConfiguration);
         }
 
-        return CreateMessagingInfrastructure(serviceProvider, CreateNatsConfiguration(config), traceAction);
+        return CreateMessagingInfrastructure(serviceProvider, CreateNatsConfiguration(config));
     }
 
-    private static Messaging CreateMessagingInfrastructure(IServiceProvider serviceProvider, NatsConfiguration config, Action<Message>? traceAction)
+    private static Messaging CreateMessagingInfrastructure(IServiceProvider serviceProvider, NatsConfiguration config)
         => new Messaging(serviceProvider.GetRequiredService<ILogger<Messaging>>(),
             CreateNatsClient(config, serviceProvider.GetRequiredService<ILogger<Messaging>>()),
             new NatsSubscriptionManager(),
             serviceProvider.GetService<IInputRouteTranslator>() ?? new NatsInputRouteTranslator(),
             serviceProvider.GetService<IOutputRouteTranslator>() ?? new NatsOutputRouteTranslator(),
-            ResolveMessageDispatcher(serviceProvider),
-            traceAction);
+            ResolveMessageDispatcher(serviceProvider));
 
     private static IServiceMessageDispatcher ResolveMessageDispatcher(IServiceProvider serviceProvider)
         => serviceProvider.GetService<IServiceMessageDispatcher>() ??
