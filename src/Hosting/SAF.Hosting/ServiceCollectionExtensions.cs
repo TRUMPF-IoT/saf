@@ -28,7 +28,7 @@ internal static class ServiceCollectionExtensions
         services.AddSingleton<IServiceHostInfo>(sp =>
         {
             var options = sp.GetRequiredService<IOptions<ServiceHostOptions>>().Value;
-            return new ServiceHostInfo(options, () => GetOrInitializeHostId(sp.GetService<IStorageInfrastructure>()));
+            return new ServiceHostInfo(options, () => GetOrInitializeHostId(ResolveStorageInfrastructure(sp)));
         });
 
         // Bridge: forward the configured service into every plugin container.
@@ -37,6 +37,14 @@ internal static class ServiceCollectionExtensions
         services.AddSingleton<IHostServiceForwarder, HostServiceForwarder<IServiceHostInfo>>();
 
         return services;
+    }
+
+    private static IStorageInfrastructure? ResolveStorageInfrastructure(IServiceProvider serviceProvider)
+    {
+        ArgumentNullException.ThrowIfNull(serviceProvider);
+
+        return serviceProvider.GetService<IStorageInfrastructure>()
+            ?? serviceProvider.GetService<IPluginServiceProvider>()?.GetService<IStorageInfrastructure>();
     }
 
     private static string GetOrInitializeHostId(IStorageInfrastructure? storage)

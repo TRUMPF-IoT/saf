@@ -76,6 +76,44 @@ public class ServiceCollectionExtensionsTests
     }
 
     [Fact]
+    public void AddServiceHostInfo_WhenRootStorageMissing_UsesPluginStorageContainingExistingId()
+    {
+        var storage = Substitute.For<IStorageInfrastructure>();
+        storage.GetString("saf/hostid").Returns("plugin-host-id");
+
+        var pluginServiceProvider = Substitute.For<IPluginServiceProvider>();
+        pluginServiceProvider.GetService<IStorageInfrastructure>().Returns(storage);
+
+        var services = new ServiceCollection();
+        services.AddSingleton(pluginServiceProvider);
+        services.AddServiceHostInfo(static _ => { });
+
+        var provider = services.BuildServiceProvider();
+        var hostInfo = provider.GetRequiredService<IServiceHostInfo>();
+
+        Assert.Equal("plugin-host-id", hostInfo.Id);
+        storage.DidNotReceive().Set("saf/hostid", Arg.Any<string>());
+    }
+
+    [Fact]
+    public void AddServiceHostInfo_WhenRootStorageMissing_PersistsIdToPluginStorage()
+    {
+        var storage = Substitute.For<IStorageInfrastructure>();
+        var pluginServiceProvider = Substitute.For<IPluginServiceProvider>();
+        pluginServiceProvider.GetService<IStorageInfrastructure>().Returns(storage);
+
+        var services = new ServiceCollection();
+        services.AddSingleton(pluginServiceProvider);
+        services.AddServiceHostInfo(static _ => { });
+
+        var provider = services.BuildServiceProvider();
+        var hostInfo = provider.GetRequiredService<IServiceHostInfo>();
+
+        Assert.False(string.IsNullOrWhiteSpace(hostInfo.Id));
+        storage.Received(1).Set("saf/hostid", Arg.Is<string>(value => !string.IsNullOrWhiteSpace(value)));
+    }
+
+    [Fact]
     public void AddServiceHostInfo_WhenUsingConfiguration_BindsConfiguredValues()
     {
         var configuration = new ConfigurationBuilder()
