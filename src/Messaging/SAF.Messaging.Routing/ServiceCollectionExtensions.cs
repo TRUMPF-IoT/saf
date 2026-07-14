@@ -36,7 +36,7 @@ public static class ServiceCollectionExtensions
     }
 
     private static IServiceCollection AddRoutingMessagingInfrastructure(this IServiceCollection serviceCollection, Configuration config)
-        => serviceCollection.AddTransient<IRoutingMessagingInfrastructure>(sp =>
+        => serviceCollection.AddTransient<Messaging>(sp =>
             CreateRoutingMessagingInfrastructure(sp, config));
 
     private static Messaging CreateRoutingMessagingInfrastructure(IServiceProvider serviceProvider, Configuration config)

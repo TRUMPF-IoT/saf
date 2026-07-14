@@ -21,12 +21,13 @@ internal sealed class RoutingSubscription : IDisposable
     }
 }
 
-internal sealed class Messaging : IRoutingMessagingInfrastructure
+internal sealed class Messaging : IMessagingInfrastructure, IDisposable
 {
     private readonly ILogger<Messaging> _log;
     private readonly IMessageRouting[] _messageRoutings;
 
     private readonly ConcurrentDictionary<Guid, (string pattern, IDisposable disposable)> _subscriptions = new();
+    private bool _disposed;
 
     public Messaging(ILogger<Messaging>? log, IMessageRouting[] messageRoutings)
     {
@@ -97,6 +98,22 @@ internal sealed class Messaging : IRoutingMessagingInfrastructure
 
         sub.disposable.Dispose();
         _log.LogDebug($"Unsubscribed subscription \"{subscriptionId}\" for channel \"{sub.pattern}\"");
+    }
+
+    public void Dispose()
+    {
+        if (_disposed)
+            return;
+
+        _disposed = true;
+
+        foreach (var subscription in _subscriptions.Values)
+            subscription.disposable.Dispose();
+
+        _subscriptions.Clear();
+
+        foreach (var routing in _messageRoutings)
+            (routing as IDisposable)?.Dispose();
     }
 }
 

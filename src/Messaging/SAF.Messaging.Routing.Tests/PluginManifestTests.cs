@@ -32,8 +32,8 @@ public class PluginManifestTests
         var factory = provider.GetKeyedService<IMessagingInfrastructureFactory>(MessagingInfrastructureKeys.Routing);
         Assert.NotNull(factory);
 
-        // Verify IRoutingMessagingInfrastructure is registered
-        var routing = provider.GetService<IRoutingMessagingInfrastructure>();
+        // Verify the routing Messaging service is registered
+        var routing = provider.GetService<Messaging>();
         Assert.NotNull(routing);
     }
 

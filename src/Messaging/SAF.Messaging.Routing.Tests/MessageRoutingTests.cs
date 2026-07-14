@@ -42,6 +42,28 @@ public class MessageRoutingTest
         messaging.Unsubscribe(id);
     }
 
+    [Fact]
+    public void DisposingMessagingDisposesContainedRoutings()
+    {
+        var messageRouting = Substitute.For<IMessageRouting, IDisposable>();
+        Messaging messaging = new(null, new IMessageRouting[] { messageRouting });
+
+        messaging.Dispose();
+
+        ((IDisposable)messageRouting).Received(1).Dispose();
+    }
+
+    [Fact]
+    public void DisposingRoutingDisposesBackendMessagingInfrastructure()
+    {
+        var messaging = Substitute.For<IMessagingInfrastructure, IDisposable>();
+        var routing = new MessageRouting(messaging);
+
+        routing.Dispose();
+
+        ((IDisposable)messaging).Received(1).Dispose();
+    }
+
     [Theory]
     [InlineData("test/this/topic")]
     [InlineData("test/any/*/topic")]
