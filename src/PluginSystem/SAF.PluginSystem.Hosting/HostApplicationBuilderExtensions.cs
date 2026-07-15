@@ -6,6 +6,7 @@ namespace SAF.PluginSystem.Hosting;
 
 using Contracts;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
@@ -19,7 +20,7 @@ public static class HostApplicationBuilderExtensions
         var pluginHostBuilder = new PluginSystemHostBuilder(hostAppBuilder);
 
         pluginHostBuilder.Services.Configure(configure);
-        pluginHostBuilder.Services.AddSingleton<IFileSystem, RealFileSystem>();
+        pluginHostBuilder.Services.TryAddSingleton<IFileSystem, RealFileSystem>();
         pluginHostBuilder.Services.AddSingleton(sp =>
         {
             var options = sp.GetRequiredService<IOptions<PluginSystemOptions>>();

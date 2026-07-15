@@ -44,6 +44,12 @@ public static class ServiceCollectionExtensions
 
     private static MessageRouting[] BuildMessageRouting(IServiceProvider serviceProvider, Configuration config)
     {
+        if (config.Routings.Any(r => string.Equals(r.Messaging.Key, MessagingInfrastructureKeys.Routing, StringComparison.Ordinal)))
+        {
+            throw new InvalidOperationException(
+                $"Route configuration must not use messaging key '{MessagingInfrastructureKeys.Routing}' because it causes recursive routing infrastructure creation.");
+        }
+
         return config.Routings
             .Select(r =>
             {

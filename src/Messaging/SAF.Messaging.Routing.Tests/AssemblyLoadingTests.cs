@@ -44,6 +44,24 @@ public class AssemblyLoadingTests
         Assert.Contains(services, sd => sd.ServiceType == typeof(IMessagingInfrastructureFactory) && sd.IsKeyedService && Equals(sd.ServiceKey, "Redis"));
     }
 
+    [Fact]
+    public void ThrowsWhenRoutingReferencesRoutingInfrastructure()
+    {
+        var services = new ServiceCollection();
+        services.AddRoutingMessagingInfrastructure(config =>
+            config.Routings =
+            [
+                new RoutingConfiguration
+                {
+                    Messaging = new MessagingConfiguration { Key = MessagingInfrastructureKeys.Routing }
+                }
+            ]);
+
+        var serviceProvider = services.BuildServiceProvider();
+
+        Assert.Throws<InvalidOperationException>(() => serviceProvider.GetRequiredService<Messaging>());
+    }
+
     private sealed class StubMessagingInfrastructure : IMessagingInfrastructure
     {
         public void Publish(Message message)

@@ -16,7 +16,7 @@ public class PluginAssemblyLoadContext(ILoggerFactory loggerFactory, string plug
     private readonly AssemblyDependencyResolver _resolver = new(pluginAssemblyPath);
 
     private readonly string _defaultApplicationDirectory = fileSystem.Path.GetDirectoryName(AppContext.BaseDirectory) ?? string.Empty;
-    private readonly HashSet<string> _defaultApplicationAssemblies = new();
+    private HashSet<string>? _defaultApplicationAssemblies;
     private readonly Lock _syncDefaultApplicationAssemblies = new();
 
     protected override Assembly? Load(AssemblyName assemblyName)
@@ -68,18 +68,19 @@ public class PluginAssemblyLoadContext(ILoggerFactory loggerFactory, string plug
         // and will be automatically shared between the default context and all plugin contexts.
 
         InitializeDefaultApplicationAssemblies();
-        return _defaultApplicationAssemblies.Contains(assemblyName.FullName);
+        return _defaultApplicationAssemblies!.Contains(assemblyName.FullName);
     }
 
     private void InitializeDefaultApplicationAssemblies()
     {
         lock (_syncDefaultApplicationAssemblies)
         {
-            if (_defaultApplicationAssemblies.Count > 0)
+            if (_defaultApplicationAssemblies is not null)
             {
                 return;
             }
 
+            _defaultApplicationAssemblies = [];
             var assemblyFiles = fileSystem.Directory.EnumerateFiles(_defaultApplicationDirectory, "*.dll");
             foreach (var assemblyFilePath in assemblyFiles)
             {
