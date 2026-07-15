@@ -226,6 +226,29 @@ public sealed class MyForwarder(MySharedService service) : IHostServiceForwarder
 
 ## Cross-Plugin Services
 
+### Messaging Handlers in Plug-ins (Required)
+
+If a plug-in uses typed messaging subscriptions (`Subscribe<TMessageHandler>()`), the handler type **must** be registered via the extensions from `SAF.Messaging.Extensions`.
+
+Do **not** register message handlers only as `IMessageHandler` (for example `AddSingleton<IMessageHandler, MyHandler>()`).
+The SAF messaging runtime resolves handlers by their concrete type. Interface-only registrations are not resolved.
+
+Required setup in the plug-in manifest:
+
+```csharp
+using SAF.Messaging.Extensions;
+
+public void ConfigureServices(IPluginSystemHostContext context, IServiceCollection pluginServices)
+{
+    pluginServices.AddSingletonMessageHandler<MyHandler>();
+    // or pluginServices.AddTransientMessageHandler<MyHandler>();
+
+    pluginServices.AddMessageHandlerResolver();
+}
+```
+
+If this is not configured, typed handlers will not be resolved by SAF's messaging system.
+
 ### Registering a Public Service
 
 In your plugin manifest, register the service against a **contract interface** defined in a shared assembly:

@@ -19,6 +19,7 @@ This document describes every breaking change and the steps needed to migrate fr
 | Messaging namespace | `SAF.Common.IMessagingInfrastructure` | `SAF.Messaging.Contracts.IMessagingInfrastructure` |
 | Runtime plugin | Not required | `SAF.Messaging.Runtime` must be available to the plugin system; `AddSafHost()` loads it automatically as a built-in plug-in |
 | `IMessagingInfrastructure` registration | Direct `IServiceCollection` singleton | Factory pattern: a messaging plug-in registers a keyed `IMessagingInfrastructureFactory`; `SAF.Messaging.Runtime` resolves the primary via `Messaging:PrimaryKey` |
+| Message handler registration in plug-ins | `IMessageHandler` interface registration often worked implicitly | Typed handlers must be registered via `SAF.Messaging.Extensions` (`AddSingletonMessageHandler<T>()` / `AddTransientMessageHandler<T>()`) and `AddMessageHandlerResolver()` |
 | Storage namespace | `SAF.Common.IStorageInfrastructure` | Still `SAF.Common.IStorageInfrastructure` (unchanged) |
 | Cross-plugin services | Not supported | Public contract services imported across plugin containers; `IPluginServiceProvider` for dynamic resolution |
 
@@ -150,6 +151,23 @@ public class MyService
 
 Update `using` directives from `SAF.Common` to `SAF.Messaging.Contracts` wherever `IMessagingInfrastructure`, `IMessageHandler`, or `Message` are referenced.
 
+If you use typed subscriptions (`Subscribe<TMessageHandler>()`), also migrate the handler registration pattern in your plugin manifest:
+
+```csharp
+using SAF.Messaging.Extensions;
+
+public void ConfigureServices(IPluginSystemHostContext context, IServiceCollection pluginServices)
+{
+    pluginServices.AddSingletonMessageHandler<MyMessageHandler>();
+    // or pluginServices.AddTransientMessageHandler<MyMessageHandler>();
+
+    pluginServices.AddMessageHandlerResolver();
+}
+```
+
+Do not register handlers only as `IMessageHandler` (for example `AddSingleton<IMessageHandler, MyMessageHandler>()`).
+The SAF messaging runtime resolves handlers by concrete type; interface-only registrations are not resolved.
+
 ---
 
 ## Step 4 — Ensure SAF.Messaging.Runtime Is Discoverable
@@ -277,6 +295,7 @@ Update your `.csproj` files:
 | `SAF.Common` (for `IMessagingInfrastructure`) | `SAF.Messaging.Contracts` |
 | `SAF.Hosting` (for `IServiceAssemblyManifest`) | `SAF.PluginSystem.Hosting.Contracts` (for `IPluginManifest`) |
 | `SAF.Hosting` (for host bootstrap) | `SAF.Hosting` (unchanged, but API changed) |
+| `IMessageHandler` plugin registration without extensions | Add package `SAF.Messaging.Extensions` and use `AddSingletonMessageHandler<T>()` / `AddTransientMessageHandler<T>()` + `AddMessageHandlerResolver()` |
 
 ---
 
@@ -286,6 +305,7 @@ Update your `.csproj` files:
 - [ ] Rename `IServiceAssemblyManifest` → `IPluginManifest`
 - [ ] Rename `RegisterDependencies(IServiceCollection)` → `ConfigureServices(IPluginSystemHostContext, IServiceCollection)`
 - [ ] Update `using SAF.Common` → `using SAF.Messaging.Contracts` for messaging types
+- [ ] Register typed message handlers in each plug-in via `SAF.Messaging.Extensions` (`AddSingletonMessageHandler<T>()` / `AddTransientMessageHandler<T>()`) and call `AddMessageHandlerResolver()`
 - [ ] Configure `Messaging:PrimaryKey` in configuration
 - [ ] Ensure `SAF.Messaging.Runtime.dll` is discoverable by the plugin system (automatic with `AddSafHost()`)
 - [ ] Replace manual lifecycle background tasks with `IServicePlugin` / `ILifecycleServicePlugin` registered via `AddServicePlugin<T>()`
