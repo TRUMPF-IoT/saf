@@ -224,6 +224,9 @@ internal class InProcessMessaging : IMessagingInfrastructure, IDisposable
         {
             _syncSubscriptionsByType.ExitWriteLock();
         }
+
+        _syncSubscriptionsByLambda.Dispose();
+        _syncSubscriptionsByType.Dispose();
     }
 
     public void Dispose()
