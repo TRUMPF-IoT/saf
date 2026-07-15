@@ -16,4 +16,34 @@ public static class ServiceCollectionExtensions
 
         return services;
     }
+
+    public static IServiceCollection AddMessageHandler<TMessageHandler>(this IServiceCollection services, ServiceLifetime lifetime)
+        where TMessageHandler : class, IMessageHandler
+    {
+        switch (lifetime)
+        {
+            case ServiceLifetime.Singleton:
+                services.AddSingleton<TMessageHandler>();
+                services.AddSingleton<IMessageHandler>(sp => sp.GetRequiredService<TMessageHandler>());
+                break;
+            case ServiceLifetime.Scoped:
+                services.AddScoped<TMessageHandler>();
+                services.AddScoped<IMessageHandler>(sp => sp.GetRequiredService<TMessageHandler>());
+                break;
+            case ServiceLifetime.Transient:
+                services.AddTransient<TMessageHandler>();
+                services.AddTransient<IMessageHandler>(sp => sp.GetRequiredService<TMessageHandler>());
+                break;
+        }
+
+        return services;
+    }
+
+    public static IServiceCollection AddSingletonMessageHandler<TMessageHandler>(this IServiceCollection services)
+        where TMessageHandler : class, IMessageHandler
+        => services.AddMessageHandler<TMessageHandler>(ServiceLifetime.Singleton);
+
+    public static IServiceCollection AddTransientMessageHandler<TMessageHandler>(this IServiceCollection services)
+        where TMessageHandler : class, IMessageHandler
+        => services.AddMessageHandler<TMessageHandler>(ServiceLifetime.Transient);
 }

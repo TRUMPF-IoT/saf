@@ -6,5 +6,5 @@ namespace SAF.Messaging.Contracts;
 
 public interface IMessageHandlerResolver
 {
-    IMessageHandler Resolve(Type handlerType);
+    IMessageHandler? Resolve(Type handlerType);
 }

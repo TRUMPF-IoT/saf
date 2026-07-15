@@ -4,25 +4,12 @@
 
 namespace SAF.Messaging.Extensions;
 
-using Microsoft.Extensions.DependencyInjection;
 using SAF.Messaging.Contracts;
 
 internal sealed class MessageHandlerResolver(IServiceProvider serviceProvider) : IMessageHandlerResolver
 {
     private readonly IServiceProvider _serviceProvider = serviceProvider;
 
-    public IMessageHandler Resolve(Type handlerType)
-    {
-        var handler = ResolveRegisteredHandler(handlerType);
-        if (handler is null)
-            throw new InvalidOperationException($"Handler '{handlerType}' is not supported by resolver '{GetType().FullName}'.");
-
-        return handler;
-    }
-
-    private IMessageHandler? ResolveRegisteredHandler(Type handlerType)
-    {
-        var handlers = _serviceProvider.GetServices<IMessageHandler>();
-        return handlers.FirstOrDefault(h => h.GetType() == handlerType);
-    }
+    public IMessageHandler? Resolve(Type handlerType)
+        => _serviceProvider.GetService(handlerType) as IMessageHandler;        
 }

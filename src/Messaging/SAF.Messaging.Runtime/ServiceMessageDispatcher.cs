@@ -19,7 +19,7 @@ public class ServiceMessageDispatcher : IServiceMessageDispatcher
     public ServiceMessageDispatcher(ILogger<ServiceMessageDispatcher> log, IEnumerable<IMessageHandlerResolver> messageHandlerResolvers)
     {
         _log = log;
-        _messageHandlerResolvers = messageHandlerResolvers.ToList();
+        _messageHandlerResolvers = [.. messageHandlerResolvers];
     }
 
     public void DispatchMessage<TMessageHandler>(Message message) where TMessageHandler : IMessageHandler
@@ -38,14 +38,14 @@ public class ServiceMessageDispatcher : IServiceMessageDispatcher
             if (!TryResolveHandler(handlerType, out cachedResolver, out var handler))
                 return;
 
-            _resolverCacheByHandlerType.TryAdd(handlerType, cachedResolver);
-            DispatchInternal(() => handler, message, handlerType.Name);
+            _resolverCacheByHandlerType.TryAdd(handlerType, cachedResolver!);
+            DispatchInternal(() => handler!, message, handlerType.Name);
             return;
         }
 
         try
         {
-            DispatchInternal(() => cachedResolver.Resolve(handlerType), message, handlerType.Name);
+            DispatchInternal(() => cachedResolver.Resolve(handlerType)!, message, handlerType.Name);
         }
         catch (Exception ex)
         {
@@ -69,24 +69,21 @@ public class ServiceMessageDispatcher : IServiceMessageDispatcher
         }
     }
 
-    private bool TryResolveHandler(Type handlerType, out IMessageHandlerResolver resolver, out IMessageHandler handler)
+    private bool TryResolveHandler(Type handlerType, out IMessageHandlerResolver? resolver, out IMessageHandler? handler)
     {
+        resolver = default;
+        handler = default;
+
         foreach (var candidateResolver in _messageHandlerResolvers)
         {
-            try
+            handler = candidateResolver.Resolve(handlerType);
+            if(handler is not null)
             {
-                handler = candidateResolver.Resolve(handlerType);
                 resolver = candidateResolver;
                 return true;
             }
-            catch (InvalidOperationException)
-            {
-                // This resolver does not own the handler type.
-            }
         }
 
-        resolver = default!;
-        handler = default!;
         _negativeResolverCacheByHandlerType.TryAdd(handlerType, 0);
         _log.LogError("Handler {HandlerType} unknown!", handlerType);
         return false;

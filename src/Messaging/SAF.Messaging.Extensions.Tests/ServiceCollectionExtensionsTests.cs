@@ -19,10 +19,25 @@ public class ServiceCollectionExtensionsTests
     }
 
     [Fact]
-    public void AddMessageHandlerResolver_WhenHandlerRegistered_ResolvesMatchingHandlerType()
+    public void AddMessageHandlerResolver_WhenHandlerRegisteredOnlyAsInterface_ReturnsNullForConcreteHandlerType()
     {
         var services = new ServiceCollection();
         services.AddSingleton<IMessageHandler, TestHandler>();
+        services.AddMessageHandlerResolver();
+
+        var provider = services.BuildServiceProvider();
+        var resolver = provider.GetRequiredService<IMessageHandlerResolver>();
+
+        var resolvedHandler = resolver.Resolve(typeof(TestHandler));
+
+        Assert.Null(resolvedHandler);
+    }
+
+    [Fact]
+    public void AddMessageHandlerResolver_WhenHandlerRegistered_ResolvesMatchingSingletonHandlerType_ByType()
+    {
+        var services = new ServiceCollection();
+        services.AddSingletonMessageHandler<TestHandler>();
         services.AddMessageHandlerResolver();
 
         var provider = services.BuildServiceProvider();
@@ -34,7 +49,22 @@ public class ServiceCollectionExtensionsTests
     }
 
     [Fact]
-    public void AddMessageHandlerResolver_WhenHandlerTypeNotRegistered_ThrowsInvalidOperationException()
+    public void AddMessageHandlerResolver_WhenHandlerRegistered_ResolvesMatchingTransientHandlerType_ByType()
+    {
+        var services = new ServiceCollection();
+        services.AddTransientMessageHandler<TestHandler>();
+        services.AddMessageHandlerResolver();
+
+        var provider = services.BuildServiceProvider();
+        var resolver = provider.GetRequiredService<IMessageHandlerResolver>();
+
+        var resolvedHandler = resolver.Resolve(typeof(TestHandler));
+
+        Assert.IsType<TestHandler>(resolvedHandler);
+    }
+
+    [Fact]
+    public void AddMessageHandlerResolver_WhenHandlerTypeNotRegistered_ReturnsNull()
     {
         var services = new ServiceCollection();
         services.AddSingleton<IMessageHandler, TestHandler>();
@@ -43,7 +73,7 @@ public class ServiceCollectionExtensionsTests
         var provider = services.BuildServiceProvider();
         var resolver = provider.GetRequiredService<IMessageHandlerResolver>();
 
-        Assert.Throws<InvalidOperationException>(() => resolver.Resolve(typeof(UnknownHandler)));
+        Assert.Null(resolver.Resolve(typeof(UnknownHandler)));
     }
 
     private sealed class TestHandler : IMessageHandler

@@ -19,8 +19,8 @@ public class PluginManifest : IPluginManifest
     {
         // dependencies
         pluginServices.AddTransient<MyInternalDependency>();
-        pluginServices.AddSingleton<IMessageHandler, CatchAllMessageHandler>();
-        pluginServices.AddSingleton<IMessageHandler, PingMessageHandler>();
+        pluginServices.AddSingletonMessageHandler<CatchAllMessageHandler>();
+        pluginServices.AddSingletonMessageHandler<PingMessageHandler>();
         pluginServices.AddMessageHandlerResolver();
 
         // "microservice" settings
