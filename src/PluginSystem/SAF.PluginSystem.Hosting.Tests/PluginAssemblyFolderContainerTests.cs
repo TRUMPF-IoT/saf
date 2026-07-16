@@ -18,6 +18,7 @@ using System.Security.AccessControl;
 using System.Security.Principal;
 using Testably.Abstractions;
 
+[Collection("BaseDirectoryFileSystem")]
 public sealed class PluginAssemblyFolderContainerTests : IDisposable
 {
     private readonly RealFileSystem _fileSystem;
