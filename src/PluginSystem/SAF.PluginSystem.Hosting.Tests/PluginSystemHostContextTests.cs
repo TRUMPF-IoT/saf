@@ -8,6 +8,7 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using NSubstitute;
 using Contracts;
+using System.Linq;
 using Testably.Abstractions;
 
 public class PluginSystemHostContextTests
@@ -113,5 +114,28 @@ public class PluginSystemHostContextTests
         Assert.NotNull(context.HostConfiguration);
         Assert.NotEmpty(context.PluginConfiguration.GetChildren());
         Assert.Equal("Environment", context.PluginConfiguration.GetSection("Key").Value);
+    }
+
+    [Fact]
+    public void BuildPluginConfiguration_EnablesReloadOnChange_ForPluginSettingsFiles()
+    {
+        // Arrange
+        var logger = Substitute.For<ILogger<PluginSystemHostContext>>();
+        var environment = Substitute.For<IPluginSystemHostEnvironment>();
+        environment.EnvironmentName.Returns("Environment");
+        environment.PluginSettingsRootPath.Returns("./test-plugin-configs");
+        var hostConfiguration = Substitute.For<IConfigurationManager>();
+        var options = new PluginSystemOptions { PluginSettingsFilePath = "settings.json" };
+        // PluginSystemHostContext builds its configuration from settings files on disk, so a real file system is used.
+        var fileSystem = new RealFileSystem();
+
+        // Act
+        var context = new PluginSystemHostContext(logger, environment, hostConfiguration, options, fileSystem);
+
+        // Assert — the plugin settings file(s) must be watched so ReinitializeAsync/ReloadAsync see fresh values.
+        var root = Assert.IsAssignableFrom<IConfigurationRoot>(context.PluginConfiguration);
+        var fileProviders = root.Providers.OfType<FileConfigurationProvider>().ToList();
+        Assert.NotEmpty(fileProviders);
+        Assert.All(fileProviders, provider => Assert.True(provider.Source.ReloadOnChange));
     }
 }

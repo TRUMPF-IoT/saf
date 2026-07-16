@@ -446,9 +446,14 @@ public class ConfigChangeWatcher(IPluginSystemController pluginSystem)
 
 > **Reload-safe plugins:** because instances are recreated on every reload, plugins must not rely on
 > mutable process-wide static state surviving a reload, and any resources opened in `StartAsync` must be
-> released in `StopAsync` so the disposed provider can be reclaimed. For configuration to actually change,
-> the host `IConfiguration` backing `PluginConfiguration` must be reloadable (for example
-> `AddJsonFile(..., reloadOnChange: true)` or a swappable in-memory source).
+> released in `StopAsync` so the disposed provider can be reclaimed.
+
+> **Fresh configuration values:** the plugin system builds `PluginConfiguration` from the plugin
+> settings file(s) with `reloadOnChange: true`, so the backing `IConfigurationRoot` refreshes its
+> providers when the file changes on disk. A subsequent `ReinitializeAsync` / `ReloadAsync` therefore
+> re-runs `ConfigureServices` against the updated values without a restart. Consumers that only need to
+> observe changed values (without rebuilding instances) can register on the change directly, e.g. via
+> `IOptionsMonitor<T>.OnChange(...)` or `ChangeToken.OnChange(() => config.GetReloadToken(), ...)`.
 
 ### Reload Sequence Diagram
 
