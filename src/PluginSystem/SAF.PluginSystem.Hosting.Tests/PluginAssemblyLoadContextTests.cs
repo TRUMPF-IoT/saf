@@ -5,9 +5,9 @@
 namespace SAF.PluginSystem.Hosting.Tests;
 
 using Microsoft.Extensions.Logging;
-using System.IO.Abstractions;
 using System.Reflection;
 using System.Runtime.Loader;
+using System.IO.Abstractions;
 using Testably.Abstractions;
 using Xunit.Abstractions;
 

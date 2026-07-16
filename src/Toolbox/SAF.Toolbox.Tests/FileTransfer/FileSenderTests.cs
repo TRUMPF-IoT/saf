@@ -9,8 +9,8 @@ using NSubstitute.ExceptionExtensions;
 using SAF.Toolbox.FileTransfer;
 using SAF.Toolbox.FileTransfer.Messages;
 using SAF.Toolbox.RequestClient;
+using Testably.Abstractions.Testing;
 using System.IO.Abstractions;
-using System.IO.Abstractions.TestingHelpers;
 using Xunit;
 
 namespace SAF.Toolbox.Tests.FileTransfer;
@@ -28,6 +28,9 @@ public class FileSenderTests
         _logger = loggerFactory.CreateLogger<FileSender>();
     }
 
+    private void AddFile(string path, byte[] content)
+        => _fileSystem.Initialize().WithFile(path).Which(f => f.HasBytesContent(content));
+
     [Fact]
     public async Task SendAsync_ReturnsFileNotFound_WhenFileDoesNotExist()
     {
@@ -44,7 +47,7 @@ public class FileSenderTests
     [Fact]
     public async Task SendAsync_ReturnsDelivered_WhenFileIsEmpty()
     {
-        _fileSystem.AddFile("empty.txt", new MockFileData([]));
+        AddFile("empty.txt", []);
 
         var sender = new FileSender(_logger, _defaultOptions, _fileSystem, _requestClient);
 
@@ -60,7 +63,7 @@ public class FileSenderTests
     public async Task SendAsync_ReturnsError_WhenMaxChunkSizeIsZero()
     {
         var options = Options.Create(new FileSenderOptions { MaxChunkSizeInBytes = 0 });
-        _fileSystem.AddFile("test.txt", new MockFileData([0, 1, 2, 3]));
+        AddFile("test.txt", [0, 1, 2, 3]);
 
         var sender = new FileSender(_logger, options, _fileSystem, _requestClient);
 
@@ -107,7 +110,7 @@ public class FileSenderTests
     [Fact]
     public async Task SendAsync_ReturnsError_WhenReceiverStateIsNull()
     {
-        _fileSystem.AddFile("file.txt", new MockFileData([0, 1, 2, 3]));
+        AddFile("file.txt", [0, 1, 2, 3]);
 
         _requestClient.SendRequestAwaitFirstAnswer<GetReceiverStateRequest, GetReceiverStateResponse>(
                 null!, null!, null!, null!, null!)
@@ -123,7 +126,7 @@ public class FileSenderTests
     [Fact]
     public async Task SendAsync_ReturnsDelivered_WhenReceiverStateIndicatesFileExists()
     {
-        _fileSystem.AddFile("file.txt", new MockFileData([0, 1, 2, 3]));
+        AddFile("file.txt", [0, 1, 2, 3]);
 
         _requestClient.SendRequestAwaitFirstAnswer<GetReceiverStateRequest, GetReceiverStateResponse>(
                 null!, null!, null!, null!, null!)
@@ -139,7 +142,7 @@ public class FileSenderTests
     [Fact]
     public async Task SendAsync_ReturnsDelivered_WhenReceiverStateIndicatesAllChunksTransmitted()
     {
-        _fileSystem.AddFile("file.txt", new MockFileData([0, 1, 2, 3]));
+        AddFile("file.txt", [0, 1, 2, 3]);
 
         _requestClient.SendRequestAwaitFirstAnswer<GetReceiverStateRequest, GetReceiverStateResponse>(
                 null!, null!, null!, null!, null!)
@@ -170,7 +173,7 @@ public class FileSenderTests
         var buffer = new byte[contentLength];
         var expectedSendCalls = (int)Math.Ceiling((double)contentLength / _defaultOptions.Value.MaxChunkSizeInBytes);
 
-        _fileSystem.AddFile("file.txt", new MockFileData(buffer));
+        AddFile("file.txt", buffer);
 
         _requestClient.SendRequestAwaitFirstAnswer<GetReceiverStateRequest, GetReceiverStateResponse>(
                 null!, null!, null!, null!, null!)
@@ -203,7 +206,7 @@ public class FileSenderTests
 
         var buffer = new byte[contentLength];
         
-        _fileSystem.AddFile("file.txt", new MockFileData(buffer));
+        AddFile("file.txt", buffer);
 
         _requestClient.SendRequestAwaitFirstAnswer<GetReceiverStateRequest, GetReceiverStateResponse>(
                 null!, null!, null!, null!, null!)
@@ -237,7 +240,7 @@ public class FileSenderTests
     {
         var buffer = new byte[1024];
 
-        _fileSystem.AddFile("file.txt", new MockFileData(buffer));
+        AddFile("file.txt", buffer);
 
         _requestClient.SendRequestAwaitFirstAnswer<GetReceiverStateRequest, GetReceiverStateResponse>(
                 null!, null!, null!, null!, null!)

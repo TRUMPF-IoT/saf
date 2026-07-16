@@ -8,12 +8,12 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
-using System.IO.Abstractions;
 using NSubstitute;
 using SAF.Common;
 using SAF.Messaging.Contracts;
 using Heartbeat;
 using RequestClient;
+using System.IO.Abstractions;
 using Toolbox.FileTransfer;
 using Xunit;
 

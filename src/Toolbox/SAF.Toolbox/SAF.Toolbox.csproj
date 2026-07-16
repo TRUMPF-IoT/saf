@@ -16,7 +16,7 @@ SPDX-License-Identifier: MPL-2.0
     <PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions" />
     <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" />
     <PackageReference Include="Microsoft.Extensions.Options.ConfigurationExtensions" />
-    <PackageReference Include="TestableIO.System.IO.Abstractions.Wrappers" />
+    <PackageReference Include="Testably.Abstractions" />
   </ItemGroup>
 
   <ItemGroup>

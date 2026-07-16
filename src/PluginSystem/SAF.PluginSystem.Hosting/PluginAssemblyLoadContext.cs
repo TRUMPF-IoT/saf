@@ -5,9 +5,9 @@
 namespace SAF.PluginSystem.Hosting;
 
 using Microsoft.Extensions.Logging;
-using System.IO.Abstractions;
 using System.Reflection;
 using System.Runtime.Loader;
+using System.IO.Abstractions;
 
 public class PluginAssemblyLoadContext(ILoggerFactory loggerFactory, string pluginAssemblyPath, IFileSystem fileSystem) : AssemblyLoadContext
 {
