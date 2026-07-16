@@ -9,7 +9,7 @@ using System.Reflection;
 using System.Runtime.Loader;
 using System.IO.Abstractions;
 using Testably.Abstractions;
-using Xunit.Abstractions;
+using Xunit;
 
 public class PluginAssemblyLoadContextTests
 {
@@ -21,7 +21,7 @@ public class PluginAssemblyLoadContextTests
 
     public PluginAssemblyLoadContextTests(ITestOutputHelper outputHelper)
     {
-        _loggerFactory = LoggerFactory.Create(builder => builder.AddXunit(outputHelper, LogLevel.Trace).SetMinimumLevel(LogLevel.Trace));
+        _loggerFactory = LoggerFactory.Create(builder => builder.AddXUnit(outputHelper).SetMinimumLevel(LogLevel.Trace));
     }
 
     [Fact]

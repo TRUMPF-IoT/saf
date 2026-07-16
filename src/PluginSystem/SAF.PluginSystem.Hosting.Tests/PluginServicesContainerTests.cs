@@ -208,7 +208,7 @@ public class PluginServicesContainerTests
         // Act
         var disposeTasks = Enumerable.Range(0, 5)
             .Select(_ => Record.ExceptionAsync(() => DisposeContainerAsync(pluginServicesContainer)));
-        var exceptions = await Task.WhenAll(disposeTasks);
+        var exceptions = await Task.WhenAll(disposeTasks.Select(task => task.AsTask()));
 
         // Assert
         Assert.All(exceptions, Assert.Null);

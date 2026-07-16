@@ -11,7 +11,7 @@ using System.Linq;
 using TestPlugin.PublicDependencyA;
 using Testably.Abstractions;
 using SAF.PluginSystem.Hosting.Contracts;
-using Xunit.Abstractions;
+using Xunit;
 
 public class PluginServicesIsolationTests
 {
@@ -24,7 +24,7 @@ public class PluginServicesIsolationTests
 
     public PluginServicesIsolationTests(ITestOutputHelper outputHelper)
     {
-        _loggerFactory = LoggerFactory.Create(builder => builder.AddXunit(outputHelper, LogLevel.Trace).SetMinimumLevel(LogLevel.Warning));
+        _loggerFactory = LoggerFactory.Create(builder => builder.AddXUnit(outputHelper).SetMinimumLevel(LogLevel.Warning));
         _logger = _loggerFactory.CreateLogger<PluginServicesContainer>();
 
         _hostContext = Substitute.For<IPluginSystemHostContext>();

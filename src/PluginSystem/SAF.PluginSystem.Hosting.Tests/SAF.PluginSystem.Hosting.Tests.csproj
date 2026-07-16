@@ -53,8 +53,8 @@ SPDX-License-Identifier: MPL-2.0
     <PackageReference Include="NSubstitute" />
     <PackageReference Include="Testably.Abstractions" />
     <PackageReference Include="Testably.Abstractions.Testing" />
-    <PackageReference Include="xunit" />
-    <PackageReference Include="Xunit.Extensions.Logging" />
+    <PackageReference Include="xunit.v3" />
+    <PackageReference Include="MartinCostello.Logging.XUnit.v3" />
     <PackageReference Include="xunit.runner.visualstudio">
       <PrivateAssets>all</PrivateAssets>
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
