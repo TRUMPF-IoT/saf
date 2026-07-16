@@ -11,6 +11,7 @@ using NSubstitute;
 using System.Reflection;
 using Testably.Abstractions;
 
+[Collection("BaseDirectoryFileSystem")]
 public class PluginAssemblyFolderContainerTests
 {
     private readonly RealFileSystem _fileSystem;
