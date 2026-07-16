@@ -170,6 +170,25 @@ The SAF messaging runtime resolves handlers by concrete type; interface-only reg
 
 ---
 
+## Step 3a — Replace TestableIO with Testably for File System Abstractions
+
+If your solution still references `TestableIO.System.IO.Abstractions.*`, migrate to `Testably.Abstractions` to stay aligned with current SAF packages.
+
+### Package migration
+
+- Replace `TestableIO.System.IO.Abstractions.Wrappers` with `Testably.Abstractions`
+- Replace `TestableIO.System.IO.Abstractions.TestingHelpers` with `Testably.Abstractions.Testing`
+
+### Runtime DI migration
+
+Use `RealFileSystem` as the concrete `IFileSystem` registration:
+
+```csharp
+services.TryAddTransient<IFileSystem, RealFileSystem>();
+```
+
+---
+
 ## Step 4 — Ensure SAF.Messaging.Runtime Is Discoverable
 
 In 11.x the `IMessagingInfrastructure` singleton is no longer registered directly by the host. Instead, `SAF.Messaging.Runtime` acts as a plug-in that resolves and registers the primary infrastructure based on `Messaging:PrimaryKey`.

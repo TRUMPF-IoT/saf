@@ -9,9 +9,9 @@ using Microsoft.Extensions.FileSystemGlobbing;
 using Microsoft.Extensions.Logging;
 using System.Collections.Generic;
 using System.IO;
-using System.IO.Abstractions;
 using System.Reflection;
 using System.Runtime.Loader;
+using System.IO.Abstractions;
 
 /// <inheritdoc />
 public class PluginAssemblyFolderContainer(

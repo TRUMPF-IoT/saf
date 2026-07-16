@@ -9,8 +9,8 @@ using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using SAF.Common;
 using SAF.PluginSystem.Hosting.Contracts;
-using System.IO.Abstractions;
 using System.Text.Json;
+using System.IO.Abstractions;
 
 internal class ServiceHostDiagnostics(
     ILogger<ServiceHostDiagnostics> log,
