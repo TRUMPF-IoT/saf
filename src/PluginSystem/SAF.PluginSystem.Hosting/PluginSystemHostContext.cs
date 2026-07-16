@@ -46,12 +46,12 @@ public class PluginSystemHostContext(
                     options.PluginSettingsFilePath, settingsFilePath);
             }
 
-            builder.AddJsonFile(settingsFilePath, true);
+            builder.AddJsonFile(settingsFilePath, optional: true, reloadOnChange: true);
 
             var filePath = fileSystem.Path.Combine(fileSystem.Path.GetDirectoryName(settingsFilePath)!, fileSystem.Path.GetFileNameWithoutExtension(settingsFilePath));
             var fileExt = fileSystem.Path.GetExtension(settingsFilePath);
             var environmentSettingsFilePath = $"{filePath}.{environment.EnvironmentName}{fileExt}";
-            builder.AddJsonFile(environmentSettingsFilePath, true);
+            builder.AddJsonFile(environmentSettingsFilePath, optional: true, reloadOnChange: true);
         }
 
         return builder.Build();
