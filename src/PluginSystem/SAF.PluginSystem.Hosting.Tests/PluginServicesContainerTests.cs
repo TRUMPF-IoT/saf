@@ -215,11 +215,124 @@ public class PluginServicesContainerTests
     }
 
     /// <summary>
+    /// Tests that ReinitializeAsync re-runs the plugin manifests and swaps in fresh service providers.
+    /// </summary>
+    [Fact]
+    public async Task ReinitializeAsync_RebuildsProviders_AndReenumeratesManifests()
+    {
+        // Arrange
+        var pluginServicesContainer = new PluginServicesContainer(
+            _logger, _hostContext, _applicationServiceProvider, [_pluginContainer], _publicServiceTypeRegistry);
+        var providerBefore = pluginServicesContainer.GetPublicServices();
+        _pluginContainer.ClearReceivedCalls();
+
+        // Act
+        await pluginServicesContainer.ReinitializeAsync();
+        var providerAfter = pluginServicesContainer.GetPublicServices();
+
+        // Assert
+        Assert.NotSame(providerBefore, providerAfter);
+        _pluginContainer.Received(1).GetPluginManifests();
+    }
+
+    /// <summary>
+    /// Tests that ReinitializeAsync disposes the previously built service providers.
+    /// </summary>
+    [Fact]
+    public async Task ReinitializeAsync_DisposesPreviousProviders()
+    {
+        // Arrange
+        var pluginServicesContainer = new PluginServicesContainer(
+            _logger, _hostContext, _applicationServiceProvider, [_pluginContainer], _publicServiceTypeRegistry);
+        var providerBefore = pluginServicesContainer.GetPublicServices();
+
+        // Act
+        await pluginServicesContainer.ReinitializeAsync();
+
+        // Assert
+        Assert.Throws<ObjectDisposedException>(() => providerBefore.GetService(typeof(IServiceProvider)));
+    }
+
+    /// <summary>
+    /// Tests that ReinitializeAsync builds providers even when no prior initialization happened.
+    /// </summary>
+    [Fact]
+    public async Task ReinitializeAsync_WithoutPriorInitialization_BuildsProviders()
+    {
+        // Arrange
+        var pluginServicesContainer = new PluginServicesContainer(
+            _logger, _hostContext, _applicationServiceProvider, [_pluginContainer], _publicServiceTypeRegistry);
+
+        // Act
+        await pluginServicesContainer.ReinitializeAsync();
+
+        // Assert
+        Assert.NotNull(pluginServicesContainer.GetPublicServices());
+        Assert.NotEmpty(pluginServicesContainer.GetPluginServices());
+        _pluginContainer.Received().GetPluginManifests();
+    }
+
+    /// <summary>
+    /// Tests that repeated reinitializations keep working and do not leak the public-services collection.
+    /// </summary>
+    [Theory]
+    [InlineData(2)]
+    [InlineData(5)]
+    public async Task ReinitializeAsync_CalledMultipleTimes_KeepsProvidersUsable(int reloads)
+    {
+        // Arrange
+        var pluginServicesContainer = new PluginServicesContainer(
+            _logger, _hostContext, _applicationServiceProvider, [_pluginContainer], _publicServiceTypeRegistry);
+        pluginServicesContainer.GetPublicServices();
+
+        // Act
+        for (var i = 0; i < reloads; i++)
+        {
+            await pluginServicesContainer.ReinitializeAsync();
+        }
+
+        // Assert
+        Assert.NotNull(pluginServicesContainer.GetPublicServices());
+    }
+
+    /// <summary>
+    /// Tests that ReinitializeAsync throws once the container has been disposed.
+    /// </summary>
+    [Fact]
+    public async Task ReinitializeAsync_AfterDispose_Throws()
+    {
+        // Arrange
+        var pluginServicesContainer = new PluginServicesContainer(
+            _logger, _hostContext, _applicationServiceProvider, [_pluginContainer], _publicServiceTypeRegistry);
+        pluginServicesContainer.GetPluginServices();
+        await DisposeContainerAsync(pluginServicesContainer);
+
+        // Act + Assert
+        await Assert.ThrowsAsync<ObjectDisposedException>(async () => await pluginServicesContainer.ReinitializeAsync());
+    }
+
+    /// <summary>
+    /// Tests that ReinitializeAsync honors a cancellation request.
+    /// </summary>
+    [Fact]
+    public async Task ReinitializeAsync_WithCancelledToken_Throws()
+    {
+        // Arrange
+        var pluginServicesContainer = new PluginServicesContainer(
+            _logger, _hostContext, _applicationServiceProvider, [_pluginContainer], _publicServiceTypeRegistry);
+        pluginServicesContainer.GetPluginServices();
+        using var cts = new CancellationTokenSource();
+        await cts.CancelAsync();
+
+        // Act + Assert
+        await Assert.ThrowsAsync<OperationCanceledException>(async () => await pluginServicesContainer.ReinitializeAsync(cts.Token));
+    }
+
+    /// <summary>
     /// Provides setup scenarios for DisposeAsync no-throw tests.
     /// </summary>
     public static IEnumerable<object[]> GetDisposeAsyncNoThrowScenarios()
-    {
-        yield return [new Action<PluginServicesContainer>(container =>
+    {        yield return [new Action<PluginServicesContainer>(container =>
         {
             container.GetPluginServices();
         })];

@@ -21,8 +21,8 @@ public sealed class PluginServicesContainer(
     private bool _initialized = false;
     private bool _disposed = false;
 
-    private readonly List<PluginServiceCollection> _pluginServiceCollections = [];
-    private readonly PluginServiceCollection _publicServicesOnlyCollection = new(new ServiceCollection(), []);
+    private List<PluginServiceCollection> _pluginServiceCollections = [];
+    private PluginServiceCollection _publicServicesOnlyCollection = new(new ServiceCollection(), []);
 
     public IEnumerable<IServiceProvider> GetPluginServices()
     {
@@ -34,6 +34,33 @@ public sealed class PluginServicesContainer(
     {
         InitializeServiceProviders();
         return _publicServicesOnlyCollection.ServiceProvider!;
+    }
+
+    public async ValueTask ReinitializeAsync(CancellationToken cancellationToken = default)
+    {
+        List<IServiceProvider> providersToDispose;
+
+        lock (_syncPluginLoading)
+        {
+            ObjectDisposedException.ThrowIf(_disposed, this);
+
+            cancellationToken.ThrowIfCancellationRequested();
+
+            logger.LogInformation("Reinitializing plug-in service providers.");
+
+            providersToDispose = SnapshotProviders();
+
+            _pluginServiceCollections = [];
+            _publicServicesOnlyCollection = new PluginServiceCollection(new ServiceCollection(), []);
+            _initialized = true;
+
+            BuildProviders();
+        }
+
+        foreach (IServiceProvider provider in providersToDispose)
+        {
+            await DisposeProviderAsync(provider).ConfigureAwait(false);
+        }
     }
 
     private void InitializeServiceProviders()
@@ -49,9 +76,14 @@ public sealed class PluginServicesContainer(
 
             logger.LogInformation("Starting plug-in search and initialization.");
 
-            var manifests = pluginContainers.SelectMany(s => s.GetPluginManifests()).ToList();
-            InitializePlugins(manifests);
+            BuildProviders();
         }
+    }
+
+    private void BuildProviders()
+    {
+        var manifests = pluginContainers.SelectMany(s => s.GetPluginManifests()).ToList();
+        InitializePlugins(manifests);
     }
 
     private void InitializePlugins(IEnumerable<IPluginManifest> pluginManifests)
@@ -99,11 +131,7 @@ public sealed class PluginServicesContainer(
 
             _disposed = true;
 
-            providersToDispose = _pluginServiceCollections
-                .Select(collection => collection.ServiceProvider)
-                .Append(_publicServicesOnlyCollection.ServiceProvider)
-                .OfType<IServiceProvider>()
-                .ToList();
+            providersToDispose = SnapshotProviders();
         }
 
         foreach (IServiceProvider provider in providersToDispose)
@@ -111,6 +139,13 @@ public sealed class PluginServicesContainer(
             await DisposeProviderAsync(provider).ConfigureAwait(false);
         }
     }
+
+    private List<IServiceProvider> SnapshotProviders() =>
+        _pluginServiceCollections
+            .Select(collection => collection.ServiceProvider)
+            .Append(_publicServicesOnlyCollection.ServiceProvider)
+            .OfType<IServiceProvider>()
+            .ToList();
 
     private static async ValueTask DisposeProviderAsync(IServiceProvider provider)
     {
