@@ -401,3 +401,71 @@ sequenceDiagram
     Host->>SPH: StoppedAsync
     SPH->>PB: StoppedAsync
 ```
+
+---
+
+## Live Reload (Reconfiguration)
+
+The plugin system can rebuild its DI containers **in-process** from the current
+`context.PluginConfiguration`, without restarting the host and without recreating the underlying
+assembly load contexts (ALCs). This enables live reconfiguration: after the plugin settings change,
+each manifest's `ConfigureServices` runs again against the fresh configuration, producing new plugin
+service instances while the loaded assemblies stay in place.
+
+Two APIs cooperate:
+
+| API | Assembly | Responsibility |
+|---|---|---|
+| `IPluginServicesContainer.ReinitializeAsync(CancellationToken)` | `SAF.PluginSystem.Hosting.Contracts` | Rebuilds the plugin service providers, then disposes the previous ones. Leaves the plugin assembly containers / ALCs untouched. |
+| `IPluginSystemController.ReloadAsync(CancellationToken)` | `SAF.PluginSystem.Hosting.Contracts` | Host-level orchestration: stops the running `IServicePlugin`s, calls `ReinitializeAsync`, then starts the service plugins again. |
+
+`IPluginSystemController` is registered automatically by `AddPluginSystem` — resolve it from the host
+container (or via constructor injection) and call `ReloadAsync` when the configuration changes:
+
+```csharp
+public class ConfigChangeWatcher(IPluginSystemController pluginSystem)
+{
+    // e.g. wired to IOptionsMonitor.OnChange or a file watcher
+    public Task OnConfigurationChangedAsync(CancellationToken token)
+        => pluginSystem.ReloadAsync(token);
+}
+```
+
+### What a reload does — and does not — do
+
+- **Rebuilds** every plugin's DI container by re-running `IPluginManifest.ConfigureServices` with the
+  current `PluginConfiguration`, and re-imports the public cross-plugin services.
+- **Disposes** the previously built service providers (and the singletons they own) after the new
+  providers are ready.
+- **Restarts** the `IServicePlugin`s via `ReloadAsync` (stop → reinitialize → start). Per-plugin
+  start/stop failures are logged and do not abort the reload.
+- **Keeps** the assembly load contexts. `PluginAssemblyLoadContext` is **not** collectible, so rebuilding
+  providers instead of recreating ALCs avoids leaking assemblies over repeated reloads.
+- **Does not** pick up a plugin binary that was absent at startup — a newly deployed plugin DLL still
+  requires a controlled host restart.
+
+> **Reload-safe plugins:** because instances are recreated on every reload, plugins must not rely on
+> mutable process-wide static state surviving a reload, and any resources opened in `StartAsync` must be
+> released in `StopAsync` so the disposed provider can be reclaimed. For configuration to actually change,
+> the host `IConfiguration` backing `PluginConfiguration` must be reloadable (for example
+> `AddJsonFile(..., reloadOnChange: true)` or a swappable in-memory source).
+
+### Reload Sequence Diagram
+
+```mermaid
+sequenceDiagram
+    participant App as Host / trigger
+    participant PSC as IPluginSystemController
+    participant Cnt as IPluginServicesContainer
+    participant PA  as Service Plugins (old)
+    participant PB  as Service Plugins (new)
+
+    App->>PSC: ReloadAsync
+    PSC->>PA: StopAsync
+    PSC->>Cnt: ReinitializeAsync
+    Note over Cnt: re-run ConfigureServices\nwith fresh PluginConfiguration
+    Cnt->>Cnt: build new providers
+    Cnt-->>PA: dispose old providers
+    PSC->>PB: StartAsync
+```
+
