@@ -26,8 +26,8 @@ public class StrongNamePluginAssemblyValidatorTests
 
         Assert.True(result.IsAccepted);
         Assert.Null(result.Reason);
-
     }
+
     [Fact]
     public void Validate_Rejects_WhenStrongNameIsRequiredAndAssemblyIsUnsigned()
     {
