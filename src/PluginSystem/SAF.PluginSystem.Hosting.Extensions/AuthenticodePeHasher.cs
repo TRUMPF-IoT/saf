@@ -11,16 +11,16 @@ using System.Security.Cryptography;
 using System.Security.Cryptography.Pkcs;
 
 /// <summary>
-/// Verifies that an Authenticode signature actually covers the contents of a PE file.
+/// Default <see cref="IAuthenticodePeHasher"/> implementation.
 /// <para>
 /// <see cref="SignedCms.CheckSignature(bool)"/> alone only proves that the signed
 /// <c>SpcIndirectDataContent</c> blob is internally consistent - it does not prove that the blob
 /// belongs to <em>this</em> file. Without recomputing the PE hash and comparing it to the digest
 /// embedded in the signature, a valid signature blob could be transplanted from a trusted file onto
-/// a tampered one. This helper closes that gap and works identically on every platform.
+/// a tampered one. This type closes that gap and works identically on every platform.
 /// </para>
 /// </summary>
-internal static class AuthenticodePeHasher
+internal sealed class AuthenticodePeHasher : IAuthenticodePeHasher
 {
     // 1.3.6.1.4.1.311.2.1.4 - SPC_INDIRECT_DATA_OBJID (Authenticode signed content).
     private const string SpcIndirectDataOid = "1.3.6.1.4.1.311.2.1.4";
@@ -37,11 +37,7 @@ internal static class AuthenticodePeHasher
     private const int DataDirectoryEntrySize = 8;
     private const int CertificateTableDirectoryIndex = 4;
 
-    /// <summary>
-    /// Returns <see langword="true"/> when the digest embedded in <paramref name="signedCms"/>
-    /// matches the recomputed Authenticode hash of the file at <paramref name="assemblyPath"/>.
-    /// </summary>
-    public static bool VerifyEmbeddedHashMatchesFile(string assemblyPath, SignedCms signedCms)
+    public bool VerifyEmbeddedHashMatchesFile(string assemblyPath, SignedCms signedCms)
     {
         if (!TryReadExpectedDigest(signedCms, out var hashAlgorithm, out var expectedDigest))
         {

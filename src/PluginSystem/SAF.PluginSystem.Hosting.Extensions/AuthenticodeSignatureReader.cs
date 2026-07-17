@@ -15,6 +15,7 @@ internal sealed class AuthenticodeSignatureReader : IAuthenticodeSignatureReader
     private const int WinCertificateHeaderSize = 8;
 
     private readonly IAuthenticodeChainTrustVerifier _trustVerifier;
+    private readonly IAuthenticodePeHasher _peHasher;
 
     public AuthenticodeSignatureReader()
         : this(OperatingSystem.IsWindows()
@@ -24,9 +25,16 @@ internal sealed class AuthenticodeSignatureReader : IAuthenticodeSignatureReader
     }
 
     internal AuthenticodeSignatureReader(IAuthenticodeChainTrustVerifier trustVerifier)
+        : this(trustVerifier, new AuthenticodePeHasher())
+    {
+    }
+
+    internal AuthenticodeSignatureReader(IAuthenticodeChainTrustVerifier trustVerifier, IAuthenticodePeHasher peHasher)
     {
         ArgumentNullException.ThrowIfNull(trustVerifier);
+        ArgumentNullException.ThrowIfNull(peHasher);
         _trustVerifier = trustVerifier;
+        _peHasher = peHasher;
     }
 
     public AuthenticodeSignatureInfo? ReadSignature(string assemblyPath)
@@ -55,7 +63,7 @@ internal sealed class AuthenticodeSignatureReader : IAuthenticodeSignatureReader
             // this file. Only verifiers that hash the file themselves (Windows/WinVerifyTrust) let us
             // infer coverage from trust; otherwise we must always compare the embedded PE hash.
             var signatureCoversFile = (isTrusted && _trustVerifier.VerifiesFileIntegrity)
-                || AuthenticodePeHasher.VerifyEmbeddedHashMatchesFile(assemblyPath, cms);
+                || _peHasher.VerifyEmbeddedHashMatchesFile(assemblyPath, cms);
 
             var signerThumbprint = signatureCoversFile ? NormalizeThumbprint(signerCertificate.Thumbprint) : null;
             return new AuthenticodeSignatureInfo(signerThumbprint, isTrusted && signatureCoversFile);
