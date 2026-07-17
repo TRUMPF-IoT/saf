@@ -21,6 +21,10 @@ internal sealed class CrossPlatformAuthenticodeTrustVerifier : IAuthenticodeChai
     // 1.3.6.1.5.5.7.3.3 - id-kp-codeSigning
     private const string CodeSigningEnhancedKeyUsageOid = "1.3.6.1.5.5.7.3.3";
 
+    // This verifier only validates the certificate chain; the file binding must be checked
+    // separately, so callers must not treat a trusted result as proof the signature covers the file.
+    public bool VerifiesFileIntegrity => false;
+
     public bool IsTrusted(string assemblyPath, X509Certificate2 signerCertificate)
     {
         using var chain = new X509Chain();

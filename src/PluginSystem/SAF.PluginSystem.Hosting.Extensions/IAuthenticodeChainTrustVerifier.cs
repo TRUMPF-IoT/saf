@@ -12,5 +12,13 @@ using System.Security.Cryptography.X509Certificates;
 /// </summary>
 internal interface IAuthenticodeChainTrustVerifier
 {
+    /// <summary>
+    /// <see langword="true"/> when a positive <see cref="IsTrusted"/> result also guarantees that the
+    /// signature covers the file contents (as the Windows <c>WinVerifyTrust</c> path does), so the
+    /// caller can skip an additional PE-hash comparison. <see langword="false"/> when this verifier
+    /// only validates the certificate chain and the file binding must be checked separately.
+    /// </summary>
+    bool VerifiesFileIntegrity { get; }
+
     bool IsTrusted(string assemblyPath, X509Certificate2 signerCertificate);
 }

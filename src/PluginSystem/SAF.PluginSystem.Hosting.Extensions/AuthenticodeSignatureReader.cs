@@ -12,6 +12,8 @@ using System.Security.Cryptography.X509Certificates;
 
 internal sealed class AuthenticodeSignatureReader : IAuthenticodeSignatureReader
 {
+    private const int WinCertificateHeaderSize = 8;
+
     private readonly IAuthenticodeChainTrustVerifier _trustVerifier;
 
     public AuthenticodeSignatureReader()
@@ -47,13 +49,16 @@ internal sealed class AuthenticodeSignatureReader : IAuthenticodeSignatureReader
                 return new AuthenticodeSignatureInfo(SignerThumbprint: null, HasValidDigitalSignature: false);
             }
 
-            // The signer's identity may only be trusted once we know the signature actually covers
-            // this file. Trust also implies file binding, so either check confirms it.
             var isTrusted = _trustVerifier.IsTrusted(assemblyPath, signerCertificate);
-            var signatureCoversFile = isTrusted || AuthenticodePeHasher.VerifyEmbeddedHashMatchesFile(assemblyPath, cms);
+
+            // The signer's identity may only be trusted once we know the signature actually covers
+            // this file. Only verifiers that hash the file themselves (Windows/WinVerifyTrust) let us
+            // infer coverage from trust; otherwise we must always compare the embedded PE hash.
+            var signatureCoversFile = (isTrusted && _trustVerifier.VerifiesFileIntegrity)
+                || AuthenticodePeHasher.VerifyEmbeddedHashMatchesFile(assemblyPath, cms);
 
             var signerThumbprint = signatureCoversFile ? NormalizeThumbprint(signerCertificate.Thumbprint) : null;
-            return new AuthenticodeSignatureInfo(signerThumbprint, isTrusted);
+            return new AuthenticodeSignatureInfo(signerThumbprint, isTrusted && signatureCoversFile);
         }
         catch (Exception ex) when (ex is CryptographicException
                                    or PlatformNotSupportedException
@@ -68,7 +73,8 @@ internal sealed class AuthenticodeSignatureReader : IAuthenticodeSignatureReader
 
     private static X509Certificate2? ResolveSignerCertificate(SignedCms cms)
     {
-        if (cms.SignerInfos.Count == 0)
+        var signerInfos = cms.SignerInfos;
+        if (signerInfos.Count == 0)
         {
             return null;
         }
@@ -76,7 +82,7 @@ internal sealed class AuthenticodeSignatureReader : IAuthenticodeSignatureReader
         // Authenticode always embeds the signing certificate, so use it directly. If it is missing
         // we cannot identify the signer safely - falling back to an arbitrary certificate in the bag
         // could select an unrelated intermediate CA - so the signature is treated as unusable.
-        return cms.SignerInfos[0].Certificate;
+        return signerInfos[0].Certificate;
     }
 
     private static string? NormalizeThumbprint(string? thumbprint)
@@ -111,8 +117,6 @@ internal sealed class AuthenticodeSignatureReader : IAuthenticodeSignatureReader
 
         return ExtractPkcsSignedData(certificateBlob);
     }
-
-    private const int WinCertificateHeaderSize = 8;
 
     private static byte[]? ExtractPkcsSignedData(byte[] certificateBlob)
     {

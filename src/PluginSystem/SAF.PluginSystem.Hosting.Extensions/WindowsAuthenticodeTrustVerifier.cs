@@ -28,6 +28,11 @@ internal sealed class WindowsAuthenticodeTrustVerifier : IAuthenticodeChainTrust
     private const uint WtdCacheOnlyUrlRetrieval = 0x1000;
     private const int TrustSuccess = 0; // S_OK
 
+    // WinVerifyTrust recomputes and compares the PE hash, so trust implies file integrity.
+    public bool VerifiesFileIntegrity => true;
+
+    // The signer certificate is not needed here: WinVerifyTrust validates the embedded signature,
+    // its hash coverage and the trust chain directly from the file.
     public bool IsTrusted(string assemblyPath, X509Certificate2 signerCertificate)
     {
         var fileInfo = new WinTrustFileInfo
