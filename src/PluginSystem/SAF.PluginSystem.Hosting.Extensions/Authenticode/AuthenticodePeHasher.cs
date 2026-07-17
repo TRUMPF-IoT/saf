@@ -5,6 +5,7 @@
 namespace SAF.PluginSystem.Hosting.Extensions.Authenticode;
 
 using System.Buffers;
+using System.Diagnostics.CodeAnalysis;
 using System.Formats.Asn1;
 using System.Reflection.PortableExecutable;
 using System.Security.Cryptography;
@@ -48,6 +49,7 @@ internal sealed class AuthenticodePeHasher : IAuthenticodePeHasher
         return actualDigest is not null && CryptographicOperations.FixedTimeEquals(actualDigest, expectedDigest);
     }
 
+    [SuppressMessage("Code Smell", "S125:Sections of code should not be commented out", Justification = "The comment documents the ASN.1 binary structure and is not commented-out executable code.")]
     private static bool TryReadExpectedDigest(SignedCms signedCms, out HashAlgorithmName hashAlgorithm, out byte[] expectedDigest)
     {
         hashAlgorithm = default;

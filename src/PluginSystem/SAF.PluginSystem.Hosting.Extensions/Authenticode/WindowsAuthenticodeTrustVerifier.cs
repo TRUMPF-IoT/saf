@@ -4,6 +4,7 @@
 
 namespace SAF.PluginSystem.Hosting.Extensions.Authenticode;
 
+using System.Diagnostics.CodeAnalysis;
 using System.Runtime.InteropServices;
 using System.Runtime.Versioning;
 using System.Security.Cryptography.X509Certificates;
@@ -80,6 +81,7 @@ internal sealed class WindowsAuthenticodeTrustVerifier : IAuthenticodeChainTrust
         }
     }
 
+    [SuppressMessage("Interoperability", "SYSLIB1054:Use 'LibraryImportAttribute' instead of 'DllImportAttribute' to generate P/Invoke marshalling code at compile time", Justification = "WinVerifyTrust uses WinTrust union-style data that is represented with pointer fields; this signature is intentionally kept with DllImport for compatibility.")]
     [DllImport("wintrust.dll", ExactSpelling = true, SetLastError = false)]
     private static extern int WinVerifyTrust(IntPtr hwnd, ref Guid pgActionId, ref WinTrustData pWinTrustData);
 
