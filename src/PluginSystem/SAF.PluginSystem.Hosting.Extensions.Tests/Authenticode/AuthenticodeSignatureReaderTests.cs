@@ -2,9 +2,9 @@
 //
 // SPDX-License-Identifier: MPL-2.0
 
-namespace SAF.PluginSystem.Hosting.Extensions.Tests;
+namespace SAF.PluginSystem.Hosting.Extensions.Tests.Authenticode;
 
-using SAF.PluginSystem.Hosting.Extensions;
+using SAF.PluginSystem.Hosting.Extensions.Authenticode;
 using System.Security.Cryptography.X509Certificates;
 
 public class AuthenticodeSignatureReaderTests

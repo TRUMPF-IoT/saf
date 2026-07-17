@@ -6,6 +6,7 @@ namespace SAF.PluginSystem.Hosting.Extensions;
 
 using Contracts;
 using Microsoft.Extensions.DependencyInjection;
+using SAF.PluginSystem.Hosting.Extensions.Authenticode;
 
 public static class PluginSystemHostBuilderExtensions
 {

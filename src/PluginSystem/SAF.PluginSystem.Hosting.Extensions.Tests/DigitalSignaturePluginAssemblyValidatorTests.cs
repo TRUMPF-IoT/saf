@@ -6,6 +6,7 @@ namespace SAF.PluginSystem.Hosting.Extensions.Tests;
 
 using NSubstitute;
 using SAF.PluginSystem.Hosting.Extensions;
+using SAF.PluginSystem.Hosting.Extensions.Authenticode;
 using System.Reflection;
 
 public class DigitalSignaturePluginAssemblyValidatorTests
