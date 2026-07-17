@@ -10,6 +10,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using NSubstitute;
+using System.Linq;
 using System.Reflection;
 using System.IO.Abstractions;
 using Testably.Abstractions.Testing;
@@ -53,6 +54,7 @@ public class PluginSystemHostBuilderExtensionsTests
         // Assert
         var serviceProvider = _serviceCollection.BuildServiceProvider();
         Assert.NotNull(serviceProvider.GetService<IPluginAssemblyContainer>() as PluginAssemblyFolderContainer);
+        Assert.Empty(serviceProvider.GetServices<IPluginAssemblyValidator>());
     }
 
     [Fact]
@@ -115,5 +117,56 @@ public class PluginSystemHostBuilderExtensionsTests
         // Assert — registration order is preserved, so the second call's provider overrides the first's.
         Assert.Equal(2, configureSources.Count);
         Assert.Equal("Second", configuration["Key"]);
+    }
+
+    [Fact]
+    public void AddStrongNamePluginAssemblyValidator_WithConfiguration_ShouldApplyOptions()
+    {
+        // Act
+        _hostBuilder.AddStrongNamePluginAssemblyValidator(options =>
+        {
+            options.RequireStrongName = true;
+            options.AllowedPublicKeyTokens.Add("0011223344556677");
+        });
+
+        // Assert
+        var serviceProvider = _serviceCollection.BuildServiceProvider();
+        var validator = Assert.IsType<StrongNamePluginAssemblyValidator>(
+            Assert.Single(serviceProvider.GetServices<IPluginAssemblyValidator>()));
+
+        var assemblyPath = Assembly.GetExecutingAssembly().Location;
+        var context = new PluginAssemblyValidationContext(assemblyPath, AssemblyName.GetAssemblyName(assemblyPath));
+        var result = validator.Validate(context);
+
+        Assert.False(result.IsAccepted);
+    }
+
+    [Fact]
+    public void AddPluginAssemblyValidator_ShouldPreserveRegistrationOrder()
+    {
+        _hostBuilder.AddPluginAssemblyValidator<FirstValidator>();
+        _hostBuilder.AddStrongNamePluginAssemblyValidator();
+        _hostBuilder.AddDigitalSignaturePluginAssemblyValidator();
+        _hostBuilder.AddPluginAssemblyValidator<SecondValidator>();
+
+        var serviceProvider = _serviceCollection.BuildServiceProvider();
+        var validatorTypes = serviceProvider.GetServices<IPluginAssemblyValidator>().Select(v => v.GetType()).ToList();
+
+        Assert.Equal(typeof(FirstValidator), validatorTypes[0]);
+        Assert.Equal(typeof(StrongNamePluginAssemblyValidator), validatorTypes[1]);
+        Assert.Equal(typeof(DigitalSignaturePluginAssemblyValidator), validatorTypes[2]);
+        Assert.Equal(typeof(SecondValidator), validatorTypes[3]);
+    }
+
+    private sealed class FirstValidator : IPluginAssemblyValidator
+    {
+        public PluginAssemblyValidationResult Validate(PluginAssemblyValidationContext context)
+            => PluginAssemblyValidationResult.Accepted();
+    }
+
+    private sealed class SecondValidator : IPluginAssemblyValidator
+    {
+        public PluginAssemblyValidationResult Validate(PluginAssemblyValidationContext context)
+            => PluginAssemblyValidationResult.Accepted();
     }
 }
