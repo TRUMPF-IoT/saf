@@ -7,6 +7,7 @@ namespace SAF.PluginSystem.Hosting.Tests;
 using Contracts;
 using Microsoft.Extensions.Logging.Abstractions;
 using NSubstitute;
+using SAF.PluginSystem.Hosting.Extensions;
 using System.Reflection;
 using Testably.Abstractions;
 

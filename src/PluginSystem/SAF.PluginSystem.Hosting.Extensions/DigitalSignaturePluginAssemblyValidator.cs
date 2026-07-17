@@ -2,22 +2,37 @@
 //
 // SPDX-License-Identifier: MPL-2.0
 
-namespace SAF.PluginSystem.Hosting;
-
-using System.Security.Cryptography.X509Certificates;
+namespace SAF.PluginSystem.Hosting.Extensions;
 
 /// <summary>
 /// Enforces digital-signature related plugin assembly trust checks.
 /// </summary>
-public sealed class DigitalSignaturePluginAssemblyValidator(DigitalSignaturePluginAssemblyValidatorOptions options) : IPluginAssemblyValidator
+public sealed class DigitalSignaturePluginAssemblyValidator : IPluginAssemblyValidator
 {
-    private readonly DigitalSignaturePluginAssemblyValidatorOptions _options = options;
+    private readonly DigitalSignaturePluginAssemblyValidatorOptions _options;
+    private readonly IAuthenticodeSignatureReader _authenticodeSignatureReader;
+
+    public DigitalSignaturePluginAssemblyValidator(DigitalSignaturePluginAssemblyValidatorOptions options)
+        : this(options, new AuthenticodeSignatureReader())
+    {
+    }
+
+    internal DigitalSignaturePluginAssemblyValidator(
+        DigitalSignaturePluginAssemblyValidatorOptions options,
+        IAuthenticodeSignatureReader authenticodeSignatureReader)
+    {
+        ArgumentNullException.ThrowIfNull(options);
+        ArgumentNullException.ThrowIfNull(authenticodeSignatureReader);
+
+        _options = options;
+        _authenticodeSignatureReader = authenticodeSignatureReader;
+    }
 
     public PluginAssemblyValidationResult Validate(PluginAssemblyValidationContext context)
     {
         ArgumentNullException.ThrowIfNull(context);
 
-        var signerThumbprint = TryGetSignerThumbprint(context.AssemblyPath, out var hasValidDigitalSignature);
+        _ = _authenticodeSignatureReader.TryGetSignatureInfo(context.AssemblyPath, out var signerThumbprint, out var hasValidDigitalSignature);
 
         if (_options.RequireValidDigitalSignature && !hasValidDigitalSignature)
         {
@@ -31,32 +46,5 @@ public sealed class DigitalSignaturePluginAssemblyValidator(DigitalSignaturePlug
         }
 
         return PluginAssemblyValidationResult.Accepted();
-    }
-
-    private static string? TryGetSignerThumbprint(string assemblyPath, out bool hasValidDigitalSignature)
-    {
-        hasValidDigitalSignature = false;
-
-        try
-        {
-            var signerCertificate = X509CertificateLoader.LoadCertificateFromFile(assemblyPath);
-            if (signerCertificate is null)
-            {
-                return null;
-            }
-
-            using var signerCertificate2 = new X509Certificate2(signerCertificate);
-            using var chain = new X509Chain();
-            chain.ChainPolicy.RevocationMode = X509RevocationMode.NoCheck;
-            chain.ChainPolicy.RevocationFlag = X509RevocationFlag.ExcludeRoot;
-            chain.ChainPolicy.VerificationFlags = X509VerificationFlags.NoFlag;
-
-            hasValidDigitalSignature = chain.Build(signerCertificate2);
-            return signerCertificate2.Thumbprint?.Replace(" ", string.Empty, StringComparison.Ordinal);
-        }
-        catch (Exception ex) when (ex is System.Security.Cryptography.CryptographicException or PlatformNotSupportedException)
-        {
-            return null;
-        }
     }
 }

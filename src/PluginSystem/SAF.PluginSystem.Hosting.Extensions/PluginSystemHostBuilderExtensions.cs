@@ -6,6 +6,7 @@ namespace SAF.PluginSystem.Hosting.Extensions;
 
 using Contracts;
 using Microsoft.Extensions.DependencyInjection;
+using SAF.PluginSystem.Hosting.Extensions;
 
 public static class PluginSystemHostBuilderExtensions
 {
@@ -50,7 +51,9 @@ public static class PluginSystemHostBuilderExtensions
         var options = new DigitalSignaturePluginAssemblyValidatorOptions();
         configure?.Invoke(options);
 
-        hostBuilder.Services.AddSingleton<IPluginAssemblyValidator>(_ => new DigitalSignaturePluginAssemblyValidator(options));
+        hostBuilder.Services.AddSingleton<IAuthenticodeSignatureReader, AuthenticodeSignatureReader>();
+        hostBuilder.Services.AddSingleton<IPluginAssemblyValidator>(sp =>
+            new DigitalSignaturePluginAssemblyValidator(options, sp.GetRequiredService<IAuthenticodeSignatureReader>()));
         return hostBuilder;
     }
 }

@@ -348,8 +348,11 @@ SAF provides built-in validators in `SAF.PluginSystem.Hosting.Extensions`:
 - `AddStrongNamePluginAssemblyValidator(...)`
 - `AddDigitalSignaturePluginAssemblyValidator(...)`
 
+To use these helper extension methods, reference package `SAF.PluginSystem.Hosting.Extensions`.
+
 ```csharp
 using SAF.PluginSystem.Hosting;
+using SAF.PluginSystem.Hosting.Extensions;
 
 var builder = Host.CreateApplicationBuilder(args);
 
@@ -376,11 +379,14 @@ pluginSystemBuilder.AddDigitalSignaturePluginAssemblyValidator(options =>
 });
 ```
 
+The digital-signature validator reads Authenticode signatures from the plugin assembly file (PE certificate table) and validates signer trust using `X509Chain`.
+
 Custom validation can be added with your own validator implementation:
 
 ```csharp
 using SAF.PluginSystem.Hosting;
 using SAF.PluginSystem.Hosting.Contracts;
+using SAF.PluginSystem.Hosting.Extensions;
 
 public sealed class MyAssemblyValidator : IPluginAssemblyValidator
 {
