@@ -4,6 +4,8 @@
 
 namespace SAF.PluginSystem.Hosting;
 
+using System.Security.Cryptography.X509Certificates;
+
 /// <summary>
 /// Enforces digital-signature related plugin assembly trust checks.
 /// </summary>
@@ -22,12 +24,10 @@ public sealed class DigitalSignaturePluginAssemblyValidator(DigitalSignaturePlug
             return PluginAssemblyValidationResult.Rejected("assembly does not have a valid digital signature");
         }
 
-        if (_options.AllowedSignerThumbprints.Count > 0)
+        if (_options.AllowedSignerThumbprints.Count > 0 &&
+            (string.IsNullOrWhiteSpace(signerThumbprint) || !_options.AllowedSignerThumbprints.Contains(signerThumbprint)))
         {
-            if (string.IsNullOrWhiteSpace(signerThumbprint) || !_options.AllowedSignerThumbprints.Contains(signerThumbprint))
-            {
-                return PluginAssemblyValidationResult.Rejected("assembly signer thumbprint is not in the configured allow-list");
-            }
+            return PluginAssemblyValidationResult.Rejected("assembly signer thumbprint is not in the configured allow-list");
         }
 
         return PluginAssemblyValidationResult.Accepted();
@@ -39,17 +39,17 @@ public sealed class DigitalSignaturePluginAssemblyValidator(DigitalSignaturePlug
 
         try
         {
-            var signerCertificate = System.Security.Cryptography.X509Certificates.X509Certificate.CreateFromSignedFile(assemblyPath);
+            var signerCertificate = X509CertificateLoader.LoadCertificateFromFile(assemblyPath);
             if (signerCertificate is null)
             {
                 return null;
             }
 
-            using var signerCertificate2 = new System.Security.Cryptography.X509Certificates.X509Certificate2(signerCertificate);
-            using var chain = new System.Security.Cryptography.X509Certificates.X509Chain();
-            chain.ChainPolicy.RevocationMode = System.Security.Cryptography.X509Certificates.X509RevocationMode.NoCheck;
-            chain.ChainPolicy.RevocationFlag = System.Security.Cryptography.X509Certificates.X509RevocationFlag.ExcludeRoot;
-            chain.ChainPolicy.VerificationFlags = System.Security.Cryptography.X509Certificates.X509VerificationFlags.NoFlag;
+            using var signerCertificate2 = new X509Certificate2(signerCertificate);
+            using var chain = new X509Chain();
+            chain.ChainPolicy.RevocationMode = X509RevocationMode.NoCheck;
+            chain.ChainPolicy.RevocationFlag = X509RevocationFlag.ExcludeRoot;
+            chain.ChainPolicy.VerificationFlags = X509VerificationFlags.NoFlag;
 
             hasValidDigitalSignature = chain.Build(signerCertificate2);
             return signerCertificate2.Thumbprint?.Replace(" ", string.Empty, StringComparison.Ordinal);
