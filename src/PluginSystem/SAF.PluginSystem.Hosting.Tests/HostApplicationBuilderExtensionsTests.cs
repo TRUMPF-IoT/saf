@@ -89,7 +89,7 @@ public class HostApplicationBuilderExtensionsTests
         services.AddSingleton(loggerFactory);
         services.AddTransient(typeof(ILogger<>), typeof(Logger<>));
 
-        builder.AddPluginSystem(sp => { sp.PluginSettingsRootPath = "./test-plugin-configs"; });
+        builder.AddPluginSystem(sp => sp.PluginSettingsRootPath = "./test-plugin-configs");
 
         var serviceProvider = services.BuildServiceProvider();
         var hostContext = serviceProvider.GetRequiredService<IPluginSystemHostContext>();
@@ -117,10 +117,7 @@ public class HostApplicationBuilderExtensionsTests
         services.AddTransient(typeof(ILogger<>), typeof(Logger<>));
 
         // Act
-        var pluginSystemHostBuilder = builder.AddPluginSystem(options =>
-        {
-            options.PluginSettingsFilePath = string.Empty;
-        });
+        var pluginSystemHostBuilder = builder.AddPluginSystem(options => options.PluginSettingsFilePath = string.Empty);
         pluginSystemHostBuilder.AddPluginConfigurationSource(configurationBuilder =>
             configurationBuilder.AddInMemoryCollection(new Dictionary<string, string?>
             {

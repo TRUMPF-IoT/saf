@@ -8,7 +8,6 @@ using Contracts;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using NSubstitute;
-using System.Linq;
 using System.Reflection;
 using System.IO.Abstractions;
 using Testably.Abstractions.Testing;
@@ -71,56 +70,5 @@ public class PluginSystemHostBuilderExtensionsTests
 
         var searchOptions = service.GetType().GetProperty("SearchOptions", BindingFlags.NonPublic | BindingFlags.Instance)?.GetValue(service) as PluginAssemblyFolderSearchOptions;
         Assert.Equal(configuredPath, searchOptions!.SearchRootPath);
-    }
-
-    [Fact]
-    public void AddStrongNamePluginAssemblyValidator_WithConfiguration_ShouldApplyOptions()
-    {
-        // Act
-        _hostBuilder.AddStrongNamePluginAssemblyValidator(options =>
-        {
-            options.RequireStrongName = true;
-            options.AllowedPublicKeyTokens.Add("0011223344556677");
-        });
-
-        // Assert
-        var serviceProvider = _serviceCollection.BuildServiceProvider();
-        var validator = Assert.IsType<StrongNamePluginAssemblyValidator>(
-            Assert.Single(serviceProvider.GetServices<IPluginAssemblyValidator>()));
-
-        var assemblyPath = Assembly.GetExecutingAssembly().Location;
-        var context = new PluginAssemblyValidationContext(assemblyPath, AssemblyName.GetAssemblyName(assemblyPath));
-        var result = validator.Validate(context);
-
-        Assert.False(result.IsAccepted);
-    }
-
-    [Fact]
-    public void AddPluginAssemblyValidator_ShouldPreserveRegistrationOrder()
-    {
-        _hostBuilder.AddPluginAssemblyValidator<FirstValidator>();
-        _hostBuilder.AddStrongNamePluginAssemblyValidator();
-        _hostBuilder.AddDigitalSignaturePluginAssemblyValidator();
-        _hostBuilder.AddPluginAssemblyValidator<SecondValidator>();
-
-        var serviceProvider = _serviceCollection.BuildServiceProvider();
-        var validatorTypes = serviceProvider.GetServices<IPluginAssemblyValidator>().Select(v => v.GetType()).ToList();
-
-        Assert.Equal(typeof(FirstValidator), validatorTypes[0]);
-        Assert.Equal(typeof(StrongNamePluginAssemblyValidator), validatorTypes[1]);
-        Assert.Equal(typeof(DigitalSignaturePluginAssemblyValidator), validatorTypes[2]);
-        Assert.Equal(typeof(SecondValidator), validatorTypes[3]);
-    }
-
-    private sealed class FirstValidator : IPluginAssemblyValidator
-    {
-        public PluginAssemblyValidationResult Validate(PluginAssemblyValidationContext context)
-            => PluginAssemblyValidationResult.Accepted();
-    }
-
-    private sealed class SecondValidator : IPluginAssemblyValidator
-    {
-        public PluginAssemblyValidationResult Validate(PluginAssemblyValidationContext context)
-            => PluginAssemblyValidationResult.Accepted();
     }
 }

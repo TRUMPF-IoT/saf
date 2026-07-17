@@ -6,10 +6,8 @@ namespace SAF.Hosting.Tests;
 
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
-using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using NSubstitute;
-using SAF.Common.Diagnostics;
 using SAF.PluginSystem.Hosting.Contracts;
 using Xunit;
 

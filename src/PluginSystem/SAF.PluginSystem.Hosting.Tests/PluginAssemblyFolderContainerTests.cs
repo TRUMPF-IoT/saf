@@ -5,7 +5,6 @@
 namespace SAF.PluginSystem.Hosting.Tests;
 
 using Contracts;
-using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging.Abstractions;
 using NSubstitute;
 using System.Reflection;
@@ -15,7 +14,6 @@ using Testably.Abstractions;
 public class PluginAssemblyFolderContainerTests
 {
     private readonly RealFileSystem _fileSystem;
-    private readonly string _testPluginsPath;
     private readonly NullLoggerFactory _loggerFactory;
     private readonly PluginManifestLoader _manifestLoader;
 
@@ -24,7 +22,6 @@ public class PluginAssemblyFolderContainerTests
         // The tests enumerate real plugin assemblies on disk and load them via reflection /
         // AssemblyLoadContext, which always read from the real file system, so a mock cannot be used.
         _fileSystem = new RealFileSystem();
-        _testPluginsPath = Path.Combine(AppContext.BaseDirectory, "test-plugins");
         _loggerFactory = NullLoggerFactory.Instance;
         _manifestLoader = new PluginManifestLoader();
     }

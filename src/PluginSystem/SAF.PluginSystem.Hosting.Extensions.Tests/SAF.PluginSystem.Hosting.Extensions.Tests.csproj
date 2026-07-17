@@ -19,8 +19,11 @@ SPDX-License-Identifier: MPL-2.0
       <PrivateAssets>all</PrivateAssets>
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
     </PackageReference>
+    <PackageReference Include="Microsoft.Extensions.Logging" />
     <PackageReference Include="Microsoft.NET.Test.Sdk" />
     <PackageReference Include="NSubstitute" />
+    <PackageReference Include="Testably.Abstractions" />
+    <PackageReference Include="Testably.Abstractions.Testing" />
     <PackageReference Include="xunit.v3" />
     <PackageReference Include="xunit.runner.visualstudio">
       <PrivateAssets>all</PrivateAssets>
@@ -29,6 +32,7 @@ SPDX-License-Identifier: MPL-2.0
   </ItemGroup>
 
   <ItemGroup>
+    <ProjectReference Include="..\SAF.PluginSystem.Hosting\SAF.PluginSystem.Hosting.csproj" />
     <ProjectReference Include="..\SAF.PluginSystem.Hosting.Extensions\SAF.PluginSystem.Hosting.Extensions.csproj" />
   </ItemGroup>
 
