@@ -10,7 +10,6 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using NSubstitute;
-using System.Linq;
 using System.Reflection;
 using System.IO.Abstractions;
 using Testably.Abstractions.Testing;
