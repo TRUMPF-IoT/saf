@@ -21,12 +21,13 @@ public sealed class PluginSystemHostContext : IPluginSystemHostContext, IDisposa
         IPluginSystemHostEnvironment environment,
         IConfigurationManager hostConfiguration,
         PluginSystemOptions options,
-        IFileSystem fileSystem)
+        IFileSystem fileSystem,
+        IEnumerable<Action<IConfigurationBuilder>>? configurePluginConfigurationSources = null)
     {
         Environment = environment;
         HostConfiguration = hostConfiguration;
 
-        (_pluginConfigurationRoot, _pluginSettingsFileProvider) = BuildPluginConfiguration(logger, options, environment, fileSystem);
+        (_pluginConfigurationRoot, _pluginSettingsFileProvider) = BuildPluginConfiguration(logger, options, environment, fileSystem, configurePluginConfigurationSources ?? []);
     }
 
     public IPluginSystemHostEnvironment Environment { get; }
@@ -47,14 +48,30 @@ public sealed class PluginSystemHostContext : IPluginSystemHostContext, IDisposa
         ILogger logger,
         PluginSystemOptions options,
         IPluginSystemHostEnvironment environment,
-        IFileSystem fileSystem)
+        IFileSystem fileSystem,
+        IEnumerable<Action<IConfigurationBuilder>> configurePluginConfigurationSources)
     {
         var builder = new ConfigurationBuilder();
+
+        AddDefaultPluginConfigurationSources(builder, logger, options, environment, fileSystem);
+        AddCustomPluginConfigurationSources(builder, configurePluginConfigurationSources);
+
+        return builder.Build();
+    }
+
+    private static PhysicalFileProvider? AddDefaultPluginConfigurationSources(
+        IConfigurationBuilder builder,
+        ILogger logger,
+        PluginSystemOptions options,
+        IPluginSystemHostEnvironment environment,
+        IFileSystem fileSystem)
+    {
+        ArgumentNullException.ThrowIfNull(builder);
 
         if (string.IsNullOrEmpty(options.PluginSettingsFilePath))
         {
             logger.LogInformation("No plugin configuration file configured.");
-            return (builder.Build(), null);
+            return null;
         }
 
         var settingsFilePath = CreateAbsolutePath(fileSystem, AppContext.BaseDirectory, fileSystem.Path.Combine(environment.PluginSettingsRootPath, options.PluginSettingsFilePath));
@@ -82,7 +99,20 @@ public sealed class PluginSystemHostContext : IPluginSystemHostContext, IDisposa
         var environmentSettingsFileName = $"{fileSystem.Path.GetFileNameWithoutExtension(settingsFileName)}.{environment.EnvironmentName}{fileSystem.Path.GetExtension(settingsFileName)}";
         AddJsonFile(builder, logger, settingsFileProvider, environmentSettingsFileName);
 
-        return (builder.Build(), settingsFileProvider);
+        return settingsFileProvider;
+    }
+    
+    private static void AddCustomPluginConfigurationSources(
+        IConfigurationBuilder builder,
+        IEnumerable<Action<IConfigurationBuilder>> configurePluginConfigurationSources)
+    {
+        ArgumentNullException.ThrowIfNull(builder);
+        ArgumentNullException.ThrowIfNull(configurePluginConfigurationSources);
+
+        foreach (var configureSource in configurePluginConfigurationSources)
+        {
+            configureSource(builder);
+        }
     }
 
     private static void AddJsonFile(ConfigurationBuilder builder, ILogger logger, PhysicalFileProvider settingsFileProvider, string settingsFileName)
