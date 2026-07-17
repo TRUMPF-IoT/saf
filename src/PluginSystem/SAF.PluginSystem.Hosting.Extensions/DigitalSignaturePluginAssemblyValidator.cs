@@ -4,6 +4,8 @@
 
 namespace SAF.PluginSystem.Hosting.Extensions;
 
+using SAF.PluginSystem.Hosting.Extensions.Authenticode;
+
 /// <summary>
 /// Enforces digital-signature related plugin assembly trust checks.
 /// </summary>

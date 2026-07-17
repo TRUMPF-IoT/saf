@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: MPL-2.0
 
-namespace SAF.PluginSystem.Hosting.Extensions;
+namespace SAF.PluginSystem.Hosting.Extensions.Authenticode;
 
 using System.Buffers.Binary;
 using System.Reflection.PortableExecutable;
