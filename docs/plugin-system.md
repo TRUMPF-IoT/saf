@@ -342,6 +342,29 @@ All plugins share a single plugin settings file, exposed to each manifest as `co
 
 with `PluginSettingsRootPath` defaulting to `.` and `PluginSettingsFilePath` defaulting to `./pluginsettings.json`. An optional environment-specific overlay named `{file}.{EnvironmentName}.json` (e.g. `pluginsettings.Development.json`) is layered on top if present. Both paths come from the `PluginSystem` configuration section.
 
+`PluginSystemOptions` stays a pure data object (paths/patterns only). To add further plugin configuration providers from outside (for example XML, INI, custom sources, or application-specific file names/extensions), use the host builder API:
+
+```csharp
+var builder = Host.CreateApplicationBuilder(args);
+
+var pluginSystemBuilder = builder.AddPluginSystem(options =>
+{
+    options.PluginSettingsRootPath = "./config";
+    options.PluginSettingsFilePath = "./pluginsettings.json";
+});
+
+pluginSystemBuilder.AddPluginConfigurationSource(config =>
+    config.AddXmlFile("./config/pluginsettings.myapp", optional: true, reloadOnChange: true));
+
+pluginSystemBuilder.AddPluginConfigurationSource(config =>
+    config.AddXmlFile(
+        $"./config/pluginsettings.{builder.Environment.EnvironmentName}.myapp",
+        optional: true,
+        reloadOnChange: true));
+```
+
+Additional providers are appended after the default plugin JSON sources. Configuration precedence follows normal .NET rules (later providers override earlier ones).
+
 Because the file is shared, plugins keep their settings under distinct top-level sections (the built-in messaging/storage plugins use `Messaging`, `Redis`, `Nats`, `LiteDb`, `SQLite`, `MessageRouting`).
 
 Access your section via `context.PluginConfiguration` in `ConfigureServices`:
@@ -366,6 +389,8 @@ Example `pluginsettings.json`:
 ```
 
 > A plugin may also fall back to host configuration (`context.HostConfiguration`) — the built-in plugins read their section from `PluginConfiguration` first and fall back to `HostConfiguration`. In the simplest setups you can point `PluginSettingsFilePath` at the host's `appsettings.json` and keep everything in one file.
+>
+> If you use `AddXmlFile(...)`, add the package `Microsoft.Extensions.Configuration.Xml` to the host project.
 
 
 ---

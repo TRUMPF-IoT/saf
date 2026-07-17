@@ -138,4 +138,58 @@ public class PluginSystemHostContextTests
         Assert.NotEmpty(fileProviders);
         Assert.All(fileProviders, provider => Assert.True(provider.Source.ReloadOnChange));
     }
+
+    [Fact]
+    public void BuildPluginConfiguration_ShouldApplyCustomConfigurationSources()
+    {
+        // Arrange
+        var logger = Substitute.For<ILogger<PluginSystemHostContext>>();
+        var environment = Substitute.For<IPluginSystemHostEnvironment>();
+        var hostConfiguration = Substitute.For<IConfigurationManager>();
+        var options = new PluginSystemOptions { PluginSettingsFilePath = string.Empty };
+        var configureSources = new List<Action<IConfigurationBuilder>>
+        {
+            builder =>
+            builder.AddInMemoryCollection(new Dictionary<string, string?>
+            {
+                ["Custom:Key"] = "CustomValue",
+            }),
+        };
+        // PluginSystemHostContext builds its configuration from settings files on disk, so a real file system is used.
+        var fileSystem = new RealFileSystem();
+
+        // Act
+        var context = new PluginSystemHostContext(logger, environment, hostConfiguration, options, fileSystem, configureSources);
+
+        // Assert
+        Assert.Equal("CustomValue", context.PluginConfiguration["Custom:Key"]);
+    }
+
+    [Fact]
+    public void BuildPluginConfiguration_ShouldApplyCustomSourcesAfterDefaultSources()
+    {
+        // Arrange
+        var logger = Substitute.For<ILogger<PluginSystemHostContext>>();
+        var environment = Substitute.For<IPluginSystemHostEnvironment>();
+        environment.EnvironmentName.Returns("Environment");
+        environment.PluginSettingsRootPath.Returns("./test-plugin-configs");
+        var hostConfiguration = Substitute.For<IConfigurationManager>();
+        var options = new PluginSystemOptions { PluginSettingsFilePath = "settings.json" };
+        var configureSources = new List<Action<IConfigurationBuilder>>
+        {
+            builder =>
+            builder.AddInMemoryCollection(new Dictionary<string, string?>
+            {
+                ["Key"] = "OverriddenByCustomSource",
+            }),
+        };
+        // PluginSystemHostContext builds its configuration from settings files on disk, so a real file system is used.
+        var fileSystem = new RealFileSystem();
+
+        // Act
+        var context = new PluginSystemHostContext(logger, environment, hostConfiguration, options, fileSystem, configureSources);
+
+        // Assert
+        Assert.Equal("OverriddenByCustomSource", context.PluginConfiguration["Key"]);
+    }
 }

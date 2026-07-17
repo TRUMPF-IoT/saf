@@ -100,4 +100,37 @@ public class HostApplicationBuilderExtensionsTests
         Assert.Equal(environment, hostContext.Environment);
         Assert.Equal("./test-plugin-configs", environment.PluginSettingsRootPath);
     }
+
+    [Fact]
+    public void AddPluginSystem_AllowsAddingCustomPluginConfigurationSourcesFromOutside()
+    {
+        // Arrange
+        var services = new ServiceCollection();
+
+        var builder = Substitute.For<IHostApplicationBuilder>();
+        builder.Services.Returns(services);
+
+        var loggerFactory = Substitute.For<ILoggerFactory>();
+        loggerFactory.CreateLogger(Arg.Is(nameof(PluginSystemHostContext)))
+            .Returns(NullLogger<PluginSystemHostContext>.Instance);
+        services.AddSingleton(loggerFactory);
+        services.AddTransient(typeof(ILogger<>), typeof(Logger<>));
+
+        // Act
+        var pluginSystemHostBuilder = builder.AddPluginSystem(options =>
+        {
+            options.PluginSettingsFilePath = string.Empty;
+        });
+        pluginSystemHostBuilder.AddPluginConfigurationSource(configurationBuilder =>
+            configurationBuilder.AddInMemoryCollection(new Dictionary<string, string?>
+            {
+                ["Custom:Setting"] = "ValueFromOutside",
+            }));
+
+        var serviceProvider = services.BuildServiceProvider();
+        var hostContext = serviceProvider.GetRequiredService<IPluginSystemHostContext>();
+
+        // Assert
+        Assert.Equal("ValueFromOutside", hostContext.PluginConfiguration["Custom:Setting"]);
+    }
 }

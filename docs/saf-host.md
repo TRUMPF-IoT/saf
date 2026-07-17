@@ -131,6 +131,15 @@ builder.AddSafHost(pluginSystemOptions =>
 })
 .ConfigurePluginSystem(ps =>
 {
+    ps.AddPluginConfigurationSource(config =>
+        config.AddXmlFile("./config/pluginsettings.myapp", optional: true, reloadOnChange: true));
+
+    ps.AddPluginConfigurationSource(config =>
+        config.AddXmlFile(
+            $"./config/pluginsettings.{builder.Environment.EnvironmentName}.myapp",
+            optional: true,
+            reloadOnChange: true));
+
     ps.AddPluginAssemblyFolderContainer(options =>
     {
         options.SearchRootPath = AppContext.BaseDirectory;
@@ -140,6 +149,8 @@ builder.AddSafHost(pluginSystemOptions =>
 })
 .AddHostDiagnostics();
 ```
+
+If you use `AddXmlFile(...)`, add the package `Microsoft.Extensions.Configuration.Xml` to the host project.
 
 ---
 
