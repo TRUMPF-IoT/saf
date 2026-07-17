@@ -12,6 +12,7 @@ using System.Linq;
 using System.Reflection;
 using System.IO.Abstractions;
 using Testably.Abstractions.Testing;
+using SAF.PluginSystem.Hosting.Extensions;
 
 public class PluginSystemHostBuilderExtensionsTests
 {

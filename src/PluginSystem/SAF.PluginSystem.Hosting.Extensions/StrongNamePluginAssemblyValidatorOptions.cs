@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: MPL-2.0
 
-namespace SAF.PluginSystem.Hosting;
+namespace SAF.PluginSystem.Hosting.Extensions;
 
 public sealed class StrongNamePluginAssemblyValidatorOptions
 {

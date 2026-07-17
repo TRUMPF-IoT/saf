@@ -2,8 +2,7 @@
 //
 // SPDX-License-Identifier: MPL-2.0
 
-namespace SAF.PluginSystem.Hosting;
-
+namespace SAF.PluginSystem.Hosting.Extensions;
 /// <summary>
 /// Enforces strong-name related plugin assembly trust checks.
 /// </summary>
@@ -22,12 +21,10 @@ public sealed class StrongNamePluginAssemblyValidator(StrongNamePluginAssemblyVa
             return PluginAssemblyValidationResult.Rejected("assembly is not strong-name signed");
         }
 
-        if (_options.AllowedPublicKeyTokens.Count > 0)
+        if (_options.AllowedPublicKeyTokens.Count > 0 &&
+            (string.IsNullOrWhiteSpace(publicKeyToken) || !_options.AllowedPublicKeyTokens.Contains(publicKeyToken)))
         {
-            if (string.IsNullOrWhiteSpace(publicKeyToken) || !_options.AllowedPublicKeyTokens.Contains(publicKeyToken))
-            {
-                return PluginAssemblyValidationResult.Rejected("assembly public key token is not in the configured allow-list");
-            }
+            return PluginAssemblyValidationResult.Rejected("assembly public key token is not in the configured allow-list");
         }
 
         return PluginAssemblyValidationResult.Accepted();

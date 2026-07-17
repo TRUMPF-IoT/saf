@@ -227,7 +227,7 @@ public class PluginServicesContainerTests
         _pluginContainer.ClearReceivedCalls();
 
         // Act
-        await pluginServicesContainer.ReinitializeAsync();
+        await pluginServicesContainer.ReinitializeAsync(TestContext.Current.CancellationToken);
         var providerAfter = pluginServicesContainer.GetPublicServices();
 
         // Assert
@@ -247,7 +247,7 @@ public class PluginServicesContainerTests
         var providerBefore = pluginServicesContainer.GetPublicServices();
 
         // Act
-        await pluginServicesContainer.ReinitializeAsync();
+        await pluginServicesContainer.ReinitializeAsync(TestContext.Current.CancellationToken);
 
         // Assert
         Assert.Throws<ObjectDisposedException>(() => providerBefore.GetService(typeof(IServiceProvider)));
@@ -264,7 +264,7 @@ public class PluginServicesContainerTests
             _logger, _hostContext, _applicationServiceProvider, [_pluginContainer], _publicServiceTypeRegistry);
 
         // Act
-        await pluginServicesContainer.ReinitializeAsync();
+        await pluginServicesContainer.ReinitializeAsync(TestContext.Current.CancellationToken);
 
         // Assert
         Assert.NotNull(pluginServicesContainer.GetPublicServices());
@@ -288,7 +288,7 @@ public class PluginServicesContainerTests
         // Act
         for (var i = 0; i < reloads; i++)
         {
-            await pluginServicesContainer.ReinitializeAsync();
+            await pluginServicesContainer.ReinitializeAsync(TestContext.Current.CancellationToken);
         }
 
         // Assert
@@ -308,7 +308,7 @@ public class PluginServicesContainerTests
         await DisposeContainerAsync(pluginServicesContainer);
 
         // Act + Assert
-        await Assert.ThrowsAsync<ObjectDisposedException>(async () => await pluginServicesContainer.ReinitializeAsync());
+        await Assert.ThrowsAsync<ObjectDisposedException>(async () => await pluginServicesContainer.ReinitializeAsync(TestContext.Current.CancellationToken));
     }
 
     /// <summary>
@@ -332,10 +332,7 @@ public class PluginServicesContainerTests
     /// Provides setup scenarios for DisposeAsync no-throw tests.
     /// </summary>
     public static IEnumerable<object[]> GetDisposeAsyncNoThrowScenarios()
-    {        yield return [new Action<PluginServicesContainer>(container =>
-        {
-            container.GetPluginServices();
-        })];
+    {        yield return [new Action<PluginServicesContainer>(container => container.GetPluginServices())];
 
         yield return [new Action<PluginServicesContainer>(container =>
         {

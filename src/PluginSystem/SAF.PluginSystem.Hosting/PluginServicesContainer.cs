@@ -27,7 +27,7 @@ public sealed class PluginServicesContainer(
     public IEnumerable<IServiceProvider> GetPluginServices()
     {
         InitializeServiceProviders();
-        return _pluginServiceCollections.Select(l => l.ServiceProvider!).ToList();
+        return [.. _pluginServiceCollections.Select(l => l.ServiceProvider!)];
     }
 
     public IServiceProvider GetPublicServices()
@@ -36,7 +36,7 @@ public sealed class PluginServicesContainer(
         return _publicServicesOnlyCollection.ServiceProvider!;
     }
 
-    public async ValueTask ReinitializeAsync(CancellationToken cancellationToken = default)
+    public async Task ReinitializeAsync(CancellationToken cancellationToken = default)
     {
         List<IServiceProvider> providersToDispose;
 
@@ -115,7 +115,7 @@ public sealed class PluginServicesContainer(
     {
         var publicServiceDescriptors = serviceCollection
             .Where(sd => publicServiceTypeRegistry.GetAssemblyNames().FirstOrDefault(a => a == sd.ServiceType.Assembly.FullName) != null);
-        return publicServiceDescriptors.ToList();
+        return [.. publicServiceDescriptors];
     }
 
     public async ValueTask DisposeAsync()
@@ -141,11 +141,10 @@ public sealed class PluginServicesContainer(
     }
 
     private List<IServiceProvider> SnapshotProviders() =>
-        _pluginServiceCollections
+        [.. _pluginServiceCollections
             .Select(collection => collection.ServiceProvider)
             .Append(_publicServicesOnlyCollection.ServiceProvider)
-            .OfType<IServiceProvider>()
-            .ToList();
+            .OfType<IServiceProvider>()];
 
     private static async ValueTask DisposeProviderAsync(IServiceProvider provider)
     {

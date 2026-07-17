@@ -36,6 +36,6 @@ public interface IPluginServicesContainer
     /// return the freshly built providers.
     /// </remarks>
     /// <param name="cancellationToken">A token that signals cancellation of the reinitialization.</param>
-    /// <returns>A <see cref="ValueTask"/> that completes once the providers have been rebuilt and the previous providers disposed.</returns>
-    ValueTask ReinitializeAsync(CancellationToken cancellationToken = default);
+    /// <returns>A <see cref="Task"/> that completes once the providers have been rebuilt and the previous providers disposed.</returns>
+    Task ReinitializeAsync(CancellationToken cancellationToken = default);
 }
