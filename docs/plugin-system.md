@@ -338,6 +338,8 @@ Plugin assembly validation is opt-in. SAF does not enable validators by default.
 
 To validate plug-ins before loading, register one or more `IPluginAssemblyValidator` implementations. Validators are executed in registration order and can reject loading by returning `PluginAssemblyValidationResult.Rejected(...)`.
 
+Contracts for this feature (`IPluginAssemblyValidator`, `PluginAssemblyValidationContext`, `PluginAssemblyValidationResult`) are part of `SAF.PluginSystem.Hosting.Contracts`.
+
 SAF provides built-in validators in `SAF.PluginSystem.Hosting.Extensions`:
 
 - `AddStrongNamePluginAssemblyValidator(...)`
@@ -375,6 +377,7 @@ Custom validation can be added with your own validator implementation:
 
 ```csharp
 using SAF.PluginSystem.Hosting;
+using SAF.PluginSystem.Hosting.Contracts;
 
 public sealed class MyAssemblyValidator : IPluginAssemblyValidator
 {

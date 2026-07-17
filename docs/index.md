@@ -65,7 +65,8 @@ graph TB
 | `SAF.Storage.LiteDb` | LiteDB-backed key/value storage |
 | `SAF.Storage.SQLite` | SQLite-backed key/value storage |
 | `SAF.PluginSystem.Hosting` | Plugin loading engine |
-| `SAF.PluginSystem.Hosting.Contracts` | Plugin contracts: `IPluginManifest`, `IServicePlugin`, … |
+| `SAF.PluginSystem.Hosting.Contracts` | Plugin contracts: `IPluginManifest`, `IServicePlugin`, `IPluginAssemblyValidator`, validation context/result |
+| `SAF.PluginSystem.Hosting.Extensions` | Plugin-system convenience extensions and built-in assembly validators |
 | `SAF.Hosting` | SAF-specific host wiring on top of the plugin system |
 | `SAF.Toolbox` | Heartbeat, RequestClient, FileTransfer helpers |
 
