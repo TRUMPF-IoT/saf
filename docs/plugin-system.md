@@ -332,6 +332,65 @@ Services are **not** forwarded into plugin containers automatically. Use `IHostS
 
 ---
 
+## Assembly Validation (optional)
+
+Plugin assembly validation is opt-in. SAF does not enable validators by default.
+
+To validate plug-ins before loading, register one or more `IPluginAssemblyValidator` implementations. Validators are executed in registration order and can reject loading by returning `PluginAssemblyValidationResult.Rejected(...)`.
+
+SAF provides built-in validators in `SAF.PluginSystem.Hosting.Extensions`:
+
+- `AddStrongNamePluginAssemblyValidator(...)`
+- `AddDigitalSignaturePluginAssemblyValidator(...)`
+
+```csharp
+using SAF.PluginSystem.Hosting;
+
+var builder = Host.CreateApplicationBuilder(args);
+
+var pluginSystemBuilder = builder.AddPluginSystem(_ => { });
+
+pluginSystemBuilder.AddPluginAssemblyFolderContainer(options =>
+{
+    options.SearchRootPath = AppContext.BaseDirectory;
+    options.IncludePatterns = "MyApp.Plugin.*.dll";
+});
+
+// Optional strong-name validation
+pluginSystemBuilder.AddStrongNamePluginAssemblyValidator(options =>
+{
+    options.RequireStrongName = true;
+    options.AllowedPublicKeyTokens.Add("0011223344556677");
+});
+
+// Optional Authenticode validation
+pluginSystemBuilder.AddDigitalSignaturePluginAssemblyValidator(options =>
+{
+    options.RequireValidDigitalSignature = true;
+    options.AllowedSignerThumbprints.Add("AABBCCDDEEFF00112233445566778899AABBCCDD");
+});
+```
+
+Custom validation can be added with your own validator implementation:
+
+```csharp
+using SAF.PluginSystem.Hosting;
+
+public sealed class MyAssemblyValidator : IPluginAssemblyValidator
+{
+    public PluginAssemblyValidationResult Validate(PluginAssemblyValidationContext context)
+    {
+        // custom checks based on context.AssemblyPath / context.AssemblyName
+        return PluginAssemblyValidationResult.Accepted();
+    }
+}
+
+// Register in chain order
+pluginSystemBuilder.AddPluginAssemblyValidator<MyAssemblyValidator>();
+```
+
+---
+
 ## Plugin Settings
 
 All plugins share a single plugin settings file, exposed to each manifest as `context.PluginConfiguration`. The plugin system loads it from:

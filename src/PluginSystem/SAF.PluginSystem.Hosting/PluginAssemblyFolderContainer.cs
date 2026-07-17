@@ -18,12 +18,14 @@ public class PluginAssemblyFolderContainer(
     ILoggerFactory loggerFactory,
     IPluginManifestLoader manifestLoader,
     PluginAssemblyFolderSearchOptions options,
+    IEnumerable<IPluginAssemblyValidator> assemblyValidators,
     IFileSystem fileSystem)
     : IPluginAssemblyContainer
 {
     private readonly ILogger _logger = loggerFactory.CreateLogger<PluginAssemblyFolderContainer>();
     private readonly IPluginManifestLoader _manifestLoader = manifestLoader;
     private readonly IFileSystem _fileSystem = fileSystem;
+    private readonly IReadOnlyList<IPluginAssemblyValidator> _assemblyValidators = assemblyValidators.ToList();
     private IReadOnlyList<IPluginManifest>? _cachedManifests;
     private readonly Lock _cacheLock = new();
 
@@ -86,6 +88,12 @@ public class PluginAssemblyFolderContainer(
 
         foreach (var pluginAssemblyPath in pluginAssemblyPaths)
         {
+            if (!TryValidateAssembly(pluginAssemblyPath, out var rejectionReason))
+            {
+                _logger.LogWarning("Skip plugin assembly {PluginAssemblyPath}: {Reason}", pluginAssemblyPath, rejectionReason);
+                continue;
+            }
+
             _logger.LogDebug("Create AssemblyLoadContext for {PluginAssemblyPath}", pluginAssemblyPath);
 
             var isInBaseDirectory = string.Compare(
@@ -118,5 +126,39 @@ public class PluginAssemblyFolderContainer(
         }
 
         return manifests;
+    }
+
+    private bool TryValidateAssembly(string pluginAssemblyPath, out string rejectionReason)
+    {
+        rejectionReason = string.Empty;
+
+        AssemblyName assemblyName;
+        try
+        {
+            assemblyName = AssemblyName.GetAssemblyName(pluginAssemblyPath);
+        }
+        catch (Exception ex) when (ex is BadImageFormatException or FileLoadException or FileNotFoundException)
+        {
+            rejectionReason = $"metadata could not be read ({ex.GetType().Name})";
+            return false;
+        }
+
+        var validationContext = new PluginAssemblyValidationContext(pluginAssemblyPath, assemblyName);
+
+        foreach (var validator in _assemblyValidators)
+        {
+            var result = validator.Validate(validationContext);
+            if (result.IsAccepted)
+            {
+                continue;
+            }
+
+            rejectionReason = string.IsNullOrWhiteSpace(result.Reason)
+                ? $"rejected by validator {validator.GetType().Name}"
+                : result.Reason;
+            return false;
+        }
+
+        return true;
     }
 }

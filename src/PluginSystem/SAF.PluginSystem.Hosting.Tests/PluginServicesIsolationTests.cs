@@ -41,6 +41,7 @@ public class PluginServicesIsolationTests
                 IncludePatterns = "TestPlugin.Plugin*.dll",
                 Recursive = true
             },
+            [],
             new RealFileSystem());
     }
 

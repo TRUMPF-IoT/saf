@@ -52,7 +52,7 @@ public class PluginAssemblyFolderContainerTests
             ExcludePatterns = "*.exclude.*",
             Recursive = true
         };
-        var container = new PluginAssemblyFolderContainer(_loggerFactory, manifestLoader, options, _fileSystem);
+        var container = new PluginAssemblyFolderContainer(_loggerFactory, manifestLoader, options, [], _fileSystem);
 
         // Act
         var result = container.GetPluginManifests().ToList();
@@ -84,7 +84,7 @@ public class PluginAssemblyFolderContainerTests
             ExcludePatterns = "*.exclude.*",
             Recursive = false
         };
-        var container = new PluginAssemblyFolderContainer(_loggerFactory, manifestLoader, options, _fileSystem);
+        var container = new PluginAssemblyFolderContainer(_loggerFactory, manifestLoader, options, [], _fileSystem);
 
         // Act
         var result = container.GetPluginManifests().ToList();
@@ -107,7 +107,7 @@ public class PluginAssemblyFolderContainerTests
             ExcludePatterns = "*.exclude.*",
             Recursive = true
         };
-        var container = new PluginAssemblyFolderContainer(_loggerFactory, manifestLoader, options, _fileSystem);
+        var container = new PluginAssemblyFolderContainer(_loggerFactory, manifestLoader, options, [], _fileSystem);
 
         // Act
         var result = container.GetPluginManifests().ToList();
@@ -128,7 +128,7 @@ public class PluginAssemblyFolderContainerTests
             ExcludePatterns = "*.exclude.*",
             Recursive = true
         };
-        var container = new PluginAssemblyFolderContainer(_loggerFactory, _manifestLoader, options, _fileSystem);
+        var container = new PluginAssemblyFolderContainer(_loggerFactory, _manifestLoader, options, [], _fileSystem);
 
         // Act
         var result = container.GetPluginManifests();
@@ -148,7 +148,7 @@ public class PluginAssemblyFolderContainerTests
             ExcludePatterns = string.Empty,
             Recursive = false
         };
-        var container = new PluginAssemblyFolderContainer(_loggerFactory, _manifestLoader, options, _fileSystem);
+        var container = new PluginAssemblyFolderContainer(_loggerFactory, _manifestLoader, options, [], _fileSystem);
 
         // Act
         var result = container.GetPluginManifests().ToList();
@@ -168,7 +168,7 @@ public class PluginAssemblyFolderContainerTests
             ExcludePatterns = string.Empty,
             Recursive = false
         };
-        var container = new PluginAssemblyFolderContainer(_loggerFactory, _manifestLoader, options, _fileSystem);
+        var container = new PluginAssemblyFolderContainer(_loggerFactory, _manifestLoader, options, [], _fileSystem);
 
         // Act
         var result = container.GetPluginManifests().ToList();
@@ -209,7 +209,7 @@ public class PluginAssemblyFolderContainerTests
             ExcludePatterns = string.Empty,
             Recursive = false
         };
-        var container = new PluginAssemblyFolderContainer(_loggerFactory, _manifestLoader, options, _fileSystem);
+        var container = new PluginAssemblyFolderContainer(_loggerFactory, _manifestLoader, options, [], _fileSystem);
 
         // Act
         var result = container.GetPluginManifests().ToList();
@@ -229,7 +229,7 @@ public class PluginAssemblyFolderContainerTests
             ExcludePatterns = string.Empty,
             Recursive = false
         };
-        var container = new PluginAssemblyFolderContainer(_loggerFactory, _manifestLoader, options, _fileSystem);
+        var container = new PluginAssemblyFolderContainer(_loggerFactory, _manifestLoader, options, [], _fileSystem);
 
         // Act
         var firstCall = container.GetPluginManifests();
@@ -254,7 +254,7 @@ public class PluginAssemblyFolderContainerTests
             ExcludePatterns = string.Empty,
             Recursive = false
         };
-        var container = new PluginAssemblyFolderContainer(_loggerFactory, manifestLoader, options, _fileSystem);
+        var container = new PluginAssemblyFolderContainer(_loggerFactory, manifestLoader, options, [], _fileSystem);
 
         // Act – call twice
         _ = container.GetPluginManifests().ToList();
@@ -279,7 +279,7 @@ public class PluginAssemblyFolderContainerTests
             ExcludePatterns = string.Empty,
             Recursive = false
         };
-        var container = new PluginAssemblyFolderContainer(_loggerFactory, manifestLoader, options, _fileSystem);
+        var container = new PluginAssemblyFolderContainer(_loggerFactory, manifestLoader, options, [], _fileSystem);
 
         // Act
         var firstCall = container.GetPluginManifests().ToList();
@@ -314,7 +314,7 @@ public class PluginAssemblyFolderContainerTests
             Recursive = false
         };
 
-        var container = new PluginAssemblyFolderContainer(_loggerFactory, manifestLoader, options, _fileSystem);
+        var container = new PluginAssemblyFolderContainer(_loggerFactory, manifestLoader, options, [], _fileSystem);
 
         // Act
         var result = container.GetPluginManifests().ToList();
@@ -323,5 +323,61 @@ public class PluginAssemblyFolderContainerTests
         Assert.Single(result);
         Assert.Same(manifest, result[0]);
         manifestLoader.Received(1).LoadPluginManifest(Arg.Any<Assembly>());
+    }
+
+    [Fact]
+    public void GetPluginManifests_SkipsAssembly_WhenPublicKeyTokenIsNotAllowed()
+    {
+        var manifestLoader = Substitute.For<IPluginManifestLoader>();
+        manifestLoader.LoadPluginManifest(Arg.Any<Assembly>()).Returns(Substitute.For<IPluginManifest>());
+
+        var options = new PluginAssemblyFolderSearchOptions
+        {
+            SearchRootPath = AppContext.BaseDirectory,
+            IncludePatterns = "SAF.PluginSystem.Hosting.Tests.dll",
+            ExcludePatterns = string.Empty,
+            Recursive = false
+        };
+        var validatorOptions = new StrongNamePluginAssemblyValidatorOptions();
+        validatorOptions.AllowedPublicKeyTokens.Add("0011223344556677");
+
+        var container = new PluginAssemblyFolderContainer(
+            _loggerFactory,
+            manifestLoader,
+            options,
+            [new StrongNamePluginAssemblyValidator(validatorOptions)],
+            _fileSystem);
+
+        var result = container.GetPluginManifests().ToList();
+
+        Assert.Empty(result);
+        manifestLoader.DidNotReceive().LoadPluginManifest(Arg.Any<Assembly>());
+    }
+
+    [Fact]
+    public void GetPluginManifests_SkipsAssembly_WhenCustomValidationRejects()
+    {
+        var manifestLoader = Substitute.For<IPluginManifestLoader>();
+        manifestLoader.LoadPluginManifest(Arg.Any<Assembly>()).Returns(Substitute.For<IPluginManifest>());
+
+        var options = new PluginAssemblyFolderSearchOptions
+        {
+            SearchRootPath = AppContext.BaseDirectory,
+            IncludePatterns = "SAF.PluginSystem.Hosting.Tests.dll",
+            ExcludePatterns = string.Empty,
+            Recursive = false
+        };
+        var container = new PluginAssemblyFolderContainer(_loggerFactory, manifestLoader, options, [new RejectingPluginAssemblyValidator()], _fileSystem);
+
+        var result = container.GetPluginManifests().ToList();
+
+        Assert.Empty(result);
+        manifestLoader.DidNotReceive().LoadPluginManifest(Arg.Any<Assembly>());
+    }
+
+    private sealed class RejectingPluginAssemblyValidator : IPluginAssemblyValidator
+    {
+        public PluginAssemblyValidationResult Validate(PluginAssemblyValidationContext context)
+            => PluginAssemblyValidationResult.Rejected("Rejected by test");
     }
 }
