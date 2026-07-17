@@ -4,17 +4,20 @@
 
 namespace SAF.PluginSystem.Hosting.Extensions.Tests;
 
+using NSubstitute;
 using SAF.PluginSystem.Hosting.Extensions;
 using System.Reflection;
 
 public class DigitalSignaturePluginAssemblyValidatorTests
 {
-    private readonly AuthenticodeSignatureReader _authenticodeSignatureReader = new();
+    private const string AssemblyPath = "any-plugin.dll";
+
+    private readonly IAuthenticodeSignatureReader _signatureReader = Substitute.For<IAuthenticodeSignatureReader>();
 
     [Fact]
     public void Validate_Throws_WhenContextIsNull()
     {
-        var validator = new DigitalSignaturePluginAssemblyValidator(new DigitalSignaturePluginAssemblyValidatorOptions(), _authenticodeSignatureReader);
+        var validator = CreateValidator(new DigitalSignaturePluginAssemblyValidatorOptions());
 
         Assert.Throws<ArgumentNullException>(() => validator.Validate(null!));
     }
@@ -22,92 +25,105 @@ public class DigitalSignaturePluginAssemblyValidatorTests
     [Fact]
     public void Validate_Accepts_WhenNoSignatureChecksAreConfigured()
     {
-        var validator = new DigitalSignaturePluginAssemblyValidator(new DigitalSignaturePluginAssemblyValidatorOptions(), _authenticodeSignatureReader);
-        var context = new PluginAssemblyValidationContext("missing-file.dll", new AssemblyName("AnyAssembly"));
+        _signatureReader.ReadSignature(AssemblyPath).Returns((AuthenticodeSignatureInfo?)null);
+        var validator = CreateValidator(new DigitalSignaturePluginAssemblyValidatorOptions());
 
-        var result = validator.Validate(context);
+        var result = validator.Validate(CreateContext());
 
         Assert.True(result.IsAccepted);
         Assert.Null(result.Reason);
     }
 
     [Fact]
-    public void Validate_Rejects_WhenSignatureIsRequiredAndFileHasNoValidSignature()
+    public void Validate_Rejects_WhenSignatureIsRequiredAndFileHasNoSignature()
     {
-        var options = new DigitalSignaturePluginAssemblyValidatorOptions { RequireValidDigitalSignature = true };
-        var validator = new DigitalSignaturePluginAssemblyValidator(options, _authenticodeSignatureReader);
-        var context = new PluginAssemblyValidationContext("missing-file.dll", new AssemblyName("AnyAssembly"));
+        _signatureReader.ReadSignature(AssemblyPath).Returns((AuthenticodeSignatureInfo?)null);
+        var validator = CreateValidator(new DigitalSignaturePluginAssemblyValidatorOptions { RequireValidDigitalSignature = true });
 
-        var result = validator.Validate(context);
+        var result = validator.Validate(CreateContext());
 
         Assert.False(result.IsAccepted);
         Assert.Equal("assembly does not have a valid digital signature", result.Reason);
     }
 
     [Fact]
+    public void Validate_Rejects_WhenSignatureIsRequiredButNotTrusted()
+    {
+        _signatureReader.ReadSignature(AssemblyPath)
+            .Returns(new AuthenticodeSignatureInfo("AABBCC", HasValidDigitalSignature: false));
+        var validator = CreateValidator(new DigitalSignaturePluginAssemblyValidatorOptions { RequireValidDigitalSignature = true });
+
+        var result = validator.Validate(CreateContext());
+
+        Assert.False(result.IsAccepted);
+        Assert.Equal("assembly does not have a valid digital signature", result.Reason);
+    }
+
+    [Fact]
+    public void Validate_Accepts_WhenSignatureIsRequiredAndValid()
+    {
+        _signatureReader.ReadSignature(AssemblyPath)
+            .Returns(new AuthenticodeSignatureInfo("AABBCC", HasValidDigitalSignature: true));
+        var validator = CreateValidator(new DigitalSignaturePluginAssemblyValidatorOptions { RequireValidDigitalSignature = true });
+
+        var result = validator.Validate(CreateContext());
+
+        Assert.True(result.IsAccepted);
+        Assert.Null(result.Reason);
+    }
+
+    [Fact]
     public void Validate_Rejects_WhenSignerThumbprintIsNotInAllowList()
     {
+        _signatureReader.ReadSignature(AssemblyPath)
+            .Returns(new AuthenticodeSignatureInfo("112233", HasValidDigitalSignature: true));
+
         var options = new DigitalSignaturePluginAssemblyValidatorOptions();
         options.AllowedSignerThumbprints.Add("AABBCCDDEEFF00112233445566778899AABBCCDD");
+        var validator = CreateValidator(options);
 
-        var validator = new DigitalSignaturePluginAssemblyValidator(options, _authenticodeSignatureReader);
-        var context = new PluginAssemblyValidationContext("missing-file.dll", new AssemblyName("AnyAssembly"));
-
-        var result = validator.Validate(context);
+        var result = validator.Validate(CreateContext());
 
         Assert.False(result.IsAccepted);
         Assert.Equal("assembly signer thumbprint is not in the configured allow-list", result.Reason);
     }
 
     [Fact]
-    public void Validate_Accepts_WhenSignerThumbprintIsInAllowList()
+    public void Validate_Rejects_WhenAllowListIsConfiguredButSignatureDoesNotCoverFile()
     {
-        var signedAssemblyPath = FindSignedAssemblyPathWithThumbprint(out var signerThumbprint);
-        Assert.False(string.IsNullOrWhiteSpace(signedAssemblyPath));
-        Assert.False(string.IsNullOrWhiteSpace(signerThumbprint));
+        // A transplanted or tampered signature yields no trustworthy thumbprint.
+        _signatureReader.ReadSignature(AssemblyPath)
+            .Returns(new AuthenticodeSignatureInfo(SignerThumbprint: null, HasValidDigitalSignature: false));
 
         var options = new DigitalSignaturePluginAssemblyValidatorOptions();
-        options.AllowedSignerThumbprints.Add(signerThumbprint!);
+        options.AllowedSignerThumbprints.Add("AABBCC");
+        var validator = CreateValidator(options);
 
-        var validator = new DigitalSignaturePluginAssemblyValidator(options, _authenticodeSignatureReader);
-        var context = new PluginAssemblyValidationContext(signedAssemblyPath!, new AssemblyName("SignedAssembly"));
+        var result = validator.Validate(CreateContext());
 
-        var result = validator.Validate(context);
+        Assert.False(result.IsAccepted);
+        Assert.Equal("assembly signer thumbprint is not in the configured allow-list", result.Reason);
+    }
+
+    [Fact]
+    public void Validate_Accepts_WhenSignerThumbprintIsInAllowList_IgnoringCase()
+    {
+        _signatureReader.ReadSignature(AssemblyPath)
+            .Returns(new AuthenticodeSignatureInfo("aabbccddeeff", HasValidDigitalSignature: true));
+
+        var options = new DigitalSignaturePluginAssemblyValidatorOptions();
+        options.AllowedSignerThumbprints.Add("AABBCCDDEEFF");
+        var validator = CreateValidator(options);
+
+        var result = validator.Validate(CreateContext());
 
         Assert.True(result.IsAccepted);
         Assert.Null(result.Reason);
     }
 
-    private string? FindSignedAssemblyPathWithThumbprint(out string? signerThumbprint)
-    {
-        signerThumbprint = null;
-        var runtimeDirectory = Path.GetDirectoryName(typeof(object).Assembly.Location);
-        if (string.IsNullOrWhiteSpace(runtimeDirectory))
-        {
-            return null;
-        }
+    private DigitalSignaturePluginAssemblyValidator CreateValidator(DigitalSignaturePluginAssemblyValidatorOptions options)
+        => new(options, _signatureReader);
 
-        foreach (var candidatePath in Directory.EnumerateFiles(runtimeDirectory, "*.dll"))
-        {
-            try
-            {
-                var assemblyName = AssemblyName.GetAssemblyName(candidatePath);
-                _ = assemblyName.FullName;
-
-                if (!_authenticodeSignatureReader.TryGetSignatureInfo(candidatePath, out signerThumbprint, out _)
-                    || string.IsNullOrWhiteSpace(signerThumbprint))
-                {
-                    continue;
-                }
-
-                return candidatePath;
-            }
-            catch
-            {
-                // continue with next candidate
-            }
-        }
-
-        return null;
-    }
+    private static PluginAssemblyValidationContext CreateContext()
+        => new(AssemblyPath, new AssemblyName("AnyAssembly"));
 }
