@@ -4,6 +4,7 @@
 
 namespace SAF.PluginSystem.Hosting.Extensions;
 
+using Microsoft.Extensions.Options;
 using SAF.PluginSystem.Hosting.Extensions.Authenticode;
 
 /// <summary>
@@ -14,19 +15,19 @@ public sealed class DigitalSignaturePluginAssemblyValidator : IPluginAssemblyVal
     private readonly DigitalSignaturePluginAssemblyValidatorOptions _options;
     private readonly IAuthenticodeSignatureReader _authenticodeSignatureReader;
 
-    public DigitalSignaturePluginAssemblyValidator(DigitalSignaturePluginAssemblyValidatorOptions options)
+    public DigitalSignaturePluginAssemblyValidator(IOptions<DigitalSignaturePluginAssemblyValidatorOptions> options)
         : this(options, new AuthenticodeSignatureReader())
     {
     }
 
     internal DigitalSignaturePluginAssemblyValidator(
-        DigitalSignaturePluginAssemblyValidatorOptions options,
+        IOptions<DigitalSignaturePluginAssemblyValidatorOptions> options,
         IAuthenticodeSignatureReader authenticodeSignatureReader)
     {
         ArgumentNullException.ThrowIfNull(options);
         ArgumentNullException.ThrowIfNull(authenticodeSignatureReader);
 
-        _options = options;
+        _options = options.Value;
         _authenticodeSignatureReader = authenticodeSignatureReader;
     }
 

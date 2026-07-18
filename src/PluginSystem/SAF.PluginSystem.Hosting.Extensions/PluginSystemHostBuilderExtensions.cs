@@ -32,10 +32,9 @@ public static class PluginSystemHostBuilderExtensions
     {
         ArgumentNullException.ThrowIfNull(hostBuilder);
 
-        var options = new StrongNamePluginAssemblyValidatorOptions();
-        configure?.Invoke(options);
-
-        hostBuilder.Services.AddSingleton<IPluginAssemblyValidator>(_ => new StrongNamePluginAssemblyValidator(options));
+        hostBuilder.Services.AddOptions();
+        hostBuilder.Services.Configure<StrongNamePluginAssemblyValidatorOptions>(opts => configure?.Invoke(opts));
+        hostBuilder.Services.AddSingleton<IPluginAssemblyValidator, StrongNamePluginAssemblyValidator>();
         return hostBuilder;
     }
 
@@ -48,12 +47,10 @@ public static class PluginSystemHostBuilderExtensions
     {
         ArgumentNullException.ThrowIfNull(hostBuilder);
 
-        var options = new DigitalSignaturePluginAssemblyValidatorOptions();
-        configure?.Invoke(options);
-
+        hostBuilder.Services.AddOptions();
+        hostBuilder.Services.Configure<DigitalSignaturePluginAssemblyValidatorOptions>(opts => configure?.Invoke(opts));
         hostBuilder.Services.AddSingleton<IAuthenticodeSignatureReader, AuthenticodeSignatureReader>();
-        hostBuilder.Services.AddSingleton<IPluginAssemblyValidator>(sp =>
-            new DigitalSignaturePluginAssemblyValidator(options, sp.GetRequiredService<IAuthenticodeSignatureReader>()));
+        hostBuilder.Services.AddSingleton<IPluginAssemblyValidator, DigitalSignaturePluginAssemblyValidator>();
         return hostBuilder;
     }
 }

@@ -6,6 +6,7 @@ namespace SAF.PluginSystem.Hosting.Tests;
 
 using Contracts;
 using Microsoft.Extensions.Logging.Abstractions;
+using Microsoft.Extensions.Options;
 using NSubstitute;
 using SAF.PluginSystem.Hosting.Extensions;
 using System.Reflection;
@@ -343,7 +344,7 @@ public class PluginAssemblyFolderContainerTests
             _loggerFactory,
             manifestLoader,
             options,
-            [new StrongNamePluginAssemblyValidator(validatorOptions)],
+            [new StrongNamePluginAssemblyValidator(Options.Create(validatorOptions))],
             _fileSystem);
 
         var result = container.GetPluginManifests().ToList();
