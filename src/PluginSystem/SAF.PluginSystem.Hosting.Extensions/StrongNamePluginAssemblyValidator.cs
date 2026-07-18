@@ -3,12 +3,15 @@
 // SPDX-License-Identifier: MPL-2.0
 
 namespace SAF.PluginSystem.Hosting.Extensions;
+
+using Microsoft.Extensions.Options;
+
 /// <summary>
 /// Enforces strong-name related plugin assembly trust checks.
 /// </summary>
-public sealed class StrongNamePluginAssemblyValidator(StrongNamePluginAssemblyValidatorOptions options) : IPluginAssemblyValidator
+public sealed class StrongNamePluginAssemblyValidator(IOptions<StrongNamePluginAssemblyValidatorOptions> options) : IPluginAssemblyValidator
 {
-    private readonly StrongNamePluginAssemblyValidatorOptions _options = options;
+    private readonly StrongNamePluginAssemblyValidatorOptions _options = options.Value;
 
     public PluginAssemblyValidationResult Validate(PluginAssemblyValidationContext context)
     {

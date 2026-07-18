@@ -4,6 +4,7 @@
 
 namespace SAF.PluginSystem.Hosting.Extensions.Tests;
 
+using Microsoft.Extensions.Options;
 using NSubstitute;
 using SAF.PluginSystem.Hosting.Extensions;
 using SAF.PluginSystem.Hosting.Extensions.Authenticode;
@@ -123,7 +124,7 @@ public class DigitalSignaturePluginAssemblyValidatorTests
     }
 
     private DigitalSignaturePluginAssemblyValidator CreateValidator(DigitalSignaturePluginAssemblyValidatorOptions options)
-        => new(options, _signatureReader);
+        => new(Options.Create(options), _signatureReader);
 
     private static PluginAssemblyValidationContext CreateContext()
         => new(AssemblyPath, new AssemblyName("AnyAssembly"));
