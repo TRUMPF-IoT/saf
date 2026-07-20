@@ -6,6 +6,8 @@ SPDX-License-Identifier: MPL-2.0
 <Solution>
   <Folder Name="/Configuration/">
     <Project Path="Configuration/SAF.Configuration.Secrets.Contracts/SAF.Configuration.Secrets.Contracts.csproj" />
+    <Project Path="Configuration/SAF.Configuration.Secrets.Extensions.Tests/SAF.Configuration.Secrets.Extensions.Tests.csproj" />
+    <Project Path="Configuration/SAF.Configuration.Secrets.Extensions/SAF.Configuration.Secrets.Extensions.csproj" />
     <Project Path="Configuration/SAF.Configuration.Secrets.Tests/SAF.Configuration.Secrets.Tests.csproj" />
     <Project Path="Configuration/SAF.Configuration.Secrets/SAF.Configuration.Secrets.csproj" />
   </Folder>
