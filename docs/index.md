@@ -11,11 +11,12 @@ SAF is an open-source, cross-platform framework for building **distributed appli
 SAF builds on top of .NET's `Microsoft.Extensions.Hosting` and adds:
 
 | Layer | What it provides |
-|---|---|
+| --- | --- |
 | **Plugin System** | Assembly-isolated plug-in loading, independent DI containers per plug-in, typed cross-plug-in service resolution, in-process reload on configuration changes |
 | **SAF Host** | Opinionated host wiring: service host identity, plug-in folder discovery, optional diagnostics |
 | **Messaging Infrastructure** | Exchangeable pub/sub broker (In-Process, Redis, NATS, C-DEngine, or Routing) |
 | **Storage Infrastructure** | Exchangeable key/value store (LiteDB, SQLite, Redis, C-DEngine) |
+| **Secret Store** | Keep credentials out of configuration files, in an OS-level store (Windows Credential Manager) |
 | **Toolbox Services** | Ready-made helpers: Heartbeat, Request/Reply client, File Transfer |
 
 ## Core Design Principles
@@ -53,7 +54,7 @@ graph TB
 ## Package Overview
 
 | Package | Purpose |
-|---|---|
+| --- | --- |
 | `SAF.Common` | Core interfaces: `IStorageInfrastructure`, `IServiceHostInfo` |
 | `SAF.Messaging.Contracts` | Core interfaces: `IMessagingInfrastructure`, `IMessageHandler`, `Message` |
 | `SAF.Messaging.Runtime` | Runtime wiring: resolves the primary `IMessagingInfrastructure` plug-in |
@@ -64,6 +65,9 @@ graph TB
 | `SAF.Messaging.Routing` | Fan-out / routing across multiple brokers |
 | `SAF.Storage.LiteDb` | LiteDB-backed key/value storage |
 | `SAF.Storage.SQLite` | SQLite-backed key/value storage |
+| `SAF.Configuration.Secrets.Contracts` | Secret store contracts: `ISecretStore`, `SecretStoreOptions`, `SecretReference` |
+| `SAF.Configuration.Secrets` | Secret store providers (Windows Credential Manager) and provider selection |
+| `SAF.Configuration.Secrets.Extensions` | Secret store host-builder integration (`AddSecretStore`) |
 | `SAF.PluginSystem.Hosting` | Plugin loading engine |
 | `SAF.PluginSystem.Hosting.Contracts` | Plugin contracts: `IPluginManifest`, `IServicePlugin`, `IPluginAssemblyValidator`, validation context/result |
 | `SAF.PluginSystem.Hosting.Extensions` | Plugin-system convenience extensions and built-in assembly validators |
@@ -78,5 +82,6 @@ graph TB
 - [Plugin Deployment Security](./plugin-security.md) — installer and filesystem requirements for in-process plugins
 - [Messaging Infrastructure](./messaging.md) — pub/sub how-tos and all implementations
 - [Storage Infrastructure](./storage.md) — key/value store how-tos and all implementations
+- [Secret Store](./secret-store.md) — keep credentials out of configuration files, in an OS-level store
 - [Toolbox Services](./toolbox.md) — Heartbeat, Request/Reply, File Transfer
 - [Migration Guide: 10.x → 11.x](./migration-10-to-11.md) — breaking changes and upgrade steps
