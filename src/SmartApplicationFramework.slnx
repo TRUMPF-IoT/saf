@@ -4,6 +4,11 @@ SPDX-FileCopyrightText: 2017-2026 TRUMPF Laser SE
 SPDX-License-Identifier: MPL-2.0
 -->
 <Solution>
+  <Folder Name="/Configuration/">
+    <Project Path="Configuration/SAF.Configuration.Secrets.Contracts/SAF.Configuration.Secrets.Contracts.csproj" />
+    <Project Path="Configuration/SAF.Configuration.Secrets.Tests/SAF.Configuration.Secrets.Tests.csproj" />
+    <Project Path="Configuration/SAF.Configuration.Secrets/SAF.Configuration.Secrets.csproj" />
+  </Folder>
   <Folder Name="/Communication/">
     <Project Path="Communication/SAF.Communication.Cde/SAF.Communication.Cde.csproj" />
     <Project Path="Communication/SAF.Communication.PubSub.Cde.Tests/SAF.Communication.PubSub.Cde.Tests.csproj" />
