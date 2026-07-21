@@ -47,7 +47,9 @@ public static class SecretStoreServiceCollectionExtensions
             // Instantiate inside the platform guard so the analyzer can prove the Windows-only type is
             // only ever created on Windows (a factory lambda would move the call outside the guard).
             services.TryAddSingleton<INativeCredentialApi>(new WindowsCredentialManagerNativeApi());
-            services.AddSingleton<ISecretStoreProvider, WindowsCredentialManagerSecretStore>();
+            // TryAddEnumerable keeps the registration idempotent, so calling this alongside
+            // AddSecretConfigurationResolution does not register the provider twice.
+            services.TryAddEnumerable(ServiceDescriptor.Singleton<ISecretStoreProvider, WindowsCredentialManagerSecretStore>());
         }
 
         return services;
