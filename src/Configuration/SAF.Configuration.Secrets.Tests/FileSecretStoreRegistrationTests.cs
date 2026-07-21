@@ -119,7 +119,7 @@ public class FileSecretStoreRegistrationTests
     }
 
     [Fact]
-    public void ResolvingStore_Throws_WhenProtectorMissing()
+    public async Task NamedFileStore_WithoutProtector_ReportsUnavailable_OnUse()
     {
         var services = new ServiceCollection();
         services.AddLogging();
@@ -128,9 +128,30 @@ public class FileSecretStoreRegistrationTests
 
         using var sp = services.BuildServiceProvider();
 
-        // CompositeSecretStore materializes every registered provider, so the missing ISecretProtector
-        // surfaces as a clear resolution failure rather than a late, obscure error.
-        Assert.ThrowsAny<InvalidOperationException>(() => sp.GetRequiredService<ISecretStore>());
+        // The store now constructs without a protector, so resolution succeeds; selection then reports a
+        // clear "not available" error instead of the obscure DI failure the eager construction used to raise.
+        var store = sp.GetRequiredService<ISecretStore>();
+        var ex = await Assert.ThrowsAsync<InvalidOperationException>(
+            async () => await store.GetSecretAsync("k", TestToken));
+        Assert.Contains("not available", ex.Message, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public async Task AutoSelection_WithoutProtector_ReportsNoAvailableProvider()
+    {
+        var services = new ServiceCollection();
+        services.AddLogging();
+        services.AddSingleton<IFileSystem>(new MockFileSystem());
+        // Mirrors AddDefaults() on a non-Windows host: only the file store is registered, and without a
+        // protector it stays unavailable, so auto-selection fails clearly rather than at construction.
+        services.AddSecretStore().AddFile();
+
+        using var sp = services.BuildServiceProvider();
+
+        var store = sp.GetRequiredService<ISecretStore>();
+        var ex = await Assert.ThrowsAsync<InvalidOperationException>(
+            async () => await store.GetSecretAsync("k", TestToken));
+        Assert.Contains("no available secret store provider", ex.Message, StringComparison.OrdinalIgnoreCase);
     }
 
     [Fact]
