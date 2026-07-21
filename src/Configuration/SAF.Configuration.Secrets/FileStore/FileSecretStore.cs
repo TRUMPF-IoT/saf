@@ -30,7 +30,7 @@ internal sealed class FileSecretStore : ISecretStoreProvider, IDisposable
     };
 
     private readonly IFileSystem _fileSystem;
-    private readonly ISecretProtector _protector;
+    private readonly ISecretProtector? _protector;
     private readonly SecretStoreOptions _options;
     private readonly FileSecretStoreOptions _fileOptions;
     private readonly ILogger<FileSecretStore> _logger;
@@ -42,18 +42,20 @@ internal sealed class FileSecretStore : ISecretStoreProvider, IDisposable
 
     public FileSecretStore(
         IFileSystem fileSystem,
-        ISecretProtector protector,
         IOptions<SecretStoreOptions> options,
         IOptions<FileSecretStoreOptions> fileOptions,
-        ILogger<FileSecretStore> logger)
+        ILogger<FileSecretStore> logger,
+        ISecretProtector? protector = null)
     {
         ArgumentNullException.ThrowIfNull(fileSystem);
-        ArgumentNullException.ThrowIfNull(protector);
         ArgumentNullException.ThrowIfNull(options);
         ArgumentNullException.ThrowIfNull(fileOptions);
         ArgumentNullException.ThrowIfNull(logger);
 
         _fileSystem = fileSystem;
+        // The protector is optional: without it the store cannot encrypt at rest, so it reports
+        // IsAvailable=false and auto-selection skips it, rather than failing to construct. This keeps
+        // AddDefaults() usable on non-Windows even before a consumer registers an ISecretProtector.
         _protector = protector;
         _options = options.Value;
         _fileOptions = fileOptions.Value;
@@ -64,7 +66,30 @@ internal sealed class FileSecretStore : ISecretStoreProvider, IDisposable
     public string Name => ProviderName;
 
     /// <inheritdoc />
-    public bool IsAvailable => true;
+    public bool IsAvailable
+    {
+        get
+        {
+            if (_protector is not null)
+            {
+                return true;
+            }
+
+            _logger.LogWarning(
+                "The file secret store is registered but no {Protector} is available, so it cannot " +
+                "protect secrets at rest and is treated as unavailable. Register one, for example " +
+                "services.AddSingleton<ISecretProtector>(_ => new PkcsSecretProtector(certificate)).",
+                nameof(ISecretProtector));
+            return false;
+        }
+    }
+
+    // Guards every crypto and file operation: the store must never be used without a protector. Auto- and
+    // named selection already gate on IsAvailable, so this only trips when the store is used directly.
+    private ISecretProtector Protector => _protector
+        ?? throw new InvalidOperationException(
+            $"The file secret store has no {nameof(ISecretProtector)} configured. Register one before use, " +
+            "for example services.AddSingleton<ISecretProtector>(_ => new PkcsSecretProtector(certificate)).");
 
     /// <inheritdoc />
     public async Task<string?> GetSecretAsync(string name, CancellationToken cancellationToken = default)
@@ -135,7 +160,7 @@ internal sealed class FileSecretStore : ISecretStoreProvider, IDisposable
         var plaintext = Encoding.UTF8.GetBytes(value);
         try
         {
-            return Convert.ToBase64String(_protector.Protect(plaintext));
+            return Convert.ToBase64String(Protector.Protect(plaintext));
         }
         finally
         {
@@ -146,7 +171,7 @@ internal sealed class FileSecretStore : ISecretStoreProvider, IDisposable
 
     private string Decrypt(string encoded)
     {
-        var plaintext = _protector.Unprotect(Convert.FromBase64String(encoded));
+        var plaintext = Protector.Unprotect(Convert.FromBase64String(encoded));
         try
         {
             return Encoding.UTF8.GetString(plaintext);
@@ -162,19 +187,19 @@ internal sealed class FileSecretStore : ISecretStoreProvider, IDisposable
         var path = ResolvePath();
         if (!_fileSystem.File.Exists(path))
         {
-            return new SecretDocument { Protector = _protector.Name };
+            return new SecretDocument { Protector = Protector.Name };
         }
 
         var json = await _fileSystem.File.ReadAllTextAsync(path, cancellationToken).ConfigureAwait(false);
         var document = JsonSerializer.Deserialize<SecretDocument>(json, JsonOptions)
-            ?? new SecretDocument { Protector = _protector.Name };
+            ?? new SecretDocument { Protector = Protector.Name };
 
         if (!string.IsNullOrEmpty(document.Protector)
-            && !string.Equals(document.Protector, _protector.Name, StringComparison.OrdinalIgnoreCase))
+            && !string.Equals(document.Protector, Protector.Name, StringComparison.OrdinalIgnoreCase))
         {
             throw new InvalidOperationException(
                 $"The secret store file '{path}' was written by protector '{document.Protector}', but the " +
-                $"configured protector is '{_protector.Name}'. Its secrets cannot be decrypted with the current configuration.");
+                $"configured protector is '{Protector.Name}'. Its secrets cannot be decrypted with the current configuration.");
         }
 
         return document;
@@ -189,7 +214,7 @@ internal sealed class FileSecretStore : ISecretStoreProvider, IDisposable
             _fileSystem.Directory.CreateDirectory(directory);
         }
 
-        document.Protector = _protector.Name;
+        document.Protector = Protector.Name;
         var json = JsonSerializer.Serialize(document, JsonOptions);
 
         // Write to a sibling temp file first, then replace, so a crash mid-write cannot corrupt the store.

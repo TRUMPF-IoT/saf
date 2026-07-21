@@ -25,9 +25,9 @@ public static class SecretStoreBuilderExtensions
     }
 
     /// <summary>
-    /// Adds the cross-platform file-based provider. It requires an <see cref="ISecretProtector"/> to be
-    /// registered separately (see <see cref="SecretStoreServiceCollectionExtensions.AddFileSecretStore"/>),
-    /// which is why it is opt-in rather than part of <see cref="AddDefaults"/>.
+    /// Adds the cross-platform file-based provider. It needs an <see cref="ISecretProtector"/> to be
+    /// registered separately (see <see cref="SecretStoreServiceCollectionExtensions.AddFileSecretStore"/>)
+    /// to encrypt at rest; without one it reports itself unavailable so auto-selection skips it.
     /// </summary>
     public static ISecretStoreBuilder AddFile(
         this ISecretStoreBuilder builder, Action<FileSecretStoreOptions>? configure = null)
@@ -54,9 +54,10 @@ public static class SecretStoreBuilderExtensions
     /// Adds the built-in default provider for the current platform: the Windows Credential Manager on
     /// Windows, and the cross-platform file store on other platforms, so auto-selection resolves a
     /// working default everywhere. On Windows the file store is not added by default (add it via
-    /// <see cref="AddFile"/> if needed); on other platforms it is the default and therefore requires a
-    /// consumer-registered <see cref="ISecretProtector"/>, as there is no OS-integrated at-rest
-    /// encryption to fall back on.
+    /// <see cref="AddFile"/> if needed); on other platforms it is the default. As there is no
+    /// OS-integrated at-rest encryption to fall back on there, the file store stays unavailable until the
+    /// consumer registers an <see cref="ISecretProtector"/> — auto-selection then reports that no provider
+    /// is available with a clear message, rather than failing to construct.
     /// </summary>
     public static ISecretStoreBuilder AddDefaults(this ISecretStoreBuilder builder)
     {

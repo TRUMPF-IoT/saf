@@ -63,7 +63,9 @@ public static class SecretStoreServiceCollectionExtensions
     /// <see cref="ISecretProtector"/>. That protector (and its key/certificate material) is intentionally
     /// not registered here: register one explicitly, e.g.
     /// <c>services.AddSingleton&lt;ISecretProtector&gt;(_ =&gt; new PkcsSecretProtector(certificate))</c>.
-    /// A default <see cref="IFileSystem"/> is registered only if none exists yet.
+    /// Until one is registered the provider reports itself unavailable (rather than failing to construct),
+    /// so auto-selection simply skips it. A default <see cref="IFileSystem"/> is registered only if none
+    /// exists yet.
     /// </summary>
     public static IServiceCollection AddFileSecretStore(
         this IServiceCollection services, Action<FileSecretStoreOptions>? configure = null)

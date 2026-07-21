@@ -167,8 +167,22 @@ public class FileSecretStoreTests
     }
 
     [Fact]
-    public void IsAvailable_IsAlwaysTrue()
+    public void IsAvailable_True_WhenProtectorConfigured()
         => Assert.True(CreateStore().IsAvailable);
+
+    [Fact]
+    public void IsAvailable_False_WhenProtectorMissing()
+        => Assert.False(CreateStoreWithoutProtector().IsAvailable);
+
+    [Fact]
+    public async Task Operations_Throw_WhenProtectorMissing()
+    {
+        var store = CreateStoreWithoutProtector();
+
+        var ex = await Assert.ThrowsAsync<InvalidOperationException>(
+            async () => await store.SetSecretAsync("conn/pw", "value", TestToken));
+        Assert.Contains(nameof(ISecretProtector), ex.Message, StringComparison.Ordinal);
+    }
 
     [Theory]
     [InlineData(null)]
@@ -204,23 +218,34 @@ public class FileSecretStoreTests
     [Fact]
     public void Constructor_Throws_OnNullDependencies()
     {
-        var protector = new ReversingSecretProtector();
         var options = Options.Create(new SecretStoreOptions());
         var fileOptions = Options.Create(new FileSecretStoreOptions { Path = StorePath });
         var logger = NullLogger<FileSecretStore>.Instance;
+        var protector = new ReversingSecretProtector();
 
-        Assert.Throws<ArgumentNullException>(() => new FileSecretStore(null!, protector, options, fileOptions, logger));
-        Assert.Throws<ArgumentNullException>(() => new FileSecretStore(_fileSystem, null!, options, fileOptions, logger));
-        Assert.Throws<ArgumentNullException>(() => new FileSecretStore(_fileSystem, protector, null!, fileOptions, logger));
-        Assert.Throws<ArgumentNullException>(() => new FileSecretStore(_fileSystem, protector, options, null!, logger));
-        Assert.Throws<ArgumentNullException>(() => new FileSecretStore(_fileSystem, protector, options, fileOptions, null!));
+        Assert.Throws<ArgumentNullException>(() => new FileSecretStore(null!, options, fileOptions, logger, protector));
+        Assert.Throws<ArgumentNullException>(() => new FileSecretStore(_fileSystem, null!, fileOptions, logger, protector));
+        Assert.Throws<ArgumentNullException>(() => new FileSecretStore(_fileSystem, options, null!, logger, protector));
+        Assert.Throws<ArgumentNullException>(() => new FileSecretStore(_fileSystem, options, fileOptions, null!, protector));
     }
+
+    [Fact]
+    public void Constructor_AllowsNullProtector()
+        => Assert.NotNull(CreateStoreWithoutProtector());
 
     private FileSecretStore CreateStore(SecretStoreOptions? options = null, ISecretProtector? protector = null)
         => new(
             _fileSystem,
-            protector ?? new ReversingSecretProtector(),
             Options.Create(options ?? new SecretStoreOptions()),
             Options.Create(new FileSecretStoreOptions { Path = StorePath }),
-            NullLogger<FileSecretStore>.Instance);
+            NullLogger<FileSecretStore>.Instance,
+            protector ?? new ReversingSecretProtector());
+
+    private FileSecretStore CreateStoreWithoutProtector()
+        => new(
+            _fileSystem,
+            Options.Create(new SecretStoreOptions()),
+            Options.Create(new FileSecretStoreOptions { Path = StorePath }),
+            NullLogger<FileSecretStore>.Instance,
+            protector: null);
 }
