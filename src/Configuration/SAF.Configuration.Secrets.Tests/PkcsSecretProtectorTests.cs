@@ -106,19 +106,7 @@ public class PkcsSecretProtectorTests
         Assert.Throws<ArgumentNullException>(() => protector.Unprotect(null!));
     }
 
-    // Creates an ephemeral self-signed RSA certificate whose private key is usable by CMS on every
-    // platform. The key is round-tripped through a PFX so Windows CNG exposes a decryptable key handle.
-    private static X509Certificate2 CreateCertificate()
-    {
-        using var rsa = RSA.Create(2048);
-        var request = new CertificateRequest(
-            "CN=SAF Secret Store Test", rsa, HashAlgorithmName.SHA256, RSASignaturePadding.Pkcs1);
-        using var ephemeral = request.CreateSelfSigned(
-            DateTimeOffset.UtcNow.AddMinutes(-5), DateTimeOffset.UtcNow.AddHours(1));
-
-        var pfx = ephemeral.Export(X509ContentType.Pfx);
-        return X509CertificateLoader.LoadPkcs12(pfx, password: null, X509KeyStorageFlags.Exportable);
-    }
+    private static X509Certificate2 CreateCertificate() => TestCertificates.CreateRsaCertificate();
 
     private static bool ContainsSubsequence(byte[] haystack, byte[] needle)
     {
