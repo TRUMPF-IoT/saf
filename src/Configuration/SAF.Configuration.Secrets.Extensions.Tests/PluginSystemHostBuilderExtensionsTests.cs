@@ -67,6 +67,25 @@ public class PluginSystemHostBuilderExtensionsTests
         Assert.Throws<ArgumentNullException>(() => PluginSystemHostBuilderExtensions.AddSecretStore(null!));
     }
 
+    [Fact]
+    public void AddSecretConfigurationResolution_ReturnsBuilderForChaining()
+    {
+        var services = new ServiceCollection();
+        var hostBuilder = Substitute.For<IPluginSystemHostBuilder>();
+        hostBuilder.Services.Returns(services);
+
+        var result = hostBuilder.AddSecretConfigurationResolution();
+
+        Assert.Same(hostBuilder, result);
+    }
+
+    [Fact]
+    public void AddSecretConfigurationResolution_Throws_OnNullBuilder()
+    {
+        Assert.Throws<ArgumentNullException>(
+            () => PluginSystemHostBuilderExtensions.AddSecretConfigurationResolution(null!));
+    }
+
     private sealed class StubProvider : ISecretStoreProvider
     {
         public string Name => "stub";

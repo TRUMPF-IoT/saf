@@ -5,6 +5,7 @@
 namespace SAF.Configuration.Secrets;
 
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 using SAF.Configuration.Secrets.Contracts;
 
 /// <summary>
@@ -32,7 +33,7 @@ public static class SecretStoreBuilderExtensions
         where TProvider : class, ISecretStoreProvider
     {
         ArgumentNullException.ThrowIfNull(builder);
-        builder.Services.AddSingleton<ISecretStoreProvider, TProvider>();
+        builder.Services.TryAddEnumerable(ServiceDescriptor.Singleton<ISecretStoreProvider, TProvider>());
         return builder;
     }
 
