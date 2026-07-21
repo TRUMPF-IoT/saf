@@ -5,9 +5,9 @@ passphrases — out of your configuration files and in a secure, OS-level store 
 and write secrets through a single injected service, `ISecretStore`, without knowing where or how the
 secrets are physically stored.
 
-> **Status.** The store, provider selection, transparent `secret://` configuration resolution and the
-> Windows Credential Manager provider are available today. A file-based provider and a
-> systemd-credentials provider are planned — see [Roadmap](#roadmap).
+> **Status.** The store, provider selection, transparent `secret://` configuration resolution, the
+> Windows Credential Manager provider and the cross-platform file-based provider are available today. A
+> systemd-credentials provider is planned — see [Roadmap](#roadmap).
 
 ## Why
 
@@ -37,8 +37,8 @@ identity own the secrets.
 
 | Package | Purpose |
 |---|---|
-| `SAF.Configuration.Secrets.Contracts` | Interfaces and types: `ISecretStore`, `ISecretReader`, `ISecretWriter`, `ISecretStoreProvider`, `SecretStoreOptions`, `SecretScope`, `SecretReference` |
-| `SAF.Configuration.Secrets` | Provider implementations and provider selection |
+| `SAF.Configuration.Secrets.Contracts` | Interfaces and types: `ISecretStore`, `ISecretReader`, `ISecretWriter`, `ISecretStoreProvider`, `ISecretProtector`, `SecretStoreOptions`, `FileSecretStoreOptions`, `SecretScope`, `SecretReference` |
+| `SAF.Configuration.Secrets` | Provider implementations (Windows Credential Manager, file store), the default `PkcsSecretProtector`, and provider selection |
 | `SAF.Configuration.Secrets.Extensions` | Plugin-system host-builder integration (`AddSecretStore`, `AddSecretConfigurationResolution`) |
 
 Reference `SAF.Configuration.Secrets.Extensions` from your host; it pulls in the other two.
@@ -127,16 +127,17 @@ it does not.
 ## Providers
 
 Each backend is an `ISecretStoreProvider`. More than one provider can be available on the same
-platform (for example, Windows can offer both the Credential Manager and — once shipped — a file
-store); each provider decides via `IsAvailable` whether it applies to the current environment.
+platform (for example, Windows can offer both the Credential Manager and the file store); each
+provider decides via `IsAvailable` whether it applies to the current environment.
 
 | Provider | Name | Availability |
 |---|---|---|
 | Windows Credential Manager | `windows-credential-manager` | Windows only. Stores secrets as generic credentials in the running identity's vault (per-principal isolation). |
+| File store | `file` | Cross-platform. Persists secrets to a single JSON file, each value encrypted at rest through an `ISecretProtector`. Reports itself **unavailable until a protector is registered** (see below). |
 
-> Today the only built-in provider is the Windows Credential Manager. On non-Windows platforms there
-> is currently no built-in provider — register a custom one via `AddProvider<T>` (see below) until the
-> file/systemd providers ship.
+> On non-Windows platforms the file store is the built-in default, but it only becomes *available* once
+> you register an `ISecretProtector` (there is no OS-integrated at-rest encryption to fall back on). See
+> [The file store and its protector](#the-file-store-and-its-protector).
 
 ## Selecting providers
 
@@ -155,6 +156,12 @@ priority (OS-native store before the file store):
 ```csharp
 ps.AddSecretStore(o => o.Namespace = "myapp"); // = AddDefaults()
 ```
+
+- **Windows** — the Credential Manager (zero-config). The file store is *not* added by default; add it
+  explicitly with `.AddFile()` if you want it.
+- **Non-Windows** — the file store, as the platform default. It stays unavailable until you register an
+  `ISecretProtector`; without one, `"auto"` selection fails with a clear *"no available secret store
+  provider"* error rather than an obscure startup crash.
 
 ### Explicit registration
 
@@ -178,6 +185,47 @@ ps.AddSecretStore(null, providers => providers
     .AddProvider<MyKeyVaultProvider>()   // 1st priority
     .AddWindowsCredentialManager());     // fallback
 ```
+
+## The file store and its protector
+
+The `file` provider persists secrets to a single JSON file (default:
+`<BaseDirectory>/secrets/<namespace>.secrets.json`, override with `FileSecretStoreOptions.Path`). The
+**logical names stay in clear** — a secret reference is not itself sensitive — while **each value is
+encrypted at rest** through an injected `ISecretProtector`.
+
+The protector (and its key/certificate material) is *not* registered for you: it is a deployment
+decision, so you register it explicitly. The built-in, cross-platform default is `PkcsSecretProtector`
+(PKCS#7/CMS enveloping: AES-256 for the value, RSA-OAEP-SHA256 for the key, keyed by an X.509
+certificate you supply):
+
+```csharp
+using System.Security.Cryptography.X509Certificates;
+using SAF.Configuration.Secrets.Contracts;
+using SAF.Configuration.Secrets.Protection;
+
+// Register a protector, then the file store. On non-Windows AddDefaults() already registers the file
+// store, so registering the protector alone is enough there.
+hostBuilder.Services.AddSingleton<ISecretProtector>(_ => new PkcsSecretProtector(certificate));
+
+ps.AddSecretStore(
+    configure: o => o.Namespace = "myapp",
+    configureProviders: providers => providers.AddFile(o => o.Path = "/var/lib/myapp/secrets.json"));
+```
+
+Key points:
+
+- **Unavailable without a protector.** If no `ISecretProtector` is registered, the file store reports
+  `IsAvailable = false` (and logs a warning explaining how to register one). `"auto"` then skips it;
+  forcing it by name yields a clear *"not available"* error. It never fails to construct — so a Windows
+  host that uses `AddDefaults().AddFile()` without a protector still works via the Credential Manager.
+- **Protector identity is stamped** into the file. Opening a store written by a different protector
+  fails fast with an explanatory error rather than producing garbage.
+- **File permissions are the installer's responsibility.** The provider only reads and writes the file
+  contents; it does **not** set ACLs (`0600` on Linux, an NTFS ACL for the reader on Windows). Lock the
+  file down at deployment time so only the service account can read it.
+
+> **Windows alternative (planned).** A DPAPI-backed protector can be added additively for Windows-only
+> file stores without changing the store — see [Roadmap](#roadmap).
 
 ## Transparent configuration resolution
 
@@ -243,7 +291,8 @@ local/domain user).
 - `ServiceAccount` (default) — bound to a single principal. For the Windows Credential Manager this is
   inherent: the secret lives in the running identity's vault.
 - `Machine` — any local account may read. The Windows Credential Manager has no machine-wide vault, so
-  it logs a warning and still stores per-principal; this scope targets the upcoming file provider.
+  it logs a warning and still stores per-principal; broader readership for the file provider is a matter
+  of the file's deployed permissions (see [The file store and its protector](#the-file-store-and-its-protector)).
 
 > `SecretStoreOptions` also exposes `RequireSecretReferences`, intended to fail-fast on plaintext in a
 > secret-backed field. The transparent resolver does not enforce it yet — it resolves references and
@@ -266,8 +315,9 @@ in-file secrets into the store is the responsibility of each product.
 
 The following are planned and not yet available:
 
-- **File-based provider** (cross-platform), with an NTFS ACL / POSIX ownership so an installer can
-  write a store that only the service account can read.
-- **systemd-credentials provider** for Linux services.
+- **systemd-credentials provider** for Linux services — the intended zero-config, OS-native Linux
+  default, registered ahead of the file store in `AddDefaults` once it ships.
+- **DPAPI-backed `ISecretProtector`** for Windows-only file stores, added additively alongside the
+  default `PkcsSecretProtector`.
 - **Enforcing `RequireSecretReferences`** — fail-fast when a secret-backed configuration field holds a
   plaintext value instead of a reference.
