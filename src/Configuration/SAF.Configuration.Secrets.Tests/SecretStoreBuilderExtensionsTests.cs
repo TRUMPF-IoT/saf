@@ -6,6 +6,7 @@ namespace SAF.Configuration.Secrets.Tests;
 
 using Microsoft.Extensions.DependencyInjection;
 using SAF.Configuration.Secrets.Contracts;
+using SAF.Configuration.Secrets.FileStore;
 using SAF.Configuration.Secrets.WindowsCredentialManager;
 using Xunit;
 
@@ -30,23 +31,25 @@ public class SecretStoreBuilderExtensionsTests
     }
 
     [Fact]
-    public void AddDefaults_RegistersWindowsProvider_OnWindowsOnly()
+    public void AddDefaults_RegistersPlatformDefaultProvider()
     {
         var services = new ServiceCollection();
         services.AddLogging();
+        // Needed so the file store (the default off Windows) can be constructed when enumerated.
+        services.AddSingleton<ISecretProtector>(new ReversingSecretProtector());
 
         services.AddSecretStore().AddDefaults();
 
         using var provider = services.BuildServiceProvider();
         var providers = provider.GetServices<ISecretStoreProvider>().ToList();
+        Assert.Single(providers);
         if (OperatingSystem.IsWindows())
         {
-            Assert.Single(providers);
             Assert.IsType<WindowsCredentialManagerSecretStore>(providers[0]);
         }
         else
         {
-            Assert.Empty(providers);
+            Assert.IsType<FileSecretStore>(providers[0]);
         }
     }
 

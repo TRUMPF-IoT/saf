@@ -16,7 +16,7 @@ using SAF.Configuration.Secrets.Contracts;
 /// public key (installer role); unprotecting needs its private key (service role). The produced payload
 /// is self-describing CMS, so it can be read back on any platform that .NET supports.
 /// </summary>
-internal sealed class PkcsSecretProtector : ISecretProtector
+public sealed class PkcsSecretProtector : ISecretProtector
 {
     /// <summary>The stable protector name used to tag produced payloads.</summary>
     public const string ProtectorName = "pkcs";

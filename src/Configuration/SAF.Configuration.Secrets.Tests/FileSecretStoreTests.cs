@@ -223,26 +223,4 @@ public class FileSecretStoreTests
             Options.Create(options ?? new SecretStoreOptions()),
             Options.Create(new FileSecretStoreOptions { Path = StorePath }),
             NullLogger<FileSecretStore>.Instance);
-
-    // A deterministic, reversible stand-in for a real protector, so file-store behaviour can be
-    // asserted without depending on certificate crypto. Reversing the bytes keeps plaintext out of
-    // the persisted file while remaining trivially invertible.
-    private sealed class ReversingSecretProtector(string name = "fake") : ISecretProtector
-    {
-        public string Name => name;
-
-        public byte[] Protect(byte[] plaintext)
-        {
-            var copy = (byte[])plaintext.Clone();
-            Array.Reverse(copy);
-            return copy;
-        }
-
-        public byte[] Unprotect(byte[] protectedData)
-        {
-            var copy = (byte[])protectedData.Clone();
-            Array.Reverse(copy);
-            return copy;
-        }
-    }
 }

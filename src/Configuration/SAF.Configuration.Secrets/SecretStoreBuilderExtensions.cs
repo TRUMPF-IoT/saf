@@ -25,6 +25,19 @@ public static class SecretStoreBuilderExtensions
     }
 
     /// <summary>
+    /// Adds the cross-platform file-based provider. It requires an <see cref="ISecretProtector"/> to be
+    /// registered separately (see <see cref="SecretStoreServiceCollectionExtensions.AddFileSecretStore"/>),
+    /// which is why it is opt-in rather than part of <see cref="AddDefaults"/>.
+    /// </summary>
+    public static ISecretStoreBuilder AddFile(
+        this ISecretStoreBuilder builder, Action<FileSecretStoreOptions>? configure = null)
+    {
+        ArgumentNullException.ThrowIfNull(builder);
+        builder.Services.AddFileSecretStore(configure);
+        return builder;
+    }
+
+    /// <summary>
     /// Adds a custom <see cref="ISecretStoreProvider"/> implementation, enabling additional backends
     /// (e.g. a remote key vault) without modifying the framework.
     /// </summary>
@@ -38,18 +51,25 @@ public static class SecretStoreBuilderExtensions
     }
 
     /// <summary>
-    /// Adds all built-in providers for the current platform in the documented default priority:
-    /// the OS-native store first, then the cross-platform file store. Each provider is a no-op when
-    /// it is not applicable to the current platform, so the effective order per platform is
-    /// native-store-then-file.
+    /// Adds the built-in default provider for the current platform: the Windows Credential Manager on
+    /// Windows, and the cross-platform file store on other platforms, so auto-selection resolves a
+    /// working default everywhere. On Windows the file store is not added by default (add it via
+    /// <see cref="AddFile"/> if needed); on other platforms it is the default and therefore requires a
+    /// consumer-registered <see cref="ISecretProtector"/>, as there is no OS-integrated at-rest
+    /// encryption to fall back on.
     /// </summary>
     public static ISecretStoreBuilder AddDefaults(this ISecretStoreBuilder builder)
     {
         ArgumentNullException.ThrowIfNull(builder);
 
         builder.AddWindowsCredentialManager();
-        // Future built-ins are appended here in priority order (e.g. systemd-creds, then the file store),
-        // so an OS-native store is always preferred over the file store under auto-selection.
+        if (!OperatingSystem.IsWindows())
+        {
+            // No OS-native default is wired up off Windows yet (a read-only systemd-creds provider is
+            // planned as a higher-priority native option), so the file store is the platform default there.
+            builder.AddFile();
+        }
+
         return builder;
     }
 }
