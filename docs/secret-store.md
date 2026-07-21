@@ -5,9 +5,9 @@ passphrases — out of your configuration files and in a secure, OS-level store 
 and write secrets through a single injected service, `ISecretStore`, without knowing where or how the
 secrets are physically stored.
 
-> **Status.** The store, provider selection and the Windows Credential Manager provider are available
-> today. A file-based provider, a systemd-credentials provider, and transparent `secret://`
-> configuration resolution are planned — see [Roadmap](#roadmap).
+> **Status.** The store, provider selection, transparent `secret://` configuration resolution and the
+> Windows Credential Manager provider are available today. A file-based provider and a
+> systemd-credentials provider are planned — see [Roadmap](#roadmap).
 
 ## Why
 
@@ -39,7 +39,7 @@ identity own the secrets.
 |---|---|
 | `SAF.Configuration.Secrets.Contracts` | Interfaces and types: `ISecretStore`, `ISecretReader`, `ISecretWriter`, `ISecretStoreProvider`, `SecretStoreOptions`, `SecretScope`, `SecretReference` |
 | `SAF.Configuration.Secrets` | Provider implementations and provider selection |
-| `SAF.Configuration.Secrets.Extensions` | Plugin-system host-builder integration (`AddSecretStore`) |
+| `SAF.Configuration.Secrets.Extensions` | Plugin-system host-builder integration (`AddSecretStore`, `AddSecretConfigurationResolution`) |
 
 Reference `SAF.Configuration.Secrets.Extensions` from your host; it pulls in the other two.
 
@@ -179,15 +179,60 @@ ps.AddSecretStore(null, providers => providers
     .AddWindowsCredentialManager());     // fallback
 ```
 
+## Transparent configuration resolution
+
+Besides injecting `ISecretStore` directly, SAF can resolve secrets **transparently in configuration**:
+put a reference instead of the value in your plugin configuration, and existing
+`IConfiguration`/`Bind`-based plug-ins receive the real secret with no code change.
+
+Enable it on the host builder (compose it with `AddSecretStore`, or use it on its own):
+
+```csharp
+ps.AddSecretConfigurationResolution(o => o.Namespace = "myapp");
+```
+
+Then reference secrets in the plugin configuration with the `secret://` prefix:
+
+```json
+{
+  "OpcUaConnections": [
+    {
+      "User": "secret://myapp/opcua/conn-1/user",
+      "Password": "secret://myapp/opcua/conn-1/password",
+      "Host": "opc.tcp://plc-1:4840"
+    }
+  ]
+}
+```
+
+- Values **with** the prefix are replaced by the resolved secret; values **without** it (e.g. `Host`)
+  pass through unchanged.
+- An **environment variable** derived from the reference name overrides the store, which lets
+  CI/containers inject secrets without an OS store. The name is `EnvironmentVariablePrefix` plus the
+  reference name with `/` → `__` and other non-alphanumeric characters → `_`; e.g.
+  `secret://myapp/opcua/conn-1/password` → `SECRET__myapp__opcua__conn_1__password`.
+- Provider selection/registration is the same as `AddSecretStore` (default = platform providers, or
+  pass `configureProviders` to choose explicitly). `AddSecretConfigurationResolution` and
+  `AddSecretStore` compose safely, so transparent resolution and direct `ISecretStore` injection can be
+  used together.
+
+> **Resolution before DI exists.** Configuration is built before the application's DI container.
+> Resolution therefore starts with a self-contained reader and automatically switches to the host's DI
+> `ISecretStore` once the container is available (re-resolving if a value changed). This is transparent
+> — no action required.
+
 ## Options
 
-`SecretStoreOptions` (configure via the `AddSecretStore` callback):
+`SecretStoreOptions` (configure via the `AddSecretStore` / `AddSecretConfigurationResolution` callback):
 
 | Option | Default | Meaning |
 |---|---|---|
 | `ProviderName` | `"auto"` | Which provider is active. `"auto"` = first available in registration order; or a provider name to force it. |
 | `Scope` | `ServiceAccount` | Isolation scope (see below). |
 | `Namespace` | `"saf"` | Prepended to every secret name to form the store key, so different products/hosts do not collide. |
+| `ReferencePrefix` | `"secret://"` | Marks a configuration value as a secret reference (transparent resolution). |
+| `AllowEnvironmentOverride` | `true` | When resolving a reference, check a derived environment variable before the store. |
+| `EnvironmentVariablePrefix` | `"SECRET"` | Prefix of that environment variable. |
 
 ### Scope
 
@@ -200,9 +245,9 @@ local/domain user).
 - `Machine` — any local account may read. The Windows Credential Manager has no machine-wide vault, so
   it logs a warning and still stores per-principal; this scope targets the upcoming file provider.
 
-> `SecretStoreOptions` also exposes `ReferencePrefix`, `RequireSecretReferences`,
-> `AllowEnvironmentOverride` and `EnvironmentVariablePrefix`. These belong to the planned transparent
-> configuration resolution (see [Roadmap](#roadmap)) and have no effect yet.
+> `SecretStoreOptions` also exposes `RequireSecretReferences`, intended to fail-fast on plaintext in a
+> secret-backed field. The transparent resolver does not enforce it yet — it resolves references and
+> passes all other values through unchanged.
 
 ## Secret names
 
@@ -224,8 +269,5 @@ The following are planned and not yet available:
 - **File-based provider** (cross-platform), with an NTFS ACL / POSIX ownership so an installer can
   write a store that only the service account can read.
 - **systemd-credentials provider** for Linux services.
-- **Transparent configuration resolution** — reference a secret from configuration as
-  `"secret://myapp/opcua/connection-1/password"` and have SAF resolve it automatically, so existing
-  `IConfiguration`/`Bind`-based plug-ins pick up the real value with no code change. The
-  `ReferencePrefix`, `RequireSecretReferences`, `AllowEnvironmentOverride` and
-  `EnvironmentVariablePrefix` options and the `SecretReference` helper support this upcoming feature.
+- **Enforcing `RequireSecretReferences`** — fail-fast when a secret-backed configuration field holds a
+  plaintext value instead of a reference.
