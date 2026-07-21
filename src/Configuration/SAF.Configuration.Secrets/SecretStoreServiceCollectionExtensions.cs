@@ -4,10 +4,13 @@
 
 namespace SAF.Configuration.Secrets;
 
+using System.IO.Abstractions;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using SAF.Configuration.Secrets.Contracts;
+using SAF.Configuration.Secrets.FileStore;
 using SAF.Configuration.Secrets.WindowsCredentialManager;
+using Testably.Abstractions;
 
 /// <summary>
 /// Registers the secret store and its providers in a plain <see cref="IServiceCollection"/>, so the
@@ -52,6 +55,31 @@ public static class SecretStoreServiceCollectionExtensions
             services.TryAddEnumerable(ServiceDescriptor.Singleton<ISecretStoreProvider, WindowsCredentialManagerSecretStore>());
         }
 
+        return services;
+    }
+
+    /// <summary>
+    /// Registers the cross-platform file-based provider, which encrypts each value at rest through an
+    /// <see cref="ISecretProtector"/>. That protector (and its key/certificate material) is intentionally
+    /// not registered here: register one explicitly, e.g.
+    /// <c>services.AddSingleton&lt;ISecretProtector&gt;(_ =&gt; new PkcsSecretProtector(certificate))</c>.
+    /// A default <see cref="IFileSystem"/> is registered only if none exists yet.
+    /// </summary>
+    public static IServiceCollection AddFileSecretStore(
+        this IServiceCollection services, Action<FileSecretStoreOptions>? configure = null)
+    {
+        ArgumentNullException.ThrowIfNull(services);
+
+        services.AddOptions();
+        if (configure is not null)
+        {
+            services.Configure(configure);
+        }
+
+        services.TryAddSingleton<IFileSystem, RealFileSystem>();
+        // TryAddEnumerable keeps the registration idempotent, so combining this with other
+        // registrations does not add the provider twice.
+        services.TryAddEnumerable(ServiceDescriptor.Singleton<ISecretStoreProvider, FileSecretStore>());
         return services;
     }
 }
