@@ -5,6 +5,7 @@
 namespace SAF.PluginSystem.Hosting.Tests;
 
 using Contracts;
+using SAF.PluginSystem.Hosting.AssemblyLoading;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using NSubstitute;
@@ -24,6 +25,8 @@ public class PluginSystemHostBuilderExtensionsTests
         _serviceCollection.AddTransient(typeof(ILoggerFactory), _ => Substitute.For<ILoggerFactory>());
         _serviceCollection.AddSingleton<IFileSystem>(new MockFileSystem());
         _serviceCollection.AddSingleton<IPluginManifestLoader, PluginManifestLoader>();
+        _serviceCollection.AddSingleton<ISharedAssemblyResolver>(Substitute.For<ISharedAssemblyResolver>());
+        _serviceCollection.AddOptions();
 
         _hostBuilder.Services.Returns(_serviceCollection);
     }

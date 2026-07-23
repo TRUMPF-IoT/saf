@@ -5,6 +5,8 @@
 namespace SAF.PluginSystem.Hosting.Tests;
 
 using Contracts;
+using SAF.PluginSystem.Hosting.AssemblyLoading;
+using SAF.PluginSystem.Hosting.Tests.AssemblyLoading;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using NSubstitute;
@@ -51,7 +53,7 @@ public class PluginAssemblyFolderContainerTests
             ExcludePatterns = "*.exclude.*",
             Recursive = true
         };
-        var container = new PluginAssemblyFolderContainer(_loggerFactory, manifestLoader, options, [], _fileSystem);
+        var container = new PluginAssemblyFolderContainer(_loggerFactory, manifestLoader, options, [], _fileSystem, TestSharedAssemblyResolver.SharesHostProvidedAssemblies, SharedAssemblyConflictBehavior.Fail);
 
         // Act
         var result = container.GetPluginManifests().ToList();
@@ -83,7 +85,7 @@ public class PluginAssemblyFolderContainerTests
             ExcludePatterns = "*.exclude.*",
             Recursive = false
         };
-        var container = new PluginAssemblyFolderContainer(_loggerFactory, manifestLoader, options, [], _fileSystem);
+        var container = new PluginAssemblyFolderContainer(_loggerFactory, manifestLoader, options, [], _fileSystem, TestSharedAssemblyResolver.SharesHostProvidedAssemblies, SharedAssemblyConflictBehavior.Fail);
 
         // Act
         var result = container.GetPluginManifests().ToList();
@@ -106,7 +108,7 @@ public class PluginAssemblyFolderContainerTests
             ExcludePatterns = "*.exclude.*",
             Recursive = true
         };
-        var container = new PluginAssemblyFolderContainer(_loggerFactory, manifestLoader, options, [], _fileSystem);
+        var container = new PluginAssemblyFolderContainer(_loggerFactory, manifestLoader, options, [], _fileSystem, TestSharedAssemblyResolver.SharesHostProvidedAssemblies, SharedAssemblyConflictBehavior.Fail);
 
         // Act
         var result = container.GetPluginManifests().ToList();
@@ -127,7 +129,7 @@ public class PluginAssemblyFolderContainerTests
             ExcludePatterns = "*.exclude.*",
             Recursive = true
         };
-        var container = new PluginAssemblyFolderContainer(_loggerFactory, _manifestLoader, options, [], _fileSystem);
+        var container = new PluginAssemblyFolderContainer(_loggerFactory, _manifestLoader, options, [], _fileSystem, TestSharedAssemblyResolver.SharesHostProvidedAssemblies, SharedAssemblyConflictBehavior.Fail);
 
         // Act
         var result = container.GetPluginManifests();
@@ -147,7 +149,7 @@ public class PluginAssemblyFolderContainerTests
             ExcludePatterns = string.Empty,
             Recursive = false
         };
-        var container = new PluginAssemblyFolderContainer(_loggerFactory, _manifestLoader, options, [], _fileSystem);
+        var container = new PluginAssemblyFolderContainer(_loggerFactory, _manifestLoader, options, [], _fileSystem, TestSharedAssemblyResolver.SharesHostProvidedAssemblies, SharedAssemblyConflictBehavior.Fail);
 
         // Act
         var result = container.GetPluginManifests().ToList();
@@ -167,7 +169,7 @@ public class PluginAssemblyFolderContainerTests
             ExcludePatterns = string.Empty,
             Recursive = false
         };
-        var container = new PluginAssemblyFolderContainer(_loggerFactory, _manifestLoader, options, [], _fileSystem);
+        var container = new PluginAssemblyFolderContainer(_loggerFactory, _manifestLoader, options, [], _fileSystem, TestSharedAssemblyResolver.SharesHostProvidedAssemblies, SharedAssemblyConflictBehavior.Fail);
 
         // Act
         var result = container.GetPluginManifests().ToList();
@@ -208,7 +210,7 @@ public class PluginAssemblyFolderContainerTests
             ExcludePatterns = string.Empty,
             Recursive = false
         };
-        var container = new PluginAssemblyFolderContainer(_loggerFactory, _manifestLoader, options, [], _fileSystem);
+        var container = new PluginAssemblyFolderContainer(_loggerFactory, _manifestLoader, options, [], _fileSystem, TestSharedAssemblyResolver.SharesHostProvidedAssemblies, SharedAssemblyConflictBehavior.Fail);
 
         // Act
         var result = container.GetPluginManifests().ToList();
@@ -228,7 +230,7 @@ public class PluginAssemblyFolderContainerTests
             ExcludePatterns = string.Empty,
             Recursive = false
         };
-        var container = new PluginAssemblyFolderContainer(_loggerFactory, _manifestLoader, options, [], _fileSystem);
+        var container = new PluginAssemblyFolderContainer(_loggerFactory, _manifestLoader, options, [], _fileSystem, TestSharedAssemblyResolver.SharesHostProvidedAssemblies, SharedAssemblyConflictBehavior.Fail);
 
         // Act
         var firstCall = container.GetPluginManifests();
@@ -253,7 +255,7 @@ public class PluginAssemblyFolderContainerTests
             ExcludePatterns = string.Empty,
             Recursive = false
         };
-        var container = new PluginAssemblyFolderContainer(_loggerFactory, manifestLoader, options, [], _fileSystem);
+        var container = new PluginAssemblyFolderContainer(_loggerFactory, manifestLoader, options, [], _fileSystem, TestSharedAssemblyResolver.SharesHostProvidedAssemblies, SharedAssemblyConflictBehavior.Fail);
 
         // Act – call twice
         _ = container.GetPluginManifests().ToList();
@@ -278,7 +280,7 @@ public class PluginAssemblyFolderContainerTests
             ExcludePatterns = string.Empty,
             Recursive = false
         };
-        var container = new PluginAssemblyFolderContainer(_loggerFactory, manifestLoader, options, [], _fileSystem);
+        var container = new PluginAssemblyFolderContainer(_loggerFactory, manifestLoader, options, [], _fileSystem, TestSharedAssemblyResolver.SharesHostProvidedAssemblies, SharedAssemblyConflictBehavior.Fail);
 
         // Act
         var firstCall = container.GetPluginManifests().ToList();
@@ -313,7 +315,7 @@ public class PluginAssemblyFolderContainerTests
             Recursive = false
         };
 
-        var container = new PluginAssemblyFolderContainer(_loggerFactory, manifestLoader, options, [], _fileSystem);
+        var container = new PluginAssemblyFolderContainer(_loggerFactory, manifestLoader, options, [], _fileSystem, TestSharedAssemblyResolver.SharesHostProvidedAssemblies, SharedAssemblyConflictBehavior.Fail);
 
         // Act
         var result = container.GetPluginManifests().ToList();
@@ -345,7 +347,9 @@ public class PluginAssemblyFolderContainerTests
             manifestLoader,
             options,
             [new StrongNamePluginAssemblyValidator(Options.Create(validatorOptions))],
-            _fileSystem);
+            _fileSystem,
+            TestSharedAssemblyResolver.SharesHostProvidedAssemblies,
+            SharedAssemblyConflictBehavior.Fail);
 
         var result = container.GetPluginManifests().ToList();
 
@@ -366,7 +370,7 @@ public class PluginAssemblyFolderContainerTests
             ExcludePatterns = string.Empty,
             Recursive = false
         };
-        var container = new PluginAssemblyFolderContainer(_loggerFactory, manifestLoader, options, [new RejectingPluginAssemblyValidator()], _fileSystem);
+        var container = new PluginAssemblyFolderContainer(_loggerFactory, manifestLoader, options, [new RejectingPluginAssemblyValidator()], _fileSystem, TestSharedAssemblyResolver.SharesHostProvidedAssemblies, SharedAssemblyConflictBehavior.Fail);
 
         var result = container.GetPluginManifests().ToList();
 

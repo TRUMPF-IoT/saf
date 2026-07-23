@@ -4,6 +4,7 @@
 
 namespace SAF.PluginSystem.Hosting;
 
+using AssemblyLoading;
 using Contracts;
 using Microsoft.Extensions.FileSystemGlobbing;
 using Microsoft.Extensions.Logging;
@@ -19,7 +20,9 @@ public class PluginAssemblyFolderContainer(
     IPluginManifestLoader manifestLoader,
     PluginAssemblyFolderSearchOptions options,
     IEnumerable<IPluginAssemblyValidator> assemblyValidators,
-    IFileSystem fileSystem)
+    IFileSystem fileSystem,
+    ISharedAssemblyResolver sharedAssemblyResolver,
+    SharedAssemblyConflictBehavior sharedAssemblyConflictBehavior)
     : IPluginAssemblyContainer
 {
     private readonly ILogger _logger = loggerFactory.CreateLogger<PluginAssemblyFolderContainer>();
@@ -103,7 +106,7 @@ public class PluginAssemblyFolderContainer(
 
             var pluginLoadContext = isInBaseDirectory
                 ? AssemblyLoadContext.Default
-                : new PluginAssemblyLoadContext(loggerFactory, pluginAssemblyPath, _fileSystem);
+                : new PluginAssemblyLoadContext(loggerFactory, pluginAssemblyPath, sharedAssemblyResolver, sharedAssemblyConflictBehavior);
 
             try
             {

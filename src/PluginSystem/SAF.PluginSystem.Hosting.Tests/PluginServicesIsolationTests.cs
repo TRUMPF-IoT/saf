@@ -10,6 +10,8 @@ using NSubstitute;
 using System.Linq;
 using TestPlugin.PublicDependencyA;
 using Testably.Abstractions;
+using SAF.PluginSystem.Hosting.AssemblyLoading;
+using SAF.PluginSystem.Hosting.Tests.AssemblyLoading;
 using SAF.PluginSystem.Hosting.Contracts;
 using Xunit;
 
@@ -42,7 +44,9 @@ public class PluginServicesIsolationTests
                 Recursive = true
             },
             [],
-            new RealFileSystem());
+            new RealFileSystem(),
+            TestSharedAssemblyResolver.SharesHostProvidedAssemblies,
+            SharedAssemblyConflictBehavior.Fail);
     }
 
     [Fact]

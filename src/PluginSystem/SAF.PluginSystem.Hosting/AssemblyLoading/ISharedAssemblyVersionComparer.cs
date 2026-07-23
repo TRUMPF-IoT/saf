@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: MPL-2.0
 
-namespace SAF.PluginSystem.Hosting;
+namespace SAF.PluginSystem.Hosting.AssemblyLoading;
 
 /// <summary>
 /// Compares the version of a shared assembly provided by the host with the version requested by a plugin.

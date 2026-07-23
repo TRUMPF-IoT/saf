@@ -2,7 +2,9 @@
 //
 // SPDX-License-Identifier: MPL-2.0
 
-namespace SAF.PluginSystem.Hosting.Tests;
+namespace SAF.PluginSystem.Hosting.Tests.AssemblyLoading;
+
+using SAF.PluginSystem.Hosting.AssemblyLoading;
 
 public class SharedAssemblyVersionComparerTests
 {
