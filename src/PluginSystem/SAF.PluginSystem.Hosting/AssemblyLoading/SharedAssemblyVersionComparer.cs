@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: MPL-2.0
 
-namespace SAF.PluginSystem.Hosting;
+namespace SAF.PluginSystem.Hosting.AssemblyLoading;
 
 /// <inheritdoc />
 internal sealed class SharedAssemblyVersionComparer : ISharedAssemblyVersionComparer

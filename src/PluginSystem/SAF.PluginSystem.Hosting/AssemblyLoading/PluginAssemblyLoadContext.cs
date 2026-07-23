@@ -1,0 +1,86 @@
+// SPDX-FileCopyrightText: 2017-2026 TRUMPF Laser SE
+//
+// SPDX-License-Identifier: MPL-2.0
+
+namespace SAF.PluginSystem.Hosting.AssemblyLoading;
+
+using Microsoft.Extensions.Logging;
+using System.Reflection;
+using System.Runtime.Loader;
+
+public class PluginAssemblyLoadContext(
+    ILoggerFactory loggerFactory,
+    string pluginAssemblyPath,
+    ISharedAssemblyResolver sharedAssemblyResolver,
+    SharedAssemblyConflictBehavior conflictBehavior) : AssemblyLoadContext
+{
+    private readonly ILogger _logger = loggerFactory.CreateLogger<PluginAssemblyLoadContext>();
+
+    private readonly AssemblyDependencyResolver _resolver = new(pluginAssemblyPath);
+
+    protected override Assembly? Load(AssemblyName assemblyName)
+    {
+        ArgumentNullException.ThrowIfNull(assemblyName);
+
+        switch (sharedAssemblyResolver.Resolve(assemblyName, out var hostVersion))
+        {
+            case SharedAssemblyDecision.ShareFromDefault:
+                if (_logger.IsEnabled(LogLevel.Trace))
+                {
+                    _logger.LogTrace("Share assembly {AssemblyFullName} from the default context.", assemblyName.FullName);
+                }
+
+                // Returning null defers resolution to the default context, which shares the single
+                // instance of this assembly across the plugin boundary.
+                return null;
+
+            case SharedAssemblyDecision.Conflict:
+                return HandleConflict(assemblyName, hostVersion!);
+
+            default:
+                return LoadIsolated(assemblyName);
+        }
+    }
+
+    protected override IntPtr LoadUnmanagedDll(string unmanagedDllName)
+    {
+        var libraryPath = _resolver.ResolveUnmanagedDllToPath(unmanagedDllName);
+        return libraryPath != null ? LoadUnmanagedDllFromPath(libraryPath) : IntPtr.Zero;
+    }
+
+    private Assembly? HandleConflict(AssemblyName assemblyName, Version hostVersion)
+    {
+        var requestedVersion = assemblyName.Version ?? new Version(0, 0, 0, 0);
+
+        if (conflictBehavior == SharedAssemblyConflictBehavior.Fail)
+        {
+            throw new SharedAssemblyVersionConflictException(assemblyName.Name!, requestedVersion, hostVersion);
+        }
+
+        _logger.LogWarning(
+            "Plugin requires shared assembly {AssemblyName} version {RequestedVersion}, but the host only provides " +
+            "version {HostVersion}. Loading it in isolation; types of this assembly will not be compatible across the " +
+            "plugin boundary.",
+            assemblyName.Name, requestedVersion, hostVersion);
+
+        return LoadIsolated(assemblyName);
+    }
+
+    private Assembly? LoadIsolated(AssemblyName assemblyName)
+    {
+        var assemblyPath = _resolver.ResolveAssemblyToPath(assemblyName);
+        if (assemblyPath != null)
+        {
+            if (_logger.IsEnabled(LogLevel.Trace))
+            {
+                _logger.LogTrace("Load assembly {AssemblyFullName} from path {AssemblyPath} in isolation.", assemblyName.FullName, assemblyPath);
+            }
+
+            return LoadFromAssemblyPath(assemblyPath);
+        }
+
+        // The assembly is not part of the plugin's own dependencies (e.g. a framework assembly). Defer to
+        // the default context.
+        return null;
+    }
+}

@@ -2,13 +2,13 @@
 //
 // SPDX-License-Identifier: MPL-2.0
 
-namespace SAF.PluginSystem.Hosting;
+namespace SAF.PluginSystem.Hosting.AssemblyLoading;
 
 /// <summary>
 /// Describes how a plugin-requested assembly should be resolved with regard to the set of shared
 /// (contract) assemblies.
 /// </summary>
-internal enum SharedAssemblyDecision
+public enum SharedAssemblyDecision
 {
     /// <summary>
     /// The assembly is part of the shared set and a compatible (equal or higher) host version is

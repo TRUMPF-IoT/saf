@@ -2,22 +2,22 @@
 //
 // SPDX-License-Identifier: MPL-2.0
 
-namespace SAF.PluginSystem.Hosting.Tests;
+namespace SAF.PluginSystem.Hosting.Tests.AssemblyLoading;
+
+using SAF.PluginSystem.Hosting.AssemblyLoading;
 
 using Microsoft.Extensions.Logging;
 using System.Reflection;
 using System.Runtime.Loader;
-using System.IO.Abstractions;
-using Testably.Abstractions;
 using Xunit;
 
 public class PluginAssemblyLoadContextTests
 {
     private readonly ILoggerFactory _loggerFactory;
 
-    // This test loads a real plugin assembly from disk through AssemblyLoadContext, which reads from
-    // the real file system, so a mock cannot be used.
-    private readonly IFileSystem _fileSystem = new RealFileSystem();
+    // Shares the contract closure (hosting contracts, Microsoft.Extensions.* and public dependencies);
+    // private plugin dependencies stay isolated.
+    private readonly ISharedAssemblyResolver _sharedAssemblyResolver = TestSharedAssemblyResolver.SharesHostProvidedAssemblies;
 
     public PluginAssemblyLoadContextTests(ITestOutputHelper outputHelper)
     {
@@ -33,7 +33,8 @@ public class PluginAssemblyLoadContextTests
         var context = new PluginAssemblyLoadContext(
             _loggerFactory,
             pluginAPath,
-            _fileSystem);
+            _sharedAssemblyResolver,
+            SharedAssemblyConflictBehavior.Fail);
 
         // Act
         var pluginA = context.LoadFromAssemblyPath(pluginAPath);
@@ -55,11 +56,13 @@ public class PluginAssemblyLoadContextTests
         var contextA = new PluginAssemblyLoadContext(
             _loggerFactory,
             pluginAPath,
-            _fileSystem);
+            _sharedAssemblyResolver,
+            SharedAssemblyConflictBehavior.Fail);
         var contextB = new PluginAssemblyLoadContext(
             _loggerFactory,
             pluginBPath,
-            _fileSystem);
+            _sharedAssemblyResolver,
+            SharedAssemblyConflictBehavior.Fail);
 
         // Act
         var pluginA = contextA.LoadFromAssemblyPath(pluginAPath);
@@ -86,7 +89,8 @@ public class PluginAssemblyLoadContextTests
         var context = new PluginAssemblyLoadContext(
             _loggerFactory,
             pluginAPath,
-            _fileSystem);
+            _sharedAssemblyResolver,
+            SharedAssemblyConflictBehavior.Fail);
 
         // Act
         var pluginA = context.LoadFromAssemblyPath(pluginAPath);
@@ -108,7 +112,8 @@ public class PluginAssemblyLoadContextTests
         var context = new PluginAssemblyLoadContext(
             _loggerFactory,
             pluginBPath,
-            _fileSystem);
+            _sharedAssemblyResolver,
+            SharedAssemblyConflictBehavior.Fail);
 
         // Act
         var pluginB = context.LoadFromAssemblyPath(pluginBPath);
@@ -130,7 +135,8 @@ public class PluginAssemblyLoadContextTests
         var context = new PluginAssemblyLoadContext(
             _loggerFactory,
             pluginAPath,
-            _fileSystem);
+            _sharedAssemblyResolver,
+            SharedAssemblyConflictBehavior.Fail);
 
         // Act
         var pluginA = context.LoadFromAssemblyPath(pluginAPath);
@@ -152,7 +158,8 @@ public class PluginAssemblyLoadContextTests
         var context = new PluginAssemblyLoadContext(
             _loggerFactory,
             pluginBPath,
-            _fileSystem);
+            _sharedAssemblyResolver,
+            SharedAssemblyConflictBehavior.Fail);
 
         // Act
         var pluginB = context.LoadFromAssemblyPath(pluginBPath);

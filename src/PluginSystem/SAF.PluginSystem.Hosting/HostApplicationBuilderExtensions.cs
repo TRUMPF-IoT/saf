@@ -4,6 +4,7 @@
 
 namespace SAF.PluginSystem.Hosting;
 
+using AssemblyLoading;
 using Contracts;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
@@ -51,6 +52,10 @@ public static class HostApplicationBuilderExtensions
         });
 
         pluginHostBuilder.Services.AddSingleton<IPublicServiceTypeRegistry, PublicServiceTypeRegistry>();
+        pluginHostBuilder.Services.AddSingleton<IAssemblyGraphProvider, MetadataAssemblyGraphProvider>();
+        pluginHostBuilder.Services.AddSingleton<ISharedAssemblyVersionComparer, SharedAssemblyVersionComparer>();
+        pluginHostBuilder.Services.AddSingleton<ISharedAssemblyRegistry, SharedAssemblyRegistry>();
+        pluginHostBuilder.Services.AddSingleton<ISharedAssemblyResolver, SharedAssemblyResolver>();
         pluginHostBuilder.Services.AddSingleton<IPluginManifestLoader, PluginManifestLoader>();
         pluginHostBuilder.Services.AddSingleton<PluginServicesContainer>();
         pluginHostBuilder.Services.AddSingleton<IPluginServicesContainer>(sp => sp.GetRequiredService<PluginServicesContainer>());

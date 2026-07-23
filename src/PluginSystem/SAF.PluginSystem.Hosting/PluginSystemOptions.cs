@@ -4,6 +4,8 @@
 
 namespace SAF.PluginSystem.Hosting;
 
+using AssemblyLoading;
+
 /// <summary>
 /// Provides configuration options for the plugin system, including paths for plugin settings and search patterns for
 /// plugin contracts (public types used for cross-plugin communication).
@@ -37,7 +39,7 @@ public class PluginSystemOptions
 
     /// <summary>
     /// Gets or sets the behavior applied when a plugin requests a higher version of a shared (contract)
-    /// assembly than the host provides. Defaults to <see cref="Hosting.SharedAssemblyConflictBehavior.Fail"/>.
+    /// assembly than the host provides. Defaults to <see cref="SharedAssemblyConflictBehavior.Fail"/>.
     /// </summary>
     public SharedAssemblyConflictBehavior SharedAssemblyConflictBehavior { get; set; } = SharedAssemblyConflictBehavior.Fail;
 }

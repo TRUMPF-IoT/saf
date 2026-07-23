@@ -4,6 +4,7 @@
 
 namespace SAF.PluginSystem.Hosting;
 
+using AssemblyLoading;
 using Contracts;
 using Microsoft.Extensions.FileSystemGlobbing;
 using Microsoft.Extensions.Logging;
@@ -22,7 +23,9 @@ public class PluginAssemblyFolderContainer(
     IPluginManifestLoader manifestLoader,
     PluginAssemblyFolderSearchOptions options,
     IFileSystem fileSystem,
-    IEnumerable<IPluginAssemblyValidator> assemblyValidators)
+    IEnumerable<IPluginAssemblyValidator> assemblyValidators,
+    ISharedAssemblyResolver sharedAssemblyResolver,
+    SharedAssemblyConflictBehavior sharedAssemblyConflictBehavior)
     : IPluginAssemblyContainer
 {
     private const int CompareBufferSize = 64 * 1024;
@@ -124,7 +127,7 @@ public class PluginAssemblyFolderContainer(
 
                 var pluginLoadContext = isInBaseDirectory
                     ? AssemblyLoadContext.Default
-                    : new PluginAssemblyLoadContext(loggerFactory, pluginAssemblyPath, _fileSystem);
+                    : new PluginAssemblyLoadContext(loggerFactory, pluginAssemblyPath, sharedAssemblyResolver, sharedAssemblyConflictBehavior);
 
                 var assembly = pluginLoadContext.LoadFromAssemblyPath(pluginAssemblyPath);
                 var manifest = _manifestLoader.LoadPluginManifest(assembly);
