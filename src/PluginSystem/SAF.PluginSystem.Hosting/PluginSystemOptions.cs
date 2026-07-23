@@ -34,4 +34,10 @@ public class PluginSystemOptions
     /// contracts during discovery. The pattern should follow standard file system search conventions.
     /// Multiple patterns should be seperated with ';'</remarks>
     public string PluginContractsSearchPattern { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Gets or sets the behavior applied when a plugin requests a higher version of a shared (contract)
+    /// assembly than the host provides. Defaults to <see cref="Hosting.SharedAssemblyConflictBehavior.Fail"/>.
+    /// </summary>
+    public SharedAssemblyConflictBehavior SharedAssemblyConflictBehavior { get; set; } = SharedAssemblyConflictBehavior.Fail;
 }
