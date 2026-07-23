@@ -73,6 +73,16 @@ SPDX-License-Identifier: MPL-2.0
       <ExcludeAssets>all</ExcludeAssets>
     </ProjectReference>
     <ProjectReference Include="..\TestPlugins\TestPlugin.PublicDependencyA\TestPlugin.PublicDependencyA.csproj" />
+    <ProjectReference Include="..\TestPlugins\TestPlugin.PluginVersioned\TestPlugin.PluginVersioned.csproj">
+      <Private>False</Private>
+      <CopyLocalSatelliteAssemblies>False</CopyLocalSatelliteAssemblies>
+      <ExcludeAssets>all</ExcludeAssets>
+    </ProjectReference>
+    <ProjectReference Include="..\TestPlugins\TestPlugin.SharedVersioned.V2\TestPlugin.SharedVersioned.V2.csproj">
+      <Private>False</Private>
+      <CopyLocalSatelliteAssemblies>False</CopyLocalSatelliteAssemblies>
+      <ExcludeAssets>all</ExcludeAssets>
+    </ProjectReference>
     <ProjectReference Include="..\SAF.PluginSystem.Hosting.Extensions\SAF.PluginSystem.Hosting.Extensions.csproj" />
     <ProjectReference Include="..\SAF.PluginSystem.Hosting\SAF.PluginSystem.Hosting.csproj" />
   </ItemGroup>
@@ -81,10 +91,14 @@ SPDX-License-Identifier: MPL-2.0
     <ItemGroup>
       <PluginAOutputFiles Include="..\TestPlugins\TestPlugin.PluginA\bin\$(Configuration)\$(TargetFramework)\**\*.*" />
       <PluginBOutputFiles Include="..\TestPlugins\TestPlugin.PluginB\bin\$(Configuration)\$(TargetFramework)\**\*.*" />
+      <PluginVersionedOutputFiles Include="..\TestPlugins\TestPlugin.PluginVersioned\bin\$(Configuration)\$(TargetFramework)\**\*.*" />
+      <SharedVersionedV2Files Include="..\TestPlugins\TestPlugin.SharedVersioned.V2\bin\$(Configuration)\$(TargetFramework)\TestPlugin.SharedVersioned.dll" />
     </ItemGroup>
 
     <Copy SourceFiles="@(PluginAOutputFiles)" DestinationFolder="$(OutputPath)plugins\TestPlugin.PluginA\%(RecursiveDir)" SkipUnchangedFiles="true" />
     <Copy SourceFiles="@(PluginBOutputFiles)" DestinationFolder="$(OutputPath)plugins\TestPlugin.PluginB\%(RecursiveDir)" SkipUnchangedFiles="true" />
+    <Copy SourceFiles="@(PluginVersionedOutputFiles)" DestinationFolder="$(OutputPath)plugins\TestPlugin.PluginVersioned\%(RecursiveDir)" SkipUnchangedFiles="true" />
+    <Copy SourceFiles="@(SharedVersionedV2Files)" DestinationFolder="$(OutputPath)shared-v2" SkipUnchangedFiles="true" />
   </Target>
 
   <ItemGroup>

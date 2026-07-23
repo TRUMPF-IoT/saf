@@ -1,0 +1,17 @@
+<!--
+SPDX-FileCopyrightText: 2025-2026 TRUMPF Laser SE
+
+SPDX-License-Identifier: MPL-2.0
+-->
+
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <IsPackable>false</IsPackable>
+    <!-- Force a distinct assembly version (V1) independent of the repository version. -->
+    <MinVerVersionOverride>1.0.0</MinVerVersionOverride>
+  </PropertyGroup>
+
+</Project>

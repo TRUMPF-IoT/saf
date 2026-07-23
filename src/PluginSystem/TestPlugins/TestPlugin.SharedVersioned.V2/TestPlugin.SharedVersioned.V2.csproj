@@ -1,0 +1,24 @@
+<!--
+SPDX-FileCopyrightText: 2025-2026 TRUMPF Laser SE
+
+SPDX-License-Identifier: MPL-2.0
+-->
+
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <IsPackable>false</IsPackable>
+    <!-- Same assembly identity (simple name) as V1, but a higher assembly version. -->
+    <AssemblyName>TestPlugin.SharedVersioned</AssemblyName>
+    <RootNamespace>TestPlugin.SharedVersioned</RootNamespace>
+    <MinVerVersionOverride>2.0.0</MinVerVersionOverride>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- Reuse the exact same source so V1 and V2 differ only by assembly version. -->
+    <Compile Include="..\TestPlugin.SharedVersioned\SharedComponent.cs" />
+  </ItemGroup>
+
+</Project>

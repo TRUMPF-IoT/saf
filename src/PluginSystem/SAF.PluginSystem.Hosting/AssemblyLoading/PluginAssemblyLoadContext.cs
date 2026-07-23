@@ -54,6 +54,13 @@ public class PluginAssemblyLoadContext(
 
         if (conflictBehavior == SharedAssemblyConflictBehavior.Fail)
         {
+            // The runtime wraps exceptions thrown from Load in a FileLoadException, so log the clear
+            // diagnostic here to make sure it is visible regardless of how the caller surfaces the error.
+            _logger.LogError(
+                "Plugin requires shared assembly {AssemblyName} version {RequestedVersion}, but the host only provides " +
+                "version {HostVersion}. Failing the plugin assembly load.",
+                assemblyName.Name, requestedVersion, hostVersion);
+
             throw new SharedAssemblyVersionConflictException(assemblyName.Name!, requestedVersion, hostVersion);
         }
 

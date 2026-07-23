@@ -302,6 +302,67 @@ public class DynamicConsumer(IPluginServiceProvider pluginServices)
 
 ---
 
+## Assembly Loading and Shared Assemblies
+
+Each plug-in is loaded into its **own** `AssemblyLoadContext`, so plug-ins are isolated and may carry
+their own private versions of dependencies without interfering with each other or the host.
+
+Isolation alone, however, breaks cross-plugin communication: a type is only compatible across the
+boundary if **exactly one** copy of its assembly is loaded. This matters not just for the contract
+interfaces themselves, but for every type on a contract's surface — including the contracts'
+**transitive dependencies** (e.g. a serializer type exposed by a contract method).
+
+### The shared set
+
+The plugin system therefore computes a **shared set** of assemblies that are loaded once by the host
+and shared with every plug-in context:
+
+- The **contract assemblies** discovered via `PluginSystemOptions.PluginContractsSearchPattern`
+  (plus SAF's own hosting contracts).
+- Their **transitive dependency closure**, derived automatically from assembly metadata.
+
+Any assembly **not** in the shared set stays isolated: each plug-in loads its own copy from its own
+folder. This is intentional — plug-ins can use their own private versions of non-contract libraries.
+
+### Version handling
+
+Shared assemblies are matched by **simple name**, and the host's version is used as long as it is
+**greater than or equal to** the version a plug-in was built against (roll-forward). This lets a
+plug-in compiled against an older contract dependency transparently bind to the host's newer one — the
+common case that plain isolation would break.
+
+If a plug-in requires a **higher** version than the host provides, that is a genuine conflict: the .NET
+loader never binds a lower version to a higher request. The reaction is configurable:
+
+```csharp
+builder.AddPluginSystem(options =>
+{
+    options.PluginContractsSearchPattern = "MyApp.Contracts.dll";
+
+    // Default: fail fast with a clear diagnostic (SharedAssemblyVersionConflictException).
+    options.SharedAssemblyConflictBehavior = SharedAssemblyConflictBehavior.Fail;
+
+    // Alternative: load the plug-in's own copy in isolation and log a warning. The plug-in may start,
+    // but types of that assembly can no longer cross the plug-in boundary.
+    // options.SharedAssemblyConflictBehavior = SharedAssemblyConflictBehavior.IsolateWithWarning;
+});
+```
+
+> **Deployment rule:** the host must provide the **highest** version of every assembly in the contract
+> closure. Because sharing rolls forward but never down, shipping the newest version with the host keeps
+> all plug-ins compatible.
+
+The related types live in the `SAF.PluginSystem.Hosting.AssemblyLoading` namespace
+(`SharedAssemblyConflictBehavior`, `SharedAssemblyVersionConflictException`).
+
+> **Note (behaviour change):** earlier versions shared any assembly that happened to sit in the host
+> base directory when its full name matched exactly. Sharing is now limited to the contract closure and
+> matched by simple name with roll-forward. If you relied on a non-contract assembly being shared
+> implicitly, make it reachable from a contract assembly (reference it from your contracts) so it enters
+> the shared set.
+
+---
+
 ## Using the Plugin System Without SAF
 
 The plugin system has no dependency on SAF infrastructure. You can use it with a plain .NET host:
