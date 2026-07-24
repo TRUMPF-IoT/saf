@@ -35,6 +35,25 @@ public interface IPluginServiceProvider
     T? GetKeyedService<T>(string key);
 
     /// <summary>
+    /// Resolves a service of type <typeparamref name="T"/> from the aggregated plugin containers,
+    /// throwing if none is registered.
+    /// </summary>
+    /// <typeparam name="T">The service type to resolve.</typeparam>
+    /// <returns>The resolved service instance.</returns>
+    /// <exception cref="InvalidOperationException">No service of type <typeparamref name="T"/> is registered.</exception>
+    T GetRequiredService<T>();
+
+    /// <summary>
+    /// Resolves a keyed service of type <typeparamref name="T"/> from the aggregated plugin containers,
+    /// throwing if none is registered.
+    /// </summary>
+    /// <typeparam name="T">The service type to resolve.</typeparam>
+    /// <param name="key">The string key identifying the specific service registration.</param>
+    /// <returns>The resolved service instance.</returns>
+    /// <exception cref="InvalidOperationException">No keyed service of type <typeparamref name="T"/> with the given key is registered.</exception>
+    T GetRequiredKeyedService<T>(string key);
+
+    /// <summary>
     /// Resolves all services of type <typeparamref name="T"/> from all plugin containers.
     /// </summary>
     /// <typeparam name="T">The service type to resolve.</typeparam>
