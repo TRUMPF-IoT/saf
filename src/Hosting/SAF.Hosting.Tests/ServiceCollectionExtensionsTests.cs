@@ -8,6 +8,7 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using NSubstitute;
 using SAF.Common;
+using SAF.PluginSystem.Hosting;
 using SAF.PluginSystem.Hosting.Contracts;
 using Xunit;
 

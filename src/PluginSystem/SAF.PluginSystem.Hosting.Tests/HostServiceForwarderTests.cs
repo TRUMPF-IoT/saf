@@ -4,7 +4,6 @@
 
 namespace SAF.PluginSystem.Hosting.Tests;
 
-using Contracts;
 using Microsoft.Extensions.DependencyInjection;
 using Xunit;
 

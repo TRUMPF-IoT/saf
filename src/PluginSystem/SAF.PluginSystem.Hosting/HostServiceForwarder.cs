@@ -2,9 +2,10 @@
 //
 // SPDX-License-Identifier: MPL-2.0
 
-namespace SAF.PluginSystem.Hosting.Contracts;
+namespace SAF.PluginSystem.Hosting;
 
 using Microsoft.Extensions.DependencyInjection;
+using SAF.PluginSystem.Hosting.Contracts;
 
 /// <summary>
 /// Forwards a resolved host service instance of type <typeparamref name="T"/> into each plugin container.
