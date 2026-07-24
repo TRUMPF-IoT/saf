@@ -9,7 +9,8 @@ using System.Reflection;
 /// <inheritdoc />
 internal sealed class SharedAssemblyResolver(
     ISharedAssemblyRegistry sharedAssemblyRegistry,
-    ISharedAssemblyVersionComparer versionComparer)
+    ISharedAssemblyVersionComparer versionComparer,
+    bool allowMajorVersionRollForward)
     : ISharedAssemblyResolver
 {
     /// <inheritdoc />
@@ -36,12 +37,17 @@ internal sealed class SharedAssemblyResolver(
 
         hostVersion = info.Version;
 
-        return versionComparer.Compare(info.Version, requested.Version) switch
+        var relation = versionComparer.Compare(info.Version, requested.Version);
+        if (relation == SharedAssemblyVersionRelation.Lower || IsBreakingMajorRollForward(info.Version, requested.Version))
         {
-            SharedAssemblyVersionRelation.Lower => SharedAssemblyDecision.Conflict,
-            _ => SharedAssemblyDecision.ShareFromDefault
-        };
+            return SharedAssemblyDecision.Conflict;
+        }
+
+        return SharedAssemblyDecision.ShareFromDefault;
     }
+
+    private bool IsBreakingMajorRollForward(Version hostVersion, Version? requestedVersion)
+        => !allowMajorVersionRollForward && requestedVersion is not null && hostVersion.Major > requestedVersion.Major;
 
     private static bool PublicKeyTokensMatch(byte[]? requested, byte[]? host)
     {

@@ -25,15 +25,38 @@ public class SharedAssemblyResolverTests
     }
 
     [Fact]
-    public void Resolve_ReturnsShareFromDefault_WhenHostVersionIsHigher()
+    public void Resolve_ReturnsShareFromDefault_WhenHostVersionIsHigherWithinSameMajor()
     {
-        var registry = new FakeSharedAssemblyRegistry().Add("Shared", new Version(2, 0, 0, 0));
+        var registry = new FakeSharedAssemblyRegistry().Add("Shared", new Version(1, 5, 0, 0));
         var resolver = CreateResolver(registry);
 
         var decision = resolver.Resolve(Name("Shared", "1.0.0.0"), out var hostVersion);
 
         Assert.Equal(SharedAssemblyDecision.ShareFromDefault, decision);
+        Assert.Equal(new Version(1, 5, 0, 0), hostVersion);
+    }
+
+    [Fact]
+    public void Resolve_ReturnsConflict_WhenHostMajorIsHigher_AndMajorRollForwardDisallowed()
+    {
+        var registry = new FakeSharedAssemblyRegistry().Add("Shared", new Version(2, 0, 0, 0));
+        var resolver = CreateResolver(registry, allowMajorVersionRollForward: false);
+
+        var decision = resolver.Resolve(Name("Shared", "1.0.0.0"), out var hostVersion);
+
+        Assert.Equal(SharedAssemblyDecision.Conflict, decision);
         Assert.Equal(new Version(2, 0, 0, 0), hostVersion);
+    }
+
+    [Fact]
+    public void Resolve_ReturnsShareFromDefault_WhenHostMajorIsHigher_AndMajorRollForwardAllowed()
+    {
+        var registry = new FakeSharedAssemblyRegistry().Add("Shared", new Version(2, 0, 0, 0));
+        var resolver = CreateResolver(registry, allowMajorVersionRollForward: true);
+
+        var decision = resolver.Resolve(Name("Shared", "1.0.0.0"), out _);
+
+        Assert.Equal(SharedAssemblyDecision.ShareFromDefault, decision);
     }
 
     [Fact]
@@ -73,7 +96,7 @@ public class SharedAssemblyResolverTests
     [Fact]
     public void Resolve_ReturnsShareFromDefault_WhenStrongNameTokensMatch()
     {
-        var registry = new FakeSharedAssemblyRegistry().Add("Shared", new Version(2, 0, 0, 0), TokenA);
+        var registry = new FakeSharedAssemblyRegistry().Add("Shared", new Version(1, 5, 0, 0), TokenA);
         var resolver = CreateResolver(registry);
 
         var decision = resolver.Resolve(Name("Shared", "1.0.0.0", TokenA), out _);
@@ -104,8 +127,8 @@ public class SharedAssemblyResolverTests
         Assert.Equal(SharedAssemblyDecision.LoadIsolated, decision);
     }
 
-    private static SharedAssemblyResolver CreateResolver(ISharedAssemblyRegistry registry)
-        => new(registry, new SharedAssemblyVersionComparer());
+    private static SharedAssemblyResolver CreateResolver(ISharedAssemblyRegistry registry, bool allowMajorVersionRollForward = false)
+        => new(registry, new SharedAssemblyVersionComparer(), allowMajorVersionRollForward);
 
     private static AssemblyName Name(string name, string version, byte[]? publicKeyToken = null)
     {
