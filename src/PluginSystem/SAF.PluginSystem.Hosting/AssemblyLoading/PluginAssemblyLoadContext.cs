@@ -64,13 +64,27 @@ public class PluginAssemblyLoadContext(
             throw new SharedAssemblyVersionConflictException(assemblyName.Name!, requestedVersion, hostVersion);
         }
 
+        var isolatedPath = _resolver.ResolveAssemblyToPath(assemblyName);
+        if (isolatedPath is null)
+        {
+            // IsolateWithWarning, but there is nothing to isolate: the plugin ships no private copy, so the
+            // runtime falls back to the host's lower version from the default context.
+            _logger.LogWarning(
+                "Plugin requires shared assembly {AssemblyName} version {RequestedVersion}, but the host only provides " +
+                "version {HostVersion} and the plugin ships no private copy. Falling back to the host version; members " +
+                "introduced in the requested version will not be available.",
+                assemblyName.Name, requestedVersion, hostVersion);
+
+            return null;
+        }
+
         _logger.LogWarning(
             "Plugin requires shared assembly {AssemblyName} version {RequestedVersion}, but the host only provides " +
-            "version {HostVersion}. Loading it in isolation; types of this assembly will not be compatible across the " +
-            "plugin boundary.",
+            "version {HostVersion}. Loading the plugin's private copy in isolation; types of this assembly will not be " +
+            "compatible across the plugin boundary.",
             assemblyName.Name, requestedVersion, hostVersion);
 
-        return LoadIsolated(assemblyName);
+        return LoadFromAssemblyPath(isolatedPath);
     }
 
     private Assembly? LoadIsolated(AssemblyName assemblyName)
