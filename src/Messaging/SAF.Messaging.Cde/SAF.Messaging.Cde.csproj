@@ -21,10 +21,6 @@ SPDX-License-Identifier: MPL-2.0
       <Private>False</Private>
       <ExcludeAssets>runtime</ExcludeAssets>
     </ProjectReference>
-    <ProjectReference Include="..\..\PluginSystem\SAF.PluginSystem.Hosting.Extensions\SAF.PluginSystem.Hosting.Extensions.csproj">
-      <Private>False</Private>
-      <ExcludeAssets>runtime</ExcludeAssets>
-    </ProjectReference>
     <ProjectReference Include="..\..\SAF.Common\SAF.Common.csproj">
       <Private>False</Private>
       <ExcludeAssets>runtime</ExcludeAssets>

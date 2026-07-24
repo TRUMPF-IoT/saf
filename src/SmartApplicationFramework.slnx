@@ -44,6 +44,7 @@ SPDX-License-Identifier: MPL-2.0
     <Project Path="Hosting/SAF.Hosting/SAF.Hosting.csproj" />
   </Folder>
   <Folder Name="/PluginSystem/">
+    <Project Path="PluginSystem/SAF.PluginSystem.Hosting.Contracts.Tests/SAF.PluginSystem.Hosting.Contracts.Tests.csproj" />
     <Project Path="PluginSystem/SAF.PluginSystem.Hosting.Contracts/SAF.PluginSystem.Hosting.Contracts.csproj" />
     <Project Path="PluginSystem/SAF.PluginSystem.Hosting.Extensions.Tests/SAF.PluginSystem.Hosting.Extensions.Tests.csproj" />
     <Project Path="PluginSystem/SAF.PluginSystem.Hosting.Extensions/SAF.PluginSystem.Hosting.Extensions.csproj" />
