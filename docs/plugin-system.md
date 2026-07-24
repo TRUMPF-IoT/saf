@@ -328,11 +328,15 @@ Any assembly **not** in the shared set stays isolated: each plug-in loads its ow
 folder. This is intentional — plug-ins can use their own private versions of non-contract libraries.
 
 > **Consequence:** if a type on your contract surface comes from a *separate* assembly (a shared domain
-> model, a third-party type exposed by a contract method, a host service you forward via
-> `IHostServiceForwarder`), that assembly must also match `PluginContractsSearchPattern`. If you forget
-> it, the plug-in loads its own copy and casting the type across the boundary throws
-> `InvalidCastException`. Enable `Debug` logging on `SharedAssemblyRegistry` to see the full shared set
-> at start-up, and `Trace` on `PluginAssemblyLoadContext` to see which assemblies load in isolation.
+> model, a common utility or serializer library that both the host and plug-ins carry, a third-party type
+> exposed by a contract method, or a host service you forward via `IHostServiceForwarder`), that assembly
+> must also match `PluginContractsSearchPattern`. If you forget it, the plug-in loads its own copy and
+> casting the type across the boundary throws `InvalidCastException`. Enable `Debug` logging on
+> `SharedAssemblyRegistry` to see the full shared set at start-up, and `Trace` on
+> `PluginAssemblyLoadContext` to see which assemblies load in isolation.
+>
+> This is a deliberate change from earlier drop-in base-directory sharing: an assembly is shared only
+> when you declare it, never because it merely happens to sit next to the host.
 
 ### Version handling
 
