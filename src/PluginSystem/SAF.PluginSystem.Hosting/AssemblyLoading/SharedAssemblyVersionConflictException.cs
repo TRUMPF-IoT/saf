@@ -5,8 +5,9 @@
 namespace SAF.PluginSystem.Hosting.AssemblyLoading;
 
 /// <summary>
-/// Thrown when a plugin requests a higher version of a shared (contract) assembly than the host
-/// provides and <see cref="PluginSystemOptions.SharedAssemblyConflictBehavior"/> is set to
+/// Thrown when a plugin requests a version of a shared (contract) assembly that is not compatible with
+/// the one the host provides (the host is older, or newer across a breaking major version) and
+/// <see cref="PluginSystemOptions.SharedAssemblyConflictBehavior"/> is set to
 /// <see cref="SharedAssemblyConflictBehavior.Fail"/>.
 /// </summary>
 public sealed class SharedAssemblyVersionConflictException : Exception
@@ -24,10 +25,10 @@ public sealed class SharedAssemblyVersionConflictException : Exception
     /// Initializes a new instance of the <see cref="SharedAssemblyVersionConflictException"/> class.
     /// </summary>
     public SharedAssemblyVersionConflictException(string sharedAssemblyName, Version requestedVersion, Version hostVersion)
-        : base($"A plugin requires shared assembly '{sharedAssemblyName}' version {requestedVersion}, " +
-               $"but the host only provides version {hostVersion}. Types of this shared (contract) assembly " +
-               $"cannot cross the plugin boundary. Deploy version {requestedVersion} or higher with the host, " +
-               $"or exclude the assembly from the shared set so the plugin can load it in isolation.")
+        : base($"A plugin requires shared assembly '{sharedAssemblyName}' version {requestedVersion}, which is not " +
+               $"compatible with the host-provided version {hostVersion}. Types of this shared (contract) assembly " +
+               $"cannot cross the plugin boundary. Deploy a compatible host version, or exclude the assembly from " +
+               $"the shared set so the plugin can load it in isolation.")
     {
         SharedAssemblyName = sharedAssemblyName;
         RequestedVersion = requestedVersion;

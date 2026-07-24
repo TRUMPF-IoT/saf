@@ -337,12 +337,19 @@ folder. This is intentional — plug-ins can use their own private versions of n
 ### Version handling
 
 Shared assemblies are matched by **simple name**, and the host's version is used as long as it is
-**greater than or equal to** the version a plug-in was built against (roll-forward). This lets a
-plug-in compiled against an older contract dependency transparently bind to the host's newer one — the
-common case that plain isolation would break.
+**greater than or equal to** the version a plug-in was built against, **within the same major version**
+(roll-forward). This lets a plug-in compiled against an older contract dependency transparently bind to
+the host's newer one — the common case that plain isolation would break.
 
-If a plug-in requires a **higher** version than the host provides, that is a genuine conflict: the .NET
-loader never binds a lower version to a higher request. The reaction is configurable:
+Two situations are treated as a **conflict**:
+
+- The host provides a **lower** version than the plug-in requires — the .NET loader never binds a lower
+  version to a higher request.
+- The host provides a **higher major** version — a major bump signals breaking changes (SemVer), so a
+  plug-in built against major `N` is not bound to major `> N` by default. Set
+  `AllowMajorVersionRollForward = true` if your major versions stay compatible.
+
+The reaction to a conflict is configurable:
 
 ```csharp
 builder.AddPluginSystem(options =>
@@ -355,6 +362,9 @@ builder.AddPluginSystem(options =>
     // Alternative: load the plug-in's own copy in isolation and log a warning. The plug-in may start,
     // but types of that assembly can no longer cross the plug-in boundary.
     // options.SharedAssemblyConflictBehavior = SharedAssemblyConflictBehavior.IsolateWithWarning;
+
+    // Opt in to rolling forward across a breaking major version (off by default).
+    // options.AllowMajorVersionRollForward = true;
 });
 ```
 

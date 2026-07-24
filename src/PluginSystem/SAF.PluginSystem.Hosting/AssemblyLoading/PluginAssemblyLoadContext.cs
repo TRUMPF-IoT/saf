@@ -54,11 +54,11 @@ public class PluginAssemblyLoadContext(
 
         if (conflictBehavior == SharedAssemblyConflictBehavior.Fail)
         {
-            // The runtime wraps exceptions thrown from Load in a FileLoadException, so log the clear
-            // diagnostic here to make sure it is visible regardless of how the caller surfaces the error.
+            // The runtime wraps exceptions thrown from Load in a FileLoadException; log here so the clear
+            // diagnostic is visible regardless of how the caller surfaces the error.
             _logger.LogError(
-                "Plugin requires shared assembly {AssemblyName} version {RequestedVersion}, but the host only provides " +
-                "version {HostVersion}. Failing the plugin assembly load.",
+                "Plugin requires shared assembly {AssemblyName} version {RequestedVersion}, which is not compatible " +
+                "with the host-provided version {HostVersion}. Failing the plugin assembly load.",
                 assemblyName.Name, requestedVersion, hostVersion);
 
             throw new SharedAssemblyVersionConflictException(assemblyName.Name!, requestedVersion, hostVersion);
@@ -67,21 +67,20 @@ public class PluginAssemblyLoadContext(
         var isolatedPath = _resolver.ResolveAssemblyToPath(assemblyName);
         if (isolatedPath is null)
         {
-            // IsolateWithWarning, but there is nothing to isolate: the plugin ships no private copy, so the
-            // runtime falls back to the host's lower version from the default context.
+            // Nothing to isolate: the runtime falls back to the host version from the default context.
             _logger.LogWarning(
-                "Plugin requires shared assembly {AssemblyName} version {RequestedVersion}, but the host only provides " +
-                "version {HostVersion} and the plugin ships no private copy. Falling back to the host version; members " +
-                "introduced in the requested version will not be available.",
+                "Plugin requires shared assembly {AssemblyName} version {RequestedVersion}, which is not compatible " +
+                "with the host-provided version {HostVersion}, and ships no private copy. Falling back to the host " +
+                "version; the plugin may fail at runtime.",
                 assemblyName.Name, requestedVersion, hostVersion);
 
             return null;
         }
 
         _logger.LogWarning(
-            "Plugin requires shared assembly {AssemblyName} version {RequestedVersion}, but the host only provides " +
-            "version {HostVersion}. Loading the plugin's private copy in isolation; types of this assembly will not be " +
-            "compatible across the plugin boundary.",
+            "Plugin requires shared assembly {AssemblyName} version {RequestedVersion}, which is not compatible with " +
+            "the host-provided version {HostVersion}. Loading the plugin's private copy in isolation; types of this " +
+            "assembly will not be compatible across the plugin boundary.",
             assemblyName.Name, requestedVersion, hostVersion);
 
         return LoadFromAssemblyPath(isolatedPath);
