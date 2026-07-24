@@ -110,6 +110,37 @@ public class SharedAssemblyRegistryTests
         Assert.False(registry.TryGetSharedAssembly("Unknown.Assembly", out _));
     }
 
+    [Fact]
+    public void FailingClosureBuild_PropagatesException_InsteadOfSilentlyDisablingSharing()
+    {
+        _publicServiceTypeRegistry.GetAssemblyNames().Returns(["Acme.Contracts, Version=1.0.0.0"]);
+
+        var provider = new ThrowOnceAssemblyGraphProvider(
+            new FakeAssemblyGraphProvider().Add("Acme.Contracts", "1.0.0.0"));
+
+        var registry = CreateRegistry(provider);
+
+        // First initialization fails: the error must surface, not be swallowed into an empty shared set.
+        Assert.Throws<InvalidOperationException>(() => registry.TryGetSharedAssembly("Acme.Contracts", out _));
+    }
+
+    [Fact]
+    public void FailingClosureBuild_DoesNotLatchInitialization_AndRecoversOnRetry()
+    {
+        _publicServiceTypeRegistry.GetAssemblyNames().Returns(["Acme.Contracts, Version=1.0.0.0"]);
+
+        var provider = new ThrowOnceAssemblyGraphProvider(
+            new FakeAssemblyGraphProvider().Add("Acme.Contracts", "1.0.0.0"));
+
+        var registry = CreateRegistry(provider);
+
+        Assert.Throws<InvalidOperationException>(() => registry.TryGetSharedAssembly("Acme.Contracts", out _));
+
+        // The failed attempt must not latch _initialized: a subsequent call retries and now succeeds.
+        Assert.True(registry.TryGetSharedAssembly("Acme.Contracts", out var contracts));
+        Assert.Equal(new Version(1, 0, 0, 0), contracts.Version);
+    }
+
     private SharedAssemblyRegistry CreateRegistry(IAssemblyGraphProvider provider)
         => new(NullLogger<SharedAssemblyRegistry>.Instance, _publicServiceTypeRegistry, provider);
 
@@ -140,5 +171,22 @@ public class SharedAssemblyRegistryTests
 
         public AssemblyGraphNode? TryResolve(AssemblyName assemblyName)
             => assemblyName.Name is not null && _nodes.TryGetValue(assemblyName.Name, out var node) ? node : null;
+    }
+
+    /// <summary>Throws on the first <see cref="TryResolve"/> call, then delegates to an inner provider.</summary>
+    private sealed class ThrowOnceAssemblyGraphProvider(IAssemblyGraphProvider inner) : IAssemblyGraphProvider
+    {
+        private bool _thrown;
+
+        public AssemblyGraphNode? TryResolve(AssemblyName assemblyName)
+        {
+            if (!_thrown)
+            {
+                _thrown = true;
+                throw new InvalidOperationException("Simulated closure build failure.");
+            }
+
+            return inner.TryResolve(assemblyName);
+        }
     }
 }
