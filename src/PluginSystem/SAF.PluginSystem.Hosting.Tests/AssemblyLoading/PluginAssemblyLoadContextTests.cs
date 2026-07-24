@@ -172,6 +172,29 @@ public class PluginAssemblyLoadContextTests
         Assert.Same(AssemblyLoadContext.Default, pluginBDepContext);
     }
 
+    [Fact]
+    public void Conflict_IsolateWithWarning_FallsBackToHostVersion_AndWarns_WhenPluginShipsNoPrivateCopy()
+    {
+        var pluginAPath = GetAssemblyPath("TestPlugin.PluginA");
+        var capturingLoggerFactory = new CapturingLoggerFactory();
+
+        // The test assembly is loaded in the default context but is not shipped by PluginA, so the plugin's
+        // dependency resolver cannot provide a private copy to isolate.
+        var notShippedByPlugin = typeof(PluginAssemblyLoadContextTests).Assembly.GetName();
+
+        var context = new PluginAssemblyLoadContext(
+            capturingLoggerFactory,
+            pluginAPath,
+            new FixedDecisionResolver(notShippedByPlugin.Name!, SharedAssemblyDecision.Conflict, new Version(1, 0, 0, 0)),
+            SharedAssemblyConflictBehavior.IsolateWithWarning);
+
+        var loaded = context.LoadFromAssemblyName(notShippedByPlugin);
+
+        Assert.Same(AssemblyLoadContext.Default, AssemblyLoadContext.GetLoadContext(loaded));
+        Assert.Contains(capturingLoggerFactory.Entries, e => e.Level == LogLevel.Warning && e.Message.Contains("no private copy"));
+        Assert.DoesNotContain(capturingLoggerFactory.Entries, e => e.Message.Contains("in isolation"));
+    }
+
     private static string GetAssemblyPath(string pluginName)
         => Path.Combine(AppContext.BaseDirectory, "plugins", pluginName, $"{pluginName}.dll");
 
@@ -192,5 +215,42 @@ public class PluginAssemblyLoadContextTests
         var type = assembly.GetType(typeName)!;
         var method = type.GetMethod(methodName, BindingFlags.Static | BindingFlags.Public)!;
         return method.Invoke(null, null) as Assembly;
+    }
+
+    private sealed class FixedDecisionResolver(string simpleName, SharedAssemblyDecision decision, Version? hostVersion)
+        : ISharedAssemblyResolver
+    {
+        public SharedAssemblyDecision Resolve(AssemblyName requested, out Version? host)
+        {
+            if (string.Equals(requested.Name, simpleName, StringComparison.OrdinalIgnoreCase))
+            {
+                host = hostVersion;
+                return decision;
+            }
+
+            host = null;
+            return SharedAssemblyDecision.LoadIsolated;
+        }
+    }
+
+    private sealed class CapturingLoggerFactory : ILoggerFactory
+    {
+        public List<(LogLevel Level, string Message)> Entries { get; } = [];
+
+        public ILogger CreateLogger(string categoryName) => new CapturingLogger(Entries);
+
+        public void AddProvider(ILoggerProvider provider) { }
+
+        public void Dispose() { }
+
+        private sealed class CapturingLogger(List<(LogLevel Level, string Message)> entries) : ILogger
+        {
+            public IDisposable? BeginScope<TState>(TState state) where TState : notnull => null;
+
+            public bool IsEnabled(LogLevel logLevel) => true;
+
+            public void Log<TState>(LogLevel logLevel, EventId eventId, TState state, Exception? exception, Func<TState, Exception?, string> formatter)
+                => entries.Add((logLevel, formatter(state, exception)));
+        }
     }
 }
