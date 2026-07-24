@@ -42,7 +42,7 @@ internal sealed class SharedAssemblyRegistry(
     public IReadOnlyDictionary<string, SharedAssemblyInfo> GetSharedAssemblies()
     {
         EnsureInitialized();
-        return _sharedAssemblies;
+        return new Dictionary<string, SharedAssemblyInfo>(_sharedAssemblies, StringComparer.OrdinalIgnoreCase);
     }
 
     private void EnsureInitialized()

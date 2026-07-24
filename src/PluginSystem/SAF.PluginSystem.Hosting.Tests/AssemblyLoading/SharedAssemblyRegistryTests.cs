@@ -83,6 +83,22 @@ public class SharedAssemblyRegistryTests
         Assert.True(registry.TryGetSharedAssembly(typeof(IPluginManifest).Assembly.GetName().Name!, out _));
     }
 
+    [Fact]
+    public void GetSharedAssemblies_ReturnsSnapshot_ThatCannotMutateTheRegistry()
+    {
+        var registry = CreateRegistry();
+        var safAssembly = typeof(IPluginManifest).Assembly.GetName().Name!;
+
+        var snapshot = registry.GetSharedAssemblies();
+        Assert.True(snapshot.ContainsKey(safAssembly));
+
+        // Mutating the returned collection must not corrupt the registry's shared set.
+        ((Dictionary<string, SharedAssemblyInfo>)snapshot).Clear();
+
+        Assert.True(registry.TryGetSharedAssembly(safAssembly, out _));
+        Assert.NotSame(snapshot, registry.GetSharedAssemblies());
+    }
+
     private SharedAssemblyRegistry CreateRegistry()
         => new(NullLogger<SharedAssemblyRegistry>.Instance, _publicServiceTypeRegistry);
 }
