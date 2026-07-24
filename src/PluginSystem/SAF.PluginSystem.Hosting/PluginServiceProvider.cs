@@ -13,6 +13,15 @@ public class PluginServiceProvider(IPluginServicesContainer pluginLoader) : IPlu
     public T? GetService<T>() => GetServices<T>().SingleOrDefault();
     public T? GetKeyedService<T>(string key) => GetKeyedServices<T>(key).SingleOrDefault();
 
+    public T GetRequiredService<T>()
+        => GetService<T>() ??
+           throw new InvalidOperationException($"No service for type '{typeof(T)}' has been registered.");
+
+    public T GetRequiredKeyedService<T>(string key)
+        => GetKeyedService<T>(key) ??
+           throw new InvalidOperationException(
+               $"No service for type '{typeof(T)}' with key '{key}' has been registered.");
+
     public IEnumerable<T> GetServices<T>()
     {
         var pluginServiceProviders = pluginLoader.GetPublicServices();

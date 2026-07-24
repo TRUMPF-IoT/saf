@@ -131,4 +131,76 @@ public class PluginServiceProviderTests
         Assert.Contains(service1, result);
         Assert.Contains(service2, result);
     }
+
+    [Fact]
+    public void GetRequiredService_ShouldReturnService_WhenServiceExists()
+    {
+        // Arrange
+        var serviceProvider = Substitute.For<IServiceProvider>();
+        var service = Substitute.For<IDummyService>();
+        serviceProvider.GetService(Arg.Is(typeof(IEnumerable<IDummyService>))).Returns(new List<IDummyService> { service });
+
+        var pluginLoader = Substitute.For<IPluginServicesContainer>();
+        pluginLoader.GetPublicServices().Returns(serviceProvider);
+
+        var pluginServiceProvider = new PluginServiceProvider(pluginLoader);
+
+        // Act
+        var result = pluginServiceProvider.GetRequiredService<IDummyService>();
+
+        // Assert
+        Assert.Equal(service, result);
+    }
+
+    [Fact]
+    public void GetRequiredService_ShouldThrowInvalidOperationException_WhenServiceDoesNotExist()
+    {
+        // Arrange
+        var serviceProvider = Substitute.For<IServiceProvider>();
+        serviceProvider.GetService(Arg.Is(typeof(IEnumerable<IDummyService>))).Returns(new List<IDummyService>());
+
+        var pluginLoader = Substitute.For<IPluginServicesContainer>();
+        pluginLoader.GetPublicServices().Returns(serviceProvider);
+
+        var pluginServiceProvider = new PluginServiceProvider(pluginLoader);
+
+        // Act & Assert
+        Assert.Throws<InvalidOperationException>(() => pluginServiceProvider.GetRequiredService<IDummyService>());
+    }
+
+    [Fact]
+    public void GetRequiredKeyedService_ShouldReturnService_WhenKeyedServiceExists()
+    {
+        // Arrange
+        var serviceProvider = Substitute.For<IKeyedServiceProvider>();
+        var service = Substitute.For<IDummyService>();
+        serviceProvider.GetRequiredKeyedService(Arg.Is(typeof(IEnumerable<IDummyService>)), Arg.Is("key")).Returns(new List<IDummyService> { service });
+
+        var pluginLoader = Substitute.For<IPluginServicesContainer>();
+        pluginLoader.GetPublicServices().Returns(serviceProvider);
+
+        var pluginServiceProvider = new PluginServiceProvider(pluginLoader);
+
+        // Act
+        var result = pluginServiceProvider.GetRequiredKeyedService<IDummyService>("key");
+
+        // Assert
+        Assert.Equal(service, result);
+    }
+
+    [Fact]
+    public void GetRequiredKeyedService_ShouldThrowInvalidOperationException_WhenKeyedServiceDoesNotExist()
+    {
+        // Arrange
+        var serviceProvider = Substitute.For<IKeyedServiceProvider>();
+        serviceProvider.GetRequiredKeyedService(Arg.Is(typeof(IEnumerable<IDummyService>)), Arg.Is("key")).Returns(new List<IDummyService>());
+
+        var pluginLoader = Substitute.For<IPluginServicesContainer>();
+        pluginLoader.GetPublicServices().Returns(serviceProvider);
+
+        var pluginServiceProvider = new PluginServiceProvider(pluginLoader);
+
+        // Act & Assert
+        Assert.Throws<InvalidOperationException>(() => pluginServiceProvider.GetRequiredKeyedService<IDummyService>("key"));
+    }
 }
