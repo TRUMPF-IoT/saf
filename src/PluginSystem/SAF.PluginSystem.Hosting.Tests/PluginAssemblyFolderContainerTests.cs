@@ -378,6 +378,33 @@ public class PluginAssemblyFolderContainerTests
         manifestLoader.DidNotReceive().LoadPluginManifest(Arg.Any<Assembly>());
     }
 
+    [Fact]
+    public void GetPluginManifests_Rethrows_WhenSharedAssemblyVersionConflictWrappedInFileLoadException()
+    {
+        var testDirectory = Path.Combine(AppContext.BaseDirectory, $"test-plugins-{Guid.NewGuid():N}");
+        _fileSystem.Directory.CreateDirectory(testDirectory);
+
+        var pluginAssemblyPath = Path.Combine(testDirectory, "valid.managed.dll");
+        _fileSystem.File.Copy(Path.Combine(AppContext.BaseDirectory, "SAF.PluginSystem.Hosting.Tests.dll"), pluginAssemblyPath);
+
+        var conflict = new SharedAssemblyVersionConflictException("Acme.Contracts", new Version(2, 0, 0, 0), new Version(1, 0, 0, 0));
+        var manifestLoader = Substitute.For<IPluginManifestLoader>();
+        manifestLoader.When(x => x.LoadPluginManifest(Arg.Any<Assembly>()))
+            .Do(_ => throw new FileLoadException("wrapped by runtime", conflict));
+
+        var options = new PluginAssemblyFolderSearchOptions
+        {
+            SearchRootPath = testDirectory,
+            IncludePatterns = "*.dll",
+            ExcludePatterns = string.Empty,
+            Recursive = false
+        };
+        var container = new PluginAssemblyFolderContainer(_loggerFactory, manifestLoader, options, [], _fileSystem, TestSharedAssemblyResolver.SharesHostProvidedAssemblies, SharedAssemblyConflictBehavior.Fail);
+
+        var thrown = Assert.Throws<FileLoadException>(() => container.GetPluginManifests().ToList());
+        Assert.Same(conflict, thrown.InnerException);
+    }
+
     private sealed class RejectingPluginAssemblyValidator : IPluginAssemblyValidator
     {
         public PluginAssemblyValidationResult Validate(PluginAssemblyValidationContext context)
