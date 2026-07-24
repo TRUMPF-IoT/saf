@@ -151,7 +151,7 @@ internal sealed class SecretResolvingConfigurationProvider : ConfigurationProvid
         return builder.ToString();
     }
 
-    private static bool DataEquals(IDictionary<string, string?> left, IDictionary<string, string?> right)
+    private static bool DataEquals(IDictionary<string, string?> left, Dictionary<string, string?> right)
     {
         if (left.Count != right.Count)
         {

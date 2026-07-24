@@ -28,7 +28,7 @@ public class PluginAssemblyFolderContainer(
     private readonly ILogger _logger = loggerFactory.CreateLogger<PluginAssemblyFolderContainer>();
     private readonly IPluginManifestLoader _manifestLoader = manifestLoader;
     private readonly IFileSystem _fileSystem = fileSystem;
-    private readonly IReadOnlyList<IPluginAssemblyValidator> _assemblyValidators = assemblyValidators.ToList();
+    private readonly IReadOnlyList<IPluginAssemblyValidator> _assemblyValidators = [.. assemblyValidators];
     private IReadOnlyList<IPluginManifest>? _cachedManifests;
     private readonly Lock _cacheLock = new();
 
