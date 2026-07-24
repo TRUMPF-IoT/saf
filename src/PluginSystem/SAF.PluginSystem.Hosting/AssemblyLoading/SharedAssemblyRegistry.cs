@@ -5,23 +5,24 @@
 namespace SAF.PluginSystem.Hosting.AssemblyLoading;
 
 using Contracts;
+using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
+using System.IO.Abstractions;
 using System.Reflection;
 
 /// <inheritdoc />
 /// <remarks>
-/// The shared set is the transitive closure of the plugin contract assemblies (as reported by
-/// <see cref="IPublicServiceTypeRegistry"/>) plus the SAF plugin hosting contracts assembly. The closure
-/// is derived from assembly metadata (<see cref="Assembly.GetReferencedAssemblies"/>) via an
-/// <see cref="IAssemblyGraphProvider"/>; there is no dependency on the deps.json format. Every assembly
-/// the host can resolve while walking the closure is recorded, framework assemblies included. Recording a
-/// framework assembly is harmless: the resolver shares it from the default context, which is what the
-/// runtime does for framework assemblies anyway.
+/// The shared set is explicit, not computed from a dependency scan: it is the union of the assemblies SAF
+/// implicitly forces across the plugin boundary (see <see cref="CollectImplicitlySharedAssemblies"/>) and
+/// the plugin contract assemblies configured through
+/// <see cref="PluginSystemOptions.PluginContractsSearchPattern"/> (reported by
+/// <see cref="IPublicServiceTypeRegistry"/>). Consumers must therefore configure any additional dependency
+/// whose types cross the boundary; anything not in the set loads isolated per plugin.
 /// </remarks>
 internal sealed class SharedAssemblyRegistry(
     ILogger<SharedAssemblyRegistry> logger,
-    IPublicServiceTypeRegistry publicServiceTypeRegistry,
-    IAssemblyGraphProvider assemblyGraphProvider)
+    IPublicServiceTypeRegistry publicServiceTypeRegistry)
     : ISharedAssemblyRegistry
 {
     private readonly Dictionary<string, SharedAssemblyInfo> _sharedAssemblies = new(StringComparer.OrdinalIgnoreCase);
@@ -53,7 +54,7 @@ internal sealed class SharedAssemblyRegistry(
                 return;
             }
 
-            BuildClosure();
+            BuildSharedSet();
             _initialized = true;
 
             logger.LogInformation(
@@ -62,62 +63,38 @@ internal sealed class SharedAssemblyRegistry(
         }
     }
 
-    private void BuildClosure()
+    private void BuildSharedSet()
     {
         _sharedAssemblies.Clear();
 
-        var seeds = CollectSeeds();
-        var seedNames = new HashSet<string>(seeds.Select(s => s.Name!), StringComparer.OrdinalIgnoreCase);
-
-        var queue = new Queue<AssemblyName>(seeds);
-        var visited = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-
-        while (queue.Count > 0)
+        foreach (var assemblyName in CollectImplicitlySharedAssemblies())
         {
-            var assemblyName = queue.Dequeue();
-
-            if (assemblyName.Name is null || !visited.Add(assemblyName.Name))
-            {
-                continue;
-            }
-
-            var node = assemblyGraphProvider.TryResolve(assemblyName);
-            if (node is null)
-            {
-                LogUnresolved(assemblyName, isSeed: seedNames.Contains(assemblyName.Name));
-                continue;
-            }
-
-            Record(node.Name);
-
-            foreach (var reference in node.ReferencedAssemblies)
-            {
-                if (reference.Name is not null && !visited.Contains(reference.Name))
-                {
-                    queue.Enqueue(reference);
-                }
-            }
+            Record(assemblyName);
         }
-    }
-
-    private List<AssemblyName> CollectSeeds()
-    {
-        // Plugin hosting contracts: their types (IPluginManifest, IServiceCollection, ...) always cross the boundary.
-        var seeds = new List<AssemblyName> { typeof(IPluginManifest).Assembly.GetName() };
 
         foreach (var contractFullName in publicServiceTypeRegistry.GetAssemblyNames())
         {
             try
             {
-                seeds.Add(new AssemblyName(contractFullName));
+                Record(new AssemblyName(contractFullName));
             }
             catch (Exception ex) when (ex is FileLoadException or ArgumentException)
             {
                 logger.LogWarning(ex, "Ignoring malformed plugin contract assembly name {AssemblyFullName}.", contractFullName);
             }
         }
+    }
 
-        return seeds;
+    private static IEnumerable<AssemblyName> CollectImplicitlySharedAssemblies()
+    {
+        // Everything SAF forces across the boundary: the hosting contracts (IPluginManifest,
+        // IPluginSystemHostContext, IHostServiceForwarder, IPluginServiceProvider, ...) plus the abstraction
+        // assemblies of the common services RedirectCommonServices injects into every plugin container.
+        yield return typeof(IPluginManifest).Assembly.GetName();       // SAF.PluginSystem.Hosting.Contracts
+        yield return typeof(IServiceCollection).Assembly.GetName();    // Microsoft.Extensions.DependencyInjection.Abstractions
+        yield return typeof(IConfiguration).Assembly.GetName();        // Microsoft.Extensions.Configuration.Abstractions
+        yield return typeof(ILoggerFactory).Assembly.GetName();        // Microsoft.Extensions.Logging.Abstractions
+        yield return typeof(IFileSystem).Assembly.GetName();           // System.IO.Abstractions
     }
 
     private void Record(AssemblyName name)
@@ -132,23 +109,6 @@ internal sealed class SharedAssemblyRegistry(
         if (logger.IsEnabled(LogLevel.Debug))
         {
             logger.LogDebug("Shared plugin assembly registered: {AssemblyName} {AssemblyVersion}", name.Name, name.Version);
-        }
-    }
-
-    private void LogUnresolved(AssemblyName assemblyName, bool isSeed)
-    {
-        if (isSeed)
-        {
-            logger.LogWarning(
-                "Plugin contract assembly {AssemblyFullName} could not be resolved on the host and will not be shared. " +
-                "Types of this assembly cannot cross the plugin boundary.",
-                assemblyName.FullName);
-        }
-        else if (logger.IsEnabled(LogLevel.Debug))
-        {
-            logger.LogDebug(
-                "Transitive contract dependency {AssemblyFullName} is not provided by the host; it will not be shared.",
-                assemblyName.FullName);
         }
     }
 }

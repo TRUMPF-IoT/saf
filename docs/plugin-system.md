@@ -309,20 +309,30 @@ their own private versions of dependencies without interfering with each other o
 
 Isolation alone, however, breaks cross-plugin communication: a type is only compatible across the
 boundary if **exactly one** copy of its assembly is loaded. This matters not just for the contract
-interfaces themselves, but for every type on a contract's surface — including the contracts'
-**transitive dependencies** (e.g. a serializer type exposed by a contract method).
+interfaces themselves, but for every type on a contract's surface (e.g. a serializer type exposed by a
+contract method).
 
 ### The shared set
 
-The plugin system therefore computes a **shared set** of assemblies that are loaded once by the host
-and shared with every plug-in context:
+The plugin system loads a **shared set** of assemblies once in the host and shares them with every
+plug-in context. The set is **explicit**, not derived from a dependency scan:
 
-- The **contract assemblies** discovered via `PluginSystemOptions.PluginContractsSearchPattern`
-  (plus SAF's own hosting contracts).
-- Their **transitive dependency closure**, derived automatically from assembly metadata.
+- **SAF's own boundary assemblies**, added automatically — the hosting contracts plus the abstraction
+  assemblies of the common services SAF injects into every plug-in container (`IServiceCollection`,
+  `IConfiguration`, `ILoggerFactory`/`ILogger<T>`, `IFileSystem`). You never configure these.
+- The **contract assemblies** you configure through `PluginSystemOptions.PluginContractsSearchPattern`,
+  **and any further dependency whose types cross the plug-in boundary** — list those in the same
+  pattern so they enter the shared set.
 
 Any assembly **not** in the shared set stays isolated: each plug-in loads its own copy from its own
 folder. This is intentional — plug-ins can use their own private versions of non-contract libraries.
+
+> **Consequence:** if a type on your contract surface comes from a *separate* assembly (a shared domain
+> model, a third-party type exposed by a contract method, a host service you forward via
+> `IHostServiceForwarder`), that assembly must also match `PluginContractsSearchPattern`. If you forget
+> it, the plug-in loads its own copy and casting the type across the boundary throws
+> `InvalidCastException`. Enable `Debug` logging on `SharedAssemblyRegistry` to see the full shared set
+> at start-up, and `Trace` on `PluginAssemblyLoadContext` to see which assemblies load in isolation.
 
 ### Version handling
 
@@ -348,18 +358,18 @@ builder.AddPluginSystem(options =>
 });
 ```
 
-> **Deployment rule:** the host must provide the **highest** version of every assembly in the contract
-> closure. Because sharing rolls forward but never down, shipping the newest version with the host keeps
-> all plug-ins compatible.
+> **Deployment rule:** the host must provide the **highest** version of every shared assembly. Because
+> sharing rolls forward but never down, shipping the newest version with the host keeps all plug-ins
+> compatible.
 
 The related types live in the `SAF.PluginSystem.Hosting.AssemblyLoading` namespace
 (`SharedAssemblyConflictBehavior`, `SharedAssemblyVersionConflictException`).
 
 > **Note (behaviour change):** earlier versions shared any assembly that happened to sit in the host
-> base directory when its full name matched exactly. Sharing is now limited to the contract closure and
-> matched by simple name with roll-forward. If you relied on a non-contract assembly being shared
-> implicitly, make it reachable from a contract assembly (reference it from your contracts) so it enters
-> the shared set.
+> base directory when its full name matched exactly. Sharing is now **explicit**: SAF's own boundary
+> assemblies plus exactly what `PluginContractsSearchPattern` matches, by simple name with roll-forward.
+> If you relied on an assembly being shared implicitly, add it to `PluginContractsSearchPattern` so it
+> enters the shared set.
 
 ---
 
