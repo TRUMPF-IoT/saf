@@ -141,15 +141,31 @@ public class PluginAssemblyFolderContainer(
                 _logger.LogDebug("Found manifest in {Assembly} from {AssemblyLocation}", assembly, assembly.Location);
                 manifests.Add(manifest);
             }
-            catch (Exception ex) when (ex is BadImageFormatException or FileLoadException or FileNotFoundException
+            catch (Exception ex) when ((ex is BadImageFormatException or FileLoadException or FileNotFoundException
                                           or ReflectionTypeLoadException or TypeLoadException
                                           or IOException or UnauthorizedAccessException)
+                                          && !IsSharedAssemblyVersionConflict(ex))
             {
                 _logger.LogError(ex, "Failed to load plugin manifest from {PluginAssemblyPath}, skipping assembly.", pluginAssemblyPath);
             }
         }
 
         return manifests;
+    }
+
+    // The runtime wraps a fail-fast SharedAssemblyVersionConflictException in a FileLoadException; let it
+    // propagate instead of swallowing it, so SharedAssemblyConflictBehavior.Fail actually fails the host.
+    private static bool IsSharedAssemblyVersionConflict(Exception exception)
+    {
+        for (var current = exception; current is not null; current = current.InnerException)
+        {
+            if (current is SharedAssemblyVersionConflictException)
+            {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /// <summary>
