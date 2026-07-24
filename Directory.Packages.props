@@ -33,7 +33,6 @@ SPDX-License-Identifier: MPL-2.0
     <PackageVersion Include="NSubstitute" Version="6.0.0" />
     <PackageVersion Include="StackExchange.Redis" Version="3.0.17" />
     <PackageVersion Include="System.Data.SQLite.Core" Version="1.0.119" />
-    <PackageVersion Include="System.Reflection.MetadataLoadContext" Version="10.0.10" />
     <PackageVersion Include="System.Security.Cryptography.Pkcs" Version="10.0.10" />
     <PackageVersion Include="Testably.Abstractions" Version="10.3.0" />
     <PackageVersion Include="Testably.Abstractions.Testing" Version="7.0.1" />

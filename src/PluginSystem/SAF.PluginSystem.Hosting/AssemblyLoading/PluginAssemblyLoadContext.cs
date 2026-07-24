@@ -8,7 +8,7 @@ using Microsoft.Extensions.Logging;
 using System.Reflection;
 using System.Runtime.Loader;
 
-public class PluginAssemblyLoadContext(
+internal sealed class PluginAssemblyLoadContext(
     ILoggerFactory loggerFactory,
     string pluginAssemblyPath,
     ISharedAssemblyResolver sharedAssemblyResolver,
