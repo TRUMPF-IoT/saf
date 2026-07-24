@@ -53,8 +53,8 @@ internal sealed class SharedAssemblyRegistry(
                 return;
             }
 
-            _initialized = true;
             BuildClosure();
+            _initialized = true;
 
             logger.LogInformation(
                 "Computed shared plugin assembly set with {SharedAssemblyCount} assemblies.",
@@ -64,6 +64,8 @@ internal sealed class SharedAssemblyRegistry(
 
     private void BuildClosure()
     {
+        _sharedAssemblies.Clear();
+
         var seeds = CollectSeeds();
         var seedNames = new HashSet<string>(seeds.Select(s => s.Name!), StringComparer.OrdinalIgnoreCase);
 
