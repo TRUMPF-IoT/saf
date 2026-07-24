@@ -27,7 +27,7 @@ internal sealed class SharedAssemblyRegistry(
 {
     private readonly Dictionary<string, SharedAssemblyInfo> _sharedAssemblies = new(StringComparer.OrdinalIgnoreCase);
     private readonly Lock _syncInitialization = new();
-    private bool _initialized;
+    private volatile bool _initialized;
 
     /// <inheritdoc />
     public bool TryGetSharedAssembly(string simpleName, out SharedAssemblyInfo info)
@@ -47,6 +47,13 @@ internal sealed class SharedAssemblyRegistry(
 
     private void EnsureInitialized()
     {
+        // Double-checked locking: once built, the volatile read makes lookups lock-free on the assembly-load
+        // hot path. The volatile write publishes the fully populated set with release semantics.
+        if (_initialized)
+        {
+            return;
+        }
+
         lock (_syncInitialization)
         {
             if (_initialized)
