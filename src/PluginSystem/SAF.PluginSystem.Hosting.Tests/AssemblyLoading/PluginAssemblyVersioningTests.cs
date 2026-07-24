@@ -15,7 +15,8 @@ using Xunit;
 /// dependency (<c>TestPlugin.SharedVersioned</c> V1 and V2). The plugin (<c>TestPlugin.PluginVersioned</c>)
 /// is compiled against V1 and ships V1 in its own folder; V2 stands in for the version the host provides.
 /// </summary>
-public class PluginAssemblyVersioningTests
+public class PluginAssemblyVersioningTests(HostSharedV2Fixture hostSharedV2)
+    : IClassFixture<HostSharedV2Fixture>
 {
     private const string SharedSimpleName = "TestPlugin.SharedVersioned";
     private const string PluginEntryTypeName = "TestPlugin.PluginVersioned.PluginVersionedEntry";
@@ -23,14 +24,11 @@ public class PluginAssemblyVersioningTests
     private static string PluginPath =>
         Path.Combine(AppContext.BaseDirectory, "plugins", "TestPlugin.PluginVersioned", "TestPlugin.PluginVersioned.dll");
 
-    private static string SharedV2Path =>
-        Path.Combine(AppContext.BaseDirectory, "shared-v2", "TestPlugin.SharedVersioned.dll");
-
     [Fact]
     public void SharedDependency_RollsForwardToHostVersion_WhenShared()
     {
         // The host provides V2 in the default context.
-        var hostShared = AssemblyLoadContext.Default.LoadFromAssemblyPath(SharedV2Path);
+        var hostShared = hostSharedV2.Assembly;
         Assert.Equal(2, hostShared.GetName().Version!.Major);
 
         var context = CreateContext(SharedAssemblyDecision.ShareFromDefault, new Version(2, 0, 0, 0), SharedAssemblyConflictBehavior.Fail);
@@ -59,7 +57,7 @@ public class PluginAssemblyVersioningTests
     [Fact]
     public void SharedDependency_V1AndV2_CoexistInSeparateContexts()
     {
-        var hostShared = AssemblyLoadContext.Default.LoadFromAssemblyPath(SharedV2Path);
+        var hostShared = hostSharedV2.Assembly;
 
         var isolatedContext = CreateContext(SharedAssemblyDecision.LoadIsolated, hostVersion: null, SharedAssemblyConflictBehavior.Fail);
         var plugin = isolatedContext.LoadFromAssemblyPath(PluginPath);
