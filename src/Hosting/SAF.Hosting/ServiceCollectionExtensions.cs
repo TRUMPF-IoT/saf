@@ -7,6 +7,7 @@ namespace SAF.Hosting;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
 using SAF.Common;
+using SAF.PluginSystem.Hosting;
 using SAF.PluginSystem.Hosting.Contracts;
 
 internal static class ServiceCollectionExtensions
