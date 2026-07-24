@@ -152,6 +152,12 @@ public class PluginAssemblyFolderContainer(
     {
         rejectionReason = string.Empty;
 
+        if (_assemblyValidators.Count == 0)
+        {
+            rejectionReason = string.Empty;
+            return true;
+        }
+
         AssemblyName assemblyName;
         try
         {
