@@ -23,7 +23,6 @@ Plug-in projects reference only the contracts:
 
 ```xml
 <PackageReference Include="SAF.PluginSystem.Hosting.Contracts" />
-<PackageReference Include="SAF.PluginSystem.Hosting.Extensions" />
 <PackageReference Include="SAF.Messaging.Contracts" />
 <PackageReference Include="SAF.Common" />
 ```
@@ -138,7 +137,7 @@ public class PublisherService(IMessagingInfrastructure messaging) : IServicePlug
 }
 ```
 
-> `AddServicePlugin<T>` (from `SAF.PluginSystem.Hosting.Extensions`) registers `T` as an `IServicePlugin`, so the plugin system starts and stops it automatically. If other services in the same plug-in container also need `T` by its concrete type, register it additionally with `AddSingleton<T>()`.
+> `AddServicePlugin<T>` (from `SAF.PluginSystem.Hosting.Contracts`) registers `T` as an `IServicePlugin`, so the plugin system starts and stops it automatically. If other services in the same plug-in container also need `T` by its concrete type, register it additionally with `AddSingleton<T>()`.
 
 ---
 

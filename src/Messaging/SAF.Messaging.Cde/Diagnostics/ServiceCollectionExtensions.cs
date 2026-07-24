@@ -5,7 +5,7 @@
 namespace SAF.Messaging.Cde.Diagnostics;
 
 using Microsoft.Extensions.DependencyInjection;
-using SAF.PluginSystem.Hosting.Extensions;
+using SAF.PluginSystem.Hosting.Contracts;
 
 public static class ServiceCollectionExtensions
 {

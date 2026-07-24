@@ -69,8 +69,8 @@ graph TB
 | `SAF.Configuration.Secrets` | Secret store providers (Windows Credential Manager) and provider selection |
 | `SAF.Configuration.Secrets.Extensions` | Secret store host-builder integration (`AddSecretStore`) |
 | `SAF.PluginSystem.Hosting` | Plugin loading engine |
-| `SAF.PluginSystem.Hosting.Contracts` | Plugin contracts: `IPluginManifest`, `IServicePlugin`, `IPluginAssemblyValidator`, validation context/result |
-| `SAF.PluginSystem.Hosting.Extensions` | Plugin-system convenience extensions and built-in assembly validators |
+| `SAF.PluginSystem.Hosting.Contracts` | Plugin contracts: `IPluginManifest`, `IServicePlugin`, `IPluginAssemblyValidator`, validation context/result, plus plugin-side DI helpers (`AddServicePlugin`, `AddKeyedOptions`) |
+| `SAF.PluginSystem.Hosting.Extensions` | Host-side plugin-system extensions: built-in assembly validators (strong-name, digital signature) |
 | `SAF.Hosting` | SAF-specific host wiring on top of the plugin system |
 | `SAF.Toolbox` | Heartbeat, RequestClient, FileTransfer helpers |
 

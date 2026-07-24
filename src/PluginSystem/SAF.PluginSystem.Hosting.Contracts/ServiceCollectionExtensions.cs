@@ -2,11 +2,10 @@
 //
 // SPDX-License-Identifier: MPL-2.0
 
-namespace SAF.PluginSystem.Hosting.Extensions;
+namespace SAF.PluginSystem.Hosting.Contracts;
 
 using Microsoft.Extensions.Options;
 using Microsoft.Extensions.DependencyInjection;
-using Contracts;
 
 public static class ServiceCollectionExtensions
 {
