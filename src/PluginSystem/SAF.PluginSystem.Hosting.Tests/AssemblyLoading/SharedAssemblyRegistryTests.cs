@@ -99,6 +99,18 @@ public class SharedAssemblyRegistryTests
         Assert.NotSame(snapshot, registry.GetSharedAssemblies());
     }
 
+    [Fact]
+    public void TryGetSharedAssembly_BuildsSetOnce_UnderConcurrentFirstAccess()
+    {
+        _publicServiceTypeRegistry.GetAssemblyNames().Returns(["Acme.Contracts, Version=1.0.0.0"]);
+
+        var registry = CreateRegistry();
+
+        Parallel.For(0, 200, i => Assert.True(registry.TryGetSharedAssembly("Acme.Contracts", out _)));
+
+        _publicServiceTypeRegistry.Received(1).GetAssemblyNames();
+    }
+
     private SharedAssemblyRegistry CreateRegistry()
         => new(NullLogger<SharedAssemblyRegistry>.Instance, _publicServiceTypeRegistry);
 }
