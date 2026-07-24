@@ -52,7 +52,6 @@ public static class HostApplicationBuilderExtensions
         });
 
         pluginHostBuilder.Services.AddSingleton<IPublicServiceTypeRegistry, PublicServiceTypeRegistry>();
-        pluginHostBuilder.Services.AddSingleton<IAssemblyGraphProvider, MetadataAssemblyGraphProvider>();
         pluginHostBuilder.Services.AddSingleton<ISharedAssemblyVersionComparer, SharedAssemblyVersionComparer>();
         pluginHostBuilder.Services.AddSingleton<ISharedAssemblyRegistry, SharedAssemblyRegistry>();
         pluginHostBuilder.Services.AddSingleton<ISharedAssemblyResolver, SharedAssemblyResolver>();
