@@ -5,13 +5,15 @@
 <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
 <script>
   document.addEventListener('DOMContentLoaded', function () {
-    document.querySelectorAll('.language-mermaid').forEach(function (block) {
-      var code = block.querySelector('code');
-      if (!code) return;
+    // Structure varies by markdown converter: CommonMark emits a bare
+    // <pre><code class="language-mermaid">, Kramdown/Rouge wraps it in an
+    // extra <div class="language-mermaid">. Replace whichever is outermost.
+    document.querySelectorAll('code.language-mermaid').forEach(function (code) {
+      var wrapper = code.closest('div.language-mermaid') || code.closest('pre');
       var pre = document.createElement('pre');
       pre.className = 'mermaid';
       pre.textContent = code.textContent;
-      block.replaceWith(pre);
+      wrapper.replaceWith(pre);
     });
     mermaid.initialize({ startOnLoad: true, theme: 'dark' });
   });
