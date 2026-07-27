@@ -111,6 +111,8 @@ public class PluginManifest : IPluginManifest
 }
 ```
 
+{% raw %}
+
 ```csharp
 // PublisherService.cs
 using SAF.Messaging.Contracts;
@@ -137,6 +139,8 @@ public class PublisherService(IMessagingInfrastructure messaging) : IServicePlug
     public Task StopAsync(CancellationToken token) => Task.CompletedTask;
 }
 ```
+
+{% endraw %}
 
 > `AddServicePlugin<T>` (from `SAF.PluginSystem.Hosting.Extensions`) registers `T` as an `IServicePlugin`, so the plugin system starts and stops it automatically. If other services in the same plug-in container also need `T` by its concrete type, register it additionally with `AddSingleton<T>()`.
 
