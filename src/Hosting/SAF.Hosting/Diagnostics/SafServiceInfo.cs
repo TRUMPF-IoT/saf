@@ -1,30 +1,39 @@
-// SPDX-FileCopyrightText: 2017-2020 TRUMPF Laser GmbH
+// SPDX-FileCopyrightText: 2017-2026 TRUMPF Laser SE
 //
 // SPDX-License-Identifier: MPL-2.0
 
-namespace SAF.Hosting.Diagnostics;
+namespace SAF.Common.Diagnostics;
 
 using System.Diagnostics;
-using Contracts;
+using SAF.PluginSystem.Hosting.Contracts;
 
-internal class SafServiceInfo
+public class SafServiceInfo
 {
-    public SafServiceInfo(IServiceAssemblyManifest assembly)
+    public SafServiceInfo(IPluginManifest manifest)
     {
-        var type = assembly.GetType();
-
-        var fvi = FileVersionInfo.GetVersionInfo(type.Assembly.Location);
+        var type = manifest.GetType();
+        var assembly = type.Assembly;
 
         Name = type.AssemblyQualifiedName ?? string.Empty;
-        FriendlyName = assembly.FriendlyName;
-        Version = fvi.ProductVersion ?? string.Empty;
-        BuildNumber = type.Assembly.GetName().Version?.ToString() ?? string.Empty;
-        BuildDate = File.GetLastWriteTimeUtc(type.Assembly.Location);
+        FriendlyName = type.Name;
+
+        if (!string.IsNullOrEmpty(assembly.Location))
+        {
+            var fvi = FileVersionInfo.GetVersionInfo(assembly.Location);
+            Version = fvi.ProductVersion ?? string.Empty;
+            BuildDate = File.GetLastWriteTimeUtc(assembly.Location);
+        }
+
+        BuildNumber = assembly.GetName().Version?.ToString() ?? string.Empty;
     }
 
-    public string Name { get; set; }
+    public string Name { get; set; } = string.Empty;
+
     public string FriendlyName { get; set; }
-    public string Version { get; set; }
-    public string BuildNumber { get; set; }
+
+    public string Version { get; set; } = string.Empty;
+
+    public string BuildNumber { get; set; } = string.Empty;
+
     public DateTimeOffset BuildDate { get; set; }
 }

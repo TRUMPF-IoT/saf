@@ -1,8 +1,9 @@
-// SPDX-FileCopyrightText: 2017-2023 TRUMPF Laser GmbH
+// SPDX-FileCopyrightText: 2017-2026 TRUMPF Laser SE
 //
 // SPDX-License-Identifier: MPL-2.0
 
 namespace SAF.Communication.PubSub.Tests;
+
 using SAF.Common;
 using Xunit;
 
@@ -21,3 +22,4 @@ public class WildcardMatcherTests
         Assert.False("begin/one/two/wrong".IsMatch(pattern));
     }
 }
+

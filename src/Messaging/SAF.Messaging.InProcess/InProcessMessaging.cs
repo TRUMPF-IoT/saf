@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: 2017-2020 TRUMPF Laser GmbH
+// SPDX-FileCopyrightText: 2017-2026 TRUMPF Laser SE
 //
 // SPDX-License-Identifier: MPL-2.0
 
@@ -6,26 +6,27 @@ namespace SAF.Messaging.InProcess;
 using System.Diagnostics;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
-using Common;
+using SAF.Common;
+using SAF.Messaging.Contracts;
 
-internal class InProcessMessaging : IInProcessMessagingInfrastructure, IDisposable
+internal class InProcessMessaging : IMessagingInfrastructure, IDisposable
 {
+    private sealed record TypedSubscription(Type HandlerType, string RouteFilterPattern);
+
     private readonly ILogger<InProcessMessaging> _log;
     private readonly IServiceMessageDispatcher _messageDispatcher;
-    private Action<Message>? _traceAction;
 
     private readonly ReaderWriterLockSlim _syncSubscriptionsByType = new(LockRecursionPolicy.SupportsRecursion);
-    private readonly Dictionary<string, List<string>> _subscriptionsByType = new();
+    private readonly Dictionary<string, List<Type>> _subscriptionsByType = new();
 
     private readonly ReaderWriterLockSlim _syncSubscriptionsByLambda = new(LockRecursionPolicy.SupportsRecursion);
     private readonly Dictionary<string, List<Action<Message>>> _subscriptionsByLambda = new();
     private const string MessagingKeySeparator = "###########";
 
-    public InProcessMessaging(ILogger<InProcessMessaging>? log, IServiceMessageDispatcher messageDispatcher, Action<Message>? traceAction = null)
+    public InProcessMessaging(ILogger<InProcessMessaging>? log, IServiceMessageDispatcher messageDispatcher)
     {
         _log = log ?? NullLogger<InProcessMessaging>.Instance;
         _messageDispatcher = messageDispatcher;
-        _traceAction = traceAction;
     }
         
     public object Subscribe<TMessageHandler>() where TMessageHandler : IMessageHandler
@@ -44,11 +45,11 @@ internal class InProcessMessaging : IInProcessMessagingInfrastructure, IDisposab
         {
             if (_subscriptionsByType.TryGetValue(routeFilterPattern, out var handlerList))
             {
-                handlerList.Add(typeof(TMessageHandler).FullName!);
+                handlerList.Add(handlerType);
             }
             else
             {
-                _subscriptionsByType.Add(routeFilterPattern, new List<string> { typeof(TMessageHandler).FullName! });
+                _subscriptionsByType.Add(routeFilterPattern, new List<Type> { handlerType });
             }
         }
         finally
@@ -56,7 +57,7 @@ internal class InProcessMessaging : IInProcessMessagingInfrastructure, IDisposab
             _syncSubscriptionsByType.ExitWriteLock();
         }
 
-        return $"{handlerType}{MessagingKeySeparator}{routeFilterPattern}";
+        return new TypedSubscription(handlerType, routeFilterPattern);
     }
 
     public object Subscribe(string routeFilterPattern, Action<Message> handler)
@@ -86,7 +87,7 @@ internal class InProcessMessaging : IInProcessMessagingInfrastructure, IDisposab
     public void Publish(Message message)
     {
         _log.LogDebug($"Publish to {message.Topic}");
-        _traceAction?.Invoke(message);
+        _log.LogTrace("Publishing message for topic {Topic}.", message.Topic);
 
         var subscriptionsToRun = new List<Func<Task>>();
 
@@ -98,8 +99,8 @@ internal class InProcessMessaging : IInProcessMessagingInfrastructure, IDisposab
                 if (!message.Topic.IsMatch(kvp.Key))
                     continue;
 
-                foreach (var handlerTypeName in kvp.Value)
-                    subscriptionsToRun.Add(PrepareTaskWithErrorHandler(handlerTypeName, () => _messageDispatcher.DispatchMessage(handlerTypeName, message)));
+                foreach (var handlerType in kvp.Value)
+                    subscriptionsToRun.Add(PrepareTaskWithErrorHandler(handlerType.ToString(), () => _messageDispatcher.DispatchMessage(handlerType, message)));
             }
         }
         finally
@@ -130,6 +131,32 @@ internal class InProcessMessaging : IInProcessMessagingInfrastructure, IDisposab
 
     public void Unsubscribe(object subscription)
     {
+        if (subscription is TypedSubscription typedSubscription)
+        {
+            var handlerType = typedSubscription.HandlerType;
+            var routeFilterPattern = typedSubscription.RouteFilterPattern;
+
+            _syncSubscriptionsByType.EnterWriteLock();
+            try
+            {
+                if (_subscriptionsByType.TryGetValue(routeFilterPattern, out var handlerTypes))
+                {
+                    handlerTypes.Remove(handlerType);
+
+                    if (handlerTypes.Count == 0)
+                    {
+                        _subscriptionsByType.Remove(routeFilterPattern);
+                    }
+                }
+            }
+            finally
+            {
+                _syncSubscriptionsByType.ExitWriteLock();
+            }
+
+            return;
+        }
+
         if (subscription is not string subscriptionKey || string.IsNullOrWhiteSpace(subscriptionKey))
             return;
 
@@ -138,15 +165,15 @@ internal class InProcessMessaging : IInProcessMessagingInfrastructure, IDisposab
         if (kvp.Length != 2)
             return;
 
-        var handlerType = kvp[0];
-        var routeFilterPattern = kvp[1];
+        var handlerHashCode = kvp[0];
+        var lambdaRouteFilterPattern = kvp[1];
 
         _syncSubscriptionsByLambda.EnterWriteLock();
         try
         {
-            if (_subscriptionsByLambda.TryGetValue(routeFilterPattern, out var handlers))
+            if (_subscriptionsByLambda.TryGetValue(lambdaRouteFilterPattern, out var handlers))
             {
-                var toBeRemoved = handlers.Where(h => $"{h.GetHashCode()}" == handlerType).ToArray();
+                var toBeRemoved = handlers.Where(h => $"{h.GetHashCode()}" == handlerHashCode).ToArray();
                 foreach (var action in toBeRemoved)
                 {
                     handlers.Remove(action);
@@ -154,31 +181,13 @@ internal class InProcessMessaging : IInProcessMessagingInfrastructure, IDisposab
 
                 if (handlers.Count == 0)
                 {
-                    _subscriptionsByLambda.Remove(routeFilterPattern);
+                    _subscriptionsByLambda.Remove(lambdaRouteFilterPattern);
                 }
             }
         }
         finally
         {
             _syncSubscriptionsByLambda.ExitWriteLock();
-        }
-
-        _syncSubscriptionsByType.EnterWriteLock();
-        try
-        {
-            if (_subscriptionsByType.TryGetValue(routeFilterPattern, out var handlerTypes))
-            {
-                handlerTypes.Remove(handlerType);
-
-                if (handlerTypes.Count == 0)
-                {
-                    _subscriptionsByLambda.Remove(routeFilterPattern);
-                }
-            }
-        }
-        finally
-        {
-            _syncSubscriptionsByType.ExitWriteLock();
         }
     }
 
@@ -195,7 +204,6 @@ internal class InProcessMessaging : IInProcessMessagingInfrastructure, IDisposab
     protected virtual void Dispose(bool disposing)
     {
         if (!disposing) return;
-        _traceAction = null;
 
         _syncSubscriptionsByLambda.EnterWriteLock();
         try
@@ -216,6 +224,9 @@ internal class InProcessMessaging : IInProcessMessagingInfrastructure, IDisposab
         {
             _syncSubscriptionsByType.ExitWriteLock();
         }
+
+        _syncSubscriptionsByLambda.Dispose();
+        _syncSubscriptionsByType.Dispose();
     }
 
     public void Dispose()
@@ -224,3 +235,5 @@ internal class InProcessMessaging : IInProcessMessagingInfrastructure, IDisposab
         GC.SuppressFinalize(this);
     }
 }
+
+

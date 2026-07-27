@@ -1,8 +1,8 @@
-﻿// SPDX-FileCopyrightText: 2017-2025 TRUMPF Laser GmbH
+// SPDX-FileCopyrightText: 2017-2026 TRUMPF Laser SE
 //
 // SPDX-License-Identifier: MPL-2.0
 
-using SAF.Common;
+using SAF.Messaging.Contracts;
 using SAF.Toolbox.FileTransfer.Messages;
 using SAF.Toolbox.Serialization;
 
@@ -119,3 +119,4 @@ internal class FileReceiver(ILogger<FileReceiver> log, IMessagingInfrastructure 
         });
     }
 }
+

@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: 2017-2020 TRUMPF Laser GmbH
+// SPDX-FileCopyrightText: 2017-2026 TRUMPF Laser SE
 //
 // SPDX-License-Identifier: MPL-2.0
 
@@ -6,6 +6,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using StackExchange.Redis;
 using SAF.Common;
+using SAF.Messaging.Contracts;
 using System.Runtime.CompilerServices;
 
 [assembly: InternalsVisibleTo("SAF.Messaging.Redis.Tests")]
@@ -15,12 +16,16 @@ namespace SAF.Messaging.Redis;
 
 public static class ServiceCollectionExtensions
 {
-    public static IServiceCollection AddRedisMessagingInfrastructure(this IServiceCollection serviceCollection, Action<RedisConfiguration> configure, Action<Message>? traceAction = null)
+    public static IServiceCollection AddRedisMessagingInfrastructure(this IServiceCollection serviceCollection, Action<RedisConfiguration> configure)
     {
         var config = new RedisConfiguration();
         configure.Invoke(config);
 
-        return serviceCollection.AddRedisMessagingInfrastructure(config, traceAction);
+        return serviceCollection
+            .AddKeyedSingleton<IMessagingInfrastructureFactory>(MessagingInfrastructureKeys.Redis,
+                (sp, _) => new DelegatingMessagingInfrastructureFactory(
+                    MessagingInfrastructureKeys.Redis,
+                    cfg => CreateMessagingInfrastructure(sp, cfg, config)));
     }
 
     public static IServiceCollection AddRedisStorageInfrastructure(this IServiceCollection serviceCollection, Action<RedisConfiguration> configure)
@@ -31,31 +36,13 @@ public static class ServiceCollectionExtensions
         return serviceCollection.AddRedisStorageInfrastructure(config);
     }
 
-    public static IServiceCollection AddRedisInfrastructure(this IServiceCollection serviceCollection, Action<RedisConfiguration> configure, Action<Message>? traceAction = null)
+    public static IServiceCollection AddRedisInfrastructure(this IServiceCollection serviceCollection, Action<RedisConfiguration> configure)
     {
         var config = new RedisConfiguration();
         configure.Invoke(config);
 
-        return serviceCollection.AddRedisMessagingInfrastructure(config, traceAction)
-            .AddRedisStorageInfrastructure(config)
-            .AddSingleton<IMessagingInfrastructure>(sp => sp.GetRequiredService<IRedisMessagingInfrastructure>());
-    }
-
-    internal static IServiceCollection AddRedisMessagingInfrastructure(this IServiceCollection serviceCollection, MessagingConfiguration config)
-    {
-        serviceCollection
-            .AddTransient(sp => new Func<MessagingConfiguration, IRedisMessagingInfrastructure>(cfg =>
-            {
-                var msgCfg = new RedisMessagingConfiguration(cfg);
-                var redisCfg = new RedisConfiguration { ConnectionString = msgCfg.ConnectionString ?? string.Empty };
-                return new Messaging(sp.GetRequiredService<ILogger<Messaging>>(),
-                    CreateRedisConnection(redisCfg, sp.GetRequiredService<ILogger<Messaging>>()).multiplexer,
-                    sp.GetRequiredService<IServiceMessageDispatcher>(),
-                    null);
-            }))
-            .AddTransient(sp => sp.GetRequiredService<Func<MessagingConfiguration, IRedisMessagingInfrastructure>>().Invoke(config));
-
-        return serviceCollection;
+        return serviceCollection.AddRedisMessagingInfrastructure(config)
+            .AddRedisStorageInfrastructure(config);
     }
 
     private static (IConnectionMultiplexer multiplexer, ConfigurationOptions options) CreateRedisConnection(RedisConfiguration config, ILogger logger)
@@ -120,14 +107,38 @@ public static class ServiceCollectionExtensions
         }
     }
 
-    private static IServiceCollection AddRedisMessagingInfrastructure(this IServiceCollection serviceCollection, RedisConfiguration config, Action<Message>? traceAction)
+    private static IServiceCollection AddRedisMessagingInfrastructure(this IServiceCollection serviceCollection, RedisConfiguration config)
+        => serviceCollection
+            .AddKeyedSingleton<IMessagingInfrastructureFactory>(MessagingInfrastructureKeys.Redis,
+                (sp, _) => new DelegatingMessagingInfrastructureFactory(
+                    MessagingInfrastructureKeys.Redis,
+                    cfg => CreateMessagingInfrastructure(sp, cfg, config)));
+
+    private static Messaging CreateMessagingInfrastructure(IServiceProvider serviceProvider, MessagingConfiguration config, RedisConfiguration defaultConfiguration)
     {
-        return serviceCollection.AddTransient<IRedisMessagingInfrastructure>(r =>
-            new Messaging(r.GetRequiredService<ILogger<Messaging>>(),
-                CreateRedisConnection(config, r.GetRequiredService<ILogger<Messaging>>()).multiplexer,
-                r.GetRequiredService<IServiceMessageDispatcher>(),
-                traceAction));
+        if (config.Config is null || config.Config.Count == 0)
+        {
+            return CreateMessagingInfrastructure(serviceProvider, defaultConfiguration);
+        }
+
+        var msgCfg = new RedisMessagingConfiguration(config);
+        var redisCfg = new RedisConfiguration
+        {
+            ConnectionString = msgCfg.ConnectionString ?? defaultConfiguration.ConnectionString,
+            Timeout = defaultConfiguration.Timeout
+        };
+
+        return CreateMessagingInfrastructure(serviceProvider, redisCfg);
     }
+
+    private static Messaging CreateMessagingInfrastructure(IServiceProvider serviceProvider, RedisConfiguration config)
+        => new Messaging(serviceProvider.GetRequiredService<ILogger<Messaging>>(),
+            CreateRedisConnection(config, serviceProvider.GetRequiredService<ILogger<Messaging>>()).multiplexer,
+            ResolveMessageDispatcher(serviceProvider));
+
+    private static IServiceMessageDispatcher ResolveMessageDispatcher(IServiceProvider serviceProvider)
+        => serviceProvider.GetService<IServiceMessageDispatcher>() ??
+           throw new InvalidOperationException("IServiceMessageDispatcher is not available. Ensure SAF.Messaging.Runtime is loaded as a plugin and SAF.Messaging.Contracts.dll is included in PluginContractsSearchPattern.");
 
     private static IServiceCollection AddRedisStorageInfrastructure(this IServiceCollection serviceCollection, RedisConfiguration config)
     {
@@ -138,3 +149,4 @@ public static class ServiceCollectionExtensions
         });
     }
 }
+

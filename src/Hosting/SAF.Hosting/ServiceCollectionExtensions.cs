@@ -1,66 +1,61 @@
-// SPDX-FileCopyrightText: 2017-2024 TRUMPF Laser GmbH
+// SPDX-FileCopyrightText: 2017-2026 TRUMPF Laser SE
 //
 // SPDX-License-Identifier: MPL-2.0
 
 namespace SAF.Hosting;
 
 using Microsoft.Extensions.DependencyInjection;
-using Common;
-using Contracts;
+using Microsoft.Extensions.Options;
+using SAF.Common;
+using SAF.PluginSystem.Hosting.Contracts;
 
-public static class ServiceCollectionExtensions
+internal static class ServiceCollectionExtensions
 {
-    /// <summary>
-    /// Builds a default SAF service host searching for assemblies in the default locations and using default service host information.
-    /// </summary>
-    /// <param name="services">The service collection to add the services.</param>
-    /// <returns>The <see cref="IServiceHostBuilder"/>.</returns>
-    public static IServiceHostBuilder AddHost(this IServiceCollection services)
-        => services.AddHost(_ => {});
+    private const string HostIdStorageKey = "saf/hostid";
 
     /// <summary>
-    /// Builds a default SAF service host searching for assemblies in configurable locations and using default service host information.
+    /// Adds a <see cref="IServiceHostInfo"/> using options from the "ServiceHost" configuration section.
     /// </summary>
-    /// <param name="services">The service collection to add the services.</param>
-    /// <param name="configure">The action to configure the default assembly search location.</param>
-    /// <returns>The <see cref="IServiceHostBuilder"/>.</returns>
-    public static IServiceHostBuilder AddHost(this IServiceCollection services, Action<ServiceAssemblySearchOptions> configure)
-        => services.AddHost(configure, _ => {});
-
-    /// <summary>
-    /// Builds a default SAF service host searching for assemblies in configurable locations and with configurable information about the service host.
-    /// </summary>
-    /// <param name="services">The service collection to add the services.</param>
-    /// <param name="configure">The action to configure the default assembly search location.</param>
-    /// <param name="configureHostInfo">The action to configure the service host information.</param>
-    /// <returns>The <see cref="IServiceHostBuilder"/>.</returns>
-    public static IServiceHostBuilder AddHost(this IServiceCollection services, Action<ServiceAssemblySearchOptions> configure, Action<ServiceHostInfoOptions> configureHostInfo)
+    /// <param name="services">The service collection to configure.</param>
+    /// <param name="configure">An action to configure the <see cref="ServiceHostOptions"/>.</param>
+    /// <returns>The same service collection for chaining.</returns>
+    public static IServiceCollection AddServiceHostInfo(this IServiceCollection services, Action<ServiceHostOptions> configure)
     {
-        var builder = services.AddHostCore()
-            .AddServiceAssemblySearch(configure);
+        ArgumentNullException.ThrowIfNull(services);
+        ArgumentNullException.ThrowIfNull(configure);
 
-        builder.ConfigureServiceHostInfo(configureHostInfo);
+        services.Configure(configure);
+        services.AddSingleton<IServiceHostInfo>(sp =>
+        {
+            var options = sp.GetRequiredService<IOptions<ServiceHostOptions>>().Value;
+            return new ServiceHostInfo(options, () => GetOrInitializeHostId(ResolveStorageInfrastructure(sp)));
+        });
 
-        return builder;
+        // Bridge: forward the configured service into every plugin container.
+        // Runs before each plugin manifest's ConfigureServices, so plugins always receive
+        // the IServiceHostInfo that includes all code-based Configure<ServiceHostOptions> calls.
+        services.AddSingleton<IHostServiceForwarder, HostServiceForwarder<IServiceHostInfo>>();
+
+        return services;
     }
 
-    /// <summary>
-    /// Adds SAF hosting core services to the DI container.
-    /// </summary>
-    /// <param name="services">The service collection to add the services.</param>
-    /// <returns>The <see cref="IServiceHostBuilder"/>.</returns>
-    public static IServiceHostBuilder AddHostCore(this IServiceCollection services)
+    private static IStorageInfrastructure? ResolveStorageInfrastructure(IServiceProvider serviceProvider)
     {
-        services.AddSingleton<IServiceAssemblyManager, ServiceAssemblyManager>();
-        services.AddSingleton<IServiceMessageDispatcher, ServiceMessageDispatcher>();
+        ArgumentNullException.ThrowIfNull(serviceProvider);
 
-        services.AddSingleton<IServiceMessageHandlerTypes, ServiceMessageHandlerTypes>(_ => new ServiceMessageHandlerTypes(services));
-        services.AddSingleton<ServiceHost>();
-        services.AddHostedService(sp => sp.GetRequiredService<ServiceHost>());
+        return serviceProvider.GetService<IStorageInfrastructure>()
+            ?? serviceProvider.GetService<IPluginServiceProvider>()?.GetService<IStorageInfrastructure>();
+    }
 
-        var builder = new ServiceHostBuilder(services);
-        builder.AddServiceHostInfo();
+    private static string GetOrInitializeHostId(IStorageInfrastructure? storage)
+    {
+        var id = storage?.GetString(HostIdStorageKey);
+        if (string.IsNullOrWhiteSpace(id))
+        {
+            id = Guid.NewGuid().ToString("N");
+            storage?.Set(HostIdStorageKey, id);
+        }
 
-        return builder;
+        return id;
     }
 }

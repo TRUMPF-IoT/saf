@@ -1,11 +1,11 @@
-// SPDX-FileCopyrightText: 2017-2020 TRUMPF Laser GmbH
+// SPDX-FileCopyrightText: 2017-2026 TRUMPF Laser SE
 //
 // SPDX-License-Identifier: MPL-2.0
 
 namespace SAF.Toolbox.Tests;
+
 using NSubstitute;
-using Common;
-using Common.Contracts;
+using SAF.Messaging.Contracts;
 using Heartbeat;
 using SAF.Toolbox.Serialization;
 using Xunit;
@@ -91,3 +91,5 @@ public class RequestClientTests
         public int MyDummyValue { get; set; }
     }
 }
+
+

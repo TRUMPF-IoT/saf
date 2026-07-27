@@ -1,4 +1,4 @@
-﻿// SPDX-FileCopyrightText: 2017-2025 TRUMPF Laser GmbH
+// SPDX-FileCopyrightText: 2017-2026 TRUMPF Laser SE
 //
 // SPDX-License-Identifier: MPL-2.0
 
@@ -9,6 +9,7 @@ using Microsoft.Extensions.Logging;
 using NATS.Client.Core;
 using NATS.Net;
 using SAF.Common;
+using SAF.Messaging.Contracts;
 
 [assembly: InternalsVisibleTo("SAF.Messaging.Nats.Tests")]
 [assembly: InternalsVisibleTo("DynamicProxyGenAssembly2")]
@@ -19,12 +20,16 @@ namespace SAF.Messaging.Nats;
 public static class ServiceCollectionExtensions
 {
     public static IServiceCollection AddNatsMessagingInfrastructure(this IServiceCollection serviceCollection,
-        Action<NatsConfiguration> configure, Action<Message>? traceAction = null)
+        Action<NatsConfiguration> configure)
     {
         var config = new NatsConfiguration();
         configure(config);
 
-        return serviceCollection.AddNatsMessagingInfrastructure(config, traceAction);
+        return serviceCollection
+            .AddKeyedSingleton<IMessagingInfrastructureFactory>(MessagingInfrastructureKeys.Nats,
+                (sp, _) => new DelegatingMessagingInfrastructureFactory(
+                    MessagingInfrastructureKeys.Nats,
+                    cfg => CreateMessagingInfrastructure(sp, cfg, config)));
     }
 
     public static IServiceCollection AddNatsStorageInfrastructure(this IServiceCollection serviceCollection,
@@ -38,36 +43,13 @@ public static class ServiceCollectionExtensions
 
 
     public static IServiceCollection AddNatsInfrastructure(this IServiceCollection serviceCollection,
-        Action<NatsConfiguration> configure, Action<Message>? traceAction = null)
+        Action<NatsConfiguration> configure)
     {
         var config = new NatsConfiguration();
         configure.Invoke(config);
 
-        return serviceCollection.AddNatsMessagingInfrastructure(config, traceAction)
-            .AddNatsStorageInfrastructure(config)
-            .AddSingleton<IMessagingInfrastructure>(sp => sp.GetRequiredService<INatsMessagingInfrastructure>());
-    }
-
-
-    internal static IServiceCollection AddNatsMessagingInfrastructure(this IServiceCollection serviceCollection,
-        MessagingConfiguration config)
-    {
-        serviceCollection
-            .AddTransient(sp => new Func<MessagingConfiguration, INatsMessagingInfrastructure>(cfg =>
-            {
-                var natsCfg = CreateNatsConfiguration(cfg);
-                return new Messaging(sp.GetRequiredService<ILogger<Messaging>>(),
-                    CreateNatsClient(natsCfg, sp.GetRequiredService<ILogger<Messaging>>()),
-                    new NatsSubscriptionManager(),
-                    sp.GetService<IInputRouteTranslator>() ?? new NatsInputRouteTranslator(),
-                    sp.GetService<IOutputRouteTranslator>() ?? new NatsOutputRouteTranslator(),
-                    sp.GetRequiredService<IServiceMessageDispatcher>(),
-                    null);
-            }))
-            .AddTransient(sp =>
-                sp.GetRequiredService<Func<MessagingConfiguration, INatsMessagingInfrastructure>>().Invoke(config));
-
-        return serviceCollection;
+        return serviceCollection.AddNatsMessagingInfrastructure(config)
+            .AddNatsStorageInfrastructure(config);
     }
 
     private static NatsConfiguration CreateNatsConfiguration(MessagingConfiguration config)
@@ -184,17 +166,34 @@ public static class ServiceCollectionExtensions
     }
 
     private static IServiceCollection AddNatsMessagingInfrastructure(this IServiceCollection serviceCollection,
-        NatsConfiguration config, Action<Message>? traceAction)
+        NatsConfiguration config)
+        => serviceCollection
+            .AddKeyedSingleton<IMessagingInfrastructureFactory>(MessagingInfrastructureKeys.Nats,
+                (sp, _) => new DelegatingMessagingInfrastructureFactory(
+                    MessagingInfrastructureKeys.Nats,
+                    cfg => CreateMessagingInfrastructure(sp, cfg, config)));
+
+    private static Messaging CreateMessagingInfrastructure(IServiceProvider serviceProvider, MessagingConfiguration config, NatsConfiguration defaultConfiguration)
     {
-        return serviceCollection.AddTransient<INatsMessagingInfrastructure>(sp =>
-            new Messaging(sp.GetRequiredService<ILogger<Messaging>>(),
-                CreateNatsClient(config, sp.GetRequiredService<ILogger<Messaging>>()),
-                new NatsSubscriptionManager(),
-                sp.GetService<IInputRouteTranslator>() ?? new NatsInputRouteTranslator(),
-                sp.GetService<IOutputRouteTranslator>() ?? new NatsOutputRouteTranslator(),
-                sp.GetRequiredService<IServiceMessageDispatcher>(),
-                traceAction));
+        if (config.Config is null || config.Config.Count == 0)
+        {
+            return CreateMessagingInfrastructure(serviceProvider, defaultConfiguration);
+        }
+
+        return CreateMessagingInfrastructure(serviceProvider, CreateNatsConfiguration(config));
     }
+
+    private static Messaging CreateMessagingInfrastructure(IServiceProvider serviceProvider, NatsConfiguration config)
+        => new Messaging(serviceProvider.GetRequiredService<ILogger<Messaging>>(),
+            CreateNatsClient(config, serviceProvider.GetRequiredService<ILogger<Messaging>>()),
+            new NatsSubscriptionManager(),
+            serviceProvider.GetService<IInputRouteTranslator>() ?? new NatsInputRouteTranslator(),
+            serviceProvider.GetService<IOutputRouteTranslator>() ?? new NatsOutputRouteTranslator(),
+            ResolveMessageDispatcher(serviceProvider));
+
+    private static IServiceMessageDispatcher ResolveMessageDispatcher(IServiceProvider serviceProvider)
+        => serviceProvider.GetService<IServiceMessageDispatcher>() ??
+           throw new InvalidOperationException("IServiceMessageDispatcher is not available. Ensure SAF.Messaging.Runtime is loaded as a plugin and SAF.Messaging.Contracts.dll is included in PluginContractsSearchPattern.");
 
     private static IServiceCollection AddNatsStorageInfrastructure(this IServiceCollection serviceCollection,
         NatsConfiguration config)
@@ -206,3 +205,5 @@ public static class ServiceCollectionExtensions
         });
     }
 }
+
+

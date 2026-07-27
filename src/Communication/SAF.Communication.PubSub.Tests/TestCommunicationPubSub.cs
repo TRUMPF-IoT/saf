@@ -1,10 +1,10 @@
-// SPDX-FileCopyrightText: 2017-2021 TRUMPF Laser GmbH
+// SPDX-FileCopyrightText: 2017-2026 TRUMPF Laser SE
 //
 // SPDX-License-Identifier: MPL-2.0
 
 namespace SAF.Communication.PubSub.Tests;
 
-using Common;
+using SAF.Common;
 using Interfaces;
 using Xunit;
 
@@ -119,3 +119,5 @@ internal class TestRegistryLifetimeHandlerBase : RegistryLifetimeHandlerBase<Top
         DownEventFired = true;
     }
 }
+
+

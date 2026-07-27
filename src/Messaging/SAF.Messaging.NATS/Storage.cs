@@ -1,4 +1,4 @@
-﻿// SPDX-FileCopyrightText: 2017-2025 TRUMPF Laser GmbH
+// SPDX-FileCopyrightText: 2017-2026 TRUMPF Laser SE
 //
 // SPDX-License-Identifier: MPL-2.0
 
@@ -92,3 +92,5 @@ public class Storage : IStorageInfrastructure, IDisposable
         _natsObjContext.JetStreamContext.Connection.DisposeAsync().AsTask().Wait();
     }
 }
+
+

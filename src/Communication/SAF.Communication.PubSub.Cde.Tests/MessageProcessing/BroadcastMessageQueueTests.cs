@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: 2017-2025 TRUMPF Laser GmbH
+// SPDX-FileCopyrightText: 2017-2026 TRUMPF Laser SE
 //
 // SPDX-License-Identifier: MPL-2.0
 
@@ -7,7 +7,7 @@ namespace SAF.Communication.PubSub.Cde.Tests.MessageProcessing;
 using System.Collections.Concurrent;
 using SAF.Communication.PubSub.Cde.MessageProcessing;
 using SAF.Communication.PubSub.Interfaces;
-using SAF.Common;
+using SAF.Messaging.Contracts;
 using Xunit;
 
 public class BroadcastMessageQueueTests
@@ -110,25 +110,30 @@ public class BroadcastMessageQueueTests
     [Fact]
     public void Enqueue_ConcurrentAdds_StartsOnlyOneProcessingLoop()
     {
-        HashSet<int?> taskIds = [];
+        const int totalMessages = 50;
+        var taskIds = new ConcurrentDictionary<int, byte>();
         var totalProcessed = 0;
-        
+
+        using var allMessagesEnqueued = new ManualResetEventSlim();
         using var doneEvent = new ManualResetEventSlim();
         var queue = new BroadcastMessageQueue((_, messages) =>
         {
-            taskIds.Add(Task.CurrentId);
+            taskIds.TryAdd(Task.CurrentId ?? -1, 0);
+
+            allMessagesEnqueued.Wait(TestContext.Current.CancellationToken);
 
             Interlocked.Add(ref totalProcessed, messages.Count());
-            if (totalProcessed >= 50)
+            if (totalProcessed >= totalMessages)
             {
                 doneEvent.Set();
             }
         });
 
-        Parallel.For(0, 50, _ => queue.Enqueue(CreateBroadcastMessage("userX")));
+        Parallel.For(0, totalMessages, _ => queue.Enqueue(CreateBroadcastMessage("userX")));
+        allMessagesEnqueued.Set();
 
         Assert.True(doneEvent.Wait(TimeSpan.FromSeconds(5), TestContext.Current.CancellationToken), "Not all messages processed in time");
-        Assert.Equal(50, totalProcessed);
+        Assert.Equal(totalMessages, totalProcessed);
         Assert.Single(taskIds);
     }
 
@@ -139,3 +144,5 @@ public class BroadcastMessageQueueTests
         return new BroadcastMessage(topic, message, userId, RoutingOptions.All);
     }
 }
+
+

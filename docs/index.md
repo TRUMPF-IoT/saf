@@ -1,31 +1,80 @@
 # Smart Application Framework (SAF)
 
-The Smart Application Framework (SAF) is an open-source and cross-plattform framework for building distributed applications across cloud and edge. It allows developers to build resilient, stateless and stateful plug-ins that run on cloud and edge.
+[![License](https://img.shields.io/github/license/trumpf-iot/saf)](https://github.com/TRUMPF-IoT/saf/blob/master/LICENSE)
+[![NuGet](https://img.shields.io/nuget/v/SAF.Common)](https://www.nuget.org/packages/SAF.Common)
+[![.NET](https://github.com/trumpf-iot/saf/actions/workflows/dotnet-core.yml/badge.svg?branch=master)](https://github.com/trumpf-iot/saf/actions/workflows/dotnet-core.yml)
 
-SAF runs on [.NET Core](https://dotnet) and can easily be integrated into [ASP.NET Core](https://docs.microsoft.com/aspnet/core) applications. It utilizes Microsoft's .NET Core [Dependency Injection](https://docs.microsoft.com/aspnet/core/fundamentals/dependency-injection) to provide a main Dependency Injection (DI) container that loads various plug-ins. At its base, it provides exchangeable messaging and storage infrastructure services as well as a logging interface.
+SAF is an open-source, cross-platform framework for building **distributed applications** across cloud and edge. It lets you compose applications from independently deployable plug-ins that communicate exclusively through a shared messaging infrastructure — keeping plug-ins loosely coupled and independently replaceable.
 
-## Overview
+## What SAF Does
 
-A distributed application built upon the Service Application Framework (SAF) consists at least of two things: A [SAF Host](#saf-host) and a [SAF Plug-in](#saf-plug-in). The SAF Host is responsible for loading and initializing the SAF Infrastructure Services and for loading and initializing the SAF Plug-ins. It provides the SAF Infrastructure Services to the SAF Plug-ins using Microsofts's .NET Core Dependency Injection.
+SAF builds on top of .NET's `Microsoft.Extensions.Hosting` and adds:
 
-![SAF Application Overview](./diagrams/saf-overview.svg).
+| Layer | What it provides |
+|---|---|
+| **Plugin System** | Assembly-isolated plug-in loading, independent DI containers per plug-in, typed cross-plug-in service resolution |
+| **SAF Host** | Opinionated host wiring: service host identity, plug-in folder discovery, optional diagnostics |
+| **Messaging Infrastructure** | Exchangeable pub/sub broker (In-Process, Redis, NATS, C-DEngine, or Routing) |
+| **Storage Infrastructure** | Exchangeable key/value store (LiteDB, SQLite, Redis, C-DEngine) |
+| **Toolbox Services** | Ready-made helpers: Heartbeat, Request/Reply client, File Transfer |
 
-Additionaly SAF provides the SAF Toolbox Services which are a set of useful tools to support you with common tasks when implementing your SAF Plug-in functionality.
+## Core Design Principles
 
-### SAF Host
+- **Plug-in isolation** — each plug-in gets its own DI container. Private services are invisible to other plug-ins.
+- **Communication through messaging** — plug-ins never call each other directly; they publish and subscribe to topics.
+- **Exchangeable infrastructure** — swap the message broker or storage backend without touching plug-in code.
+- **SAF-agnostic plugin system** — the plugin loading mechanism (`SAF.PluginSystem.*`) has no SAF-specific dependencies and can be used independently.
 
-A Smart Application Framework Host or `ServiceHost` loads one or more SAF Plug-ins during runtime. It is also possible to run several SAF Hosts with different plug-ins in certain IT infrastructures. 
+## Architecture Overview
 
-It initializes its own main Dependency Injection (DI) container that contains the [SAF Infrastructure Services](./infrastructureAndToolboxServices.md#saf-infrastructure-services). The `ServiceHost` is responsible to create one DI container for every loaded Plug-in. So every loaded SAF Plug-in gets it's own DI container. It then  redirects the SAF Infrastructure Services to every plug-in specific DI containers.
+```mermaid
+graph TB
+    subgraph Host Process
+        H[".NET Generic Host"] --> SAF[SAF Host]
+        SAF --> PS[Plugin System]
+        PS --> |"loads & isolates"| PA["Plugin A\n(own DI container)"]
+        PS --> |"loads & isolates"| PB["Plugin B\n(own DI container)"]
 
-For a better understanding of the Dependency Injection (DI) container concept of SAF see [SAF DI Container Overview](./diContainerOverview.md).
+        subgraph "Shared Infrastructure (injected into every plugin)"
+            MSG[IMessagingInfrastructure]
+            STO[IStorageInfrastructure]
+        end
 
-### SAF Plug-in
+        PA --- MSG
+        PA --- STO
+        PB --- MSG
+        PB --- STO
+    end
 
-When implementing a Smart Application Framework Plug-in you are able to extend your Smart Application with whatever functionality you need. Plug-ins are losely coupled through SAFs messaging infrastructure.
+    PA -->|"publish(topic, payload)"| MSG
+    MSG -->|"subscribe(topic)"| PB
+```
 
-A SAF Plug-in will be loaded from the SAF Host that creates a Dependency Injection (DI) container the contains the [SAF Infrastructure Services](./infrastructureAndToolboxServices.md#saf-infrastructure-services). It must provide excactly one public implementation of `IServiceAssemblyManifest` that describes the Plug-in and registers the plug-ins dependencies in the plug-in specific DI container provided by the host.
+## Package Overview
 
-Your are able to register [SAF Toolbox Services](./infrastructureAndToolboxServices.md#saf-toolbox-services) in the Plug-in specific DI container that may help you to rapidly implement your plug-in functionality.
+| Package | Purpose |
+|---|---|
+| `SAF.Common` | Core interfaces: `IStorageInfrastructure`, `IServiceHostInfo` |
+| `SAF.Messaging.Contracts` | Core interfaces: `IMessagingInfrastructure`, `IMessageHandler`, `Message` |
+| `SAF.Messaging.Runtime` | Runtime wiring: resolves the primary `IMessagingInfrastructure` plug-in |
+| `SAF.Messaging.InProcess` | In-memory messaging (development / tests) |
+| `SAF.Messaging.Redis` | Redis-backed messaging and storage |
+| `SAF.Messaging.NATS` | NATS-backed messaging and storage |
+| `SAF.Messaging.Cde` | C-DEngine-backed messaging |
+| `SAF.Messaging.Routing` | Fan-out / routing across multiple brokers |
+| `SAF.Storage.LiteDb` | LiteDB-backed key/value storage |
+| `SAF.Storage.SQLite` | SQLite-backed key/value storage |
+| `SAF.PluginSystem.Hosting` | Plugin loading engine |
+| `SAF.PluginSystem.Hosting.Contracts` | Plugin contracts: `IPluginManifest`, `IServicePlugin`, … |
+| `SAF.Hosting` | SAF-specific host wiring on top of the plugin system |
+| `SAF.Toolbox` | Heartbeat, RequestClient, FileTransfer helpers |
 
-For a better understanding of the Dependency Injection (DI) container concept of SAF see [SAF DI Container Overview](./diContainerOverview.md).
+## Documentation
+
+- [Getting Started](./getting-started.md) — create your first SAF application end-to-end
+- [SAF Host](./saf-host.md) — initialise and configure the host
+- [Plugin System](./plugin-system.md) — deep-dive into the plugin loading engine (SAF-independent)
+- [Messaging Infrastructure](./messaging.md) — pub/sub how-tos and all implementations
+- [Storage Infrastructure](./storage.md) — key/value store how-tos and all implementations
+- [Toolbox Services](./toolbox.md) — Heartbeat, Request/Reply, File Transfer
+- [Migration Guide: 10.x → 11.x](./migration-10-to-11.md) — breaking changes and upgrade steps

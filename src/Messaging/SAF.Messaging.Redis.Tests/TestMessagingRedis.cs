@@ -1,10 +1,11 @@
-// SPDX-FileCopyrightText: 2017-2021 TRUMPF Laser GmbH
+// SPDX-FileCopyrightText: 2017-2026 TRUMPF Laser SE
 //
 // SPDX-License-Identifier: MPL-2.0
 
 namespace SAF.Messaging.Redis.Tests;
+
 using NSubstitute;
-using Common;
+using SAF.Messaging.Contracts;
 using StackExchange.Redis;
 using System.Net;
 using Xunit;
@@ -19,7 +20,7 @@ public class TestMessagingRedis
         var subscriber = Substitute.For<ISubscriber>();
         connectionMultiplexer.GetSubscriber().Returns(subscriber);
 
-        Messaging messaging = new(null, connectionMultiplexer, smd, null);
+        Messaging messaging = new(null, connectionMultiplexer, smd);
         messaging.Unsubscribe(null!);
         subscriber.DidNotReceive().Unsubscribe(Arg.Any<RedisChannel>(), Arg.Any<Action<RedisChannel, RedisValue>>(), Arg.Any<CommandFlags>());
         messaging.Unsubscribe("");
@@ -102,3 +103,5 @@ public class TestMessagingRedis
         Assert.Throws<NotSupportedException>(() => storage.RemoveArea("global"));
     }
 }
+
+

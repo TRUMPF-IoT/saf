@@ -1,11 +1,12 @@
-// SPDX-FileCopyrightText: 2017-2025 TRUMPF Laser GmbH
+// SPDX-FileCopyrightText: 2017-2026 TRUMPF Laser SE
 //
 // SPDX-License-Identifier: MPL-2.0
 
 
 namespace SAF.Communication.PubSub.Cde;
 using nsCDEngine.BaseClasses;
-using Common;
+using SAF.Common;
+using SAF.Messaging.Contracts;
 using SAF.Communication.Cde;
 using Interfaces;
 using SAF.Communication.Cde.Utils;
@@ -191,3 +192,5 @@ internal class RemoteSubscriber : IRemoteSubscriber
         }
     }
 }
+
+

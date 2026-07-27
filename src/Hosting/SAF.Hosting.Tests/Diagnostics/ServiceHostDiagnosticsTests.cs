@@ -1,105 +1,233 @@
-// SPDX-FileCopyrightText: 2017-2020 TRUMPF Laser GmbH
+// SPDX-FileCopyrightText: 2017-2026 TRUMPF Laser SE
 //
 // SPDX-License-Identifier: MPL-2.0
 
 namespace SAF.Hosting.Tests.Diagnostics;
-using Contracts;
-using Microsoft.Extensions.Logging;
+
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging.Abstractions;
 using NSubstitute;
-using NSubstitute.ExceptionExtensions;
-using SAF.Hosting.Diagnostics;
-using System.Diagnostics;
-using System.IO.Abstractions.TestingHelpers;
-using System.Reflection;
-using System.Runtime.Loader;
+using SAF.Common;
+using SAF.Common.Diagnostics;
+using SAF.PluginSystem.Hosting.Contracts;
+using System.Text.Json;
+using Testably.Abstractions.Testing;
 using Xunit;
 
 public class ServiceHostDiagnosticsTests
 {
-    private readonly ILogger<ServiceHostDiagnostics> _logger;
-    private readonly IServiceHostInfo _hostInfo = Substitute.For<IServiceHostInfo>();
-    private readonly MockFileSystem _fileSystem = new();
+    private const string UserBasePath = "/saf/userbase";
+    private const string DiagnosticsSubDir = "diagnostics";
 
-    public ServiceHostDiagnosticsTests(ITestOutputHelper outputHelper)
+    /// <summary>
+    /// Builds a <see cref="ServiceHostDiagnostics"/> with sensible defaults.
+    /// Any parameter can be overridden per test.
+    /// </summary>
+    private static ServiceHostDiagnostics CreateSut(
+        IServiceHostInfo? hostInfo = null,
+        IEnumerable<IPluginAssemblyContainer>? containers = null,
+        MockFileSystem? fileSystem = null)
     {
-        var loggerFactory = LoggerFactory.Create(builder => builder.AddXUnit(outputHelper).SetMinimumLevel(LogLevel.Warning));
-        _logger = loggerFactory.CreateLogger<ServiceHostDiagnostics>();
+        var services = new ServiceCollection();
+        if (hostInfo is not null)
+            services.AddSingleton(hostInfo);
 
-        _hostInfo.Id.Returns("hostId");
-        _hostInfo.FileSystemUserBasePath.Returns("userbase");
+        var sp = services.BuildServiceProvider();
+        var fs = fileSystem ?? new MockFileSystem();
+
+        return new ServiceHostDiagnostics(
+            NullLogger<ServiceHostDiagnostics>.Instance,
+            containers ?? [],
+            sp,
+            fs);
+    }
+
+    private static IServiceHostInfo HostInfoWith(string id, string userBasePath)
+    {
+        var hostInfo = Substitute.For<IServiceHostInfo>();
+        hostInfo.Id.Returns(id);
+        hostInfo.FileSystemUserBasePath.Returns(userBasePath);
+        return hostInfo;
     }
 
     [Fact]
-    public void SafVersionInfoFilledOk()
+    public async Task StopAsync_ReturnsCompletedTask()
     {
-        var vi = new SafVersionInfo();
-        var assembly = Assembly.GetExecutingAssembly();
-        var version = FileVersionInfo.GetVersionInfo(assembly.Location).ProductVersion;
-        var buildNr = assembly.GetName().Version!.ToString();
-        Assert.Equal(version, vi.Version);
-        Assert.Equal(buildNr, vi.BuildNumber);
+        var sut = CreateSut();
+
+        await sut.StopAsync(CancellationToken.None);
+        // No exception – test passes
     }
 
     [Fact]
-    public void SafServiceInfoFilledOk()
-    {
-        var loadedAssembly = AssemblyLoadContext.Default.LoadFromAssemblyPath(Path.Combine(AppContext.BaseDirectory, "SAF.Hosting.TestServices.dll"));
-        var manifest = loadedAssembly.GetExportedTypes().SingleOrDefault(t => t.IsClass && typeof(IServiceAssemblyManifest).IsAssignableFrom(t));
-        Assert.NotNull(manifest);
-
-        var assembly = (IServiceAssemblyManifest)Activator.CreateInstance(manifest)!;
-        var si = new SafServiceInfo(assembly);
-        Assert.StartsWith("1.2.3.4", si.Version);
-        Assert.Equal("1.2.3.4", si.BuildNumber);
-    }
-
-    [Fact]
-    public async Task StartAsync_CreatesDiagnosticsFile()
+    public async Task StartAsync_WhenHostInfoIsNull_WritesToTempfsUnderBaseDirectory()
     {
         // Arrange
-        var serviceAssemblies = new[] { Substitute.For<IServiceAssemblyManifest>() };
-
-        var diagnostics = new ServiceHostDiagnostics(_logger, serviceAssemblies, _hostInfo, _fileSystem);
+        var fs = new MockFileSystem();
+        var sut = CreateSut(hostInfo: null, fileSystem: fs);
 
         // Act
-        await diagnostics.StartAsync(CancellationToken.None);
+        await sut.StartAsync(CancellationToken.None);
 
-        // Assert
-        Assert.True(_fileSystem.Directory.Exists(_fileSystem.Path.Combine("userbase", "diagnostics")));
-        Assert.True(_fileSystem.File.Exists(_fileSystem.Path.Combine("userbase", "diagnostics", "SafServiceHost_hostId.json")));
+        // Assert – file must exist somewhere inside <baseDir>/tempfs/diagnostics/
+        var expectedDir = fs.Path.Combine(AppContext.BaseDirectory, "tempfs", DiagnosticsSubDir);
+        Assert.True(fs.Directory.Exists(expectedDir));
+        Assert.Single(fs.Directory.GetFiles(expectedDir, "*.json"));
     }
 
     [Fact]
-    public async Task StartAsync_ReplacesExistingFile()
+    public async Task StartAsync_WhenHostInfoHasUserBasePath_WritesToUserBasePath()
     {
-        var filePath = _fileSystem.Path.Combine("userbase", "diagnostics", "SafServiceHost_hostId.json");
+        // Arrange
+        var fs = new MockFileSystem();
+        var hostInfo = HostInfoWith("host-1", UserBasePath);
+        var sut = CreateSut(hostInfo, fileSystem: fs);
 
-        _fileSystem.Directory.CreateDirectory(_fileSystem.Path.Combine("userbase", "diagnostics"));
-        await _fileSystem.File.WriteAllTextAsync(filePath, "content", TestContext.Current.CancellationToken);
-
-        var serviceAssemblies = new[] { Substitute.For<IServiceAssemblyManifest>() };
-
-        var diagnostics = new ServiceHostDiagnostics(_logger, serviceAssemblies, _hostInfo, _fileSystem);
-
-        await diagnostics.StartAsync(CancellationToken.None);
+        // Act
+        await sut.StartAsync(CancellationToken.None);
 
         // Assert
-        Assert.True(_fileSystem.Directory.Exists(_fileSystem.Path.Combine("userbase", "diagnostics")));
-        Assert.True(_fileSystem.File.Exists(filePath));
-        Assert.NotEqual("content", await _fileSystem.File.ReadAllTextAsync(filePath, TestContext.Current.CancellationToken));
+        var expectedDir = fs.Path.Combine(UserBasePath, DiagnosticsSubDir);
+        Assert.True(fs.Directory.Exists(expectedDir));
+        Assert.Single(fs.Directory.GetFiles(expectedDir, "*.json"));
+    }
+
+    [Theory]
+    [InlineData("")]
+    [InlineData("   ")]
+    public async Task StartAsync_WhenUserBasePathIsNullOrWhitespace_WritesToTempfs(string userBasePath)
+    {
+        // Arrange
+        var fs = new MockFileSystem();
+        var hostInfo = HostInfoWith("host-1", userBasePath);
+        var sut = CreateSut(hostInfo, fileSystem: fs);
+
+        // Act
+        await sut.StartAsync(CancellationToken.None);
+
+        // Assert
+        var expectedDir = fs.Path.Combine(AppContext.BaseDirectory, "tempfs", DiagnosticsSubDir);
+        Assert.True(fs.Directory.Exists(expectedDir));
     }
 
     [Fact]
-    public async Task StartAsync_HandlesException()
+    public async Task StartAsync_FileNameContainsHostId()
     {
-        var fileSystem = Substitute.For<System.IO.Abstractions.IFileSystem>();
-        fileSystem.Path.Throws(new InvalidOperationException("dummy"));
+        // Arrange
+        var fs = new MockFileSystem();
+        var hostInfo = HostInfoWith("my-host", UserBasePath);
+        var sut = CreateSut(hostInfo, fileSystem: fs);
 
-        var serviceAssemblies = new[] { Substitute.For<IServiceAssemblyManifest>() };
+        // Act
+        await sut.StartAsync(CancellationToken.None);
 
-        var diagnostics = new ServiceHostDiagnostics(_logger, serviceAssemblies, _hostInfo, fileSystem);
+        // Assert
+        var dir = fs.Path.Combine(UserBasePath, DiagnosticsSubDir);
+        var file = fs.Directory.GetFiles(dir).Single();
+        Assert.Contains("my-host", fs.Path.GetFileName(file));
+    }
 
-        var exception = await Record.ExceptionAsync(() => diagnostics.StartAsync(CancellationToken.None));
-        Assert.Null(exception);
+    [Fact]
+    public async Task StartAsync_InvalidFileNameCharsInHostId_AreReplacedWithUnderscore()
+    {
+        // Arrange – use a host-id that contains chars invalid on all platforms
+        var fs = new MockFileSystem();
+        var hostInfo = HostInfoWith("host/id:with<invalid>chars", UserBasePath);
+        var sut = CreateSut(hostInfo, fileSystem: fs);
+
+        // Act
+        await sut.StartAsync(CancellationToken.None);
+
+        // Assert – all written file names must be valid (no invalid chars remain)
+        var dir = fs.Path.Combine(UserBasePath, DiagnosticsSubDir);
+        var file = fs.Path.GetFileName(fs.Directory.GetFiles(dir).Single());
+        Assert.DoesNotContain('/', file);
+        Assert.DoesNotContain(':', file);
+        Assert.DoesNotContain('<', file);
+        Assert.DoesNotContain('>', file);
+    }
+
+    [Fact]
+    public async Task StartAsync_WrittenFileContainsValidJson()
+    {
+        // Arrange
+        var fs = new MockFileSystem();
+        var hostInfo = HostInfoWith("json-host", UserBasePath);
+        var sut = CreateSut(hostInfo, fileSystem: fs);
+
+        // Act
+        await sut.StartAsync(CancellationToken.None);
+
+        // Assert
+        var dir = fs.Path.Combine(UserBasePath, DiagnosticsSubDir);
+        var content = fs.File.ReadAllText(fs.Directory.GetFiles(dir).Single());
+        var doc = JsonDocument.Parse(content); // throws if invalid JSON
+        Assert.Equal("json-host", doc.RootElement.GetProperty("HostId").GetString());
+    }
+
+    [Fact]
+    public async Task StartAsync_WrittenFileContainsServiceInfoForEachPlugin()
+    {
+        // Arrange
+        var fs = new MockFileSystem();
+        var hostInfo = HostInfoWith("plugin-host", UserBasePath);
+
+        // Use the test assembly's own manifest as a real IPluginManifest so SafServiceInfo can reflect it
+        var manifest = new TestPluginManifest();
+        var container = Substitute.For<IPluginAssemblyContainer>();
+        container.GetPluginManifests().Returns([manifest]);
+
+        var sut = CreateSut(hostInfo, [container], fs);
+
+        // Act
+        await sut.StartAsync(CancellationToken.None);
+
+        // Assert
+        var dir = fs.Path.Combine(UserBasePath, DiagnosticsSubDir);
+        var content = fs.File.ReadAllText(fs.Directory.GetFiles(dir).Single());
+        var doc = JsonDocument.Parse(content);
+        var services = doc.RootElement.GetProperty("SafServices").EnumerateArray().ToList();
+        Assert.Single(services);
+        Assert.Contains(nameof(TestPluginManifest), services[0].GetProperty("FriendlyName").GetString());
+    }
+
+    [Fact]
+    public async Task StartAsync_WhenFileAlreadyExists_OverwritesFile()
+    {
+        // Arrange
+        var fs = new MockFileSystem();
+        var hostInfo = HostInfoWith("overwrite-host", UserBasePath);
+        var sut = CreateSut(hostInfo, fileSystem: fs);
+
+        // Pre-create a stale file at the exact target location
+        var dir = fs.Path.Combine(UserBasePath, DiagnosticsSubDir);
+        fs.Directory.CreateDirectory(dir);
+        var staleFile = fs.Path.Combine(dir, "SafServiceHost_overwrite-host.json");
+        fs.File.WriteAllText(staleFile, "stale");
+
+        // Act
+        await sut.StartAsync(CancellationToken.None);
+
+        // Assert – file still exists but content was replaced
+        Assert.True(fs.File.Exists(staleFile));
+        Assert.NotEqual("stale", fs.File.ReadAllText(staleFile));
+    }
+
+    [Fact]
+    public async Task StartAsync_WhenCollectionThrows_DoesNotPropagateException()
+    {
+        // Arrange – container throws during manifest enumeration
+        var container = Substitute.For<IPluginAssemblyContainer>();
+        container.GetPluginManifests().Returns(_ => throw new InvalidOperationException("boom"));
+
+        var sut = CreateSut(containers: [container]);
+
+        // Act & Assert – must not throw
+        await sut.StartAsync(CancellationToken.None);
+    }
+
+    private sealed class TestPluginManifest : IPluginManifest
+    {
+        public void ConfigureServices(IPluginSystemHostContext context, IServiceCollection pluginServices) { }
     }
 }

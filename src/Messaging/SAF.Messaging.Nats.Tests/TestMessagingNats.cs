@@ -1,11 +1,11 @@
-﻿// SPDX-FileCopyrightText: 2017-2025 TRUMPF Laser GmbH
+// SPDX-FileCopyrightText: 2017-2026 TRUMPF Laser SE
 //
 // SPDX-License-Identifier: MPL-2.0
 
 using NATS.Client.Core;
 using NATS.Client.ObjectStore;
 using NSubstitute;
-using SAF.Common;
+using SAF.Messaging.Contracts;
 using Xunit;
 
 namespace SAF.Messaging.Nats.Tests;
@@ -21,7 +21,7 @@ public class TestMessagingNats
         var subscriptionManager = Substitute.For<INatsSubscriptionManager>();
         var natsClient = Substitute.For<INatsClient>();
 
-        var messaging = new Messaging(null, natsClient, subscriptionManager, inputRouteTranslator, outputRouteTranslator, smd, null);
+        var messaging = new Messaging(null, natsClient, subscriptionManager, inputRouteTranslator, outputRouteTranslator, smd);
         messaging.Unsubscribe(null!);
         subscriptionManager.DidNotReceive().TryRemove(Arg.Any<Guid>(), out _);
 
@@ -193,3 +193,5 @@ public class TestMessagingNats
         natsObjContext.Received().DeleteObjectStore(Arg.Is<string>("area"), CancellationToken.None);
     }
 }
+
+

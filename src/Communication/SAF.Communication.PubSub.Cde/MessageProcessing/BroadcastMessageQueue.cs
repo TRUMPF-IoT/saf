@@ -1,8 +1,8 @@
-﻿// SPDX-FileCopyrightText: 2017-2025 TRUMPF Laser GmbH
+// SPDX-FileCopyrightText: 2017-2026 TRUMPF Laser SE
 //
 // SPDX-License-Identifier: MPL-2.0
 
-using SAF.Common;
+using SAF.Messaging.Contracts;
 using SAF.Communication.PubSub.Interfaces;
 
 namespace SAF.Communication.PubSub.Cde.MessageProcessing;
@@ -60,3 +60,4 @@ public class BroadcastMessageQueue(Action<string, IEnumerable<BroadcastMessage>>
         }
     }
 }
+

@@ -1,12 +1,13 @@
-// SPDX-FileCopyrightText: 2017-2020 TRUMPF Laser GmbH
+// SPDX-FileCopyrightText: 2017-2026 TRUMPF Laser SE
 //
 // SPDX-License-Identifier: MPL-2.0
 
 namespace SAF.Communication.PubSub.Cde;
+
 using nsCDEngine.BaseClasses;
 using nsCDEngine.Engines.ThingService;
 using nsCDEngine.ViewModels;
-using Common;
+using SAF.Messaging.Contracts;
 using SAF.Communication.Cde;
 using SAF.Communication.Cde.Utils;
 using MessageProcessing;
@@ -35,7 +36,7 @@ internal class RegistrySubscriptionResponse : RegistrySubscriptionRequest
 /// Manages the subscriptions of other nodes (each represented by <see cref="RemoteSubscriber"/>).
 /// These will be registered by a subscription event. These subscriptions are used by the parent
 /// <see cref="Publisher"/> to send Messages to all registered subscribers. This class also handles
-/// events for example discovery request or subsciber alive request.
+/// events for example discovery requests or subscriber alive requests.
 /// </summary>
 internal class SubscriptionRegistry : ISubscriptionRegistry
 {
@@ -339,3 +340,5 @@ internal class SubscriptionRegistry : ISubscriptionRegistry
         _line.Broadcast(tsm);
     }
 }
+
+

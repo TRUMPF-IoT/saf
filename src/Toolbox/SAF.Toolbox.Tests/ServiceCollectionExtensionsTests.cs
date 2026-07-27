@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: 2017-2021 TRUMPF Laser GmbH
+// SPDX-FileCopyrightText: 2017-2026 TRUMPF Laser SE
 //
 // SPDX-License-Identifier: MPL-2.0
 
@@ -8,8 +8,10 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
+using System.IO.Abstractions;
 using NSubstitute;
-using Common;
+using SAF.Common;
+using SAF.Messaging.Contracts;
 using Heartbeat;
 using RequestClient;
 using Toolbox.FileTransfer;
@@ -182,4 +184,37 @@ public class ServiceCollectionExtensionsTests
         Assert.NotNull(statefulFileReceiverFactory);
         Assert.Equal(5u, options.Value.StateExpirationAfterHours);
     }
+
+    [Fact]
+    public void AddFileHandlingCreatesFallbackDirectoryWhenNoHostInfoIsAvailable()
+    {
+        _services.AddFileHandling();
+
+        using var provider = _services.BuildServiceProvider();
+
+        var directoryInfo = provider.GetRequiredService<IDirectoryInfo>();
+
+        Assert.True(directoryInfo.Exists);
+        Assert.EndsWith("tempfs", directoryInfo.FullName, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public void AddFileHandlingUsesHostInfoBasePathWhenAvailable()
+    {
+        var userBasePath = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N"));
+        var hostInfo = Substitute.For<IServiceHostInfo>();
+        hostInfo.FileSystemUserBasePath.Returns(userBasePath);
+
+        _services.AddSingleton(hostInfo);
+        _services.AddFileHandling();
+
+        using var provider = _services.BuildServiceProvider();
+
+        var directoryInfo = provider.GetRequiredService<IDirectoryInfo>();
+
+        Assert.True(directoryInfo.Exists);
+        Assert.Equal(userBasePath, directoryInfo.FullName);
+    }
 }
+
+

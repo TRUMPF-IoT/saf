@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: 2017-2020 TRUMPF Laser GmbH
+// SPDX-FileCopyrightText: 2017-2026 TRUMPF Laser SE
 //
 // SPDX-License-Identifier: MPL-2.0
 
@@ -7,7 +7,8 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using nsCDEngine.Engines;
 using nsCDEngine.Engines.ThingService;
-using Common;
+using SAF.Common;
+using SAF.Messaging.Contracts;
 using SAF.Communication.Cde;
 using SAF.Communication.PubSub.Cde;
 using Communication.PubSub.Interfaces;
@@ -30,14 +31,12 @@ public static class ServiceCollectionExtensions
             });
     }
 
-    public static IServiceCollection AddCdeMessagingInfrastructure(this IServiceCollection collection, Action<Message>? traceAction = null)
+    public static IServiceCollection AddCdeMessagingInfrastructure(this IServiceCollection collection)
         => collection.AddCdePubSubServices()
-            .AddTransient<ICdeMessagingInfrastructure>(sp =>
-                new Messaging(sp.GetService<ILogger<Messaging>>(),
-                    sp.GetRequiredService<IServiceMessageDispatcher>(),
-                    sp.GetRequiredService<IPublisher>(),
-                    sp.GetRequiredService<ISubscriber>(),
-                    traceAction));
+            .AddKeyedSingleton<IMessagingInfrastructureFactory>(MessagingInfrastructureKeys.Cde,
+                (sp, _) => new DelegatingMessagingInfrastructureFactory(
+                    MessagingInfrastructureKeys.Cde,
+                    cfg => CreateMessagingInfrastructure(sp, cfg)));
 
     public static IServiceCollection AddCdeStorageInfrastructure(this IServiceCollection collection)
         => collection.AddSingleton<IStorageInfrastructure, Storage>(sp =>
@@ -46,28 +45,23 @@ public static class ServiceCollectionExtensions
             return new Storage(sp.GetService<ILogger<Storage>>());
         });
 
-    public static IServiceCollection AddCdeInfrastructure(this IServiceCollection collection, Action<CdeConfiguration> configure, Action<Message>? traceAction = null)
+    public static IServiceCollection AddCdeInfrastructure(this IServiceCollection collection, Action<CdeConfiguration> configure)
     {
         return collection.AddCde(configure)
-            .AddCdeMessagingInfrastructure(traceAction)
-            .AddCdeStorageInfrastructure()
-            .AddSingleton<IMessagingInfrastructure>(sp => sp.GetRequiredService<ICdeMessagingInfrastructure>());
+            .AddCdeMessagingInfrastructure()
+            .AddCdeStorageInfrastructure();
     }
 
-    internal static IServiceCollection AddCdeMessagingInfrastructure(this IServiceCollection collection, MessagingConfiguration config)
-    {
-        collection.AddCdePubSubServices()
-            .AddTransient(sp => new Func<MessagingConfiguration, ICdeMessagingInfrastructure>(cfg =>
-                new Messaging(sp.GetService<ILogger<Messaging>>(),
-                    sp.GetRequiredService<IServiceMessageDispatcher>(),
-                    sp.GetRequiredService<IPublisher>(),
-                    sp.GetRequiredService<ISubscriber>(),
-                    null,
-                    new CdeMessagingConfiguration(cfg))))
-            .AddTransient(sp => sp.GetRequiredService<Func<MessagingConfiguration, ICdeMessagingInfrastructure>>().Invoke(config));
+    private static Messaging CreateMessagingInfrastructure(IServiceProvider serviceProvider, MessagingConfiguration config)
+        => new Messaging(serviceProvider.GetService<ILogger<Messaging>>(),
+            ResolveMessageDispatcher(serviceProvider),
+            serviceProvider.GetRequiredService<IPublisher>(),
+            serviceProvider.GetRequiredService<ISubscriber>(),
+            config.Config is null || config.Config.Count == 0 ? new CdeMessagingConfiguration() : new CdeMessagingConfiguration(config));
 
-        return collection;
-    }
+    private static IServiceMessageDispatcher ResolveMessageDispatcher(IServiceProvider serviceProvider)
+        => serviceProvider.GetService<IServiceMessageDispatcher>() ??
+           throw new InvalidOperationException("IServiceMessageDispatcher is not available. Ensure SAF.Messaging.Runtime is loaded as a plugin and SAF.Messaging.Contracts.dll is included in PluginContractsSearchPattern.");
 
     private static IServiceCollection AddCdePubSubServices(this IServiceCollection collection)
     {
@@ -99,3 +93,5 @@ public static class ServiceCollectionExtensions
         return collection;
     }
 }
+
+

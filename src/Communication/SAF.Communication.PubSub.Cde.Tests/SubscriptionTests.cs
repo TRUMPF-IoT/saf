@@ -1,4 +1,4 @@
-﻿// SPDX-FileCopyrightText: 2017-2025 TRUMPF Laser GmbH
+// SPDX-FileCopyrightText: 2017-2026 TRUMPF Laser SE
 //
 // SPDX-License-Identifier: MPL-2.0
 
@@ -9,7 +9,7 @@ using nsCDEngine.ViewModels;
 using NSubstitute;
 using SAF.Communication.Cde;
 using SAF.Communication.PubSub.Interfaces;
-using SAF.Common;
+using SAF.Messaging.Contracts;
 using Xunit;
 using System.Collections.Concurrent;
 
@@ -145,3 +145,4 @@ public class SubscriptionTests
         raiseMethod?.DynamicInvoke(topic, version, msg);
     }
 }
+

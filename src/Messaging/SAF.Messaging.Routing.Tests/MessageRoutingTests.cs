@@ -1,10 +1,11 @@
-// SPDX-FileCopyrightText: 2017-2020 TRUMPF Laser GmbH
+// SPDX-FileCopyrightText: 2017-2026 TRUMPF Laser SE
 //
 // SPDX-License-Identifier: MPL-2.0
 
 namespace SAF.Messaging.Routing.Tests;
+
 using NSubstitute;
-using Common;
+using SAF.Messaging.Contracts;
 using Xunit;
 
 public class MessageRoutingTest
@@ -39,6 +40,28 @@ public class MessageRoutingTest
         messageRouting.ClearReceivedCalls();
 
         messaging.Unsubscribe(id);
+    }
+
+    [Fact]
+    public void DisposingMessagingDisposesContainedRoutings()
+    {
+        var messageRouting = Substitute.For<IMessageRouting, IDisposable>();
+        Messaging messaging = new(null, new IMessageRouting[] { messageRouting });
+
+        messaging.Dispose();
+
+        ((IDisposable)messageRouting).Received(1).Dispose();
+    }
+
+    [Fact]
+    public void DisposingRoutingDisposesBackendMessagingInfrastructure()
+    {
+        var messaging = Substitute.For<IMessagingInfrastructure, IDisposable>();
+        var routing = new MessageRouting(messaging);
+
+        routing.Dispose();
+
+        ((IDisposable)messaging).Received(1).Dispose();
     }
 
     [Theory]
@@ -223,3 +246,5 @@ public class MessageRoutingTest
             Payload = "test"
         };
 }
+
+

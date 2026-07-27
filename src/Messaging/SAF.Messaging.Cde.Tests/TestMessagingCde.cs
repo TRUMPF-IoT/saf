@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: 2017-2021 TRUMPF Laser GmbH
+// SPDX-FileCopyrightText: 2017-2026 TRUMPF Laser SE
 //
 // SPDX-License-Identifier: MPL-2.0
 
@@ -8,7 +8,7 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using NSubstitute;
-using Common;
+using SAF.Messaging.Contracts;
 using SAF.Communication.Cde;
 using Communication.PubSub.Interfaces;
 using Xunit;
@@ -42,7 +42,7 @@ public class TestMessagingCde
         test.Patterns.Returns(["*"]);
         subscriber.Subscribe(Arg.Any<RoutingOptions>(), Arg.Any<string>()).Returns(test);
 
-        Messaging messaging = new(null, smd, publisher, subscriber, null);
+        Messaging messaging = new(null, smd, publisher, subscriber);
         messaging.Unsubscribe(null!);
         test.DidNotReceive().Unsubscribe();
         messaging.Unsubscribe("");
@@ -116,3 +116,5 @@ public class TestMessagingCde
     {
     }
 }
+
+

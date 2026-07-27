@@ -1,9 +1,9 @@
-﻿// SPDX-FileCopyrightText: 2017-2025 TRUMPF Laser GmbH
+// SPDX-FileCopyrightText: 2017-2026 TRUMPF Laser SE
 //
 // SPDX-License-Identifier: MPL-2.0
 
 using NATS.Client.Core;
-using SAF.Common;
+using SAF.Messaging.Contracts;
 
 namespace SAF.Messaging.Nats;
 
@@ -76,3 +76,5 @@ internal class NatsMessagingConfiguration
 
     public TlsMode Mode => _config.TryGetValue("TlsOpts_Mode", out var mode) ? Enum.Parse<TlsMode>(mode) : TlsMode.Auto;
 }
+
+

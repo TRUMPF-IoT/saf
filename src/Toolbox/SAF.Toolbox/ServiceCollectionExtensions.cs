@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: 2017-2020 TRUMPF Laser GmbH
+// SPDX-FileCopyrightText: 2017-2026 TRUMPF Laser SE
 //
 // SPDX-License-Identifier: MPL-2.0
 
@@ -9,7 +9,7 @@ using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using SAF.Common;
-using SAF.Hosting.Contracts;
+using SAF.Messaging.Contracts;
 using SAF.Toolbox.Heartbeat;
 using SAF.Toolbox.RequestClient;
 
@@ -37,14 +37,20 @@ public static class ServiceCollectionExtensions
     public static IServiceCollection AddFileHandling(this IServiceCollection services)
     {
         services.TryAddTransient<IFileSystem, FileSystem>();
-        services.TryAddTransient(sp =>
+        services.TryAddTransient<IDirectoryInfo>(sp =>
+        {
+            var hostInfo = sp.GetService<IServiceHostInfo>();
+            var fs = sp.GetRequiredService<IFileSystem>();
+            var basePath = hostInfo?.FileSystemUserBasePath ?? Path.Combine(AppContext.BaseDirectory, "tempfs");
+            var di = fs.DirectoryInfo.New(basePath);
+
+            if (!di.Exists)
             {
-                var hi = sp.GetRequiredService<IServiceHostInfo>();
-                var fs = sp.GetRequiredService<IFileSystem>();
-                var di = fs.DirectoryInfo.New(hi.FileSystemUserBasePath);
-                if (!di.Exists) di.Create();
-                return di;
-            });
+                di.Create();
+            }
+
+            return di;
+        });
 
         return services;
     }
@@ -109,3 +115,4 @@ public static class ServiceCollectionExtensions
         return services;
     }
 }
+

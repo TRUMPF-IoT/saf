@@ -1,1 +1,0 @@
-﻿The file is required, for creating the TestData directory in the output folder.

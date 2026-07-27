@@ -1,101 +1,85 @@
-// SPDX-FileCopyrightText: 2017-2020 TRUMPF Laser GmbH
+// SPDX-FileCopyrightText: 2017-2026 TRUMPF Laser SE
 //
 // SPDX-License-Identifier: MPL-2.0
 
 namespace SAF.Messaging.Routing.Tests;
-using System.Reflection;
+
 using Microsoft.Extensions.DependencyInjection;
-using NSubstitute;
-using Common;
+using SAF.Messaging.Contracts;
 using Xunit;
 
 public class AssemblyLoadingTests
 {
-    private string TestAssemblyPath => Path.GetDirectoryName(new Uri(Assembly.GetExecutingAssembly().Location).LocalPath)!;
-    private string TestDataPath => Path.Combine(TestAssemblyPath, "TestData");
-
     private RoutingConfiguration[] TestRoutings => new[]
     {
         new RoutingConfiguration
         {
-            Messaging = new MessagingConfiguration {Type = "IRedisMessagingInfrastructure"}
+            Messaging = new MessagingConfiguration { Key = "Redis" }
         }
     };
 
     [Fact]
-    public void AddsSafDefaultMessagingAssembliesToServiceCollectionWorks()
+    public void AddsRoutingInfrastructureAndPublicMessagingService()
     {
-        var servicesMock = Substitute.For<IServiceCollection>();
-        servicesMock.AddRoutingMessagingInfrastructure(config => config.Routings = TestRoutings);
+        var services = new ServiceCollection();
 
-        servicesMock.Received(1).Add(Arg.Is<ServiceDescriptor>(sd => sd.ServiceType.Name == "IRedisMessagingInfrastructure"));
-        servicesMock.Received(1).Add(Arg.Is<ServiceDescriptor>(sd => sd.ServiceType.Name == "IRoutingMessagingInfrastructure"));
+        services.AddKeyedSingleton<IMessagingInfrastructureFactory>("Redis",
+            new DelegatingMessagingInfrastructureFactory("Redis", _ => new StubMessagingInfrastructure()));
+
+        services.AddRoutingMessagingInfrastructure(config => config.Routings = TestRoutings);
+
+        Assert.Contains(services, sd => sd.ServiceType == typeof(Messaging));
+        Assert.Contains(services, sd => sd.ServiceType == typeof(IMessagingInfrastructureFactory) && sd.IsKeyedService && Equals(sd.ServiceKey, MessagingInfrastructureKeys.Routing));
     }
 
     [Fact]
-    public void AddsSafMessagingAssembliesPerPatternToServiceCollectionWorks()
+    public void BuildsRoutingMessagingFromKeyedFactory()
     {
-        var servicesMock = Substitute.For<IServiceCollection>();
-        servicesMock.AddRoutingMessagingInfrastructure(config =>
+        var services = new ServiceCollection();
+        var factory = new DelegatingMessagingInfrastructureFactory("Redis", _ => new StubMessagingInfrastructure());
+
+        services.AddKeyedSingleton<IMessagingInfrastructureFactory>("Redis", factory);
+        services.AddRoutingMessagingInfrastructure(config => config.Routings = TestRoutings);
+
+        Assert.Contains(services, sd => sd.ServiceType == typeof(IMessagingInfrastructureFactory) && sd.IsKeyedService && Equals(sd.ServiceKey, "Redis"));
+    }
+
+    [Fact]
+    public void ThrowsWhenRoutingReferencesRoutingInfrastructure()
+    {
+        var services = new ServiceCollection();
+        services.AddRoutingMessagingInfrastructure(config =>
+            config.Routings =
+            [
+                new RoutingConfiguration
+                {
+                    Messaging = new MessagingConfiguration { Key = MessagingInfrastructureKeys.Routing }
+                }
+            ]);
+
+        var serviceProvider = services.BuildServiceProvider();
+
+        Assert.Throws<InvalidOperationException>(() => serviceProvider.GetRequiredService<Messaging>());
+    }
+
+    private sealed class StubMessagingInfrastructure : IMessagingInfrastructure
+    {
+        public void Publish(Message message)
         {
-            config.SearchPath = "./SAF.Messaging.Redis.dll";
-            config.Routings = TestRoutings;
-        });
+        }
 
-        servicesMock.Received(1).Add(Arg.Is<ServiceDescriptor>(sd => sd.ServiceType.Name == "IRedisMessagingInfrastructure"));
-        servicesMock.Received(1).Add(Arg.Is<ServiceDescriptor>(sd => sd.ServiceType.Name == "IRoutingMessagingInfrastructure"));
-    }
+        public object Subscribe<TMessageHandler>() where TMessageHandler : IMessageHandler => new object();
 
-    [Fact]
-    public void AddsSafMessagingAssembliesFromBasePathToServiceCollectionWorks()
-    {
-        var servicesMock = Substitute.For<IServiceCollection>();
-        servicesMock.AddRoutingMessagingInfrastructure(config =>
+        public object Subscribe<TMessageHandler>(string routeFilterPattern) where TMessageHandler : IMessageHandler => new object();
+
+        public object Subscribe(Action<Message> handler) => new object();
+
+        public object Subscribe(string routeFilterPattern, Action<Message> handler) => new object();
+
+        public void Unsubscribe(object subscription)
         {
-            config.BasePath = TestAssemblyPath;
-            config.SearchPath = "./SAF.Messaging.Redis.dll";
-            config.Routings = TestRoutings;
-        });
-
-        servicesMock.Received(1).Add(Arg.Is<ServiceDescriptor>(sd => sd.ServiceType.Name == "IRedisMessagingInfrastructure"));
-        servicesMock.Received(1).Add(Arg.Is<ServiceDescriptor>(sd => sd.ServiceType.Name == "IRoutingMessagingInfrastructure"));
-    }
-
-    [Fact]
-    public void SearchingServiceAssembliesWithSubDirectoryWorks()
-    {
-        var result = ServiceCollectionExtensions.SearchMessagingAssemblies(Path.Combine(TestDataPath, "FilePatterns1"), "**/*.txt", ".*").ToList();
-        // All should match -> just compare count
-        Assert.Equal(6, result.Count);
-    }
-
-    [Fact]
-    public void SearchingMessagingAssembliesWithoutSubDirectoryWorksCorrectly()
-    {
-        var result = ServiceCollectionExtensions.SearchMessagingAssemblies(Path.Combine(TestDataPath, "FilePatterns1"), "*.txt", ".*").ToList();
-            
-        Assert.Equal(2, result.Count);
-        Assert.Contains(Path.Combine(TestDataPath, "FilePatterns1", "My.Messaging.3.txt"), result);
-        Assert.Contains(Path.Combine(TestDataPath, "FilePatterns1", "My.Messaging.3.Contracts.txt"), result);
-    }
-
-    [Fact]
-    public void SearchingMessagingAssembliesWithExclusionGlobWorksCorrectly()
-    {
-        var result = ServiceCollectionExtensions.SearchMessagingAssemblies(Path.Combine(TestDataPath, "FilePatterns1"), "**/My.Messaging*.txt;|**/*Contracts*.txt", ".*").ToList();
-
-        Assert.Equal(3, result.Count);
-        Assert.Contains(Path.Combine(TestDataPath, "FilePatterns1", "My.Messaging.3.txt"), result);
-        Assert.Contains(Path.Combine(TestDataPath, "FilePatterns1", "SubDir", "My.Messaging.1.txt"), result);
-        Assert.Contains(Path.Combine(TestDataPath, "FilePatterns1", "SubDir", "My.Messaging.2.txt"), result);
-    }
-
-    [Fact]
-    public void SearchingMessagingAssembliesWithFilterPatternWorksCorrectly()
-    {
-        var result = ServiceCollectionExtensions.SearchMessagingAssemblies(Path.Combine(TestDataPath, "FilePatterns1"), "*.txt", "^((?!Contracts).)*$");
-
-        Assert.Single(result);
-        Assert.Contains(Path.Combine(TestDataPath, "FilePatterns1", "My.Messaging.3.txt"), result);
+        }
     }
 }
+
+

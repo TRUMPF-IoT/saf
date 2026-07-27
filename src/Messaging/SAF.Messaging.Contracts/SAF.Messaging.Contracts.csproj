@@ -1,0 +1,15 @@
+<!--
+SPDX-FileCopyrightText: 2017-2026 TRUMPF Laser SE
+
+SPDX-License-Identifier: MPL-2.0
+-->
+
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <Description>Smart Application Framework (SAF) messaging contracts for cross-plugin messaging integration.</Description>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+  </PropertyGroup>
+
+</Project>

@@ -1,13 +1,14 @@
-// SPDX-FileCopyrightText: 2017-2020 TRUMPF Laser GmbH
+// SPDX-FileCopyrightText: 2017-2026 TRUMPF Laser SE
 //
 // SPDX-License-Identifier: MPL-2.0
 
 namespace SAF.Messaging.Redis;
+
 using System.Collections.Concurrent;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using StackExchange.Redis;
-using Common;
+using SAF.Messaging.Contracts;
 using JsonSerializer = Toolbox.Serialization.JsonSerializer;
 
 public static class RedisMessageVersion
@@ -23,26 +24,24 @@ internal class RedisMessage
     public Message? Message { get; set; }
 }
 
-internal sealed class Messaging : IRedisMessagingInfrastructure, IDisposable
+internal sealed class Messaging : IMessagingInfrastructure, IDisposable
 {
     private readonly IConnectionMultiplexer _redis;
     private readonly IServiceMessageDispatcher _serviceMessageDispatcher;
-    private readonly Action<Message>? _traceAction;
     private readonly ILogger<Messaging> _log;
 
     private readonly ConcurrentDictionary<Guid, (string routeFilterPattern, Action<RedisChannel, RedisValue> handler)> _subscriptions = new();
 
-    public Messaging(ILogger<Messaging>? log, IConnectionMultiplexer redis, IServiceMessageDispatcher serviceMessageDispatcher, Action<Message>? traceAction)
+    public Messaging(ILogger<Messaging>? log, IConnectionMultiplexer redis, IServiceMessageDispatcher serviceMessageDispatcher)
     {
         _log = log ?? NullLogger<Messaging>.Instance;
         _redis = redis;
         _serviceMessageDispatcher = serviceMessageDispatcher;
-        _traceAction = traceAction;
     }
 
     public void Publish(Message message)
     {
-        _traceAction?.Invoke(message);
+        _log.LogTrace("Publishing message for topic {Topic}.", message.Topic);
         try
         {
             var redisPayload = JsonSerializer.Serialize(new RedisMessage {Message = message, Version = RedisMessageVersion.Latest});
@@ -186,3 +185,5 @@ internal sealed class Messaging : IRedisMessagingInfrastructure, IDisposable
         return null;
     }
 }
+
+

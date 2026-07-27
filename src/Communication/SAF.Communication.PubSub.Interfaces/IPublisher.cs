@@ -1,9 +1,10 @@
-// SPDX-FileCopyrightText: 2017-2020 TRUMPF Laser GmbH
+// SPDX-FileCopyrightText: 2017-2026 TRUMPF Laser SE
 //
 // SPDX-License-Identifier: MPL-2.0
 
 namespace SAF.Communication.PubSub.Interfaces;
-using Common;
+
+using SAF.Messaging.Contracts;
 
 public interface IPublisher
 {
@@ -16,3 +17,5 @@ public interface IPublisher
     void Publish(Message message, string userId);
     void Publish(Message message, string userId, RoutingOptions routingOptions);
 }
+
+

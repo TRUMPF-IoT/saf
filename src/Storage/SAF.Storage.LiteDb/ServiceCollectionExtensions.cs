@@ -1,0 +1,37 @@
+// SPDX-FileCopyrightText: 2017-2026 TRUMPF Laser SE
+//
+// SPDX-License-Identifier: MPL-2.0
+
+
+namespace SAF.Storage.LiteDb;
+using Microsoft.Extensions.DependencyInjection;
+using LiteDB;
+using SAF.Common;
+
+public static class ServiceCollectionExtensions
+{
+    public static IServiceCollection AddLiteDbStorageInfrastructure(this IServiceCollection serviceCollection, Action<LiteDbConfiguration> configure)
+    {
+        var config = new LiteDbConfiguration();
+        configure(config);
+
+        return serviceCollection.AddLiteDbStorageInfrastructure(config);
+    }
+
+    private static IServiceCollection AddLiteDbStorageInfrastructure(this IServiceCollection serviceCollection, LiteDbConfiguration config)
+    {
+        return serviceCollection.AddSingleton<IStorageInfrastructure>(_ =>
+            new Storage(CreateLiteDbConnection(config)));
+    }
+
+    private static ILiteDatabase CreateLiteDbConnection(LiteDbConfiguration config)
+    {
+        if (string.IsNullOrEmpty(config.ConnectionString))
+        {
+            throw new ArgumentException("The connection string can't be null", nameof(config));
+        }
+
+        return new LiteDatabase(new ConnectionString(config.ConnectionString));
+    }
+}
+

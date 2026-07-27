@@ -1,8 +1,8 @@
-// SPDX-FileCopyrightText: 2017-2020 TRUMPF Laser GmbH
+// SPDX-FileCopyrightText: 2017-2026 TRUMPF Laser SE
 //
 // SPDX-License-Identifier: MPL-2.0
 
-using SAF.Common;
+using SAF.Messaging.Contracts;
 using SAF.Communication.Cde;
 using SAF.Communication.PubSub.Interfaces;
 
@@ -109,3 +109,4 @@ public class Publisher : IPublisher, IDisposable
         _subscriptionRegistry?.Dispose();
     }
 }
+

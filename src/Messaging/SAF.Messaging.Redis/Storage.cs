@@ -1,10 +1,11 @@
-// SPDX-FileCopyrightText: 2017-2020 TRUMPF Laser GmbH
+// SPDX-FileCopyrightText: 2017-2026 TRUMPF Laser SE
 //
 // SPDX-License-Identifier: MPL-2.0
 
 namespace SAF.Messaging.Redis;
+
 using StackExchange.Redis;
-using Common;
+using SAF.Common;
 
 public class Storage : IStorageInfrastructure, IDisposable
 {
@@ -91,3 +92,5 @@ public class Storage : IStorageInfrastructure, IDisposable
         _connection?.Dispose();
     }
 }
+
+

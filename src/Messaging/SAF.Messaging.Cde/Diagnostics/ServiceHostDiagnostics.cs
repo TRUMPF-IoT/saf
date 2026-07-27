@@ -1,13 +1,14 @@
-// SPDX-FileCopyrightText: 2017-2020 TRUMPF Laser GmbH
+// SPDX-FileCopyrightText: 2017-2026 TRUMPF Laser SE
 //
 // SPDX-License-Identifier: MPL-2.0
 
 namespace SAF.Messaging.Cde.Diagnostics;
+
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using nsCDEngine.BaseClasses;
 using Microsoft.Extensions.DependencyInjection;
-using Hosting.Contracts;
+using SAF.Common;
 using IHostedService = Microsoft.Extensions.Hosting.IHostedService;
 
 internal class ServiceHostDiagnostics : IHostedService
@@ -52,3 +53,4 @@ internal class ServiceHostDiagnostics : IHostedService
         }
     }
 }
+

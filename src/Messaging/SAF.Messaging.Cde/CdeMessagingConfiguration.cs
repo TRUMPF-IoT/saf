@@ -1,9 +1,10 @@
-// SPDX-FileCopyrightText: 2017-2020 TRUMPF Laser GmbH
+// SPDX-FileCopyrightText: 2017-2026 TRUMPF Laser SE
 //
 // SPDX-License-Identifier: MPL-2.0
 
 namespace SAF.Messaging.Cde;
-using Common;
+
+using SAF.Messaging.Contracts;
 using Communication.PubSub.Interfaces;
 
 internal class CdeMessagingConfiguration
@@ -31,3 +32,5 @@ internal class CdeMessagingConfiguration
         }
     }
 }
+
+

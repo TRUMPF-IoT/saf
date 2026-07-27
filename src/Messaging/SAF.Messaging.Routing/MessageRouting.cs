@@ -1,19 +1,21 @@
-// SPDX-FileCopyrightText: 2017-2020 TRUMPF Laser GmbH
+// SPDX-FileCopyrightText: 2017-2026 TRUMPF Laser SE
 //
 // SPDX-License-Identifier: MPL-2.0
 
 namespace SAF.Messaging.Routing;
-using Common;
+using SAF.Common;
+using SAF.Messaging.Contracts;
 
 /// <summary>
 /// Describes a Pub/Sub message route for use with IServiceCollection.AddRoutingMessagingInfrastructure.
 /// </summary>
-internal class MessageRouting : IMessageRouting
+internal sealed class MessageRouting : IMessageRouting, IDisposable
 {
     /// <summary>
     /// The patterns of message topics to publish to the Messaging infrastructure of this instance.
     /// </summary>
     public string[]? PublishPatterns { get; set; }
+
     /// <summary>
     /// The patterns of message topics to subscribe to on the Messaging infrastructure of this instance.
     /// </summary>
@@ -24,6 +26,9 @@ internal class MessageRouting : IMessageRouting
     /// </summary>
     public IMessagingInfrastructure Messaging { get; }
 
+    private readonly IDisposable? _disposableMessaging;
+    private bool _disposed;
+
     /// <summary>
     /// Creates a MessageRouting instance.
     /// </summary>
@@ -31,6 +36,19 @@ internal class MessageRouting : IMessageRouting
     public MessageRouting(IMessagingInfrastructure messaging)
     {
         Messaging = messaging;
+        _disposableMessaging = messaging as IDisposable;
+    }
+
+    /// <summary>
+    /// Releases the routed messaging infrastructure created for this route.
+    /// </summary>
+    public void Dispose()
+    {
+        if (_disposed)
+            return;
+
+        _disposed = true;
+        _disposableMessaging?.Dispose();
     }
 
     /// <summary>
@@ -105,3 +123,5 @@ internal class MessageRouting : IMessageRouting
         }
     }
 }
+
+

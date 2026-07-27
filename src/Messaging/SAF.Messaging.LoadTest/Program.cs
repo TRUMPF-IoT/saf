@@ -1,12 +1,13 @@
-// SPDX-FileCopyrightText: 2017-2020 TRUMPF Laser GmbH
+// SPDX-FileCopyrightText: 2017-2026 TRUMPF Laser SE
 //
 // SPDX-License-Identifier: MPL-2.0
 
 namespace SAF.Messaging.LoadTest;
+
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
-using Common;
-using Hosting;
+using SAF.Messaging.Contracts;
+using SAF.Messaging.Runtime;
 using System.Diagnostics;
 using Redis;
 using InProcess;
@@ -41,8 +42,7 @@ class Program
 
     static void TestInProcess(IServiceCollection sc, int n, int msWait)
     {
-        sc.AddInProcessMessagingInfrastructure()
-            .AddSingleton<IMessagingInfrastructure>(sp => sp.GetRequiredService<IInProcessMessagingInfrastructure>());
+        sc.AddInProcessMessagingInfrastructure();
         using (var sp = sc.BuildServiceProvider())
         {
             RunMessagingLoadTest(sp, n, msWait);
@@ -105,3 +105,5 @@ class Program
         log?.LogInformation("[SYNC] Handlers used {0}ms.", sw.ElapsedMilliseconds);
     }
 }
+
+

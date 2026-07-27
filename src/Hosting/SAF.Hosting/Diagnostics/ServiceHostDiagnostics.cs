@@ -1,20 +1,25 @@
-// SPDX-FileCopyrightText: 2017-2023 TRUMPF Laser GmbH
+// SPDX-FileCopyrightText: 2017-2026 TRUMPF Laser SE
 //
 // SPDX-License-Identifier: MPL-2.0
 
-namespace SAF.Hosting.Diagnostics;
+namespace SAF.Common.Diagnostics;
 
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
-using Contracts;
+using SAF.Common;
+using SAF.PluginSystem.Hosting.Contracts;
 using System.IO.Abstractions;
-using Toolbox.Serialization;
+using System.Text.Json;
 
-internal class ServiceHostDiagnostics(ILogger<ServiceHostDiagnostics> log,
-        IEnumerable<IServiceAssemblyManifest> serviceAssemblies,
-        IServiceHostInfo hostInfo,
-        IFileSystem fileSystem)
-    : Microsoft.Extensions.Hosting.IHostedService
+internal class ServiceHostDiagnostics(
+    ILogger<ServiceHostDiagnostics> log,
+    IEnumerable<IPluginAssemblyContainer> pluginAssemblyContainers,
+    IServiceProvider serviceProvider,
+    IFileSystem fileSystem) : IHostedService
 {
+    private static readonly JsonSerializerOptions _jsonOptions = new() { WriteIndented = true };
+
     public Task StartAsync(CancellationToken cancellationToken)
         => Task.Run(CollectAndSaveDiagnostics, cancellationToken);
 
@@ -24,16 +29,26 @@ internal class ServiceHostDiagnostics(ILogger<ServiceHostDiagnostics> log,
     {
         try
         {
-            var nodeInfo = new SafNodeInfo(hostInfo, serviceAssemblies);
+            var hostInfo = serviceProvider.GetService<IServiceHostInfo>();
+            var pluginManifests = pluginAssemblyContainers.SelectMany(c => c.GetPluginManifests());
+            var nodeInfo = new SafNodeInfo(hostInfo, pluginManifests);
 
-            var targetDir = fileSystem.Path.Combine(hostInfo.FileSystemUserBasePath, "diagnostics");
-            if (!fileSystem.Directory.Exists(targetDir)) fileSystem.Directory.CreateDirectory(targetDir);
+            var basePath = string.IsNullOrWhiteSpace(hostInfo?.FileSystemUserBasePath)
+                ? fileSystem.Path.Combine(AppContext.BaseDirectory, "tempfs")
+                : hostInfo!.FileSystemUserBasePath;
 
-            var file = $"SafServiceHost_{hostInfo.Id}.json";
-            var targetFile = fileSystem.Path.Combine(targetDir, file);
-            if (fileSystem.File.Exists(targetFile)) fileSystem.File.Delete(targetFile);
+            var targetDir = fileSystem.Path.Combine(basePath, "diagnostics");
+            fileSystem.Directory.CreateDirectory(targetDir);
 
-            var serializedInfo = JsonSerializer.Serialize(nodeInfo);
+            var safeHostId = string.Concat(nodeInfo.HostId.Select(c => fileSystem.Path.GetInvalidFileNameChars().Contains(c) ? '_' : c));
+            var targetFile = fileSystem.Path.Combine(targetDir, $"SafServiceHost_{safeHostId}.json");
+
+            if (fileSystem.File.Exists(targetFile))
+            {
+                fileSystem.File.Delete(targetFile);
+            }
+
+            var serializedInfo = JsonSerializer.Serialize(nodeInfo, _jsonOptions);
             fileSystem.File.WriteAllText(targetFile, serializedInfo);
         }
         catch (Exception ex)

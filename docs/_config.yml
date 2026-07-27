@@ -1,1 +1,24 @@
+title: Smart Application Framework (SAF)
+description: Open-source, cross-platform framework for distributed applications across cloud and edge.
 theme: jekyll-theme-slate
+
+# Enable Mermaid diagrams via jekyll-mermaid or custom include
+# If using GitHub Pages, Mermaid renders natively in GitHub markdown previews.
+
+nav:
+  - title: Overview
+    url: /
+  - title: Getting Started
+    url: /getting-started
+  - title: SAF Host
+    url: /saf-host
+  - title: Plugin System
+    url: /plugin-system
+  - title: Messaging Infrastructure
+    url: /messaging
+  - title: Storage Infrastructure
+    url: /storage
+  - title: Toolbox Services
+    url: /toolbox
+  - title: "Migration: 10.x → 11.x"
+    url: /migration-10-to-11

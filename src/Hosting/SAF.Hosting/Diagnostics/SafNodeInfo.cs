@@ -1,29 +1,42 @@
-// SPDX-FileCopyrightText: 2017-2020 TRUMPF Laser GmbH
+// SPDX-FileCopyrightText: 2017-2026 TRUMPF Laser SE
 //
 // SPDX-License-Identifier: MPL-2.0
 
-namespace SAF.Hosting.Diagnostics;
+namespace SAF.Common.Diagnostics;
 
-using Contracts;
+using SAF.Common;
+using SAF.PluginSystem.Hosting.Contracts;
 
-internal class SafNodeInfo
+public class SafNodeInfo
 {
-    private readonly IServiceHostInfo _hostInfo;
-
-    public SafNodeInfo(IServiceHostInfo hostInfo, IEnumerable<IServiceAssemblyManifest> serviceAssemblies)
+    public SafNodeInfo(IServiceHostInfo? hostInfo, IEnumerable<IPluginManifest> pluginManifests)
     {
-        _hostInfo = hostInfo;
-        SafServices = ReadServiceInfos(serviceAssemblies);
+        HostId = hostInfo?.Id ?? Environment.MachineName;
+        UpSince = hostInfo?.UpSince ?? DateTimeOffset.Now;
+        SafServices = ReadServiceInfos(pluginManifests);
     }
 
-    public string HostId => _hostInfo.Id;
-    public SafVersionInfo SafVersionInfo { get; } = new();
-    public IEnumerable<SafServiceInfo> SafServices { get; }
-    public DateTimeOffset UpSince => _hostInfo.UpSince;
+    public string HostId { get; }
 
-    private static IEnumerable<SafServiceInfo> ReadServiceInfos(IEnumerable<IServiceAssemblyManifest> serviceAssemblies) =>
-        serviceAssemblies
-            .Select(a => { try { return new SafServiceInfo(a); } catch { return null; } })
+    public SafVersionInfo SafVersionInfo { get; } = new();
+
+    public IEnumerable<SafServiceInfo> SafServices { get; }
+
+    public DateTimeOffset UpSince { get; }
+
+    private static IEnumerable<SafServiceInfo> ReadServiceInfos(IEnumerable<IPluginManifest> pluginManifests)
+        => pluginManifests
+            .Select(m =>
+            {
+                try
+                {
+                    return new SafServiceInfo(m);
+                }
+                catch
+                {
+                    return null;
+                }
+            })
             .Where(si => si != null)
             .Cast<SafServiceInfo>();
 }

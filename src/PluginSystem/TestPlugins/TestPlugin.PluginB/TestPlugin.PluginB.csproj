@@ -1,0 +1,22 @@
+<!--
+SPDX-FileCopyrightText: 2017-2026 TRUMPF Laser SE
+
+SPDX-License-Identifier: MPL-2.0
+-->
+
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+  
+  <ItemGroup>
+    <ProjectReference Include="..\..\SAF.PluginSystem.Hosting.Contracts\SAF.PluginSystem.Hosting.Contracts.csproj">
+      <Private>False</Private>
+      <ExcludeAssets>runtime</ExcludeAssets>
+    </ProjectReference>
+    <ProjectReference Include="..\TestPlugin.DependencyB\TestPlugin.DependencyB.csproj" />
+    <ProjectReference Include="..\TestPlugin.PublicDependencyB\TestPlugin.PublicDependencyB.csproj" />
+  </ItemGroup>
+</Project>
