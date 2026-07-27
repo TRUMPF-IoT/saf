@@ -2,8 +2,8 @@ title: Smart Application Framework (SAF)
 description: Open-source, cross-platform framework for distributed applications across cloud and edge.
 theme: jekyll-theme-slate
 
-# Enable Mermaid diagrams via jekyll-mermaid or custom include
-# If using GitHub Pages, Mermaid renders natively in GitHub markdown previews.
+# Mermaid diagrams are rendered client-side via _includes/head-custom.html
+# (GitHub Pages' allowed-plugins list has no Mermaid renderer, and the theme doesn't render it either).
 
 nav:
   - title: Overview

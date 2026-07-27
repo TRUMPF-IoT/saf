@@ -1,0 +1,18 @@
+<!-- GitHub Pages only whitelists a fixed set of Jekyll plugins (no Mermaid renderer among
+     them), and jekyll-theme-slate doesn't render Mermaid either. Diagrams appear graphical
+     when viewing the raw .md on github.com (which has its own Mermaid support), but not on
+     the built Pages site — so render them client-side here instead. -->
+<script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+<script>
+  document.addEventListener('DOMContentLoaded', function () {
+    document.querySelectorAll('.language-mermaid').forEach(function (block) {
+      var code = block.querySelector('code');
+      if (!code) return;
+      var pre = document.createElement('pre');
+      pre.className = 'mermaid';
+      pre.textContent = code.textContent;
+      block.replaceWith(pre);
+    });
+    mermaid.initialize({ startOnLoad: true, theme: 'dark' });
+  });
+</script>
