@@ -15,14 +15,18 @@ using Xunit;
 public class ServiceProviderExtensionsTests
 {
     // Minimal host service collection that satisfies RedirectCommonServices' required resolutions.
-    private static ServiceCollection BuildHostServices()
+    private static ServiceCollection BuildHostServices(
+        ILoggerFactory? loggerFactory = null,
+        IPluginServiceProvider? pluginServiceProvider = null,
+        IPluginSystemHostEnvironment? hostEnvironment = null,
+        IFileSystem? fileSystem = null)
     {
         var services = new ServiceCollection();
-        services.AddSingleton<ILoggerFactory>(NullLoggerFactory.Instance);
+        services.AddSingleton(loggerFactory ?? NullLoggerFactory.Instance);
         services.AddTransient(typeof(ILogger<>), typeof(Logger<>));
-        services.AddSingleton(Substitute.For<IPluginServiceProvider>());
-        services.AddSingleton(Substitute.For<IPluginSystemHostEnvironment>());
-        services.AddSingleton(Substitute.For<IFileSystem>());
+        services.AddSingleton(pluginServiceProvider ?? Substitute.For<IPluginServiceProvider>());
+        services.AddSingleton(hostEnvironment ?? Substitute.For<IPluginSystemHostEnvironment>());
+        services.AddSingleton(fileSystem ?? Substitute.For<IFileSystem>());
         return services;
     }
 
@@ -105,20 +109,67 @@ public class ServiceProviderExtensionsTests
     }
 
     [Fact]
+    public void RedirectCommonServices_WhenPluginProviderDisposed_DoesNotDisposeHostPluginServiceProvider()
+    {
+        var hostPluginServiceProvider = Substitute.For<IPluginServiceProvider, IDisposable>();
+        var hostServices = BuildHostServices(pluginServiceProvider: hostPluginServiceProvider);
+        var hostProvider = hostServices.BuildServiceProvider();
+        var pluginServices = new ServiceCollection();
+        hostProvider.RedirectCommonServices(pluginServices);
+
+        var pluginProvider = pluginServices.BuildServiceProvider();
+        _ = pluginProvider.GetRequiredService<IPluginServiceProvider>();
+
+        pluginProvider.Dispose();
+
+        ((IDisposable)hostPluginServiceProvider).DidNotReceive().Dispose();
+    }
+
+    [Fact]
+    public void RedirectCommonServices_WhenPluginProviderDisposed_DoesNotDisposeHostEnvironment()
+    {
+        var hostEnvironment = Substitute.For<IPluginSystemHostEnvironment, IDisposable>();
+        var hostServices = BuildHostServices(hostEnvironment: hostEnvironment);
+        var hostProvider = hostServices.BuildServiceProvider();
+        var pluginServices = new ServiceCollection();
+        hostProvider.RedirectCommonServices(pluginServices);
+
+        var pluginProvider = pluginServices.BuildServiceProvider();
+        _ = pluginProvider.GetRequiredService<IPluginSystemHostEnvironment>();
+
+        pluginProvider.Dispose();
+
+        ((IDisposable)hostEnvironment).DidNotReceive().Dispose();
+    }
+
+    [Fact]
+    public void RedirectCommonServices_WhenPluginProviderDisposed_DoesNotDisposeHostFileSystem()
+    {
+        var hostFileSystem = Substitute.For<IFileSystem, IDisposable>();
+        var hostServices = BuildHostServices(fileSystem: hostFileSystem);
+        var hostProvider = hostServices.BuildServiceProvider();
+        var pluginServices = new ServiceCollection();
+        hostProvider.RedirectCommonServices(pluginServices);
+
+        var pluginProvider = pluginServices.BuildServiceProvider();
+        _ = pluginProvider.GetRequiredService<IFileSystem>();
+
+        pluginProvider.Dispose();
+
+        ((IDisposable)hostFileSystem).DidNotReceive().Dispose();
+    }
+
+    [Fact]
     public void RedirectCommonServices_ResolvesLoggerFactoryLazily()
     {
         var hostLoggerFactory = Substitute.For<ILoggerFactory>();
-        var hostServices = new ServiceCollection();
+        var hostServices = BuildHostServices();
         var loggerFactoryResolutions = 0;
         hostServices.AddSingleton<ILoggerFactory>(_ =>
         {
             loggerFactoryResolutions++;
             return hostLoggerFactory;
         });
-        hostServices.AddTransient(typeof(ILogger<>), typeof(Logger<>));
-        hostServices.AddSingleton(Substitute.For<IPluginServiceProvider>());
-        hostServices.AddSingleton(Substitute.For<IPluginSystemHostEnvironment>());
-        hostServices.AddSingleton(Substitute.For<IFileSystem>());
         var hostProvider = hostServices.BuildServiceProvider();
 
         var pluginServices = new ServiceCollection();

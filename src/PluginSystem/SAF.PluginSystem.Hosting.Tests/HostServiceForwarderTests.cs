@@ -53,5 +53,20 @@ public class HostServiceForwarderTests
         Assert.Same(first, second);
     }
 
+    [Fact]
+    public void Forward_RegistersImplementationInstanceDescriptor()
+    {
+        var instance = new StubService();
+        var forwarder = new HostServiceForwarder<StubService>(instance);
+        var pluginServices = new ServiceCollection();
+
+        forwarder.Forward(pluginServices);
+
+        var descriptor = Assert.Single(pluginServices);
+        Assert.Equal(typeof(StubService), descriptor.ServiceType);
+        Assert.Same(instance, descriptor.ImplementationInstance);
+        Assert.Null(descriptor.ImplementationFactory);
+    }
+
     private sealed class StubService;
 }

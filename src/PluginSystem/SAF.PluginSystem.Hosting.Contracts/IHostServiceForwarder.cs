@@ -15,6 +15,10 @@ using Microsoft.Extensions.DependencyInjection;
 /// <see cref="IHostServiceForwarder"/> instances registered in the host container are resolved and
 /// invoked by the plugin system before each plugin manifest's <c>ConfigureServices</c> runs.
 /// This keeps forwarding decisions in the host layer, not in individual plugin manifests.
+///
+/// Forward host-owned singletons as concrete instances (for example with <c>AddSingleton(instance)</c>
+/// or <see cref="HostServiceForwarder{T}"/>) instead of factory delegates that return host instances,
+/// so plugin containers do not take ownership of host lifetimes.
 /// </remarks>
 public interface IHostServiceForwarder
 {
