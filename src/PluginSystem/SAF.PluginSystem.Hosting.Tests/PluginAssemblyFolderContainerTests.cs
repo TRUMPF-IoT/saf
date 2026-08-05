@@ -5,16 +5,17 @@
 namespace SAF.PluginSystem.Hosting.Tests;
 
 using Contracts;
-using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging.Abstractions;
 using NSubstitute;
 using System.Reflection;
 using Testably.Abstractions;
 
-public class PluginAssemblyFolderContainerTests
+public sealed class PluginAssemblyFolderContainerTests : IDisposable
 {
     private readonly RealFileSystem _fileSystem;
+    private readonly string _testRootPath;
     private readonly string _testPluginsPath;
+    private readonly string _testAssemblyPath;
     private readonly NullLoggerFactory _loggerFactory;
     private readonly PluginManifestLoader _manifestLoader;
 
@@ -23,7 +24,13 @@ public class PluginAssemblyFolderContainerTests
         // The tests enumerate real plugin assemblies on disk and load them via reflection /
         // AssemblyLoadContext, which always read from the real file system, so a mock cannot be used.
         _fileSystem = new RealFileSystem();
-        _testPluginsPath = Path.Combine(AppContext.BaseDirectory, "test-plugins");
+        _testRootPath = Path.Combine(Path.GetTempPath(), $"saf-plugin-folder-container-tests-{Guid.NewGuid():N}");
+        _testPluginsPath = Path.Combine(_testRootPath, "test-plugins");
+        _testAssemblyPath = Path.Combine(_testRootPath, "SAF.PluginSystem.Hosting.Tests.dll");
+        _fileSystem.Directory.CreateDirectory(_testRootPath);
+        _fileSystem.Directory.CreateDirectory(_testPluginsPath);
+        _fileSystem.File.Copy(Path.Combine(AppContext.BaseDirectory, "SAF.PluginSystem.Hosting.Tests.dll"), _testAssemblyPath, true);
+
         _loggerFactory = NullLoggerFactory.Instance;
         _manifestLoader = new PluginManifestLoader();
     }
@@ -32,14 +39,13 @@ public class PluginAssemblyFolderContainerTests
     public void GetPluginManifests_ConsidersSubdirectories_WhenRecursiveIsEnabled()
     {
         // Arrange
-        var testDirectory = Path.Combine(AppContext.BaseDirectory, $"test-plugins-{Guid.NewGuid():N}");
-        _fileSystem.Directory.CreateDirectory(testDirectory);
+        var testDirectory = CreateTestDirectory($"test-plugins-{Guid.NewGuid():N}");
         var subDirectory = Path.Combine(testDirectory, "sub");
         _fileSystem.Directory.CreateDirectory(subDirectory);
 
-        _fileSystem.File.Copy(Path.Combine(AppContext.BaseDirectory, "SAF.PluginSystem.Hosting.Tests.dll"), Path.Combine(testDirectory, "root.include.dll"));
-        _fileSystem.File.Copy(Path.Combine(AppContext.BaseDirectory, "SAF.PluginSystem.Hosting.Tests.dll"), Path.Combine(subDirectory, "subdir.include.dll"));
-        _fileSystem.File.Copy(Path.Combine(AppContext.BaseDirectory, "SAF.PluginSystem.Hosting.Tests.dll"), Path.Combine(testDirectory, "root.exclude.dll"));
+        _fileSystem.File.Copy(_testAssemblyPath, Path.Combine(testDirectory, "root.include.dll"));
+        _fileSystem.File.Copy(_testAssemblyPath, Path.Combine(subDirectory, "subdir.include.dll"));
+        _fileSystem.File.Copy(_testAssemblyPath, Path.Combine(testDirectory, "root.exclude.dll"));
 
         var manifestLoader = Substitute.For<IPluginManifestLoader>();
         manifestLoader.LoadPluginManifest(Arg.Any<Assembly>()).Returns(Substitute.For<IPluginManifest>());
@@ -65,13 +71,12 @@ public class PluginAssemblyFolderContainerTests
     public void GetPluginManifests_DoesNotConsiderSubdirectories_WhenRecursiveIsDisabled()
     {
         // Arrange
-        var testDirectory = Path.Combine(AppContext.BaseDirectory, $"test-plugins-{Guid.NewGuid():N}");
-        _fileSystem.Directory.CreateDirectory(testDirectory);
+        var testDirectory = CreateTestDirectory($"test-plugins-{Guid.NewGuid():N}");
         var subDirectory = Path.Combine(testDirectory, "sub");
         _fileSystem.Directory.CreateDirectory(subDirectory);
 
-        _fileSystem.File.Copy(Path.Combine(AppContext.BaseDirectory, "SAF.PluginSystem.Hosting.Tests.dll"), Path.Combine(testDirectory, "root.include.dll"));
-        _fileSystem.File.Copy(Path.Combine(AppContext.BaseDirectory, "SAF.PluginSystem.Hosting.Tests.dll"), Path.Combine(subDirectory, "subdir.include.dll"));
+        _fileSystem.File.Copy(_testAssemblyPath, Path.Combine(testDirectory, "root.include.dll"));
+        _fileSystem.File.Copy(_testAssemblyPath, Path.Combine(subDirectory, "subdir.include.dll"));
 
         var manifestLoader = Substitute.For<IPluginManifestLoader>();
         manifestLoader.LoadPluginManifest(Arg.Any<Assembly>()).Returns(Substitute.For<IPluginManifest>());
@@ -101,7 +106,7 @@ public class PluginAssemblyFolderContainerTests
 
         var options = new PluginAssemblyFolderSearchOptions
         {
-            SearchRootPath = Path.Combine(AppContext.BaseDirectory, "not-existing"),
+            SearchRootPath = Path.Combine(_testRootPath, "not-existing"),
             IncludePatterns = "*.dll",
             ExcludePatterns = "*.exclude.*",
             Recursive = true
@@ -122,7 +127,7 @@ public class PluginAssemblyFolderContainerTests
         // Arrange
         var options = new PluginAssemblyFolderSearchOptions
         {
-            SearchRootPath = Path.Combine(AppContext.BaseDirectory, "not-existing"),
+            SearchRootPath = Path.Combine(_testRootPath, "not-existing"),
             IncludePatterns = "*.txt",
             ExcludePatterns = "*.exclude.*",
             Recursive = true
@@ -142,7 +147,7 @@ public class PluginAssemblyFolderContainerTests
         // Arrange
         var options = new PluginAssemblyFolderSearchOptions
         {
-            SearchRootPath = AppContext.BaseDirectory,
+            SearchRootPath = _testRootPath,
             IncludePatterns = "TL.OpcUa.Server.Utils.dll",
             ExcludePatterns = string.Empty,
             Recursive = false
@@ -162,8 +167,8 @@ public class PluginAssemblyFolderContainerTests
         // Arrange
         var options = new PluginAssemblyFolderSearchOptions
         {
-            SearchRootPath = AppContext.BaseDirectory,
-            IncludePatterns = "SAF.PluginSystem.Hosting.Tests.dll",
+            SearchRootPath = _testRootPath,
+            IncludePatterns = Path.GetFileName(_testAssemblyPath),
             ExcludePatterns = string.Empty,
             Recursive = false
         };
@@ -180,30 +185,18 @@ public class PluginAssemblyFolderContainerTests
     public void GetPluginManifests_ReturnsManifest_ForAssemblyLoadedInPluginAssemblyLoadContext()
     {
         var pluginOutputDirectory = Path.Combine(AppContext.BaseDirectory, "plugins", "TestPlugin.PluginA");
-        var destinationPluginDirectory = Path.Combine(AppContext.BaseDirectory, "test-plugins");
-        var destinationPlugin = Path.Combine(destinationPluginDirectory, "TestPlugin.PluginA.dll");
-        var destinationPluginDeps = Path.Combine(destinationPluginDirectory, "TestPlugin.PluginA.deps.json");
-        var destinationDependency = Path.Combine(destinationPluginDirectory, "TestPlugin.DependencyA.dll");
+        var destinationPlugin = Path.Combine(_testPluginsPath, "TestPlugin.PluginA.dll");
+        var destinationPluginDeps = Path.Combine(_testPluginsPath, "TestPlugin.PluginA.deps.json");
+        var destinationDependency = Path.Combine(_testPluginsPath, "TestPlugin.DependencyA.dll");
 
-        if (!_fileSystem.File.Exists(destinationPlugin))
-        {
-            _fileSystem.File.Copy(Path.Combine(pluginOutputDirectory, "TestPlugin.PluginA.dll"), destinationPlugin);
-        }
-
-        if (!_fileSystem.File.Exists(destinationPluginDeps))
-        {
-            _fileSystem.File.Copy(Path.Combine(pluginOutputDirectory, "TestPlugin.PluginA.deps.json"), destinationPluginDeps);
-        }
-
-        if (!_fileSystem.File.Exists(destinationDependency))
-        {
-            _fileSystem.File.Copy(Path.Combine(pluginOutputDirectory, "TestPlugin.DependencyA.dll"), destinationDependency);
-        }
+        _fileSystem.File.Copy(Path.Combine(pluginOutputDirectory, "TestPlugin.PluginA.dll"), destinationPlugin, true);
+        _fileSystem.File.Copy(Path.Combine(pluginOutputDirectory, "TestPlugin.PluginA.deps.json"), destinationPluginDeps, true);
+        _fileSystem.File.Copy(Path.Combine(pluginOutputDirectory, "TestPlugin.DependencyA.dll"), destinationDependency, true);
 
         // Arrange
         var options = new PluginAssemblyFolderSearchOptions
         {
-            SearchRootPath = Path.Combine(AppContext.BaseDirectory, "test-plugins"),
+            SearchRootPath = _testPluginsPath,
             IncludePatterns = "TestPlugin.PluginA.dll",
             ExcludePatterns = string.Empty,
             Recursive = false
@@ -223,8 +216,8 @@ public class PluginAssemblyFolderContainerTests
         // Arrange
         var options = new PluginAssemblyFolderSearchOptions
         {
-            SearchRootPath = AppContext.BaseDirectory,
-            IncludePatterns = "SAF.PluginSystem.Hosting.Tests.dll",
+            SearchRootPath = _testRootPath,
+            IncludePatterns = Path.GetFileName(_testAssemblyPath),
             ExcludePatterns = string.Empty,
             Recursive = false
         };
@@ -248,8 +241,8 @@ public class PluginAssemblyFolderContainerTests
 
         var options = new PluginAssemblyFolderSearchOptions
         {
-            SearchRootPath = AppContext.BaseDirectory,
-            IncludePatterns = "SAF.PluginSystem.Hosting.Tests.dll",
+            SearchRootPath = _testRootPath,
+            IncludePatterns = Path.GetFileName(_testAssemblyPath),
             ExcludePatterns = string.Empty,
             Recursive = false
         };
@@ -273,8 +266,8 @@ public class PluginAssemblyFolderContainerTests
 
         var options = new PluginAssemblyFolderSearchOptions
         {
-            SearchRootPath = AppContext.BaseDirectory,
-            IncludePatterns = "SAF.PluginSystem.Hosting.Tests.dll",
+            SearchRootPath = _testRootPath,
+            IncludePatterns = Path.GetFileName(_testAssemblyPath),
             ExcludePatterns = string.Empty,
             Recursive = false
         };
@@ -292,14 +285,13 @@ public class PluginAssemblyFolderContainerTests
     public void GetPluginManifests_ContinuesWhenAssemblyCannotBeLoaded()
     {
         // Arrange
-        var testDirectory = Path.Combine(AppContext.BaseDirectory, $"test-plugins-{Guid.NewGuid():N}");
-        _fileSystem.Directory.CreateDirectory(testDirectory);
+        var testDirectory = CreateTestDirectory($"test-plugins-{Guid.NewGuid():N}");
 
         var invalidAssemblyPath = Path.Combine(testDirectory, "invalid.native.dll");
         _fileSystem.File.WriteAllBytes(invalidAssemblyPath, [0x01, 0x02, 0x03, 0x04]);
 
         var validAssemblyPath = Path.Combine(testDirectory, "valid.managed.dll");
-        _fileSystem.File.Copy(Path.Combine(AppContext.BaseDirectory, "SAF.PluginSystem.Hosting.Tests.dll"), validAssemblyPath);
+        _fileSystem.File.Copy(_testAssemblyPath, validAssemblyPath);
 
         var manifest = Substitute.For<IPluginManifest>();
         var manifestLoader = Substitute.For<IPluginManifestLoader>();
@@ -322,5 +314,43 @@ public class PluginAssemblyFolderContainerTests
         Assert.Single(result);
         Assert.Same(manifest, result[0]);
         manifestLoader.Received(1).LoadPluginManifest(Arg.Any<Assembly>());
+    }
+
+    public void Dispose()
+    {
+        if (!_fileSystem.Directory.Exists(_testRootPath))
+        {
+            return;
+        }
+
+        for (var attempt = 0; attempt < 5; attempt++)
+        {
+            try
+            {
+                _fileSystem.Directory.Delete(_testRootPath, true);
+                return;
+            }
+            catch (IOException) when (attempt < 4)
+            {
+                // intentionally left empty to retry
+            } catch (UnauthorizedAccessException) when (attempt < 4)
+            {
+                // intentionally left empty to retry
+            } catch (IOException)
+            {
+                return;
+            }
+            catch (UnauthorizedAccessException)
+            {
+                return;
+            }
+        }
+    }
+
+    private string CreateTestDirectory(string name)
+    {
+        var directory = Path.Combine(_testRootPath, name);
+        _fileSystem.Directory.CreateDirectory(directory);
+        return directory;
     }
 }

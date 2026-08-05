@@ -6,22 +6,44 @@ namespace SAF.PluginSystem.Hosting;
 
 using Contracts;
 using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.FileProviders;
 using Microsoft.Extensions.Logging;
 using System.IO.Abstractions;
 
 /// <inheritdoc />
-public class PluginSystemHostContext(
-    ILogger<PluginSystemHostContext> logger,
-    IPluginSystemHostEnvironment environment,
-    IConfigurationManager hostConfiguration,
-    PluginSystemOptions options,
-    IFileSystem fileSystem) : IPluginSystemHostContext
+public sealed class PluginSystemHostContext : IPluginSystemHostContext, IDisposable
 {
-    public IPluginSystemHostEnvironment Environment { get; } = environment;
-    public IConfiguration HostConfiguration { get; } = hostConfiguration;
-    public IConfiguration PluginConfiguration { get; } = BuildPluginConfiguration(logger, options, environment, fileSystem);
+    private readonly IConfigurationRoot _pluginConfigurationRoot;
+    private readonly PhysicalFileProvider? _pluginSettingsFileProvider;
 
-    private static IConfiguration BuildPluginConfiguration(
+    public PluginSystemHostContext(
+        ILogger<PluginSystemHostContext> logger,
+        IPluginSystemHostEnvironment environment,
+        IConfigurationManager hostConfiguration,
+        PluginSystemOptions options,
+        IFileSystem fileSystem)
+    {
+        Environment = environment;
+        HostConfiguration = hostConfiguration;
+
+        (_pluginConfigurationRoot, _pluginSettingsFileProvider) = BuildPluginConfiguration(logger, options, environment, fileSystem);
+    }
+
+    public IPluginSystemHostEnvironment Environment { get; }
+    public IConfiguration HostConfiguration { get; }
+    public IConfiguration PluginConfiguration => _pluginConfigurationRoot;
+
+    public void Dispose()
+    {
+        if (_pluginConfigurationRoot is IDisposable disposableConfigurationRoot)
+        {
+            disposableConfigurationRoot.Dispose();
+        }
+
+        _pluginSettingsFileProvider?.Dispose();
+    }
+
+    private static (IConfigurationRoot ConfigurationRoot, PhysicalFileProvider? SettingsFileProvider) BuildPluginConfiguration(
         ILogger logger,
         PluginSystemOptions options,
         IPluginSystemHostEnvironment environment,
@@ -32,30 +54,52 @@ public class PluginSystemHostContext(
         if (string.IsNullOrEmpty(options.PluginSettingsFilePath))
         {
             logger.LogInformation("No plugin configuration file configured.");
+            return (builder.Build(), null);
         }
-        else
+
+        var settingsFilePath = CreateAbsolutePath(fileSystem, AppContext.BaseDirectory, fileSystem.Path.Combine(environment.PluginSettingsRootPath, options.PluginSettingsFilePath));
+
+        logger.LogDebug("Resolved path to plugin settings file from {PluginSettingsFilePath} to {PluginSettingsFileFullName}",
+            options.PluginSettingsFilePath, settingsFilePath);
+
+        var settingsDirectoryPath = fileSystem.Path.GetDirectoryName(settingsFilePath) ?? AppContext.BaseDirectory;
+        if (!fileSystem.Directory.Exists(settingsDirectoryPath))
         {
-            var settingsFilePath = CreateAbsolutePath(fileSystem, AppContext.BaseDirectory, fileSystem.Path.Combine(environment.PluginSettingsRootPath, options.PluginSettingsFilePath));
-
-            logger.LogDebug("Resolved path to plugin settings file from {PluginSettingsFilePath} to {PluginSettingsFileFullName}",
-                options.PluginSettingsFilePath, settingsFilePath);
-
-            if (!fileSystem.File.Exists(settingsFilePath))
-            {
-                logger.LogInformation("Plugin configuration file not found: {PluginSettingsFilePath}, {PluginSettingsFileFullName}",
-                    options.PluginSettingsFilePath, settingsFilePath);
-            }
-
-            builder.AddJsonFile(settingsFilePath, true);
-
-            var filePath = fileSystem.Path.Combine(fileSystem.Path.GetDirectoryName(settingsFilePath)!, fileSystem.Path.GetFileNameWithoutExtension(settingsFilePath));
-            var fileExt = fileSystem.Path.GetExtension(settingsFilePath);
-            var environmentSettingsFilePath = $"{filePath}.{environment.EnvironmentName}{fileExt}";
-            builder.AddJsonFile(environmentSettingsFilePath, true);
+            fileSystem.Directory.CreateDirectory(settingsDirectoryPath);
         }
 
-        return builder.Build();
+        var settingsFileProvider = new PhysicalFileProvider(settingsDirectoryPath);
+        var settingsFileName = fileSystem.Path.GetFileName(settingsFilePath);
+
+        if (!fileSystem.File.Exists(settingsFilePath))
+        {
+            logger.LogInformation("Plugin configuration file not found: {PluginSettingsFilePath}, {PluginSettingsFileFullName}",
+                options.PluginSettingsFilePath, settingsFilePath);
+        }
+
+        AddJsonFile(builder, logger, settingsFileProvider, settingsFileName);
+
+        var environmentSettingsFileName = $"{fileSystem.Path.GetFileNameWithoutExtension(settingsFileName)}.{environment.EnvironmentName}{fileSystem.Path.GetExtension(settingsFileName)}";
+        AddJsonFile(builder, logger, settingsFileProvider, environmentSettingsFileName);
+
+        return (builder.Build(), settingsFileProvider);
     }
+
+    private static void AddJsonFile(ConfigurationBuilder builder, ILogger logger, PhysicalFileProvider settingsFileProvider, string settingsFileName)
+        => builder.AddJsonFile(source =>
+        {
+            source.FileProvider = settingsFileProvider;
+            source.Path = settingsFileName;
+            source.Optional = true;
+            source.ReloadOnChange = true;
+            source.OnLoadException = context =>
+            {
+                context.Ignore = true;
+                logger.LogWarning(context.Exception,
+                    "Failed to load plugin configuration file {PluginSettingsFilePath}. A later successful reload will apply updated values.",
+                    settingsFileName);
+            };
+        });
 
     private static string CreateAbsolutePath(IFileSystem fileSystem, string basePath, string path)
     {

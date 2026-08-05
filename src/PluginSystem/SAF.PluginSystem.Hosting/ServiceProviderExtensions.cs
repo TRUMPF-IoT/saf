@@ -18,13 +18,14 @@ internal static class ServiceProviderExtensions
         services.AddTransient(_ => sp.GetRequiredService<ILogger>());
         services.AddTransient(typeof(ILogger<>), typeof(Logger<>));
 
-        services.AddSingleton(_ => sp.GetRequiredService<IPluginServiceProvider>());
-        services.AddSingleton(_ => sp.GetRequiredService<IPluginSystemHostEnvironment>());
-
-        services.AddSingleton(_ => sp.GetRequiredService<IFileSystem>());
+        services.AddForwardedNonOwningSingleton<IPluginServiceProvider>(sp);
+        services.AddForwardedNonOwningSingleton<IPluginSystemHostEnvironment>(sp);
+        services.AddForwardedNonOwningSingleton<IFileSystem>(sp);
 
         foreach (var forwarder in sp.GetService<IEnumerable<IHostServiceForwarder>>() ?? [])
+        {
             forwarder.Forward(services);
+        }
 
         return sp;
     }
@@ -61,4 +62,11 @@ internal static class ServiceProviderExtensions
         return null;
     }
 
+    private static void AddForwardedNonOwningSingleton<TService>(this IServiceCollection services, IServiceProvider hostProvider)
+        where TService : class
+        => services.AddSingleton(_ =>
+        {
+            var hostService = hostProvider.GetRequiredService<TService>();
+            return (TService)NonOwningServiceProxy.WrapIfRequired(hostService, typeof(TService));
+        });
 }

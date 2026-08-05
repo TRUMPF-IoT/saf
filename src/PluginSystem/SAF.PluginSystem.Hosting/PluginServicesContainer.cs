@@ -15,75 +15,135 @@ public sealed class PluginServicesContainer(
     IServiceProvider applicationServiceProvider,
     IEnumerable<IPluginAssemblyContainer> pluginContainers,
     IPublicServiceTypeRegistry publicServiceTypeRegistry)
-    : IPluginServicesContainer, IAsyncDisposable
+    : IPluginServicesContainer, IPluginServicesReloader, IAsyncDisposable
 {
     private readonly Lock _syncPluginLoading = new();
-    private bool _initialized = false;
-    private bool _disposed = false;
+    private bool _initialized;
+    private bool _disposed;
+    private List<IPluginManifest>? _cachedPluginManifests;
 
-    private readonly List<PluginServiceCollection> _pluginServiceCollections = [];
-    private readonly PluginServiceCollection _publicServicesOnlyCollection = new(new ServiceCollection(), []);
+    /// <inheritdoc />
+    public bool IsInitialized
+    {
+        get { lock (_syncPluginLoading) { return _initialized; } }
+    }
+
+    private List<PluginServiceCollection> _pluginServiceCollections = [];
+    private PluginServiceCollection _publicServicesOnlyCollection = new(new ServiceCollection(), []);
 
     public IEnumerable<IServiceProvider> GetPluginServices()
     {
-        InitializeServiceProviders();
-        return _pluginServiceCollections.Select(l => l.ServiceProvider!).ToList();
+        var (pluginServices, _) = GetServiceProviders();
+        return pluginServices;
     }
 
     public IServiceProvider GetPublicServices()
     {
-        InitializeServiceProviders();
-        return _publicServicesOnlyCollection.ServiceProvider!;
+        var (_, publicServices) = GetServiceProviders();
+        return publicServices;
     }
 
-    private void InitializeServiceProviders()
+    public async ValueTask ReinitializeAsync(CancellationToken cancellationToken = default)
     {
-        lock(_syncPluginLoading)
+        List<IPluginManifest> pluginManifests;
+
+        lock (_syncPluginLoading)
+        {
+            ObjectDisposedException.ThrowIf(_disposed, this);
+
+            cancellationToken.ThrowIfCancellationRequested();
+
+            logger.LogInformation("Reinitializing plug-in service providers.");
+            pluginManifests = GetPluginManifests();
+        }
+
+        var (pluginServiceCollections, publicServicesOnlyCollection) = InitializePlugins(pluginManifests);
+        var publishResult = PublishProviders(pluginServiceCollections, publicServicesOnlyCollection, replaceExisting: true, cancellationToken);
+
+        await DisposeProvidersAsync(publishResult.ProvidersToDispose).ConfigureAwait(false);
+
+        if (publishResult.DeferredException is not null)
+        {
+            throw publishResult.DeferredException;
+        }
+    }
+
+    private (List<IServiceProvider> PluginServices, IServiceProvider PublicServices) GetServiceProviders()
+    {
+        List<IPluginManifest> pluginManifests;
+
+        lock (_syncPluginLoading)
         {
             if (_initialized)
             {
-                return;
+                return SnapshotCurrentServiceProviders();
             }
 
-            _initialized = true;
+            ObjectDisposedException.ThrowIf(_disposed, this);
 
             logger.LogInformation("Starting plug-in search and initialization.");
-
-            var manifests = pluginContainers.SelectMany(s => s.GetPluginManifests()).ToList();
-            InitializePlugins(manifests);
+            pluginManifests = GetPluginManifests();
         }
+
+        var (pluginServiceCollections, publicServicesOnlyCollection) = InitializePlugins(pluginManifests);
+        var publishResult = PublishProviders(pluginServiceCollections, publicServicesOnlyCollection, replaceExisting: false);
+
+        DisposeProviders(publishResult.ProvidersToDispose);
+
+        if (publishResult.DeferredException is not null)
+        {
+            throw publishResult.DeferredException;
+        }
+
+        return publishResult.CurrentProviders;
     }
 
-    private void InitializePlugins(IEnumerable<IPluginManifest> pluginManifests)
+    private List<IPluginManifest> GetPluginManifests() =>
+        _cachedPluginManifests ??= [.. pluginContainers.SelectMany(container => container.GetPluginManifests())];
+
+    private (List<PluginServiceCollection> pluginServiceCollections, PluginServiceCollection publicServicesOnlyCollection) InitializePlugins(IEnumerable<IPluginManifest> pluginManifests)
     {
-        foreach (var manifest in pluginManifests)
+        List<PluginServiceCollection> pluginServiceCollections = [];
+        PluginServiceCollection publicServicesOnlyCollection = new(new ServiceCollection(), []);
+
+        try
         {
-            var pluginServices = new ServiceCollection();
+            foreach (var manifest in pluginManifests)
+            {
+                var pluginServices = new ServiceCollection();
 
-            applicationServiceProvider.RedirectCommonServices(pluginServices);
+                applicationServiceProvider.RedirectCommonServices(pluginServices);
 
-            manifest.ConfigureServices(hostContext, pluginServices);
+                manifest.ConfigureServices(hostContext, pluginServices);
 
-            _pluginServiceCollections.Add(new PluginServiceCollection(pluginServices, CollectPublicServices(pluginServices)));
+                pluginServiceCollections.Add(new PluginServiceCollection(pluginServices, CollectPublicServices(pluginServices)));
+            }
+
+            var publicServicesOnlyBuilder = new PluginServicesLocatorBuilder(publicServicesOnlyCollection, pluginServiceCollections);
+
+            foreach (var pluginServices in pluginServiceCollections)
+            {
+                var otherPluginServiceCollections = pluginServiceCollections.Except([pluginServices]);
+                var builder = new PluginServicesLocatorBuilder(pluginServices, otherPluginServiceCollections);
+                builder.Build();
+            }
+
+            publicServicesOnlyBuilder.Build();
+            return (pluginServiceCollections, publicServicesOnlyCollection);
         }
-
-        var publicServicesOnlyBuilder = new PluginServicesLocatorBuilder(_publicServicesOnlyCollection, _pluginServiceCollections);
-
-        foreach (var pluginServices in _pluginServiceCollections)
+        catch
         {
-            var otherPluginServiceCollections = _pluginServiceCollections.Except([pluginServices]);
-            var builder = new PluginServicesLocatorBuilder(pluginServices, otherPluginServiceCollections);
-            builder.Build();
+            DisposeProviders(SnapshotProviders(pluginServiceCollections, publicServicesOnlyCollection));
+            throw;
         }
-
-        publicServicesOnlyBuilder.Build();
     }
 
     private List<ServiceDescriptor> CollectPublicServices(IEnumerable<ServiceDescriptor> serviceCollection)
     {
+        HashSet<string> publicServiceAssemblies = [.. publicServiceTypeRegistry.GetAssemblyNames()];
         var publicServiceDescriptors = serviceCollection
-            .Where(sd => publicServiceTypeRegistry.GetAssemblyNames().FirstOrDefault(a => a == sd.ServiceType.Assembly.FullName) != null);
-        return publicServiceDescriptors.ToList();
+            .Where(sd => sd.ServiceType.Assembly.FullName is string assemblyName && publicServiceAssemblies.Contains(assemblyName));
+        return [.. publicServiceDescriptors];
     }
 
     public async ValueTask DisposeAsync()
@@ -99,14 +159,95 @@ public sealed class PluginServicesContainer(
 
             _disposed = true;
 
-            providersToDispose = _pluginServiceCollections
-                .Select(collection => collection.ServiceProvider)
-                .Append(_publicServicesOnlyCollection.ServiceProvider)
-                .OfType<IServiceProvider>()
-                .ToList();
+            providersToDispose = SnapshotProviders();
         }
 
-        foreach (IServiceProvider provider in providersToDispose)
+        await DisposeProvidersAsync(providersToDispose).ConfigureAwait(false);
+    }
+
+    private (List<IServiceProvider> PluginServices, IServiceProvider PublicServices) SnapshotCurrentServiceProviders()
+        => (_pluginServiceCollections.Select(collection => collection.ServiceProvider!).ToList(),
+            _publicServicesOnlyCollection.ServiceProvider!);
+
+    private PublishProvidersResult PublishProviders(
+        List<PluginServiceCollection> pluginServiceCollections,
+        PluginServiceCollection publicServicesOnlyCollection,
+        bool replaceExisting,
+        CancellationToken cancellationToken = default)
+    {
+        lock (_syncPluginLoading)
+        {
+            if (_disposed)
+            {
+                return new(
+                    SnapshotProviders(pluginServiceCollections, publicServicesOnlyCollection),
+                    SnapshotCurrentServiceProviders(),
+                    new ObjectDisposedException(nameof(PluginServicesContainer)));
+            }
+
+            if (replaceExisting && cancellationToken.IsCancellationRequested)
+            {
+                return new(
+                    SnapshotProviders(pluginServiceCollections, publicServicesOnlyCollection),
+                    SnapshotCurrentServiceProviders(),
+                    new OperationCanceledException(cancellationToken));
+            }
+
+            List<IServiceProvider> providersToDispose;
+
+            if (replaceExisting || !_initialized)
+            {
+                providersToDispose = SnapshotProviders();
+                _pluginServiceCollections = pluginServiceCollections;
+                _publicServicesOnlyCollection = publicServicesOnlyCollection;
+                _initialized = true;
+            }
+            else
+            {
+                providersToDispose = SnapshotProviders(pluginServiceCollections, publicServicesOnlyCollection);
+            }
+
+            return new(providersToDispose, SnapshotCurrentServiceProviders(), null);
+        }
+    }
+
+    private List<IServiceProvider> SnapshotProviders() =>
+        SnapshotProviders(_pluginServiceCollections, _publicServicesOnlyCollection);
+
+    private static List<IServiceProvider> SnapshotProviders(
+        IEnumerable<PluginServiceCollection> pluginServiceCollections,
+        PluginServiceCollection publicServicesOnlyCollection) =>
+        [.. pluginServiceCollections
+            .Select(collection => collection.ServiceProvider)
+            .Append(publicServicesOnlyCollection.ServiceProvider)
+            .OfType<IServiceProvider>()];
+
+    private static void DisposeProviders(IEnumerable<IServiceProvider> providers)
+    {
+        foreach (IServiceProvider provider in providers)
+        {
+            DisposeProvider(provider);
+        }
+    }
+
+    private static void DisposeProvider(IServiceProvider provider)
+    {
+        if (provider is IAsyncDisposable asyncDisposable)
+        {
+            asyncDisposable.DisposeAsync().AsTask()
+                .ConfigureAwait(false).GetAwaiter().GetResult();
+            return;
+        }
+
+        if (provider is IDisposable disposable)
+        {
+            disposable.Dispose();
+        }
+    }
+
+    private static async ValueTask DisposeProvidersAsync(IEnumerable<IServiceProvider> providers)
+    {
+        foreach (IServiceProvider provider in providers)
         {
             await DisposeProviderAsync(provider).ConfigureAwait(false);
         }
@@ -125,4 +266,9 @@ public sealed class PluginServicesContainer(
             disposable.Dispose();
         }
     }
+
+    private sealed record PublishProvidersResult(
+        List<IServiceProvider> ProvidersToDispose,
+        (List<IServiceProvider> PluginServices, IServiceProvider PublicServices) CurrentProviders,
+        Exception? DeferredException);
 }

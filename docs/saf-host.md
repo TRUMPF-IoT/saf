@@ -221,6 +221,8 @@ services.AddSingleton<IHostServiceForwarder, HostServiceForwarder<MySharedSingle
 
 `HostServiceForwarder<T>` receives the already-resolved host singleton via constructor injection and registers the **same instance** in each plugin container — no factory, no service locator.
 
+Keep it that way: forward the resolved instance, not a factory delegate that resolves from the host provider. A plugin container disposes only the singletons it created itself, so an instance registration stays owned by the host and survives the disposal of a plugin container — for example when the plugin system is [reloaded](./plugin-system.md#live-reload-reconfiguration).
+
 ---
 
 ## DI Container Layout

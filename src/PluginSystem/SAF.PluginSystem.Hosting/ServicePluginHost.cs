@@ -5,134 +5,34 @@
 namespace SAF.PluginSystem.Hosting;
 
 using Contracts;
-using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
-using System;
 
-internal class ServicePluginHost(ILogger<ServicePluginHost> logger, IPluginServicesContainer pluginServicesContainer) : IHostedLifecycleService
+internal class ServicePluginHost(ILogger<ServicePluginHost> logger, IServicePluginLifecycleRunner runner) : IHostedLifecycleService
 {
     public async Task StartAsync(CancellationToken cancellationToken)
     {
         logger.LogDebug("Starting service plugins.");
-
-        using var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
-
-        var servicePlugins = GetServicePlugins();
-        foreach (IServicePlugin servicePlugin in servicePlugins)
-        {
-            try
-            {
-                await servicePlugin.StartAsync(linkedCts.Token).ConfigureAwait(false);
-            }
-            catch (Exception ex)
-            {
-                logger.LogError(ex, "Failed to start service plug-in.");
-            }
-        }
-
+        await runner.StartAsync(runner.GetServicePlugins(), cancellationToken).ConfigureAwait(false);
         logger.LogInformation("Service plugins started.");
     }
 
     public async Task StopAsync(CancellationToken cancellationToken)
     {
         logger.LogDebug("Stopping service plugins.");
-
-        using var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
-
-        var servicePlugins = GetServicePlugins();
-
-        foreach (IServicePlugin servicePlugin in servicePlugins)
-        {
-            try
-            {
-                await servicePlugin.StopAsync(linkedCts.Token).ConfigureAwait(false);
-            }
-            catch (Exception ex)
-            {
-                logger.LogError(ex, "Failed to stop service plug-in.");
-            }
-        }
-
+        await runner.StopAsync(runner.GetServicePlugins(), cancellationToken).ConfigureAwait(false);
         logger.LogInformation("Service plugins stopped.");
     }
 
-    public async Task StartingAsync(CancellationToken cancellationToken)
-    {
-        using var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+    public Task StartingAsync(CancellationToken cancellationToken)
+        => runner.StartingAsync(runner.GetServicePlugins(), cancellationToken);
 
-        var lifecyclePlugins = GetServicePlugins().OfType<ILifecycleServicePlugin>();
+    public Task StartedAsync(CancellationToken cancellationToken)
+        => runner.StartedAsync(runner.GetServicePlugins(), cancellationToken);
 
-        foreach (var plugin in lifecyclePlugins)
-        {
-            try
-            {
-                await plugin.StartingAsync(linkedCts.Token).ConfigureAwait(false);
-            }
-            catch (Exception ex)
-            {
-                logger.LogError(ex, "Failed to execute StartingAsync for service plug-in.");
-            }
-        }
-    }
+    public Task StoppingAsync(CancellationToken cancellationToken)
+        => runner.StoppingAsync(runner.GetServicePlugins(), cancellationToken);
 
-    public async Task StartedAsync(CancellationToken cancellationToken)
-    {
-        using var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
-
-        var lifecyclePlugins = GetServicePlugins().OfType<ILifecycleServicePlugin>();
-
-        foreach (var plugin in lifecyclePlugins)
-        {
-            try
-            {
-                await plugin.StartedAsync(linkedCts.Token).ConfigureAwait(false);
-            }
-            catch (Exception ex)
-            {
-                logger.LogError(ex, "Failed to execute StartedAsync for service plug-in.");
-            }
-        }
-    }
-
-    public async Task StoppingAsync(CancellationToken cancellationToken)
-    {
-        using var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
-
-        var lifecyclePlugins = GetServicePlugins().OfType<ILifecycleServicePlugin>();
-
-        foreach (var plugin in lifecyclePlugins)
-        {
-            try
-            {
-                await plugin.StoppingAsync(linkedCts.Token).ConfigureAwait(false);
-            }
-            catch (Exception ex)
-            {
-                logger.LogError(ex, "Failed to execute StoppingAsync for service plug-in.");
-            }
-        }
-    }
-
-    public async Task StoppedAsync(CancellationToken cancellationToken)
-    {
-        using var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
-
-        var lifecyclePlugins = GetServicePlugins().OfType<ILifecycleServicePlugin>();
-
-        foreach (var plugin in lifecyclePlugins)
-        {
-            try
-            {
-                await plugin.StoppedAsync(linkedCts.Token).ConfigureAwait(false);
-            }
-            catch (Exception ex)
-            {
-                logger.LogError(ex, "Failed to execute StoppedAsync for service plug-in.");
-            }
-        }
-    }
-
-    private List<IServicePlugin> GetServicePlugins()
-        => pluginServicesContainer.GetPluginServices().SelectMany(sp => sp.GetServices<IServicePlugin>()).ToList();
+    public Task StoppedAsync(CancellationToken cancellationToken)
+        => runner.StoppedAsync(runner.GetServicePlugins(), cancellationToken);
 }

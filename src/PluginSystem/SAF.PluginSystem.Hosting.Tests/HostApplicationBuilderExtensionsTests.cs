@@ -50,6 +50,7 @@ public class HostApplicationBuilderExtensionsTests
         Assert.Contains(services, s => s.ServiceType == typeof(IPluginSystemHostContext));
         Assert.Contains(services, s => s.ServiceType == typeof(IPluginServicesContainer));
         Assert.Contains(services, s => s.ServiceType == typeof(IPluginServiceProvider));
+        Assert.Contains(services, s => s.ServiceType == typeof(IPluginSystemController));
         Assert.Contains(services, s => s.ServiceType == typeof(IHostedService) && s.ImplementationType == typeof(ServicePluginHost));
     }
 
@@ -69,7 +70,7 @@ public class HostApplicationBuilderExtensionsTests
 
         builder.AddPluginSystem(_ => { });
 
-        var serviceProvider = services.BuildServiceProvider();
+        using var serviceProvider = services.BuildServiceProvider();
         var hostContext = serviceProvider.GetRequiredService<IPluginSystemHostContext>();
 
         Assert.NotNull(hostContext);
@@ -89,9 +90,9 @@ public class HostApplicationBuilderExtensionsTests
         services.AddSingleton(loggerFactory);
         services.AddTransient(typeof(ILogger<>), typeof(Logger<>));
 
-        builder.AddPluginSystem(sp => { sp.PluginSettingsRootPath = "./test-plugin-configs"; });
+        builder.AddPluginSystem(sp => sp.PluginSettingsRootPath = "./test-plugin-configs");
 
-        var serviceProvider = services.BuildServiceProvider();
+        using var serviceProvider = services.BuildServiceProvider();
         var hostContext = serviceProvider.GetRequiredService<IPluginSystemHostContext>();
         var environment = serviceProvider.GetRequiredService<IPluginSystemHostEnvironment>();
 
