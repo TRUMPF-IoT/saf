@@ -9,7 +9,6 @@ using Microsoft.Extensions.Options;
 using System.IO;
 using System.Reflection;
 
-[Collection("BaseDirectoryFileSystem")]
 public class PublicServiceTypeRegistryTests
 {
     [Fact]

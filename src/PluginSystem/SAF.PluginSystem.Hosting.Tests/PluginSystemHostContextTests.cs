@@ -25,7 +25,7 @@ public class PluginSystemHostContextTests
         var fileSystem = new RealFileSystem();
 
         // Act
-        var context = new PluginSystemHostContext(logger, environment, hostConfiguration, options, fileSystem);
+        using var context = new PluginSystemHostContext(logger, environment, hostConfiguration, options, fileSystem);
 
         // Assert
         Assert.Equal(environment, context.Environment);
@@ -45,7 +45,7 @@ public class PluginSystemHostContextTests
         var fileSystem = new RealFileSystem();
 
         // Act
-        var context = new PluginSystemHostContext(logger, environment, hostConfiguration, options, fileSystem);
+        using var context = new PluginSystemHostContext(logger, environment, hostConfiguration, options, fileSystem);
 
         // Assert
         logger.Received().LogInformation("No plugin configuration file configured.");
@@ -66,7 +66,7 @@ public class PluginSystemHostContextTests
         var fileSystem = new RealFileSystem();
 
         // Act
-        var context = new PluginSystemHostContext(logger, environment, hostConfiguration, options, fileSystem);
+        using var context = new PluginSystemHostContext(logger, environment, hostConfiguration, options, fileSystem);
 
         // Assert
         Assert.NotNull(context.PluginConfiguration);
@@ -86,7 +86,7 @@ public class PluginSystemHostContextTests
         var fileSystem = new RealFileSystem();
 
         // Act
-        var context = new PluginSystemHostContext(logger, environment, hostConfiguration, options, fileSystem);
+        using var context = new PluginSystemHostContext(logger, environment, hostConfiguration, options, fileSystem);
 
         // Assert
         Assert.NotNull(context.HostConfiguration);
@@ -108,7 +108,7 @@ public class PluginSystemHostContextTests
         var fileSystem = new RealFileSystem();
 
         // Act
-        var context = new PluginSystemHostContext(logger, environment, hostConfiguration, options, fileSystem);
+        using var context = new PluginSystemHostContext(logger, environment, hostConfiguration, options, fileSystem);
 
         // Assert
         Assert.NotNull(context.HostConfiguration);
