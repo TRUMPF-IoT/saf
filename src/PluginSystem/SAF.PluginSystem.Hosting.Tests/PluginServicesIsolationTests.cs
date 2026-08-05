@@ -11,7 +11,6 @@ using System.Linq;
 using TestPlugin.PublicDependencyA;
 using Testably.Abstractions;
 using SAF.PluginSystem.Hosting.Contracts;
-using Xunit.Abstractions;
 
 public class PluginServicesIsolationTests
 {
@@ -24,13 +23,13 @@ public class PluginServicesIsolationTests
 
     public PluginServicesIsolationTests(ITestOutputHelper outputHelper)
     {
-        _loggerFactory = LoggerFactory.Create(builder => builder.AddXunit(outputHelper, LogLevel.Trace).SetMinimumLevel(LogLevel.Warning));
+        _loggerFactory = LoggerFactory.Create(builder => builder.AddXUnit(outputHelper).SetMinimumLevel(LogLevel.Warning));
         _logger = _loggerFactory.CreateLogger<PluginServicesContainer>();
 
         _hostContext = Substitute.For<IPluginSystemHostContext>();
         _applicationServiceProvider = Substitute.For<IServiceProvider>();
         _publicServiceTypeRegistry = Substitute.For<IPublicServiceTypeRegistry>();
-        _publicServiceTypeRegistry.GetAssemblyNames().Returns(new[] { typeof(IPublicSingleton).Assembly.FullName! });
+        _publicServiceTypeRegistry.GetAssemblyNames().Returns([typeof(IPublicSingleton).Assembly.FullName!]);
 
         _pluginContainer = new PluginAssemblyFolderContainer(
             _loggerFactory,
@@ -172,7 +171,7 @@ public class PluginServicesIsolationTests
         var publicServiceProvider = pluginServicesContainer.GetPublicServices();
 
         // Assert
-        List<IPublicSingleton> firstPublicSingletons = new();
+        List<IPublicSingleton> firstPublicSingletons = [];
         foreach (var sp in pluginServiceProviders)
         {
             var publicSingletons = sp.GetServices<IPublicSingleton>().ToList();
@@ -206,7 +205,7 @@ public class PluginServicesIsolationTests
         var publicServiceProvider = pluginServicesContainer.GetPublicServices();
 
         // Assert
-        List<IPublicTransient> firstPublicTransients = new();
+        List<IPublicTransient> firstPublicTransients = [];
         foreach (var sp in pluginServiceProviders)
         {
             var publicTransients = sp.GetServices<IPublicTransient>().ToList();
