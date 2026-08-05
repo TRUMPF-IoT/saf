@@ -26,14 +26,14 @@ public sealed class PluginServicesContainer(
 
     public IEnumerable<IServiceProvider> GetPluginServices()
     {
-        InitializeServiceProviders();
-        return _pluginServiceCollections.Select(l => l.ServiceProvider!).ToList();
+        var (pluginServices, _) = GetServiceProviders();
+        return pluginServices;
     }
 
     public IServiceProvider GetPublicServices()
     {
-        InitializeServiceProviders();
-        return _publicServicesOnlyCollection.ServiceProvider!;
+        var (_, publicServices) = GetServiceProviders();
+        return publicServices;
     }
 
     public async ValueTask ReinitializeAsync(CancellationToken cancellationToken = default)
@@ -61,31 +61,33 @@ public sealed class PluginServicesContainer(
         }
     }
 
-    private void InitializeServiceProviders()
+    private (List<IServiceProvider> PluginServices, IServiceProvider PublicServices) GetServiceProviders()
     {
-        lock(_syncPluginLoading)
+        lock (_syncPluginLoading)
         {
-            if (_initialized)
+            if (!_initialized)
             {
-                return;
+                logger.LogInformation("Starting plug-in search and initialization.");
+
+                var (pluginServiceCollections, publicServicesOnlyCollection) = BuildProviders();
+                _pluginServiceCollections = pluginServiceCollections;
+                _publicServicesOnlyCollection = publicServicesOnlyCollection;
+                _initialized = true;
             }
 
-            logger.LogInformation("Starting plug-in search and initialization.");
-
-            var (pluginServiceCollections, publicServicesOnlyCollection) = BuildProviders();
-            _pluginServiceCollections = pluginServiceCollections;
-            _publicServicesOnlyCollection = publicServicesOnlyCollection;
-            _initialized = true;
+            return (
+                _pluginServiceCollections.Select(collection => collection.ServiceProvider!).ToList(),
+                _publicServicesOnlyCollection.ServiceProvider!);
         }
     }
 
-    private (List<PluginServiceCollection> PluginServiceCollections, PluginServiceCollection PublicServicesOnlyCollection) BuildProviders()
+    private (List<PluginServiceCollection> pluginServiceCollections, PluginServiceCollection publicServicesOnlyCollection) BuildProviders()
     {
         var manifests = pluginContainers.SelectMany(s => s.GetPluginManifests()).ToList();
         return InitializePlugins(manifests);
     }
 
-    private (List<PluginServiceCollection> PluginServiceCollections, PluginServiceCollection PublicServicesOnlyCollection) InitializePlugins(IEnumerable<IPluginManifest> pluginManifests)
+    private (List<PluginServiceCollection> pluginServiceCollections, PluginServiceCollection publicServicesOnlyCollection) InitializePlugins(IEnumerable<IPluginManifest> pluginManifests)
     {
         List<PluginServiceCollection> pluginServiceCollections = [];
         PluginServiceCollection publicServicesOnlyCollection = new(new ServiceCollection(), []);
@@ -126,7 +128,7 @@ public sealed class PluginServicesContainer(
     {
         var publicServiceDescriptors = serviceCollection
             .Where(sd => publicServiceTypeRegistry.GetAssemblyNames().FirstOrDefault(a => a == sd.ServiceType.Assembly.FullName) != null);
-        return publicServiceDescriptors.ToList();
+        return [.. publicServiceDescriptors];
     }
 
     public async ValueTask DisposeAsync()
@@ -174,7 +176,8 @@ public sealed class PluginServicesContainer(
     {
         if (provider is IAsyncDisposable asyncDisposable)
         {
-            asyncDisposable.DisposeAsync().ConfigureAwait(false).GetAwaiter().GetResult();
+            asyncDisposable.DisposeAsync().AsTask()
+                .ConfigureAwait(false).GetAwaiter().GetResult();
             return;
         }
 
