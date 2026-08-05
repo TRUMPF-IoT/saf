@@ -13,15 +13,26 @@ internal sealed class PluginSystemController(
     ILogger<PluginSystemController> logger,
     IPluginServicesContainer pluginServicesContainer) : IPluginSystemController
 {
+    private readonly SemaphoreSlim _reloadSync= new(1, 1);
+
     public async Task ReloadAsync(CancellationToken cancellationToken = default)
     {
-        logger.LogInformation("Reloading plugin system.");
+        await _reloadSync.WaitAsync(cancellationToken).ConfigureAwait(false);
 
-        await StopServicePluginsAsync(cancellationToken).ConfigureAwait(false);
-        await pluginServicesContainer.ReinitializeAsync(cancellationToken).ConfigureAwait(false);
-        await StartServicePluginsAsync(cancellationToken).ConfigureAwait(false);
+        try
+        {
+            logger.LogInformation("Reloading plugin system.");
 
-        logger.LogInformation("Plugin system reloaded.");
+            await StopServicePluginsAsync(cancellationToken).ConfigureAwait(false);
+            await pluginServicesContainer.ReinitializeAsync(cancellationToken).ConfigureAwait(false);
+            await StartServicePluginsAsync(cancellationToken).ConfigureAwait(false);
+
+            logger.LogInformation("Plugin system reloaded.");
+        }
+        finally
+        {
+            _reloadSync.Release();
+        }
     }
 
     private async Task StartServicePluginsAsync(CancellationToken cancellationToken)
@@ -55,5 +66,5 @@ internal sealed class PluginSystemController(
     }
 
     private List<IServicePlugin> GetServicePlugins()
-        => pluginServicesContainer.GetPluginServices().SelectMany(sp => sp.GetServices<IServicePlugin>()).ToList();
+        => [.. pluginServicesContainer.GetPluginServices().SelectMany(sp => sp.GetServices<IServicePlugin>())];
 }
