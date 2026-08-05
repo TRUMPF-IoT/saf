@@ -5,6 +5,7 @@
 namespace SAF.PluginSystem.Hosting.Tests;
 
 using Contracts;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using NSubstitute;
 
@@ -254,6 +255,46 @@ public class PluginServicesContainerTests
     }
 
     /// <summary>
+    /// Tests that a failed reinitialization keeps the current provider generation active and retryable.
+    /// </summary>
+    [Fact]
+    public async Task ReinitializeAsync_WhenRebuildFails_KeepsPreviousProviders()
+    {
+        // Arrange
+        var pluginServicesContainer = new PluginServicesContainer(
+            _logger, _hostContext, _applicationServiceProvider, [_pluginContainer], _publicServiceTypeRegistry);
+        var publicServicesBefore = pluginServicesContainer.GetPublicServices();
+        var pluginServicesBefore = pluginServicesContainer.GetPluginServices().ToList();
+        var shouldThrow = true;
+
+        _pluginManifest.When(manifest => manifest.ConfigureServices(_hostContext, Arg.Any<IServiceCollection>()))
+            .Do(_ =>
+            {
+                if (shouldThrow)
+                {
+                    throw new InvalidOperationException("configure boom");
+                }
+            });
+
+        // Act + Assert
+        var exception = await Assert.ThrowsAsync<InvalidOperationException>(async () => await pluginServicesContainer.ReinitializeAsync());
+        Assert.Equal("configure boom", exception.Message);
+        Assert.Same(publicServicesBefore, pluginServicesContainer.GetPublicServices());
+
+        var pluginServicesAfterFailure = pluginServicesContainer.GetPluginServices().ToList();
+        Assert.Single(pluginServicesAfterFailure);
+        Assert.Same(pluginServicesBefore.Single(), pluginServicesAfterFailure.Single());
+        Assert.NotNull(publicServicesBefore.GetService(typeof(IServiceProvider)));
+
+        shouldThrow = false;
+        await pluginServicesContainer.ReinitializeAsync();
+
+        var publicServicesAfterRetry = pluginServicesContainer.GetPublicServices();
+        Assert.NotSame(publicServicesBefore, publicServicesAfterRetry);
+        Assert.Throws<ObjectDisposedException>(() => publicServicesBefore.GetService(typeof(IServiceProvider)));
+    }
+
+    /// <summary>
     /// Tests that ReinitializeAsync builds providers even when no prior initialization happened.
     /// </summary>
     [Fact]
@@ -270,6 +311,38 @@ public class PluginServicesContainerTests
         Assert.NotNull(pluginServicesContainer.GetPublicServices());
         Assert.NotEmpty(pluginServicesContainer.GetPluginServices());
         _pluginContainer.Received().GetPluginManifests();
+    }
+
+    /// <summary>
+    /// Tests that a failed first initialization is retried on the next access.
+    /// </summary>
+    [Fact]
+    public void GetPublicServices_WhenInitializationFails_RetriesOnNextCall()
+    {
+        // Arrange
+        var pluginServicesContainer = new PluginServicesContainer(
+            _logger, _hostContext, _applicationServiceProvider, [_pluginContainer], _publicServiceTypeRegistry);
+        var shouldThrow = true;
+
+        _pluginManifest.When(manifest => manifest.ConfigureServices(_hostContext, Arg.Any<IServiceCollection>()))
+            .Do(_ =>
+            {
+                if (!shouldThrow)
+                {
+                    return;
+                }
+
+                shouldThrow = false;
+                throw new InvalidOperationException("configure boom");
+            });
+
+        // Act + Assert
+        Assert.Throws<InvalidOperationException>(() => pluginServicesContainer.GetPublicServices());
+
+        var provider = pluginServicesContainer.GetPublicServices();
+
+        Assert.NotNull(provider);
+        _pluginContainer.Received(2).GetPluginManifests();
     }
 
     /// <summary>

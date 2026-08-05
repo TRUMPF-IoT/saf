@@ -48,13 +48,11 @@ public sealed class PluginServicesContainer(
 
             logger.LogInformation("Reinitializing plug-in service providers.");
 
+            var (pluginServiceCollections, publicServicesOnlyCollection) = BuildProviders();
             providersToDispose = SnapshotProviders();
-
-            _pluginServiceCollections = [];
-            _publicServicesOnlyCollection = new PluginServiceCollection(new ServiceCollection(), []);
+            _pluginServiceCollections = pluginServiceCollections;
+            _publicServicesOnlyCollection = publicServicesOnlyCollection;
             _initialized = true;
-
-            BuildProviders();
         }
 
         foreach (IServiceProvider provider in providersToDispose)
@@ -72,43 +70,56 @@ public sealed class PluginServicesContainer(
                 return;
             }
 
-            _initialized = true;
-
             logger.LogInformation("Starting plug-in search and initialization.");
 
-            BuildProviders();
+            var (pluginServiceCollections, publicServicesOnlyCollection) = BuildProviders();
+            _pluginServiceCollections = pluginServiceCollections;
+            _publicServicesOnlyCollection = publicServicesOnlyCollection;
+            _initialized = true;
         }
     }
 
-    private void BuildProviders()
+    private (List<PluginServiceCollection> PluginServiceCollections, PluginServiceCollection PublicServicesOnlyCollection) BuildProviders()
     {
         var manifests = pluginContainers.SelectMany(s => s.GetPluginManifests()).ToList();
-        InitializePlugins(manifests);
+        return InitializePlugins(manifests);
     }
 
-    private void InitializePlugins(IEnumerable<IPluginManifest> pluginManifests)
+    private (List<PluginServiceCollection> PluginServiceCollections, PluginServiceCollection PublicServicesOnlyCollection) InitializePlugins(IEnumerable<IPluginManifest> pluginManifests)
     {
-        foreach (var manifest in pluginManifests)
+        List<PluginServiceCollection> pluginServiceCollections = [];
+        PluginServiceCollection publicServicesOnlyCollection = new(new ServiceCollection(), []);
+
+        try
         {
-            var pluginServices = new ServiceCollection();
+            foreach (var manifest in pluginManifests)
+            {
+                var pluginServices = new ServiceCollection();
 
-            applicationServiceProvider.RedirectCommonServices(pluginServices);
+                applicationServiceProvider.RedirectCommonServices(pluginServices);
 
-            manifest.ConfigureServices(hostContext, pluginServices);
+                manifest.ConfigureServices(hostContext, pluginServices);
 
-            _pluginServiceCollections.Add(new PluginServiceCollection(pluginServices, CollectPublicServices(pluginServices)));
+                pluginServiceCollections.Add(new PluginServiceCollection(pluginServices, CollectPublicServices(pluginServices)));
+            }
+
+            var publicServicesOnlyBuilder = new PluginServicesLocatorBuilder(publicServicesOnlyCollection, pluginServiceCollections);
+
+            foreach (var pluginServices in pluginServiceCollections)
+            {
+                var otherPluginServiceCollections = pluginServiceCollections.Except([pluginServices]);
+                var builder = new PluginServicesLocatorBuilder(pluginServices, otherPluginServiceCollections);
+                builder.Build();
+            }
+
+            publicServicesOnlyBuilder.Build();
+            return (pluginServiceCollections, publicServicesOnlyCollection);
         }
-
-        var publicServicesOnlyBuilder = new PluginServicesLocatorBuilder(_publicServicesOnlyCollection, _pluginServiceCollections);
-
-        foreach (var pluginServices in _pluginServiceCollections)
+        catch
         {
-            var otherPluginServiceCollections = _pluginServiceCollections.Except([pluginServices]);
-            var builder = new PluginServicesLocatorBuilder(pluginServices, otherPluginServiceCollections);
-            builder.Build();
+            DisposeProviders(SnapshotProviders(pluginServiceCollections, publicServicesOnlyCollection));
+            throw;
         }
-
-        publicServicesOnlyBuilder.Build();
     }
 
     private List<ServiceDescriptor> CollectPublicServices(IEnumerable<ServiceDescriptor> serviceCollection)
@@ -141,11 +152,37 @@ public sealed class PluginServicesContainer(
     }
 
     private List<IServiceProvider> SnapshotProviders() =>
-        _pluginServiceCollections
+        SnapshotProviders(_pluginServiceCollections, _publicServicesOnlyCollection);
+
+    private static List<IServiceProvider> SnapshotProviders(
+        IEnumerable<PluginServiceCollection> pluginServiceCollections,
+        PluginServiceCollection publicServicesOnlyCollection) =>
+        [.. pluginServiceCollections
             .Select(collection => collection.ServiceProvider)
-            .Append(_publicServicesOnlyCollection.ServiceProvider)
-            .OfType<IServiceProvider>()
-            .ToList();
+            .Append(publicServicesOnlyCollection.ServiceProvider)
+            .OfType<IServiceProvider>()];
+
+    private static void DisposeProviders(IEnumerable<IServiceProvider> providers)
+    {
+        foreach (IServiceProvider provider in providers)
+        {
+            DisposeProvider(provider);
+        }
+    }
+
+    private static void DisposeProvider(IServiceProvider provider)
+    {
+        if (provider is IAsyncDisposable asyncDisposable)
+        {
+            asyncDisposable.DisposeAsync().ConfigureAwait(false).GetAwaiter().GetResult();
+            return;
+        }
+
+        if (provider is IDisposable disposable)
+        {
+            disposable.Dispose();
+        }
+    }
 
     private static async ValueTask DisposeProviderAsync(IServiceProvider provider)
     {
