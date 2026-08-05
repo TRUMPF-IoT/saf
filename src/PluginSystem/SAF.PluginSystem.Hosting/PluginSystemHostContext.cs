@@ -27,7 +27,8 @@ public sealed class PluginSystemHostContext : IPluginSystemHostContext, IDisposa
         Environment = environment;
         HostConfiguration = hostConfiguration;
 
-        (_pluginConfigurationRoot, _pluginSettingsFileProvider) = BuildPluginConfiguration(logger, options, environment, fileSystem, configurePluginConfigurationSources ?? []);
+        (_pluginConfigurationRoot, _pluginSettingsFileProvider) =
+            BuildPluginConfiguration(logger, options, environment, fileSystem, configurePluginConfigurationSources ?? []);
     }
 
     public IPluginSystemHostEnvironment Environment { get; }
@@ -44,7 +45,7 @@ public sealed class PluginSystemHostContext : IPluginSystemHostContext, IDisposa
         _pluginSettingsFileProvider?.Dispose();
     }
 
-    private static (IConfigurationRoot ConfigurationRoot, PhysicalFileProvider? SettingsFileProvider) BuildPluginConfiguration(
+    private static (IConfigurationRoot configurationRoot, PhysicalFileProvider? settingsFileProvider) BuildPluginConfiguration(
         ILogger logger,
         PluginSystemOptions options,
         IPluginSystemHostEnvironment environment,
@@ -53,10 +54,10 @@ public sealed class PluginSystemHostContext : IPluginSystemHostContext, IDisposa
     {
         var builder = new ConfigurationBuilder();
 
-        AddDefaultPluginConfigurationSources(builder, logger, options, environment, fileSystem);
+        var settingsFileProvider = AddDefaultPluginConfigurationSources(builder, logger, options, environment, fileSystem);
         AddCustomPluginConfigurationSources(builder, configurePluginConfigurationSources);
 
-        return builder.Build();
+        return (builder.Build(), settingsFileProvider);
     }
 
     private static PhysicalFileProvider? AddDefaultPluginConfigurationSources(
@@ -115,7 +116,7 @@ public sealed class PluginSystemHostContext : IPluginSystemHostContext, IDisposa
         }
     }
 
-    private static void AddJsonFile(ConfigurationBuilder builder, ILogger logger, PhysicalFileProvider settingsFileProvider, string settingsFileName)
+    private static void AddJsonFile(IConfigurationBuilder builder, ILogger logger, PhysicalFileProvider settingsFileProvider, string settingsFileName)
         => builder.AddJsonFile(source =>
         {
             source.FileProvider = settingsFileProvider;
