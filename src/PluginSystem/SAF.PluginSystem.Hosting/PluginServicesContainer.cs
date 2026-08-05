@@ -58,35 +58,13 @@ public sealed class PluginServicesContainer(
         }
 
         var (pluginServiceCollections, publicServicesOnlyCollection) = InitializePlugins(pluginManifests);
-        List<IServiceProvider> providersToDispose;
-        Exception? deferredException = null;
+        var publishResult = PublishProviders(pluginServiceCollections, publicServicesOnlyCollection, replaceExisting: true, cancellationToken);
 
-        lock (_syncPluginLoading)
+        await DisposeProvidersAsync(publishResult.ProvidersToDispose).ConfigureAwait(false);
+
+        if (publishResult.DeferredException is not null)
         {
-            if (_disposed)
-            {
-                providersToDispose = SnapshotProviders(pluginServiceCollections, publicServicesOnlyCollection);
-                deferredException = new ObjectDisposedException(nameof(PluginServicesContainer));
-            }
-            else if (cancellationToken.IsCancellationRequested)
-            {
-                providersToDispose = SnapshotProviders(pluginServiceCollections, publicServicesOnlyCollection);
-                deferredException = new OperationCanceledException(cancellationToken);
-            }
-            else
-            {
-                providersToDispose = SnapshotProviders();
-                _pluginServiceCollections = pluginServiceCollections;
-                _publicServicesOnlyCollection = publicServicesOnlyCollection;
-                _initialized = true;
-            }
-        }
-
-        await DisposeProvidersAsync(providersToDispose).ConfigureAwait(false);
-
-        if (deferredException is not null)
-        {
-            throw deferredException;
+            throw publishResult.DeferredException;
         }
     }
 
@@ -108,40 +86,16 @@ public sealed class PluginServicesContainer(
         }
 
         var (pluginServiceCollections, publicServicesOnlyCollection) = InitializePlugins(pluginManifests);
-        List<IServiceProvider> providersToDispose = [];
-        bool isDisposed;
-        (List<IServiceProvider> PluginServices, IServiceProvider PublicServices) currentProviders;
+        var publishResult = PublishProviders(pluginServiceCollections, publicServicesOnlyCollection, replaceExisting: false);
 
-        lock (_syncPluginLoading)
+        DisposeProviders(publishResult.ProvidersToDispose);
+
+        if (publishResult.DeferredException is not null)
         {
-            isDisposed = _disposed;
-
-            if (isDisposed)
-            {
-                providersToDispose = SnapshotProviders(pluginServiceCollections, publicServicesOnlyCollection);
-            }
-            else if (!_initialized)
-            {
-                _pluginServiceCollections = pluginServiceCollections;
-                _publicServicesOnlyCollection = publicServicesOnlyCollection;
-                _initialized = true;
-            }
-            else
-            {
-                providersToDispose = SnapshotProviders(pluginServiceCollections, publicServicesOnlyCollection);
-            }
-
-            currentProviders = SnapshotCurrentServiceProviders();
+            throw publishResult.DeferredException;
         }
 
-        DisposeProviders(providersToDispose);
-
-        if (isDisposed)
-        {
-            throw new ObjectDisposedException(nameof(PluginServicesContainer));
-        }
-
-        return currentProviders;
+        return publishResult.CurrentProviders;
     }
 
     private List<IPluginManifest> GetPluginManifests() =>
@@ -215,6 +169,48 @@ public sealed class PluginServicesContainer(
         => (_pluginServiceCollections.Select(collection => collection.ServiceProvider!).ToList(),
             _publicServicesOnlyCollection.ServiceProvider!);
 
+    private PublishProvidersResult PublishProviders(
+        List<PluginServiceCollection> pluginServiceCollections,
+        PluginServiceCollection publicServicesOnlyCollection,
+        bool replaceExisting,
+        CancellationToken cancellationToken = default)
+    {
+        lock (_syncPluginLoading)
+        {
+            if (_disposed)
+            {
+                return new(
+                    SnapshotProviders(pluginServiceCollections, publicServicesOnlyCollection),
+                    SnapshotCurrentServiceProviders(),
+                    new ObjectDisposedException(nameof(PluginServicesContainer)));
+            }
+
+            if (replaceExisting && cancellationToken.IsCancellationRequested)
+            {
+                return new(
+                    SnapshotProviders(pluginServiceCollections, publicServicesOnlyCollection),
+                    SnapshotCurrentServiceProviders(),
+                    new OperationCanceledException(cancellationToken));
+            }
+
+            List<IServiceProvider> providersToDispose;
+
+            if (replaceExisting || !_initialized)
+            {
+                providersToDispose = SnapshotProviders();
+                _pluginServiceCollections = pluginServiceCollections;
+                _publicServicesOnlyCollection = publicServicesOnlyCollection;
+                _initialized = true;
+            }
+            else
+            {
+                providersToDispose = SnapshotProviders(pluginServiceCollections, publicServicesOnlyCollection);
+            }
+
+            return new(providersToDispose, SnapshotCurrentServiceProviders(), null);
+        }
+    }
+
     private List<IServiceProvider> SnapshotProviders() =>
         SnapshotProviders(_pluginServiceCollections, _publicServicesOnlyCollection);
 
@@ -270,4 +266,9 @@ public sealed class PluginServicesContainer(
             disposable.Dispose();
         }
     }
+
+    private sealed record PublishProvidersResult(
+        List<IServiceProvider> ProvidersToDispose,
+        (List<IServiceProvider> PluginServices, IServiceProvider PublicServices) CurrentProviders,
+        Exception? DeferredException);
 }
