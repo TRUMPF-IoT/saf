@@ -130,12 +130,14 @@ public class PluginSystemHostContextTests
         var fileSystem = new RealFileSystem();
 
         // Act
-        var context = new PluginSystemHostContext(logger, environment, hostConfiguration, options, fileSystem);
+        using var context = new PluginSystemHostContext(logger, environment, hostConfiguration, options, fileSystem);
 
         // Assert — the plugin settings file(s) must be watched so ReinitializeAsync/ReloadAsync see fresh values.
         var root = Assert.IsAssignableFrom<IConfigurationRoot>(context.PluginConfiguration);
         var fileProviders = root.Providers.OfType<FileConfigurationProvider>().ToList();
         Assert.NotEmpty(fileProviders);
         Assert.All(fileProviders, provider => Assert.True(provider.Source.ReloadOnChange));
+        Assert.All(fileProviders, provider => Assert.DoesNotContain(fileSystem.Path.DirectorySeparatorChar, provider.Source.Path));
+        Assert.All(fileProviders, provider => Assert.DoesNotContain(fileSystem.Path.AltDirectorySeparatorChar, provider.Source.Path));
     }
 }
