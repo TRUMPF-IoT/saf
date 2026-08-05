@@ -12,7 +12,7 @@ SAF builds on top of .NET's `Microsoft.Extensions.Hosting` and adds:
 
 | Layer | What it provides |
 |---|---|
-| **Plugin System** | Assembly-isolated plug-in loading, independent DI containers per plug-in, typed cross-plug-in service resolution |
+| **Plugin System** | Assembly-isolated plug-in loading, independent DI containers per plug-in, typed cross-plug-in service resolution, in-process reload on configuration changes |
 | **SAF Host** | Opinionated host wiring: service host identity, plug-in folder discovery, optional diagnostics |
 | **Messaging Infrastructure** | Exchangeable pub/sub broker (In-Process, Redis, NATS, C-DEngine, or Routing) |
 | **Storage Infrastructure** | Exchangeable key/value store (LiteDB, SQLite, Redis, C-DEngine) |
