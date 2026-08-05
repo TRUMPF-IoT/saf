@@ -43,6 +43,7 @@ public static class HostApplicationBuilderExtensions
         pluginHostBuilder.Services.AddSingleton<IPluginManifestLoader, PluginManifestLoader>();
         pluginHostBuilder.Services.AddSingleton<IPluginServicesContainer, PluginServicesContainer>();
         pluginHostBuilder.Services.AddSingleton<IPluginServiceProvider, PluginServiceProvider>();
+        pluginHostBuilder.Services.AddSingleton<IServicePluginLifecycleRunner, ServicePluginLifecycleRunner>();
         pluginHostBuilder.Services.AddSingleton<IPluginSystemController, PluginSystemController>();
 
         hostAppBuilder.Services.AddHostedService<ServicePluginHost>();

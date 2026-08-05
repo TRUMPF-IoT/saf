@@ -12,7 +12,9 @@ using NSubstitute;
 public class PluginSystemControllerTests
 {
     private readonly ILogger<PluginSystemController> _logger = Substitute.For<ILogger<PluginSystemController>>();
+    private readonly ILogger<ServicePluginLifecycleRunner> _runnerLogger = Substitute.For<ILogger<ServicePluginLifecycleRunner>>();
     private readonly IPluginServicesContainer _pluginServicesContainer = Substitute.For<IPluginServicesContainer>();
+    private IServicePluginLifecycleRunner LifecycleRunner => new ServicePluginLifecycleRunner(_runnerLogger, _pluginServicesContainer);
 
     public PluginSystemControllerTests()
     {
@@ -35,7 +37,7 @@ public class PluginSystemControllerTests
     {
         // Arrange
         _pluginServicesContainer.IsInitialized.Returns(false);
-        var controller = new PluginSystemController(_logger, _pluginServicesContainer);
+        var controller = new PluginSystemController(_logger, _pluginServicesContainer, LifecycleRunner);
 
         // Act
         var exception = await Record.ExceptionAsync(() => controller.ReloadAsync(TestContext.Current.CancellationToken));
@@ -51,7 +53,7 @@ public class PluginSystemControllerTests
         // Arrange
         var servicePlugin = Substitute.For<ILifecycleServicePlugin>();
         _pluginServicesContainer.GetPluginServices().Returns([BuildProviderWith(servicePlugin)]);
-        var controller = new PluginSystemController(_logger, _pluginServicesContainer);
+        var controller = new PluginSystemController(_logger, _pluginServicesContainer, LifecycleRunner);
 
         // Act
         await controller.ReloadAsync(TestContext.Current.CancellationToken);
@@ -75,7 +77,7 @@ public class PluginSystemControllerTests
         // Arrange
         var servicePlugin = Substitute.For<ILifecycleServicePlugin>();
         _pluginServicesContainer.GetPluginServices().Returns([BuildProviderWith(servicePlugin)]);
-        var controller = new PluginSystemController(_logger, _pluginServicesContainer);
+        var controller = new PluginSystemController(_logger, _pluginServicesContainer, LifecycleRunner);
 
         using var cancellationTokenSource = new CancellationTokenSource();
         var cancellationToken = cancellationTokenSource.Token;
@@ -98,7 +100,7 @@ public class PluginSystemControllerTests
     {
         // Arrange
         _pluginServicesContainer.GetPluginServices().Returns([BuildProviderWith()]);
-        var controller = new PluginSystemController(_logger, _pluginServicesContainer);
+        var controller = new PluginSystemController(_logger, _pluginServicesContainer, LifecycleRunner);
 
         // Act
         await controller.ReloadAsync(TestContext.Current.CancellationToken);
@@ -114,7 +116,7 @@ public class PluginSystemControllerTests
         var faultyPlugin = Substitute.For<IServicePlugin>();
         faultyPlugin.StopAsync(Arg.Any<CancellationToken>()).Returns(Task.FromException(new InvalidOperationException("boom")));
         _pluginServicesContainer.GetPluginServices().Returns([BuildProviderWith(faultyPlugin)]);
-        var controller = new PluginSystemController(_logger, _pluginServicesContainer);
+        var controller = new PluginSystemController(_logger, _pluginServicesContainer, LifecycleRunner);
 
         // Act
         var exception = await Record.ExceptionAsync(() => controller.ReloadAsync(TestContext.Current.CancellationToken));
@@ -131,7 +133,7 @@ public class PluginSystemControllerTests
         var faultyPlugin = Substitute.For<IServicePlugin>();
         faultyPlugin.StartAsync(Arg.Any<CancellationToken>()).Returns(Task.FromException(new InvalidOperationException("boom")));
         _pluginServicesContainer.GetPluginServices().Returns([BuildProviderWith(faultyPlugin)]);
-        var controller = new PluginSystemController(_logger, _pluginServicesContainer);
+        var controller = new PluginSystemController(_logger, _pluginServicesContainer, LifecycleRunner);
 
         // Act
         var exception = await Record.ExceptionAsync(() => controller.ReloadAsync(TestContext.Current.CancellationToken));
@@ -149,7 +151,7 @@ public class PluginSystemControllerTests
         _pluginServicesContainer.GetPluginServices().Returns([BuildProviderWith(servicePlugin)]);
         _pluginServicesContainer.ReinitializeAsync(Arg.Any<CancellationToken>())
             .Returns(ValueTask.FromException(new InvalidOperationException("boom")));
-        var controller = new PluginSystemController(_logger, _pluginServicesContainer);
+        var controller = new PluginSystemController(_logger, _pluginServicesContainer, LifecycleRunner);
 
         // Act
         var exception = await Record.ExceptionAsync(() => controller.ReloadAsync(TestContext.Current.CancellationToken));
@@ -180,7 +182,7 @@ public class PluginSystemControllerTests
                 return Task.FromCanceled(cancellationTokenSource.Token);
             });
 
-        var controller = new PluginSystemController(_logger, _pluginServicesContainer);
+        var controller = new PluginSystemController(_logger, _pluginServicesContainer, LifecycleRunner);
 
         // Act
         var exception = await Record.ExceptionAsync(() => controller.ReloadAsync(cancellationTokenSource.Token));
@@ -216,7 +218,7 @@ public class PluginSystemControllerTests
                     : Task.CompletedTask;
             });
 
-        var controller = new PluginSystemController(_logger, _pluginServicesContainer);
+        var controller = new PluginSystemController(_logger, _pluginServicesContainer, LifecycleRunner);
 
         // Act
         var exception = await Record.ExceptionAsync(() => controller.ReloadAsync(cancellationTokenSource.Token));
@@ -242,7 +244,7 @@ public class PluginSystemControllerTests
                 return ValueTask.FromCanceled(cancellationTokenSource.Token);
             });
 
-        var controller = new PluginSystemController(_logger, _pluginServicesContainer);
+        var controller = new PluginSystemController(_logger, _pluginServicesContainer, LifecycleRunner);
 
         // Act
         var exception = await Record.ExceptionAsync(() => controller.ReloadAsync(cancellationTokenSource.Token));

@@ -6,13 +6,13 @@ namespace SAF.PluginSystem.Hosting;
 
 using System.Diagnostics.CodeAnalysis;
 using Contracts;
-using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 
 /// <inheritdoc />
 internal sealed class PluginSystemController(
     ILogger<PluginSystemController> logger,
-    IPluginServicesContainer pluginServicesContainer) : IPluginSystemController
+    IPluginServicesContainer pluginServicesContainer,
+    IServicePluginLifecycleRunner lifecycleRunner) : IPluginSystemController
 {
     private readonly SemaphoreSlim _reloadSync= new(1, 1);
 
@@ -33,28 +33,35 @@ internal sealed class PluginSystemController(
         {
             logger.LogInformation("Reloading plugin system.");
 
-            List<IServicePlugin> servicePlugins = GetServicePlugins();
-            stoppedServicePlugins = await StopServicePluginsAsync(servicePlugins, cancellationToken).ConfigureAwait(false);
+            List<IServicePlugin> servicePlugins = lifecycleRunner.GetServicePlugins();
+
+            await lifecycleRunner.StoppingAsync(servicePlugins, cancellationToken).ConfigureAwait(false);
+            stoppedServicePlugins = await lifecycleRunner.StopAsync(servicePlugins, cancellationToken).ConfigureAwait(false);
+            await lifecycleRunner.StoppedAsync(servicePlugins, cancellationToken).ConfigureAwait(false);
 
             await pluginServicesContainer.ReinitializeAsync(cancellationToken).ConfigureAwait(false);
 
-            await StartServicePluginsAsync(GetServicePlugins(), cancellationToken)
-                .ConfigureAwait(false);
+            List<IServicePlugin> newServicePlugins = lifecycleRunner.GetServicePlugins();
+            await lifecycleRunner.StartingAsync(newServicePlugins, cancellationToken).ConfigureAwait(false);
+            await lifecycleRunner.StartAsync(newServicePlugins, cancellationToken).ConfigureAwait(false);
+            await lifecycleRunner.StartedAsync(newServicePlugins, cancellationToken).ConfigureAwait(false);
 
             logger.LogInformation("Plugin system reloaded.");
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
             logger.LogWarning("Plugin system reload was canceled. Attempting to restart previously stopped service plug-ins.");
-            await StartServicePluginsAsync(stoppedServicePlugins, CancellationToken.None)
-                .ConfigureAwait(false);
+            await lifecycleRunner.StartingAsync(stoppedServicePlugins, CancellationToken.None).ConfigureAwait(false);
+            await lifecycleRunner.StartAsync(stoppedServicePlugins, CancellationToken.None).ConfigureAwait(false);
+            await lifecycleRunner.StartedAsync(stoppedServicePlugins, CancellationToken.None).ConfigureAwait(false);
             throw;
         }
         catch (Exception)
         {
             logger.LogError("Plugin system reload failed. Attempting to restart previously stopped service plug-ins.");
-            await StartServicePluginsAsync(stoppedServicePlugins, CancellationToken.None)
-                .ConfigureAwait(false);
+            await lifecycleRunner.StartingAsync(stoppedServicePlugins, CancellationToken.None).ConfigureAwait(false);
+            await lifecycleRunner.StartAsync(stoppedServicePlugins, CancellationToken.None).ConfigureAwait(false);
+            await lifecycleRunner.StartedAsync(stoppedServicePlugins, CancellationToken.None).ConfigureAwait(false);
             throw;
         }
         finally
@@ -62,108 +69,5 @@ internal sealed class PluginSystemController(
             _reloadSync.Release();
         }
     }
-
-    private async Task StartServicePluginsAsync(
-        IEnumerable<IServicePlugin> servicePlugins,
-        CancellationToken cancellationToken)
-    {
-        List<IServicePlugin> servicePluginsList = [.. servicePlugins];
-
-        await ExecuteLifecyclePhaseAsync(
-            servicePluginsList,
-            static (plugin, ct) => plugin.StartingAsync(ct),
-            "StartingAsync",
-            cancellationToken).ConfigureAwait(false);
-
-        using (var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken))
-        {
-            foreach (IServicePlugin servicePlugin in servicePluginsList)
-            {
-                try
-                {
-                    await servicePlugin.StartAsync(linkedCts.Token).ConfigureAwait(false);
-                }
-                catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
-                {
-                    throw;
-                }
-                catch (Exception ex)
-                {
-                    logger.LogError(ex, "Failed to start service plug-in during reload.");
-                }
-            }
-        }
-
-        await ExecuteLifecyclePhaseAsync(
-            servicePluginsList,
-            static (plugin, ct) => plugin.StartedAsync(ct),
-            "StartedAsync",
-            cancellationToken).ConfigureAwait(false);
-    }
-
-    private async Task<List<IServicePlugin>> StopServicePluginsAsync(
-        IEnumerable<IServicePlugin> servicePlugins,
-        CancellationToken cancellationToken)
-    {
-        List<IServicePlugin> servicePluginsList = [.. servicePlugins];
-        List<IServicePlugin> stoppedServicePlugins = [];
-
-        await ExecuteLifecyclePhaseAsync(
-            servicePluginsList,
-            static (plugin, ct) => plugin.StoppingAsync(ct),
-            "StoppingAsync",
-            cancellationToken).ConfigureAwait(false);
-
-        using (var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken))
-        {
-            foreach (IServicePlugin servicePlugin in servicePluginsList)
-            {
-                try
-                {
-                    await servicePlugin.StopAsync(linkedCts.Token).ConfigureAwait(false);
-                    stoppedServicePlugins.Add(servicePlugin);
-                }
-                catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
-                {
-                    throw;
-                }
-                catch (Exception ex)
-                {
-                    logger.LogError(ex, "Failed to stop service plug-in during reload.");
-                }
-            }
-        }
-
-        await ExecuteLifecyclePhaseAsync(
-            servicePluginsList,
-            static (plugin, ct) => plugin.StoppedAsync(ct),
-            "StoppedAsync",
-            cancellationToken).ConfigureAwait(false);
-
-        return stoppedServicePlugins;
-    }
-
-    private async Task ExecuteLifecyclePhaseAsync(
-        IEnumerable<IServicePlugin> servicePlugins,
-        Func<ILifecycleServicePlugin, CancellationToken, Task> executePhase,
-        string phaseName,
-        CancellationToken cancellationToken)
-    {
-        using var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
-
-        foreach (ILifecycleServicePlugin servicePlugin in servicePlugins.OfType<ILifecycleServicePlugin>())
-        {
-            try
-            {
-                await executePhase(servicePlugin, linkedCts.Token).ConfigureAwait(false);
-            }
-            catch (Exception ex)
-            {
-                logger.LogError(ex, "Failed to execute {PhaseName} for service plug-in during reload.", phaseName);
-            }
-        }
-    }
-
-    private List<IServicePlugin> GetServicePlugins()
-        => [.. pluginServicesContainer.GetPluginServices().SelectMany(sp => sp.GetServices<IServicePlugin>())];
 }
+
