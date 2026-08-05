@@ -26,10 +26,10 @@ public class PluginSystemControllerTests
     }
 
     [Fact]
-    public async Task ReloadAsync_StopsReinitializesAndStartsServicePlugins_InOrder()
+    public async Task ReloadAsync_ExecutesLifecyclePhasesAndReinitializesServicePlugins_InOrder()
     {
         // Arrange
-        var servicePlugin = Substitute.For<IServicePlugin>();
+        var servicePlugin = Substitute.For<ILifecycleServicePlugin>();
         _pluginServicesContainer.GetPluginServices().Returns([BuildProviderWith(servicePlugin)]);
         var controller = new PluginSystemController(_logger, _pluginServicesContainer);
 
@@ -39,10 +39,38 @@ public class PluginSystemControllerTests
         // Assert
         Received.InOrder(() =>
         {
+            servicePlugin.StoppingAsync(Arg.Any<CancellationToken>());
             servicePlugin.StopAsync(Arg.Any<CancellationToken>());
+            servicePlugin.StoppedAsync(Arg.Any<CancellationToken>());
             _pluginServicesContainer.ReinitializeAsync(Arg.Any<CancellationToken>());
+            servicePlugin.StartingAsync(Arg.Any<CancellationToken>());
             servicePlugin.StartAsync(Arg.Any<CancellationToken>());
+            servicePlugin.StartedAsync(Arg.Any<CancellationToken>());
         });
+    }
+
+    [Fact]
+    public async Task ReloadAsync_UsesLinkedTokens_ForPluginLifecycleAndStartStopCallbacks()
+    {
+        // Arrange
+        var servicePlugin = Substitute.For<ILifecycleServicePlugin>();
+        _pluginServicesContainer.GetPluginServices().Returns([BuildProviderWith(servicePlugin)]);
+        var controller = new PluginSystemController(_logger, _pluginServicesContainer);
+
+        using var cancellationTokenSource = new CancellationTokenSource();
+        var cancellationToken = cancellationTokenSource.Token;
+
+        // Act
+        await controller.ReloadAsync(cancellationToken);
+
+        // Assert
+        await servicePlugin.Received(1).StoppingAsync(Arg.Is<CancellationToken>(ct => ct != cancellationToken));
+        await servicePlugin.Received(1).StopAsync(Arg.Is<CancellationToken>(ct => ct != cancellationToken));
+        await servicePlugin.Received(1).StoppedAsync(Arg.Is<CancellationToken>(ct => ct != cancellationToken));
+
+        await servicePlugin.Received(1).StartingAsync(Arg.Is<CancellationToken>(ct => ct != cancellationToken));
+        await servicePlugin.Received(1).StartAsync(Arg.Is<CancellationToken>(ct => ct != cancellationToken));
+        await servicePlugin.Received(1).StartedAsync(Arg.Is<CancellationToken>(ct => ct != cancellationToken));
     }
 
     [Fact]
