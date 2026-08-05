@@ -10,6 +10,16 @@ namespace SAF.PluginSystem.Hosting.Contracts;
 public interface IPluginServicesContainer
 {
     /// <summary>
+    /// Gets a value indicating whether the container has been initialized at least once.
+    /// </summary>
+    /// <remarks>
+    /// This is <see langword="false" /> until either <see cref="GetPluginServices" />,
+    /// <see cref="GetPublicServices" />, or <see cref="ReinitializeAsync" /> has been called
+    /// for the first time.
+    /// </remarks>
+    bool IsInitialized { get; }
+
+    /// <summary>
     /// Gets the <see cref="IServiceProvider"/> instances for all loaded plugins.
     /// </summary>
     /// <returns>An enumerable of <see cref="IServiceProvider"/> instances, one per plugin.</returns>

@@ -18,8 +18,14 @@ public sealed class PluginServicesContainer(
     : IPluginServicesContainer, IAsyncDisposable
 {
     private readonly Lock _syncPluginLoading = new();
-    private bool _initialized = false;
-    private bool _disposed = false;
+    private bool _initialized;
+    private bool _disposed;
+
+    /// <inheritdoc />
+    public bool IsInitialized
+    {
+        get { lock (_syncPluginLoading) { return _initialized; } }
+    }
 
     private List<PluginServiceCollection> _pluginServiceCollections = [];
     private PluginServiceCollection _publicServicesOnlyCollection = new(new ServiceCollection(), []);

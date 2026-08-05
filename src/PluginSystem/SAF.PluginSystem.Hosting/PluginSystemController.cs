@@ -22,6 +22,9 @@ internal sealed class PluginSystemController(
         Justification = "Controller-level operational logs are intentionally kept even when exception propagation behavior is handled separately.")]
     public async Task ReloadAsync(CancellationToken cancellationToken = default)
     {
+        if (!pluginServicesContainer.IsInitialized)
+            throw new InvalidOperationException("The plugin system has not been initialized yet. ReloadAsync can only be called after the plugin system has been started.");
+
         await _reloadSync.WaitAsync(cancellationToken).ConfigureAwait(false);
 
         List<IServicePlugin> stoppedServicePlugins = [];

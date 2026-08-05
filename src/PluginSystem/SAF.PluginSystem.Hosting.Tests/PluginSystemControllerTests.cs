@@ -14,6 +14,11 @@ public class PluginSystemControllerTests
     private readonly ILogger<PluginSystemController> _logger = Substitute.For<ILogger<PluginSystemController>>();
     private readonly IPluginServicesContainer _pluginServicesContainer = Substitute.For<IPluginServicesContainer>();
 
+    public PluginSystemControllerTests()
+    {
+        _pluginServicesContainer.IsInitialized.Returns(true);
+    }
+
     private static ServiceProvider BuildProviderWith(params IServicePlugin[] servicePlugins)
     {
         var services = new ServiceCollection();
@@ -23,6 +28,21 @@ public class PluginSystemControllerTests
         }
 
         return services.BuildServiceProvider();
+    }
+
+    [Fact]
+    public async Task ReloadAsync_WhenContainerNotInitialized_ThrowsInvalidOperationException()
+    {
+        // Arrange
+        _pluginServicesContainer.IsInitialized.Returns(false);
+        var controller = new PluginSystemController(_logger, _pluginServicesContainer);
+
+        // Act
+        var exception = await Record.ExceptionAsync(() => controller.ReloadAsync(TestContext.Current.CancellationToken));
+
+        // Assert
+        Assert.IsType<InvalidOperationException>(exception);
+        await _pluginServicesContainer.DidNotReceive().ReinitializeAsync(Arg.Any<CancellationToken>());
     }
 
     [Fact]
