@@ -3,6 +3,7 @@
 // SPDX-License-Identifier: MPL-2.0
 
 using System.IO.Abstractions;
+using Testably.Abstractions;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
@@ -36,7 +37,7 @@ public static class ServiceCollectionExtensions
 
     public static IServiceCollection AddFileHandling(this IServiceCollection services)
     {
-        services.TryAddTransient<IFileSystem, FileSystem>();
+        services.TryAddTransient<IFileSystem, RealFileSystem>();
         services.TryAddTransient<IDirectoryInfo>(sp =>
         {
             var hostInfo = sp.GetService<IServiceHostInfo>();
@@ -79,7 +80,7 @@ public static class ServiceCollectionExtensions
 
     public static IServiceCollection AddFileSender(this IServiceCollection services, Action<FileSenderOptions> configure)
     {
-        services.TryAddTransient<IFileSystem, FileSystem>();
+        services.TryAddTransient<IFileSystem, RealFileSystem>();
         services.AddRequestClient();
 
         services.Configure(configure);
@@ -99,7 +100,7 @@ public static class ServiceCollectionExtensions
 
         services.TryAddTransient<IFileReceiver, FileReceiver>();
 
-        services.TryAddTransient<IFileSystem, FileSystem>();
+        services.TryAddTransient<IFileSystem, RealFileSystem>();
         services.TryAddTransient<IStatefulFileReceiverFactory, StatefulFileReceiverFactory>();
 
         services.AddHeartbeatPool();

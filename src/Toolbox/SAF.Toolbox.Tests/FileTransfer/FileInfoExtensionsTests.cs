@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: MPL-2.0
 
-using System.IO.Abstractions.TestingHelpers;
+using Testably.Abstractions.Testing;
 using SAF.Toolbox.FileTransfer;
 
 namespace SAF.Toolbox.Tests.FileTransfer;
@@ -13,6 +13,9 @@ using Xunit;
 public class FileInfoExtensionsTests
 {
     private readonly MockFileSystem _mockFileSystem = new();
+
+    private void AddFile(string path, byte[] content)
+        => _mockFileSystem.Initialize().WithFile(path).Which(f => f.HasBytesContent(content));
 
     [Fact]
     public void GetFileId_ThrowsArgumentNullException_WhenFileInfoIsNull()
@@ -42,7 +45,7 @@ public class FileInfoExtensionsTests
         var fileContent = new byte[contentLength];
         rnd.NextBytes(fileContent);
 
-        _mockFileSystem.AddFile("file.txt", new MockFileData(fileContent));
+        AddFile("file.txt", fileContent);
         var fileInfo = _mockFileSystem.FileInfo.New("file.txt");
 
         var id1 = fileInfo.GetFileId(4096);
@@ -79,7 +82,7 @@ public class FileInfoExtensionsTests
         var fileContent = new byte[contentLength];
         rnd.NextBytes(fileContent);
 
-        _mockFileSystem.AddFile("file.txt", new MockFileData(fileContent));
+        AddFile("file.txt", fileContent);
         var fileInfo = _mockFileSystem.FileInfo.New("file.txt");
 
         var expectedHash = Convert.ToBase64String(System.Security.Cryptography.SHA256.HashData(fileContent));
@@ -100,7 +103,7 @@ public class FileInfoExtensionsTests
         var fileContent = new byte[contentLength];
         rnd.NextBytes(fileContent);
 
-        _mockFileSystem.AddFile("file.txt", new MockFileData(fileContent));
+        AddFile("file.txt", fileContent);
         var fileInfo = _mockFileSystem.FileInfo.New("file.txt");
 
         var id1 = fileInfo.GetContentHash();

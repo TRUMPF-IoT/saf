@@ -150,6 +150,8 @@ public class OrderResponder(IMessagingInfrastructure messaging) : IMessageHandle
 
 Provides an `IDirectoryInfo` rooted at `IServiceHostInfo.FileSystemUserBasePath` — a safe, host-managed scratch area for file I/O.
 
+`SAF.Toolbox` uses `Testably.Abstractions` as the concrete file system implementation (`IFileSystem` → `RealFileSystem`).
+
 ### Registration
 
 ```csharp

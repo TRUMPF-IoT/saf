@@ -2,16 +2,17 @@
 //
 // SPDX-License-Identifier: MPL-2.0
 
-using System.IO.Abstractions;
 using Microsoft.Extensions.Logging;
 using NSubstitute;
 using SAF.Toolbox.FileTransfer;
 using SAF.Toolbox.Serialization;
-using System.IO.Abstractions.TestingHelpers;
+using Testably.Abstractions.Testing;
 using Microsoft.Extensions.Options;
 using NSubstitute.ExceptionExtensions;
 using SAF.Toolbox.Heartbeat;
+using System.IO.Abstractions;
 using Xunit;
+using TimeProvider = System.TimeProvider;
 
 namespace SAF.Toolbox.Tests.FileTransfer;
 
@@ -35,10 +36,16 @@ public class StatefulFileReceiverTests
         _defaultTestFilePath = _fileSystem.Path.Combine(DefaultFolderPath, "file.txt");
     }
 
+    private void AddFile(string path, string content)
+        => _fileSystem.Initialize().WithFile(path).Which(f => f.HasStringContent(content));
+
+    private void AddFile(string path, byte[] content)
+        => _fileSystem.Initialize().WithFile(path).Which(f => f.HasBytesContent(content));
+
     [Fact]
     public void GetState_ReturnsFileExists_WhenTargetFileExistsAndHashMatches()
     {
-        _fileSystem.AddFile(_defaultTestFilePath, new MockFileData("content"));
+        AddFile(_defaultTestFilePath, "content");
         var fileInfo = _fileSystem.FileInfo.New(_defaultTestFilePath);
 
         var file = new TransportFile
@@ -69,7 +76,7 @@ public class StatefulFileReceiverTests
     [Fact]
     public void GetState_ReturnsFileExists_WhenTargetFileExistsAndHashMatches_AndGeneratesNewFileForNoOverwrite()
     {
-        _fileSystem.AddFile(_defaultTestFilePath, new MockFileData("content"));
+        AddFile(_defaultTestFilePath, "content");
         var fileInfo = _fileSystem.FileInfo.New(_defaultTestFilePath);
 
         var file = new TransportFile
@@ -109,7 +116,7 @@ public class StatefulFileReceiverTests
     [Fact]
     public void GetState_ReturnsEmptyChunks_WhenTempFileDoesNotExist()
     {
-        _fileSystem.AddFile(_defaultTestFilePath, new MockFileData("content"));
+        AddFile(_defaultTestFilePath, "content");
         
         var fileInfo = _fileSystem.FileInfo.New(_defaultTestFilePath);
         var file = new TransportFile
@@ -134,7 +141,7 @@ public class StatefulFileReceiverTests
     [Fact]
     public void GetState_ReturnsEmptyChunks_WhenNoMetadataExist()
     {
-        _fileSystem.AddFile(_defaultTestFilePath, new MockFileData("content"));
+        AddFile(_defaultTestFilePath, "content");
         
         var fileInfo = _fileSystem.FileInfo.New(_defaultTestFilePath);
         var file = new TransportFile
@@ -147,7 +154,7 @@ public class StatefulFileReceiverTests
             TotalChunks = 5
         };
 
-        _fileSystem.AddFile(file.GetTempTargetFilePath(_fileSystem, DefaultFolderPath), new MockFileData("content"));
+        AddFile(file.GetTempTargetFilePath(_fileSystem, DefaultFolderPath), "content");
         fileInfo.Delete();
 
         using var receiver = new StatefulFileReceiver(_logger, _fileSystem, _options.Value, _heartbeatPool, DefaultFolderPath);
@@ -161,7 +168,7 @@ public class StatefulFileReceiverTests
     [Fact]
     public void GetState_ReturnsTransmittedChunks_WhenMetadataExist()
     {
-        _fileSystem.AddFile(_defaultTestFilePath, new MockFileData("content"));
+        AddFile(_defaultTestFilePath, "content");
 
         var fileInfo = _fileSystem.FileInfo.New(_defaultTestFilePath);
         var file = new TransportFile
@@ -174,10 +181,10 @@ public class StatefulFileReceiverTests
             TotalChunks = 5
         };
 
-        _fileSystem.AddFile(file.GetTempTargetFilePath(_fileSystem, DefaultFolderPath), new MockFileData("content"));
+        AddFile(file.GetTempTargetFilePath(_fileSystem, DefaultFolderPath), "content");
 
         HashSet<uint> hashSet = [0, 1, 2];
-        _fileSystem.AddFile(file.GetMetadataTargetFilePath(_fileSystem, DefaultFolderPath), new MockFileData(JsonSerializer.Serialize(new { ReceivedChunks = hashSet })));
+        AddFile(file.GetMetadataTargetFilePath(_fileSystem, DefaultFolderPath), JsonSerializer.Serialize(new { ReceivedChunks = hashSet }));
         fileInfo.Delete();
 
         using var receiver = new StatefulFileReceiver(_logger, _fileSystem, _options.Value, _heartbeatPool, DefaultFolderPath);
@@ -191,7 +198,7 @@ public class StatefulFileReceiverTests
     [Fact]
     public void GetState_CompletesFileTransfer_WhenMetadataContainsAllChunks()
     {
-        _fileSystem.AddFile(_defaultTestFilePath, new MockFileData("content"));
+        AddFile(_defaultTestFilePath, "content");
 
         var fileInfo = _fileSystem.FileInfo.New(_defaultTestFilePath);
         var file = new TransportFile
@@ -204,10 +211,10 @@ public class StatefulFileReceiverTests
             TotalChunks = 5
         };
 
-        _fileSystem.AddFile(file.GetTempTargetFilePath(_fileSystem, DefaultFolderPath), new MockFileData("content"));
+        AddFile(file.GetTempTargetFilePath(_fileSystem, DefaultFolderPath), "content");
 
         HashSet<uint> hashSet = [0, 1, 2, 3, 4];
-        _fileSystem.AddFile(file.GetMetadataTargetFilePath(_fileSystem, DefaultFolderPath), new MockFileData(JsonSerializer.Serialize(new { ReceivedChunks = hashSet })));
+        AddFile(file.GetMetadataTargetFilePath(_fileSystem, DefaultFolderPath), JsonSerializer.Serialize(new { ReceivedChunks = hashSet }));
         fileInfo.Delete();
 
         using var receiver = new StatefulFileReceiver(_logger, _fileSystem, _options.Value, _heartbeatPool, DefaultFolderPath);
@@ -231,7 +238,7 @@ public class StatefulFileReceiverTests
     [Fact]
     public void GetState_CompletesFileTransfer_WhenMetadataContainsAllChunks_AndOverwritesExistingTargetFile()
     {
-        _fileSystem.AddFile(_defaultTestFilePath, new MockFileData("content"));
+        AddFile(_defaultTestFilePath, "content");
 
         var fileInfo = _fileSystem.FileInfo.New(_defaultTestFilePath);
         var file = new TransportFile
@@ -244,13 +251,13 @@ public class StatefulFileReceiverTests
             TotalChunks = 5
         };
 
-        _fileSystem.AddFile(file.GetTempTargetFilePath(_fileSystem, DefaultFolderPath), new MockFileData("content"));
+        AddFile(file.GetTempTargetFilePath(_fileSystem, DefaultFolderPath), "content");
 
         HashSet<uint> hashSet = [0, 1, 2, 3, 4];
-        _fileSystem.AddFile(file.GetMetadataTargetFilePath(_fileSystem, DefaultFolderPath), new MockFileData(JsonSerializer.Serialize(new { ReceivedChunks = hashSet })));
+        AddFile(file.GetMetadataTargetFilePath(_fileSystem, DefaultFolderPath), JsonSerializer.Serialize(new { ReceivedChunks = hashSet }));
         
         fileInfo.Delete();
-        _fileSystem.AddFile(_defaultTestFilePath, new MockFileData("otherContent"));
+        AddFile(_defaultTestFilePath, "otherContent");
 
         using var receiver = new StatefulFileReceiver(_logger, _fileSystem, _options.Value, _heartbeatPool, DefaultFolderPath);
 
@@ -273,7 +280,7 @@ public class StatefulFileReceiverTests
     [Fact]
     public void WriteFile_ReturnsOk_WhenChunkIsWritten()
     {
-        _fileSystem.AddFile(_defaultTestFilePath, new MockFileData("content"));
+        AddFile(_defaultTestFilePath, "content");
 
         var fileInfo = _fileSystem.FileInfo.New(_defaultTestFilePath);
         var file = new TransportFile
@@ -303,7 +310,7 @@ public class StatefulFileReceiverTests
     [Fact]
     public void WriteFile_ReturnsOk_WhenChunkWasAlreadyReceived()
     {
-        _fileSystem.AddFile(_defaultTestFilePath, new MockFileData("content"));
+        AddFile(_defaultTestFilePath, "content");
 
         var fileInfo = _fileSystem.FileInfo.New(_defaultTestFilePath);
         var file = new TransportFile
@@ -317,9 +324,8 @@ public class StatefulFileReceiverTests
         };
 
         HashSet<uint> hashSet = [0, 3, 4];
-        _fileSystem.AddFile(
-            file.GetMetadataTargetFilePath(_fileSystem, DefaultFolderPath),
-            new MockFileData(JsonSerializer.Serialize(new { ReceivedChunks = hashSet })));
+        AddFile(
+            file.GetMetadataTargetFilePath(_fileSystem, DefaultFolderPath), JsonSerializer.Serialize(new { ReceivedChunks = hashSet }));
 
         var chunk = new FileChunk { Index = 3, Data = _fileSystem.File.ReadAllBytes(fileInfo.FullName) };
         var tempFilePath = file.GetTempTargetFilePath(_fileSystem, DefaultFolderPath);
@@ -351,7 +357,7 @@ public class StatefulFileReceiverTests
         var rand = new Random();
         rand.NextBytes(contentBytes);
 
-        _fileSystem.AddFile(_defaultTestFilePath, new MockFileData(contentBytes));
+        AddFile(_defaultTestFilePath, contentBytes);
 
         var totalChunks = (uint)Math.Ceiling((double)contentLength / DefaultChunkSize);
         var fileInfo = _fileSystem.FileInfo.New(_defaultTestFilePath);
@@ -430,7 +436,7 @@ public class StatefulFileReceiverTests
         var rand = new Random();
         rand.NextBytes(contentBytes);
 
-        _fileSystem.AddFile(_defaultTestFilePath, new MockFileData(contentBytes));
+        AddFile(_defaultTestFilePath, contentBytes);
 
         var fileInfo = _fileSystem.FileInfo.New(_defaultTestFilePath);
         var file = new TransportFile
@@ -487,7 +493,7 @@ public class StatefulFileReceiverTests
     {
         var fileSystem = Substitute.For<IFileSystem>();
 
-        _fileSystem.AddFile(_defaultTestFilePath, new MockFileData("content"));
+        AddFile(_defaultTestFilePath, "content");
 
         var fileInfo = _fileSystem.FileInfo.New(_defaultTestFilePath);
         var file = new TransportFile
@@ -513,13 +519,13 @@ public class StatefulFileReceiverTests
     [Fact]
     public void StatefulReceiver_PerformsCleanup_AfterStateFileExpiration()
     {
-        _fileSystem.AddFile(_defaultTestFilePath, new MockFileData("content"));
+        AddFile(_defaultTestFilePath, "content");
 
-        _fileSystem.AddFile(_fileSystem.Path.Combine(DefaultFolderPath, "file.fileId1.temp"), new MockFileData("content"));
-        _fileSystem.AddFile(_fileSystem.Path.Combine(DefaultFolderPath, "file.fileId1.meta"), new MockFileData("content"));
+        AddFile(_fileSystem.Path.Combine(DefaultFolderPath, "file.fileId1.temp"), "content");
+        AddFile(_fileSystem.Path.Combine(DefaultFolderPath, "file.fileId1.meta"), "content");
 
-        _fileSystem.AddFile(_fileSystem.Path.Combine(DefaultFolderPath, "subdir", "file.fileId2.temp"), new MockFileData("content"));
-        _fileSystem.AddFile(_fileSystem.Path.Combine(DefaultFolderPath, "subdir", "file.fileId2.meta"), new MockFileData("content"));
+        AddFile(_fileSystem.Path.Combine(DefaultFolderPath, "subdir", "file.fileId2.temp"), "content");
+        AddFile(_fileSystem.Path.Combine(DefaultFolderPath, "subdir", "file.fileId2.meta"), "content");
 
         var heartbeat = Substitute.For<IHeartbeat>();
         _heartbeatPool.GetOrCreateHeartbeat(Arg.Any<int>()).Returns(heartbeat);
@@ -539,13 +545,13 @@ public class StatefulFileReceiverTests
     [Fact]
     public void StatefulReceiver_PerformsNoCleanup_WhenStateFileNotExpired()
     {
-        _fileSystem.AddFile(_defaultTestFilePath, new MockFileData("content"));
+        AddFile(_defaultTestFilePath, "content");
 
-        _fileSystem.AddFile(_fileSystem.Path.Combine(DefaultFolderPath, "file.fileId1.temp"), new MockFileData("content"));
-        _fileSystem.AddFile(_fileSystem.Path.Combine(DefaultFolderPath, "file.fileId1.meta"), new MockFileData("content"));
+        AddFile(_fileSystem.Path.Combine(DefaultFolderPath, "file.fileId1.temp"), "content");
+        AddFile(_fileSystem.Path.Combine(DefaultFolderPath, "file.fileId1.meta"), "content");
 
-        _fileSystem.AddFile(_fileSystem.Path.Combine(DefaultFolderPath, "subdir", "file.fileId2.temp"), new MockFileData("content"));
-        _fileSystem.AddFile(_fileSystem.Path.Combine(DefaultFolderPath, "subdir", "file.fileId2.meta"), new MockFileData("content"));
+        AddFile(_fileSystem.Path.Combine(DefaultFolderPath, "subdir", "file.fileId2.temp"), "content");
+        AddFile(_fileSystem.Path.Combine(DefaultFolderPath, "subdir", "file.fileId2.meta"), "content");
 
         var heartbeat = Substitute.For<IHeartbeat>();
         _heartbeatPool.GetOrCreateHeartbeat(Arg.Any<int>()).Returns(heartbeat);
