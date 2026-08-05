@@ -216,10 +216,10 @@ public class PluginServicesContainerTests
     }
 
     /// <summary>
-    /// Tests that ReinitializeAsync re-runs the plugin manifests and swaps in fresh service providers.
+    /// Tests that ReinitializeAsync rebuilds service providers without re-scanning plugin manifests.
     /// </summary>
     [Fact]
-    public async Task ReinitializeAsync_RebuildsProviders_AndReenumeratesManifests()
+    public async Task ReinitializeAsync_RebuildsProviders_AndReusesCachedManifests()
     {
         // Arrange
         var pluginServicesContainer = new PluginServicesContainer(
@@ -228,12 +228,12 @@ public class PluginServicesContainerTests
         _pluginContainer.ClearReceivedCalls();
 
         // Act
-        await pluginServicesContainer.ReinitializeAsync();
+        await pluginServicesContainer.ReinitializeAsync(TestContext.Current.CancellationToken);
         var providerAfter = pluginServicesContainer.GetPublicServices();
 
         // Assert
         Assert.NotSame(providerBefore, providerAfter);
-        _pluginContainer.Received(1).GetPluginManifests();
+        _pluginContainer.DidNotReceive().GetPluginManifests();
     }
 
     /// <summary>
@@ -248,7 +248,7 @@ public class PluginServicesContainerTests
         var providerBefore = pluginServicesContainer.GetPublicServices();
 
         // Act
-        await pluginServicesContainer.ReinitializeAsync();
+        await pluginServicesContainer.ReinitializeAsync(TestContext.Current.CancellationToken);
 
         // Assert
         Assert.Throws<ObjectDisposedException>(() => providerBefore.GetService(typeof(IServiceProvider)));
@@ -277,7 +277,7 @@ public class PluginServicesContainerTests
             });
 
         // Act + Assert
-        var exception = await Assert.ThrowsAsync<InvalidOperationException>(async () => await pluginServicesContainer.ReinitializeAsync());
+        var exception = await Assert.ThrowsAsync<InvalidOperationException>(async () => await pluginServicesContainer.ReinitializeAsync(TestContext.Current.CancellationToken));
         Assert.Equal("configure boom", exception.Message);
         Assert.Same(publicServicesBefore, pluginServicesContainer.GetPublicServices());
 
@@ -287,7 +287,7 @@ public class PluginServicesContainerTests
         Assert.NotNull(publicServicesBefore.GetService(typeof(IServiceProvider)));
 
         shouldThrow = false;
-        await pluginServicesContainer.ReinitializeAsync();
+        await pluginServicesContainer.ReinitializeAsync(TestContext.Current.CancellationToken);
 
         var publicServicesAfterRetry = pluginServicesContainer.GetPublicServices();
         Assert.NotSame(publicServicesBefore, publicServicesAfterRetry);
@@ -305,7 +305,7 @@ public class PluginServicesContainerTests
             _logger, _hostContext, _applicationServiceProvider, [_pluginContainer], _publicServiceTypeRegistry);
 
         // Act
-        await pluginServicesContainer.ReinitializeAsync();
+        await pluginServicesContainer.ReinitializeAsync(TestContext.Current.CancellationToken);
 
         // Assert
         Assert.NotNull(pluginServicesContainer.GetPublicServices());
@@ -342,30 +342,32 @@ public class PluginServicesContainerTests
         var provider = pluginServicesContainer.GetPublicServices();
 
         Assert.NotNull(provider);
-        _pluginContainer.Received(2).GetPluginManifests();
+        _pluginContainer.Received(1).GetPluginManifests();
     }
 
     /// <summary>
-    /// Tests that repeated reinitializations keep working and do not leak the public-services collection.
+    /// Tests that repeated reinitializations keep working without re-scanning plugin manifests.
     /// </summary>
     [Theory]
     [InlineData(2)]
     [InlineData(5)]
-    public async Task ReinitializeAsync_CalledMultipleTimes_KeepsProvidersUsable(int reloads)
+    public async Task ReinitializeAsync_CalledMultipleTimes_KeepsProvidersUsable_AndReusesCachedManifests(int reloads)
     {
         // Arrange
         var pluginServicesContainer = new PluginServicesContainer(
             _logger, _hostContext, _applicationServiceProvider, [_pluginContainer], _publicServiceTypeRegistry);
         pluginServicesContainer.GetPublicServices();
+        _pluginContainer.ClearReceivedCalls();
 
         // Act
         for (var i = 0; i < reloads; i++)
         {
-            await pluginServicesContainer.ReinitializeAsync();
+            await pluginServicesContainer.ReinitializeAsync(TestContext.Current.CancellationToken);
         }
 
         // Assert
         Assert.NotNull(pluginServicesContainer.GetPublicServices());
+        _pluginContainer.DidNotReceive().GetPluginManifests();
     }
 
     /// <summary>
@@ -381,7 +383,7 @@ public class PluginServicesContainerTests
         await DisposeContainerAsync(pluginServicesContainer);
 
         // Act + Assert
-        await Assert.ThrowsAsync<ObjectDisposedException>(async () => await pluginServicesContainer.ReinitializeAsync());
+        await Assert.ThrowsAsync<ObjectDisposedException>(async () => await pluginServicesContainer.ReinitializeAsync(TestContext.Current.CancellationToken));
     }
 
     /// <summary>
@@ -404,21 +406,17 @@ public class PluginServicesContainerTests
     /// <summary>
     /// Provides setup scenarios for DisposeAsync no-throw tests.
     /// </summary>
-    public static IEnumerable<object[]> GetDisposeAsyncNoThrowScenarios()
-    {        yield return [new Action<PluginServicesContainer>(container =>
-        {
-            container.GetPluginServices();
-        })];
-
-        yield return [new Action<PluginServicesContainer>(container =>
+    public static TheoryData<Action<PluginServicesContainer>> GetDisposeAsyncNoThrowScenarios =>
+    [
+        new Action<PluginServicesContainer>(container => container.GetPluginServices()),
+        new Action<PluginServicesContainer>(container =>
         {
             container.GetPluginServices();
             container.GetPublicServices();
-        })];
-
-        yield return [new Action<PluginServicesContainer>(_ =>
+        }),
+        new Action<PluginServicesContainer>(_ =>
         {
             // Intentionally left blank: verify dispose without initialization.
-        })];
-    }
+        }),
+    ];
 }

@@ -20,6 +20,7 @@ public sealed class PluginServicesContainer(
     private readonly Lock _syncPluginLoading = new();
     private bool _initialized;
     private bool _disposed;
+    private List<IPluginManifest>? _cachedPluginManifests;
 
     /// <inheritdoc />
     public bool IsInitialized
@@ -44,7 +45,7 @@ public sealed class PluginServicesContainer(
 
     public async ValueTask ReinitializeAsync(CancellationToken cancellationToken = default)
     {
-        List<IServiceProvider> providersToDispose;
+        List<IPluginManifest> pluginManifests;
 
         lock (_syncPluginLoading)
         {
@@ -53,45 +54,98 @@ public sealed class PluginServicesContainer(
             cancellationToken.ThrowIfCancellationRequested();
 
             logger.LogInformation("Reinitializing plug-in service providers.");
-
-            var (pluginServiceCollections, publicServicesOnlyCollection) = BuildProviders();
-            providersToDispose = SnapshotProviders();
-            _pluginServiceCollections = pluginServiceCollections;
-            _publicServicesOnlyCollection = publicServicesOnlyCollection;
-            _initialized = true;
+            pluginManifests = GetPluginManifests();
         }
 
-        foreach (IServiceProvider provider in providersToDispose)
+        var (pluginServiceCollections, publicServicesOnlyCollection) = InitializePlugins(pluginManifests);
+        List<IServiceProvider> providersToDispose;
+        Exception? deferredException = null;
+
+        lock (_syncPluginLoading)
         {
-            await DisposeProviderAsync(provider).ConfigureAwait(false);
+            if (_disposed)
+            {
+                providersToDispose = SnapshotProviders(pluginServiceCollections, publicServicesOnlyCollection);
+                deferredException = new ObjectDisposedException(nameof(PluginServicesContainer));
+            }
+            else if (cancellationToken.IsCancellationRequested)
+            {
+                providersToDispose = SnapshotProviders(pluginServiceCollections, publicServicesOnlyCollection);
+                deferredException = new OperationCanceledException(cancellationToken);
+            }
+            else
+            {
+                providersToDispose = SnapshotProviders();
+                _pluginServiceCollections = pluginServiceCollections;
+                _publicServicesOnlyCollection = publicServicesOnlyCollection;
+                _initialized = true;
+            }
+        }
+
+        await DisposeProvidersAsync(providersToDispose).ConfigureAwait(false);
+
+        if (deferredException is not null)
+        {
+            throw deferredException;
         }
     }
 
     private (List<IServiceProvider> PluginServices, IServiceProvider PublicServices) GetServiceProviders()
     {
+        List<IPluginManifest> pluginManifests;
+
         lock (_syncPluginLoading)
         {
-            if (!_initialized)
+            if (_initialized)
             {
-                logger.LogInformation("Starting plug-in search and initialization.");
+                return SnapshotCurrentServiceProviders();
+            }
 
-                var (pluginServiceCollections, publicServicesOnlyCollection) = BuildProviders();
+            ObjectDisposedException.ThrowIf(_disposed, this);
+
+            logger.LogInformation("Starting plug-in search and initialization.");
+            pluginManifests = GetPluginManifests();
+        }
+
+        var (pluginServiceCollections, publicServicesOnlyCollection) = InitializePlugins(pluginManifests);
+        List<IServiceProvider> providersToDispose = [];
+        bool isDisposed;
+        (List<IServiceProvider> PluginServices, IServiceProvider PublicServices) currentProviders;
+
+        lock (_syncPluginLoading)
+        {
+            isDisposed = _disposed;
+
+            if (isDisposed)
+            {
+                providersToDispose = SnapshotProviders(pluginServiceCollections, publicServicesOnlyCollection);
+            }
+            else if (!_initialized)
+            {
                 _pluginServiceCollections = pluginServiceCollections;
                 _publicServicesOnlyCollection = publicServicesOnlyCollection;
                 _initialized = true;
             }
+            else
+            {
+                providersToDispose = SnapshotProviders(pluginServiceCollections, publicServicesOnlyCollection);
+            }
 
-            return (
-                _pluginServiceCollections.Select(collection => collection.ServiceProvider!).ToList(),
-                _publicServicesOnlyCollection.ServiceProvider!);
+            currentProviders = SnapshotCurrentServiceProviders();
         }
+
+        DisposeProviders(providersToDispose);
+
+        if (isDisposed)
+        {
+            throw new ObjectDisposedException(nameof(PluginServicesContainer));
+        }
+
+        return currentProviders;
     }
 
-    private (List<PluginServiceCollection> pluginServiceCollections, PluginServiceCollection publicServicesOnlyCollection) BuildProviders()
-    {
-        var manifests = pluginContainers.SelectMany(s => s.GetPluginManifests()).ToList();
-        return InitializePlugins(manifests);
-    }
+    private List<IPluginManifest> GetPluginManifests() =>
+        _cachedPluginManifests ??= [.. pluginContainers.SelectMany(container => container.GetPluginManifests())];
 
     private (List<PluginServiceCollection> pluginServiceCollections, PluginServiceCollection publicServicesOnlyCollection) InitializePlugins(IEnumerable<IPluginManifest> pluginManifests)
     {
@@ -132,8 +186,9 @@ public sealed class PluginServicesContainer(
 
     private List<ServiceDescriptor> CollectPublicServices(IEnumerable<ServiceDescriptor> serviceCollection)
     {
+        HashSet<string> publicServiceAssemblies = [.. publicServiceTypeRegistry.GetAssemblyNames()];
         var publicServiceDescriptors = serviceCollection
-            .Where(sd => publicServiceTypeRegistry.GetAssemblyNames().FirstOrDefault(a => a == sd.ServiceType.Assembly.FullName) != null);
+            .Where(sd => sd.ServiceType.Assembly.FullName is string assemblyName && publicServiceAssemblies.Contains(assemblyName));
         return [.. publicServiceDescriptors];
     }
 
@@ -153,11 +208,12 @@ public sealed class PluginServicesContainer(
             providersToDispose = SnapshotProviders();
         }
 
-        foreach (IServiceProvider provider in providersToDispose)
-        {
-            await DisposeProviderAsync(provider).ConfigureAwait(false);
-        }
+        await DisposeProvidersAsync(providersToDispose).ConfigureAwait(false);
     }
+
+    private (List<IServiceProvider> PluginServices, IServiceProvider PublicServices) SnapshotCurrentServiceProviders()
+        => (_pluginServiceCollections.Select(collection => collection.ServiceProvider!).ToList(),
+            _publicServicesOnlyCollection.ServiceProvider!);
 
     private List<IServiceProvider> SnapshotProviders() =>
         SnapshotProviders(_pluginServiceCollections, _publicServicesOnlyCollection);
@@ -190,6 +246,14 @@ public sealed class PluginServicesContainer(
         if (provider is IDisposable disposable)
         {
             disposable.Dispose();
+        }
+    }
+
+    private static async ValueTask DisposeProvidersAsync(IEnumerable<IServiceProvider> providers)
+    {
+        foreach (IServiceProvider provider in providers)
+        {
+            await DisposeProviderAsync(provider).ConfigureAwait(false);
         }
     }
 
