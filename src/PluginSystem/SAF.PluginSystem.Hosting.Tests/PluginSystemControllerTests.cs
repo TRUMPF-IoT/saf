@@ -258,4 +258,73 @@ public class PluginSystemControllerTests
             servicePlugin.StartAsync(Arg.Any<CancellationToken>());
         });
     }
+
+    [Fact]
+    public async Task ReloadAsync_WhenLifecyclePhaseThrows_ContinuesReload()
+    {
+        // Arrange
+        var servicePlugin = Substitute.For<ILifecycleServicePlugin>();
+        servicePlugin.StoppingAsync(Arg.Any<CancellationToken>())
+            .Returns(Task.FromException(new InvalidOperationException("boom")));
+        _pluginServicesContainer.GetPluginServices().Returns([BuildProviderWith(servicePlugin)]);
+
+        var controller = new PluginSystemController(_logger, _pluginServicesContainer, LifecycleRunner);
+
+        // Act
+        var exception = await Record.ExceptionAsync(() => controller.ReloadAsync(TestContext.Current.CancellationToken));
+
+        // Assert
+        Assert.Null(exception);
+        await servicePlugin.Received(1).StoppingAsync(Arg.Any<CancellationToken>());
+        await servicePlugin.Received(1).StopAsync(Arg.Any<CancellationToken>());
+        await servicePlugin.Received(1).StoppedAsync(Arg.Any<CancellationToken>());
+        await servicePlugin.Received(1).StartingAsync(Arg.Any<CancellationToken>());
+        await servicePlugin.Received(1).StartAsync(Arg.Any<CancellationToken>());
+        await servicePlugin.Received(1).StartedAsync(Arg.Any<CancellationToken>());
+        await _pluginServicesContainer.Received(1).ReinitializeAsync(Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task ReloadAsync_WhenCalledConcurrently_SerializesReloadOperations()
+    {
+        // Arrange
+        _pluginServicesContainer.GetPluginServices().Returns([BuildProviderWith()]);
+
+        var firstReloadEnteredReinitialize = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var allowFirstReloadToContinue = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var secondReloadEnteredReinitialize = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var reinitializeCallCount = 0;
+
+        _pluginServicesContainer.ReinitializeAsync(Arg.Any<CancellationToken>())
+            .Returns(_ =>
+            {
+                var callNumber = Interlocked.Increment(ref reinitializeCallCount);
+                if (callNumber == 1)
+                {
+                    firstReloadEnteredReinitialize.TrySetResult();
+                    return new ValueTask(allowFirstReloadToContinue.Task);
+                }
+
+                secondReloadEnteredReinitialize.TrySetResult();
+                return ValueTask.CompletedTask;
+            });
+
+        var controller = new PluginSystemController(_logger, _pluginServicesContainer, LifecycleRunner);
+
+        // Act
+        var firstReloadTask = controller.ReloadAsync(TestContext.Current.CancellationToken);
+        await firstReloadEnteredReinitialize.Task;
+
+        var secondReloadTask = controller.ReloadAsync(TestContext.Current.CancellationToken);
+        await Task.Delay(TimeSpan.FromMilliseconds(50), TestContext.Current.CancellationToken);
+
+        // Assert
+        Assert.False(secondReloadEnteredReinitialize.Task.IsCompleted);
+
+        allowFirstReloadToContinue.TrySetResult();
+        await Task.WhenAll(firstReloadTask, secondReloadTask);
+
+        Assert.True(secondReloadEnteredReinitialize.Task.IsCompleted);
+        await _pluginServicesContainer.Received(2).ReinitializeAsync(Arg.Any<CancellationToken>());
+    }
 }
