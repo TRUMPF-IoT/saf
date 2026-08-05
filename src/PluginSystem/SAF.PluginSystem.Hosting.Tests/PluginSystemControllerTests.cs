@@ -145,6 +145,69 @@ public class PluginSystemControllerTests
     }
 
     [Fact]
+    public async Task ReloadAsync_WhenStopIsCanceled_AbortsRemainingStopOperationsAndRethrows()
+    {
+        // Arrange
+        var firstPlugin = Substitute.For<IServicePlugin>();
+        var secondPlugin = Substitute.For<IServicePlugin>();
+        _pluginServicesContainer.GetPluginServices().Returns([BuildProviderWith(firstPlugin, secondPlugin)]);
+
+        using var cancellationTokenSource = new CancellationTokenSource();
+        firstPlugin.StopAsync(Arg.Any<CancellationToken>())
+            .Returns(_ =>
+            {
+                cancellationTokenSource.Cancel();
+                return Task.FromCanceled(cancellationTokenSource.Token);
+            });
+
+        var controller = new PluginSystemController(_logger, _pluginServicesContainer);
+
+        // Act
+        var exception = await Record.ExceptionAsync(() => controller.ReloadAsync(cancellationTokenSource.Token));
+
+        // Assert
+        Assert.IsAssignableFrom<OperationCanceledException>(exception);
+        await secondPlugin.DidNotReceive().StopAsync(Arg.Any<CancellationToken>());
+        await _pluginServicesContainer.DidNotReceive().ReinitializeAsync(Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task ReloadAsync_WhenStartIsCanceled_AbortsRemainingStartOperationsAndRethrows()
+    {
+        // Arrange
+        var firstPlugin = Substitute.For<IServicePlugin>();
+        var secondPlugin = Substitute.For<IServicePlugin>();
+        _pluginServicesContainer.GetPluginServices().Returns([BuildProviderWith(firstPlugin, secondPlugin)]);
+
+        using var cancellationTokenSource = new CancellationTokenSource();
+        firstPlugin.StartAsync(Arg.Any<CancellationToken>())
+            .Returns(_ =>
+            {
+                cancellationTokenSource.Cancel();
+                return Task.FromCanceled(cancellationTokenSource.Token);
+            });
+
+        secondPlugin.StartAsync(Arg.Any<CancellationToken>())
+            .Returns(callInfo =>
+            {
+                var token = callInfo.Arg<CancellationToken>();
+                return token.IsCancellationRequested
+                    ? Task.FromException(new InvalidOperationException("Second plugin should not receive a canceled token."))
+                    : Task.CompletedTask;
+            });
+
+        var controller = new PluginSystemController(_logger, _pluginServicesContainer);
+
+        // Act
+        var exception = await Record.ExceptionAsync(() => controller.ReloadAsync(cancellationTokenSource.Token));
+
+        // Assert
+        Assert.IsAssignableFrom<OperationCanceledException>(exception);
+        await secondPlugin.Received(1).StartAsync(Arg.Any<CancellationToken>());
+        await _pluginServicesContainer.Received(1).ReinitializeAsync(Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
     public async Task ReloadAsync_WhenReinitializeIsCanceled_RestartsStoppedPluginsAndRethrows()
     {
         // Arrange

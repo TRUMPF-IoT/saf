@@ -80,6 +80,10 @@ internal sealed class PluginSystemController(
                 {
                     await servicePlugin.StartAsync(linkedCts.Token).ConfigureAwait(false);
                 }
+                catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+                {
+                    throw;
+                }
                 catch (Exception ex)
                 {
                     logger.LogError(ex, "Failed to start service plug-in during reload.");
@@ -115,6 +119,10 @@ internal sealed class PluginSystemController(
                 {
                     await servicePlugin.StopAsync(linkedCts.Token).ConfigureAwait(false);
                     stoppedServicePlugins.Add(servicePlugin);
+                }
+                catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+                {
+                    throw;
                 }
                 catch (Exception ex)
                 {
