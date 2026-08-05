@@ -4,6 +4,7 @@
 
 namespace SAF.PluginSystem.Hosting;
 
+using System.Diagnostics.CodeAnalysis;
 using Contracts;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
@@ -15,19 +16,43 @@ internal sealed class PluginSystemController(
 {
     private readonly SemaphoreSlim _reloadSync= new(1, 1);
 
+    [SuppressMessage(
+        "CodeQuality",
+        "S6667:Logging in a catch clause should pass the caught exception as a parameter",
+        Justification = "Controller-level operational logs are intentionally kept even when exception propagation behavior is handled separately.")]
     public async Task ReloadAsync(CancellationToken cancellationToken = default)
     {
         await _reloadSync.WaitAsync(cancellationToken).ConfigureAwait(false);
+
+        List<IServicePlugin> stoppedServicePlugins = [];
 
         try
         {
             logger.LogInformation("Reloading plugin system.");
 
-            await StopServicePluginsAsync(cancellationToken).ConfigureAwait(false);
+            List<IServicePlugin> servicePlugins = GetServicePlugins();
+            stoppedServicePlugins = await StopServicePluginsAsync(servicePlugins, cancellationToken).ConfigureAwait(false);
+
             await pluginServicesContainer.ReinitializeAsync(cancellationToken).ConfigureAwait(false);
-            await StartServicePluginsAsync(cancellationToken).ConfigureAwait(false);
+
+            await StartServicePluginsAsync(GetServicePlugins(), cancellationToken)
+                .ConfigureAwait(false);
 
             logger.LogInformation("Plugin system reloaded.");
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            logger.LogWarning("Plugin system reload was canceled. Attempting to restart previously stopped service plug-ins.");
+            await StartServicePluginsAsync(stoppedServicePlugins, CancellationToken.None)
+                .ConfigureAwait(false);
+            throw;
+        }
+        catch (Exception)
+        {
+            logger.LogError("Plugin system reload failed. Attempting to restart previously stopped service plug-ins.");
+            await StartServicePluginsAsync(stoppedServicePlugins, CancellationToken.None)
+                .ConfigureAwait(false);
+            throw;
         }
         finally
         {
@@ -35,9 +60,11 @@ internal sealed class PluginSystemController(
         }
     }
 
-    private async Task StartServicePluginsAsync(CancellationToken cancellationToken)
+    private async Task StartServicePluginsAsync(
+        IEnumerable<IServicePlugin> servicePlugins,
+        CancellationToken cancellationToken)
     {
-        foreach (IServicePlugin servicePlugin in GetServicePlugins())
+        foreach (IServicePlugin servicePlugin in servicePlugins)
         {
             try
             {
@@ -50,19 +77,26 @@ internal sealed class PluginSystemController(
         }
     }
 
-    private async Task StopServicePluginsAsync(CancellationToken cancellationToken)
+    private async Task<List<IServicePlugin>> StopServicePluginsAsync(
+        IEnumerable<IServicePlugin> servicePlugins,
+        CancellationToken cancellationToken)
     {
-        foreach (IServicePlugin servicePlugin in GetServicePlugins())
+        List<IServicePlugin> stoppedServicePlugins = [];
+
+        foreach (IServicePlugin servicePlugin in servicePlugins)
         {
             try
             {
                 await servicePlugin.StopAsync(cancellationToken).ConfigureAwait(false);
+                stoppedServicePlugins.Add(servicePlugin);
             }
             catch (Exception ex)
             {
                 logger.LogError(ex, "Failed to stop service plug-in during reload.");
             }
         }
+
+        return stoppedServicePlugins;
     }
 
     private List<IServicePlugin> GetServicePlugins()
