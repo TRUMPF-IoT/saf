@@ -412,12 +412,13 @@ assembly load contexts (ALCs). This enables live reconfiguration: after the plug
 each manifest's `ConfigureServices` runs again against the fresh configuration, producing new plugin
 service instances while the loaded assemblies stay in place.
 
-Two APIs cooperate:
+The public reload API is:
 
 | API | Assembly | Responsibility |
 |---|---|---|
-| `IPluginServicesContainer.ReinitializeAsync(CancellationToken)` | `SAF.PluginSystem.Hosting.Contracts` | Rebuilds the plugin service providers, then disposes the previous ones. Leaves the plugin assembly containers / ALCs untouched. |
-| `IPluginSystemController.ReloadAsync(CancellationToken)` | `SAF.PluginSystem.Hosting.Contracts` | Host-level orchestration: stops the running `IServicePlugin`s, calls `ReinitializeAsync`, then starts the service plugins again. |
+| `IPluginSystemController.ReloadAsync(CancellationToken)` | `SAF.PluginSystem.Hosting.Contracts` | Host-level orchestration: stops the running `IServicePlugin`s, rebuilds plugin service providers, then starts the service plugins again. |
+
+The provider rebuild step itself is intentionally kept behind a host-internal writer abstraction and is not exposed on the public read contract.
 
 `IPluginSystemController` is registered automatically by `AddPluginSystem` — resolve it from the host
 container (or via constructor injection) and call `ReloadAsync` when the configuration changes:
@@ -450,9 +451,9 @@ public class ConfigChangeWatcher(IPluginSystemController pluginSystem)
 
 > **Fresh configuration values:** the plugin system builds `PluginConfiguration` from the plugin
 > settings file(s) with `reloadOnChange: true`, so the backing `IConfigurationRoot` refreshes its
-> providers when the file changes on disk. A subsequent `ReinitializeAsync` / `ReloadAsync` therefore
-> re-runs `ConfigureServices` against the updated values without a restart. Consumers that only need to
-> observe changed values (without rebuilding instances) can register on the change directly, e.g. via
+> providers when the file changes on disk. A subsequent `ReloadAsync` therefore re-runs
+> `ConfigureServices` against the updated values without a restart. Consumers that only need to observe
+> changed values (without rebuilding instances) can register on the change directly, e.g. via
 > `IOptionsMonitor<T>.OnChange(...)` or `ChangeToken.OnChange(() => config.GetReloadToken(), ...)`.
 
 ### Reload Sequence Diagram
@@ -461,13 +462,13 @@ public class ConfigChangeWatcher(IPluginSystemController pluginSystem)
 sequenceDiagram
     participant App as Host / trigger
     participant PSC as IPluginSystemController
-    participant Cnt as IPluginServicesContainer
+    participant Cnt as IPluginServicesReloader
     participant PA  as Service Plugins (old)
     participant PB  as Service Plugins (new)
 
     App->>PSC: ReloadAsync
     PSC->>PA: StopAsync
-    PSC->>Cnt: ReinitializeAsync
+    PSC->>Cnt: Rebuild providers (internal)
     Note over Cnt: re-run ConfigureServices\nwith fresh PluginConfiguration
     Cnt->>Cnt: build new providers
     Cnt-->>PA: dispose old providers

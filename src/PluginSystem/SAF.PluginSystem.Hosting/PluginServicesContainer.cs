@@ -15,7 +15,7 @@ public sealed class PluginServicesContainer(
     IServiceProvider applicationServiceProvider,
     IEnumerable<IPluginAssemblyContainer> pluginContainers,
     IPublicServiceTypeRegistry publicServiceTypeRegistry)
-    : IPluginServicesContainer, IAsyncDisposable
+    : IPluginServicesContainer, IPluginServicesReloader, IAsyncDisposable
 {
     private readonly Lock _syncPluginLoading = new();
     private bool _initialized;

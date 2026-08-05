@@ -15,8 +15,8 @@ public interface IPluginSystemController
 {
     /// <summary>
     /// Reloads the plugin system in-process: stops the running service plugins, rebuilds the plugin
-    /// service providers from the current configuration via
-    /// <see cref="IPluginServicesContainer.ReinitializeAsync"/>, and starts the service plugins again.
+    /// service providers from the current configuration via the host-internal writer pipeline,
+    /// and starts the service plugins again.
     /// </summary>
     /// <remarks>
     /// The underlying plugin assembly load contexts (ALCs) are left untouched, so no assembly is

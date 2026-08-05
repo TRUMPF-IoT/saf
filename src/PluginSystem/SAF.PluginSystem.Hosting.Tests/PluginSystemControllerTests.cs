@@ -14,6 +14,7 @@ public class PluginSystemControllerTests
     private readonly ILogger<PluginSystemController> _logger = Substitute.For<ILogger<PluginSystemController>>();
     private readonly ILogger<ServicePluginLifecycleRunner> _runnerLogger = Substitute.For<ILogger<ServicePluginLifecycleRunner>>();
     private readonly IPluginServicesContainer _pluginServicesContainer = Substitute.For<IPluginServicesContainer>();
+    private readonly IPluginServicesReloader _pluginServicesReloader = Substitute.For<IPluginServicesReloader>();
     private IServicePluginLifecycleRunner LifecycleRunner => new ServicePluginLifecycleRunner(_runnerLogger, _pluginServicesContainer);
 
     public PluginSystemControllerTests()
@@ -37,14 +38,14 @@ public class PluginSystemControllerTests
     {
         // Arrange
         _pluginServicesContainer.IsInitialized.Returns(false);
-        var controller = new PluginSystemController(_logger, _pluginServicesContainer, LifecycleRunner);
+        var controller = new PluginSystemController(_logger, _pluginServicesContainer, _pluginServicesReloader, LifecycleRunner);
 
         // Act
         var exception = await Record.ExceptionAsync(() => controller.ReloadAsync(TestContext.Current.CancellationToken));
 
         // Assert
         Assert.IsType<InvalidOperationException>(exception);
-        await _pluginServicesContainer.DidNotReceive().ReinitializeAsync(Arg.Any<CancellationToken>());
+        await _pluginServicesReloader.DidNotReceive().ReinitializeAsync(Arg.Any<CancellationToken>());
     }
 
     [Fact]
@@ -53,7 +54,7 @@ public class PluginSystemControllerTests
         // Arrange
         var servicePlugin = Substitute.For<ILifecycleServicePlugin>();
         _pluginServicesContainer.GetPluginServices().Returns([BuildProviderWith(servicePlugin)]);
-        var controller = new PluginSystemController(_logger, _pluginServicesContainer, LifecycleRunner);
+        var controller = new PluginSystemController(_logger, _pluginServicesContainer, _pluginServicesReloader, LifecycleRunner);
 
         // Act
         await controller.ReloadAsync(TestContext.Current.CancellationToken);
@@ -64,7 +65,7 @@ public class PluginSystemControllerTests
             servicePlugin.StoppingAsync(Arg.Any<CancellationToken>());
             servicePlugin.StopAsync(Arg.Any<CancellationToken>());
             servicePlugin.StoppedAsync(Arg.Any<CancellationToken>());
-            _pluginServicesContainer.ReinitializeAsync(Arg.Any<CancellationToken>());
+            _pluginServicesReloader.ReinitializeAsync(Arg.Any<CancellationToken>());
             servicePlugin.StartingAsync(Arg.Any<CancellationToken>());
             servicePlugin.StartAsync(Arg.Any<CancellationToken>());
             servicePlugin.StartedAsync(Arg.Any<CancellationToken>());
@@ -77,7 +78,7 @@ public class PluginSystemControllerTests
         // Arrange
         var servicePlugin = Substitute.For<ILifecycleServicePlugin>();
         _pluginServicesContainer.GetPluginServices().Returns([BuildProviderWith(servicePlugin)]);
-        var controller = new PluginSystemController(_logger, _pluginServicesContainer, LifecycleRunner);
+        var controller = new PluginSystemController(_logger, _pluginServicesContainer, _pluginServicesReloader, LifecycleRunner);
 
         using var cancellationTokenSource = new CancellationTokenSource();
         var cancellationToken = cancellationTokenSource.Token;
@@ -100,13 +101,13 @@ public class PluginSystemControllerTests
     {
         // Arrange
         _pluginServicesContainer.GetPluginServices().Returns([BuildProviderWith()]);
-        var controller = new PluginSystemController(_logger, _pluginServicesContainer, LifecycleRunner);
+        var controller = new PluginSystemController(_logger, _pluginServicesContainer, _pluginServicesReloader, LifecycleRunner);
 
         // Act
         await controller.ReloadAsync(TestContext.Current.CancellationToken);
 
         // Assert
-        await _pluginServicesContainer.Received(1).ReinitializeAsync(Arg.Any<CancellationToken>());
+        await _pluginServicesReloader.Received(1).ReinitializeAsync(Arg.Any<CancellationToken>());
     }
 
     [Fact]
@@ -116,14 +117,14 @@ public class PluginSystemControllerTests
         var faultyPlugin = Substitute.For<IServicePlugin>();
         faultyPlugin.StopAsync(Arg.Any<CancellationToken>()).Returns(Task.FromException(new InvalidOperationException("boom")));
         _pluginServicesContainer.GetPluginServices().Returns([BuildProviderWith(faultyPlugin)]);
-        var controller = new PluginSystemController(_logger, _pluginServicesContainer, LifecycleRunner);
+        var controller = new PluginSystemController(_logger, _pluginServicesContainer, _pluginServicesReloader, LifecycleRunner);
 
         // Act
         var exception = await Record.ExceptionAsync(() => controller.ReloadAsync(TestContext.Current.CancellationToken));
 
         // Assert
         Assert.Null(exception);
-        await _pluginServicesContainer.Received(1).ReinitializeAsync(Arg.Any<CancellationToken>());
+        await _pluginServicesReloader.Received(1).ReinitializeAsync(Arg.Any<CancellationToken>());
     }
 
     [Fact]
@@ -133,7 +134,7 @@ public class PluginSystemControllerTests
         var faultyPlugin = Substitute.For<IServicePlugin>();
         faultyPlugin.StartAsync(Arg.Any<CancellationToken>()).Returns(Task.FromException(new InvalidOperationException("boom")));
         _pluginServicesContainer.GetPluginServices().Returns([BuildProviderWith(faultyPlugin)]);
-        var controller = new PluginSystemController(_logger, _pluginServicesContainer, LifecycleRunner);
+        var controller = new PluginSystemController(_logger, _pluginServicesContainer, _pluginServicesReloader, LifecycleRunner);
 
         // Act
         var exception = await Record.ExceptionAsync(() => controller.ReloadAsync(TestContext.Current.CancellationToken));
@@ -149,9 +150,9 @@ public class PluginSystemControllerTests
         // Arrange
         var servicePlugin = Substitute.For<IServicePlugin>();
         _pluginServicesContainer.GetPluginServices().Returns([BuildProviderWith(servicePlugin)]);
-        _pluginServicesContainer.ReinitializeAsync(Arg.Any<CancellationToken>())
+        _pluginServicesReloader.ReinitializeAsync(Arg.Any<CancellationToken>())
             .Returns(ValueTask.FromException(new InvalidOperationException("boom")));
-        var controller = new PluginSystemController(_logger, _pluginServicesContainer, LifecycleRunner);
+        var controller = new PluginSystemController(_logger, _pluginServicesContainer, _pluginServicesReloader, LifecycleRunner);
 
         // Act
         var exception = await Record.ExceptionAsync(() => controller.ReloadAsync(TestContext.Current.CancellationToken));
@@ -161,7 +162,7 @@ public class PluginSystemControllerTests
         Received.InOrder(() =>
         {
             servicePlugin.StopAsync(Arg.Any<CancellationToken>());
-            _pluginServicesContainer.ReinitializeAsync(Arg.Any<CancellationToken>());
+            _pluginServicesReloader.ReinitializeAsync(Arg.Any<CancellationToken>());
             servicePlugin.StartAsync(Arg.Any<CancellationToken>());
         });
     }
@@ -182,7 +183,7 @@ public class PluginSystemControllerTests
                 return Task.FromCanceled(cancellationTokenSource.Token);
             });
 
-        var controller = new PluginSystemController(_logger, _pluginServicesContainer, LifecycleRunner);
+        var controller = new PluginSystemController(_logger, _pluginServicesContainer, _pluginServicesReloader, LifecycleRunner);
 
         // Act
         var exception = await Record.ExceptionAsync(() => controller.ReloadAsync(cancellationTokenSource.Token));
@@ -190,7 +191,7 @@ public class PluginSystemControllerTests
         // Assert
         Assert.IsAssignableFrom<OperationCanceledException>(exception);
         await secondPlugin.DidNotReceive().StopAsync(Arg.Any<CancellationToken>());
-        await _pluginServicesContainer.DidNotReceive().ReinitializeAsync(Arg.Any<CancellationToken>());
+        await _pluginServicesReloader.DidNotReceive().ReinitializeAsync(Arg.Any<CancellationToken>());
     }
 
     [Fact]
@@ -218,7 +219,7 @@ public class PluginSystemControllerTests
                     : Task.CompletedTask;
             });
 
-        var controller = new PluginSystemController(_logger, _pluginServicesContainer, LifecycleRunner);
+        var controller = new PluginSystemController(_logger, _pluginServicesContainer, _pluginServicesReloader, LifecycleRunner);
 
         // Act
         var exception = await Record.ExceptionAsync(() => controller.ReloadAsync(cancellationTokenSource.Token));
@@ -226,7 +227,7 @@ public class PluginSystemControllerTests
         // Assert
         Assert.IsAssignableFrom<OperationCanceledException>(exception);
         await secondPlugin.Received(1).StartAsync(Arg.Any<CancellationToken>());
-        await _pluginServicesContainer.Received(1).ReinitializeAsync(Arg.Any<CancellationToken>());
+        await _pluginServicesReloader.Received(1).ReinitializeAsync(Arg.Any<CancellationToken>());
     }
 
     [Fact]
@@ -237,14 +238,14 @@ public class PluginSystemControllerTests
         _pluginServicesContainer.GetPluginServices().Returns([BuildProviderWith(servicePlugin)]);
 
         using var cancellationTokenSource = new CancellationTokenSource();
-        _pluginServicesContainer.ReinitializeAsync(Arg.Any<CancellationToken>())
+        _pluginServicesReloader.ReinitializeAsync(Arg.Any<CancellationToken>())
             .Returns(_ =>
             {
                 cancellationTokenSource.Cancel();
                 return ValueTask.FromCanceled(cancellationTokenSource.Token);
             });
 
-        var controller = new PluginSystemController(_logger, _pluginServicesContainer, LifecycleRunner);
+        var controller = new PluginSystemController(_logger, _pluginServicesContainer, _pluginServicesReloader, LifecycleRunner);
 
         // Act
         var exception = await Record.ExceptionAsync(() => controller.ReloadAsync(cancellationTokenSource.Token));
@@ -254,7 +255,7 @@ public class PluginSystemControllerTests
         Received.InOrder(() =>
         {
             servicePlugin.StopAsync(Arg.Any<CancellationToken>());
-            _pluginServicesContainer.ReinitializeAsync(Arg.Any<CancellationToken>());
+            _pluginServicesReloader.ReinitializeAsync(Arg.Any<CancellationToken>());
             servicePlugin.StartAsync(Arg.Any<CancellationToken>());
         });
     }
@@ -268,7 +269,7 @@ public class PluginSystemControllerTests
             .Returns(Task.FromException(new InvalidOperationException("boom")));
         _pluginServicesContainer.GetPluginServices().Returns([BuildProviderWith(servicePlugin)]);
 
-        var controller = new PluginSystemController(_logger, _pluginServicesContainer, LifecycleRunner);
+        var controller = new PluginSystemController(_logger, _pluginServicesContainer, _pluginServicesReloader, LifecycleRunner);
 
         // Act
         var exception = await Record.ExceptionAsync(() => controller.ReloadAsync(TestContext.Current.CancellationToken));
@@ -281,7 +282,7 @@ public class PluginSystemControllerTests
         await servicePlugin.Received(1).StartingAsync(Arg.Any<CancellationToken>());
         await servicePlugin.Received(1).StartAsync(Arg.Any<CancellationToken>());
         await servicePlugin.Received(1).StartedAsync(Arg.Any<CancellationToken>());
-        await _pluginServicesContainer.Received(1).ReinitializeAsync(Arg.Any<CancellationToken>());
+        await _pluginServicesReloader.Received(1).ReinitializeAsync(Arg.Any<CancellationToken>());
     }
 
     [Fact]
@@ -295,7 +296,7 @@ public class PluginSystemControllerTests
         var secondReloadEnteredReinitialize = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         var reinitializeCallCount = 0;
 
-        _pluginServicesContainer.ReinitializeAsync(Arg.Any<CancellationToken>())
+        _pluginServicesReloader.ReinitializeAsync(Arg.Any<CancellationToken>())
             .Returns(_ =>
             {
                 var callNumber = Interlocked.Increment(ref reinitializeCallCount);
@@ -309,7 +310,7 @@ public class PluginSystemControllerTests
                 return ValueTask.CompletedTask;
             });
 
-        var controller = new PluginSystemController(_logger, _pluginServicesContainer, LifecycleRunner);
+        var controller = new PluginSystemController(_logger, _pluginServicesContainer, _pluginServicesReloader, LifecycleRunner);
 
         // Act
         var firstReloadTask = controller.ReloadAsync(TestContext.Current.CancellationToken);
@@ -325,6 +326,7 @@ public class PluginSystemControllerTests
         await Task.WhenAll(firstReloadTask, secondReloadTask);
 
         Assert.True(secondReloadEnteredReinitialize.Task.IsCompleted);
-        await _pluginServicesContainer.Received(2).ReinitializeAsync(Arg.Any<CancellationToken>());
+        await _pluginServicesReloader.Received(2).ReinitializeAsync(Arg.Any<CancellationToken>());
     }
 }
+

@@ -12,6 +12,7 @@ using Microsoft.Extensions.Logging;
 internal sealed class PluginSystemController(
     ILogger<PluginSystemController> logger,
     IPluginServicesContainer pluginServicesContainer,
+    IPluginServicesReloader pluginServicesReloader,
     IServicePluginLifecycleRunner lifecycleRunner) : IPluginSystemController
 {
     private readonly SemaphoreSlim _reloadSync= new(1, 1);
@@ -39,7 +40,7 @@ internal sealed class PluginSystemController(
             stoppedServicePlugins = await lifecycleRunner.StopAsync(servicePlugins, cancellationToken).ConfigureAwait(false);
             await lifecycleRunner.StoppedAsync(servicePlugins, cancellationToken).ConfigureAwait(false);
 
-            await pluginServicesContainer.ReinitializeAsync(cancellationToken).ConfigureAwait(false);
+            await pluginServicesReloader.ReinitializeAsync(cancellationToken).ConfigureAwait(false);
 
             List<IServicePlugin> newServicePlugins = lifecycleRunner.GetServicePlugins();
             await lifecycleRunner.StartingAsync(newServicePlugins, cancellationToken).ConfigureAwait(false);
