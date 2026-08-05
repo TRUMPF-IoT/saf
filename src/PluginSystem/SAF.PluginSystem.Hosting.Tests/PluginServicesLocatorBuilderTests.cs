@@ -28,6 +28,8 @@ public class PluginServicesLocatorBuilderTests
         Assert.Equal(1, importedService.Increment());
 
         ((IDisposable)ownerPluginServices.ServiceProvider!).Dispose();
+
+        Assert.Equal(1, importedService.DisposeCallCount);
     }
 
     [Fact]

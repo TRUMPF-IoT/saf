@@ -7,19 +7,21 @@ namespace SAF.PluginSystem.Hosting;
 using Microsoft.Extensions.DependencyInjection;
 using System;
 
-internal sealed class PublicPluginServiceFactory<TService> : IPublicPluginServiceFactory
+internal sealed class PublicPluginServiceFactory<TService> : IPublicPluginServiceFactory, IDisposable, IAsyncDisposable
 {
     private readonly object? _serviceKey;
     private readonly ServiceDescriptor _ownedDescriptor;
 
     private readonly bool _isKeyedService = false;
-    private readonly object _cacheLock = new();
+    private readonly Lock _cacheLock = new();
 
     private object? _cachedInstance;
+    private bool _ownsCachedInstance;
+    private bool _disposed;
 
     public PublicPluginServiceFactory(ServiceDescriptor ownedDescriptor)
     {
-        if(ownedDescriptor.ServiceType != typeof(TService))
+        if (ownedDescriptor.ServiceType != typeof(TService))
         {
             throw new ArgumentException(
                 $"The service descriptor's service type '{ownedDescriptor.ServiceType}' does not match the generic type parameter '{typeof(TService)}'.",
@@ -31,7 +33,7 @@ internal sealed class PublicPluginServiceFactory<TService> : IPublicPluginServic
 
     public PublicPluginServiceFactory(ServiceDescriptor ownedDescriptor, object? key)
     {
-        if(ownedDescriptor.ServiceType != typeof(TService))
+        if (ownedDescriptor.ServiceType != typeof(TService))
         {
             throw new ArgumentException(
                 $"The service descriptor's service type '{ownedDescriptor.ServiceType}' does not match the generic type parameter '{typeof(TService)}'.",
@@ -47,59 +49,129 @@ internal sealed class PublicPluginServiceFactory<TService> : IPublicPluginServic
 
     public object? Resolve(IServiceProvider serviceProvider)
     {
-        if(_cachedInstance is not null)
+        ObjectDisposedException.ThrowIf(_disposed, this);
+
+        if (_cachedInstance is not null)
         {
             return _cachedInstance;
         }
 
-        lock(_cacheLock)
+        lock (_cacheLock)
         {
-            if(_isKeyedService)
+            ObjectDisposedException.ThrowIf(_disposed, this);
+
+            if (_cachedInstance is not null)
             {
-                return _cachedInstance ??= ResolveKeyedInternal(serviceProvider, _serviceKey);
+                return _cachedInstance;
             }
-            else
-            {
-                return _cachedInstance ??= ResolveInternal(serviceProvider);
-            }
+
+            var (instance, ownsInstance) = _isKeyedService
+                ? ResolveKeyedInternal(serviceProvider, _serviceKey)
+                : ResolveInternal(serviceProvider);
+
+            _cachedInstance = instance;
+            _ownsCachedInstance = ownsInstance && instance is not null;
+            return _cachedInstance;
         }
     }
 
-    private object? ResolveKeyedInternal(IServiceProvider serviceProvider, object? serviceKey)
+    public void Dispose()
+    {
+        var (cachedInstance, ownsCachedInstance) = DetachCachedInstance();
+
+        if (!ownsCachedInstance || cachedInstance is null)
+        {
+            return;
+        }
+
+        if (cachedInstance is IAsyncDisposable asyncDisposable)
+        {
+            asyncDisposable.DisposeAsync().AsTask().ConfigureAwait(false).GetAwaiter().GetResult();
+            return;
+        }
+
+        if (cachedInstance is IDisposable disposable)
+        {
+            disposable.Dispose();
+        }
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        var (cachedInstance, ownsCachedInstance) = DetachCachedInstance();
+
+        if (!ownsCachedInstance || cachedInstance is null)
+        {
+            return;
+        }
+
+        if (cachedInstance is IAsyncDisposable asyncDisposable)
+        {
+            await asyncDisposable.DisposeAsync().ConfigureAwait(false);
+            return;
+        }
+
+        if (cachedInstance is IDisposable disposable)
+        {
+            disposable.Dispose();
+        }
+    }
+
+    private (object? CachedInstance, bool OwnsCachedInstance) DetachCachedInstance()
+    {
+        lock (_cacheLock)
+        {
+            if (_disposed)
+            {
+                return (null, false);
+            }
+
+            _disposed = true;
+            var cachedInstance = _cachedInstance;
+            var ownsCachedInstance = _ownsCachedInstance;
+            _cachedInstance = null;
+            _ownsCachedInstance = false;
+            return (cachedInstance, ownsCachedInstance);
+        }
+    }
+
+    private (object? Instance, bool OwnsInstance) ResolveKeyedInternal(IServiceProvider serviceProvider, object? serviceKey)
     {
         if (_ownedDescriptor.KeyedImplementationInstance is not null)
         {
-            return _ownedDescriptor.KeyedImplementationInstance;
+            return (_ownedDescriptor.KeyedImplementationInstance, false);
         }
+
         if (_ownedDescriptor.KeyedImplementationFactory is not null)
         {
-            return _ownedDescriptor.KeyedImplementationFactory(serviceProvider, serviceKey);
+            return (_ownedDescriptor.KeyedImplementationFactory(serviceProvider, serviceKey), true);
         }
+
         if (_ownedDescriptor.KeyedImplementationType is not null)
         {
-            return ActivatorUtilities.CreateInstance(serviceProvider, _ownedDescriptor.KeyedImplementationType);
+            return (ActivatorUtilities.CreateInstance(serviceProvider, _ownedDescriptor.KeyedImplementationType), true);
         }
 
-        return null;
+        return (null, false);
     }
 
-    private object? ResolveInternal(IServiceProvider serviceProvider)
+    private (object? Instance, bool OwnsInstance) ResolveInternal(IServiceProvider serviceProvider)
     {
         if (_ownedDescriptor.ImplementationInstance is not null)
         {
-            return _ownedDescriptor.ImplementationInstance;
+            return (_ownedDescriptor.ImplementationInstance, false);
         }
 
         if (_ownedDescriptor.ImplementationFactory is not null)
         {
-            return _ownedDescriptor.ImplementationFactory(serviceProvider);
+            return (_ownedDescriptor.ImplementationFactory(serviceProvider), true);
         }
 
         if (_ownedDescriptor.ImplementationType is not null)
         {
-            return ActivatorUtilities.CreateInstance(serviceProvider, _ownedDescriptor.ImplementationType);
+            return (ActivatorUtilities.CreateInstance(serviceProvider, _ownedDescriptor.ImplementationType), true);
         }
 
-        return null;
+        return (null, false);
     }
 }
