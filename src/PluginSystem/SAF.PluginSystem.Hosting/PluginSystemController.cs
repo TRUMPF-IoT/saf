@@ -4,9 +4,9 @@
 
 namespace SAF.PluginSystem.Hosting;
 
-using System.Diagnostics.CodeAnalysis;
 using Contracts;
 using Microsoft.Extensions.Logging;
+using System.Diagnostics.CodeAnalysis;
 
 /// <inheritdoc />
 internal sealed class PluginSystemController(
@@ -15,7 +15,7 @@ internal sealed class PluginSystemController(
     IPluginServicesReloader pluginServicesReloader,
     IServicePluginLifecycleRunner lifecycleRunner) : IPluginSystemController
 {
-    private readonly SemaphoreSlim _reloadSync= new(1, 1);
+    private readonly SemaphoreSlim _reloadSync = new(1, 1);
 
     [SuppressMessage(
         "CodeQuality",
@@ -28,41 +28,34 @@ internal sealed class PluginSystemController(
 
         await _reloadSync.WaitAsync(cancellationToken).ConfigureAwait(false);
 
-        List<IServicePlugin> stoppedServicePlugins = [];
-
         try
         {
             logger.LogInformation("Reloading plugin system.");
 
+            // Stopping the old instances is best-effort: they and their service providers are discarded
+            // anyway, so a failing plug-in is logged and the reload continues.
             List<IServicePlugin> servicePlugins = lifecycleRunner.GetServicePlugins();
-
             await lifecycleRunner.StoppingAsync(servicePlugins, cancellationToken).ConfigureAwait(false);
-            stoppedServicePlugins = await lifecycleRunner.StopAsync(servicePlugins, cancellationToken).ConfigureAwait(false);
+            await lifecycleRunner.StopAsync(servicePlugins, cancellationToken).ConfigureAwait(false);
             await lifecycleRunner.StoppedAsync(servicePlugins, cancellationToken).ConfigureAwait(false);
 
             await pluginServicesReloader.ReinitializeAsync(cancellationToken).ConfigureAwait(false);
 
-            List<IServicePlugin> newServicePlugins = lifecycleRunner.GetServicePlugins();
-            await lifecycleRunner.StartingAsync(newServicePlugins, cancellationToken).ConfigureAwait(false);
-            await lifecycleRunner.StartAsync(newServicePlugins, cancellationToken).ConfigureAwait(false);
-            await lifecycleRunner.StartedAsync(newServicePlugins, cancellationToken).ConfigureAwait(false);
+            List<IServicePlugin> reloadedServicePlugins = lifecycleRunner.GetServicePlugins();
+            await lifecycleRunner.StartingAsync(reloadedServicePlugins, cancellationToken).ConfigureAwait(false);
+            await lifecycleRunner.StartAsync(reloadedServicePlugins, cancellationToken).ConfigureAwait(false);
+            await lifecycleRunner.StartedAsync(reloadedServicePlugins, cancellationToken).ConfigureAwait(false);
 
             logger.LogInformation("Plugin system reloaded.");
         }
-        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        catch (OperationCanceledException)
         {
-            logger.LogWarning("Plugin system reload was canceled. Attempting to restart previously stopped service plug-ins.");
-            await lifecycleRunner.StartingAsync(stoppedServicePlugins, CancellationToken.None).ConfigureAwait(false);
-            await lifecycleRunner.StartAsync(stoppedServicePlugins, CancellationToken.None).ConfigureAwait(false);
-            await lifecycleRunner.StartedAsync(stoppedServicePlugins, CancellationToken.None).ConfigureAwait(false);
+            logger.LogWarning("Plugin system reload was canceled. The service plug-ins are left in the state the reload reached.");
             throw;
         }
         catch (Exception)
         {
-            logger.LogError("Plugin system reload failed. Attempting to restart previously stopped service plug-ins.");
-            await lifecycleRunner.StartingAsync(stoppedServicePlugins, CancellationToken.None).ConfigureAwait(false);
-            await lifecycleRunner.StartAsync(stoppedServicePlugins, CancellationToken.None).ConfigureAwait(false);
-            await lifecycleRunner.StartedAsync(stoppedServicePlugins, CancellationToken.None).ConfigureAwait(false);
+            logger.LogError("Plugin system reload failed. The service plug-ins are left in the state the reload reached.");
             throw;
         }
         finally
@@ -71,4 +64,3 @@ internal sealed class PluginSystemController(
         }
     }
 }
-

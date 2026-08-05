@@ -78,7 +78,7 @@ public class ServicePluginLifecycleRunnerTests
     }
 
     [Fact]
-    public async Task StartAsync_ShouldNotContainStoppedPlugin_WhenPluginStartFails()
+    public async Task StopAsync_ShouldStopRemainingPlugins_WhenPluginStopFails()
     {
         // Arrange
         var faultyPlugin = Substitute.For<IServicePlugin>();
@@ -87,11 +87,95 @@ public class ServicePluginLifecycleRunnerTests
         var runner = new ServicePluginLifecycleRunner(_logger, _pluginServicesContainer);
 
         // Act
-        var stopped = await runner.StopAsync([faultyPlugin, okPlugin], CancellationToken.None);
+        var exception = await Record.ExceptionAsync(() => runner.StopAsync([faultyPlugin, okPlugin], CancellationToken.None));
 
         // Assert
-        Assert.DoesNotContain(faultyPlugin, stopped);
-        Assert.Contains(okPlugin, stopped);
+        Assert.Null(exception);
+        await okPlugin.Received(1).StopAsync(Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task StartAsync_ShouldStartRemainingPlugins_WhenPluginStartFails()
+    {
+        // Arrange
+        var faultyPlugin = Substitute.For<IServicePlugin>();
+        var okPlugin = Substitute.For<IServicePlugin>();
+        faultyPlugin.StartAsync(Arg.Any<CancellationToken>()).Returns(Task.FromException(new Exception("boom")));
+        var runner = new ServicePluginLifecycleRunner(_logger, _pluginServicesContainer);
+
+        // Act
+        var exception = await Record.ExceptionAsync(() => runner.StartAsync([faultyPlugin, okPlugin], CancellationToken.None));
+
+        // Assert
+        Assert.Null(exception);
+        await okPlugin.Received(1).StartAsync(Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task StopAsync_ShouldAbortAtNextPlugin_WhenCanceled()
+    {
+        // Arrange
+        var cancelingPlugin = Substitute.For<IServicePlugin>();
+        var notReachedPlugin = Substitute.For<IServicePlugin>();
+
+        using var cancellationTokenSource = new CancellationTokenSource();
+        cancelingPlugin.StopAsync(Arg.Any<CancellationToken>())
+            .Returns(_ =>
+            {
+                cancellationTokenSource.Cancel();
+                return Task.FromCanceled(cancellationTokenSource.Token);
+            });
+
+        var runner = new ServicePluginLifecycleRunner(_logger, _pluginServicesContainer);
+
+        // Act
+        var exception = await Record.ExceptionAsync(
+            () => runner.StopAsync([cancelingPlugin, notReachedPlugin], cancellationTokenSource.Token));
+
+        // Assert
+        Assert.IsAssignableFrom<OperationCanceledException>(exception);
+        await notReachedPlugin.DidNotReceive().StopAsync(Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task LifecyclePhase_ShouldAbortAtNextPlugin_WhenCanceled()
+    {
+        // Arrange
+        var cancelingPlugin = Substitute.For<ILifecycleServicePlugin>();
+        var notReachedPlugin = Substitute.For<ILifecycleServicePlugin>();
+
+        using var cancellationTokenSource = new CancellationTokenSource();
+        cancelingPlugin.StoppingAsync(Arg.Any<CancellationToken>())
+            .Returns(_ =>
+            {
+                cancellationTokenSource.Cancel();
+                return Task.FromCanceled(cancellationTokenSource.Token);
+            });
+
+        var runner = new ServicePluginLifecycleRunner(_logger, _pluginServicesContainer);
+
+        // Act
+        var exception = await Record.ExceptionAsync(
+            () => runner.StoppingAsync([cancelingPlugin, notReachedPlugin], cancellationTokenSource.Token));
+
+        // Assert
+        Assert.IsAssignableFrom<OperationCanceledException>(exception);
+        await notReachedPlugin.DidNotReceive().StoppingAsync(Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task LifecyclePhase_ShouldOnlyRunOnLifecyclePlugins()
+    {
+        // Arrange
+        var lifecyclePlugin = Substitute.For<ILifecycleServicePlugin>();
+        var plainPlugin = Substitute.For<IServicePlugin>();
+        var runner = new ServicePluginLifecycleRunner(_logger, _pluginServicesContainer);
+
+        // Act
+        await runner.StoppedAsync([plainPlugin, lifecyclePlugin], CancellationToken.None);
+
+        // Assert
+        await lifecyclePlugin.Received(1).StoppedAsync(Arg.Any<CancellationToken>());
     }
 
     [Theory]

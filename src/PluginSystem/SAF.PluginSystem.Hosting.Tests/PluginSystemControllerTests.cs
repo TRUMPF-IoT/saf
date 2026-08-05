@@ -125,6 +125,7 @@ public class PluginSystemControllerTests
         // Assert
         Assert.Null(exception);
         await _pluginServicesReloader.Received(1).ReinitializeAsync(Arg.Any<CancellationToken>());
+        await faultyPlugin.Received(1).StartAsync(Arg.Any<CancellationToken>());
     }
 
     [Fact]
@@ -145,7 +146,7 @@ public class PluginSystemControllerTests
     }
 
     [Fact]
-    public async Task ReloadAsync_WhenReinitializeFails_RestartsStoppedPluginsAndRethrows()
+    public async Task ReloadAsync_WhenReinitializeFails_RethrowsAndLeavesPluginsStopped()
     {
         // Arrange
         var servicePlugin = Substitute.For<IServicePlugin>();
@@ -159,12 +160,8 @@ public class PluginSystemControllerTests
 
         // Assert
         Assert.IsType<InvalidOperationException>(exception);
-        Received.InOrder(() =>
-        {
-            servicePlugin.StopAsync(Arg.Any<CancellationToken>());
-            _pluginServicesReloader.ReinitializeAsync(Arg.Any<CancellationToken>());
-            servicePlugin.StartAsync(Arg.Any<CancellationToken>());
-        });
+        await servicePlugin.Received(1).StopAsync(Arg.Any<CancellationToken>());
+        await servicePlugin.DidNotReceive().StartAsync(Arg.Any<CancellationToken>());
     }
 
     [Fact]
@@ -210,15 +207,6 @@ public class PluginSystemControllerTests
                 return Task.FromCanceled(cancellationTokenSource.Token);
             });
 
-        secondPlugin.StartAsync(Arg.Any<CancellationToken>())
-            .Returns(callInfo =>
-            {
-                var token = callInfo.Arg<CancellationToken>();
-                return token.IsCancellationRequested
-                    ? Task.FromException(new InvalidOperationException("Second plugin should not receive a canceled token."))
-                    : Task.CompletedTask;
-            });
-
         var controller = new PluginSystemController(_logger, _pluginServicesContainer, _pluginServicesReloader, LifecycleRunner);
 
         // Act
@@ -226,12 +214,12 @@ public class PluginSystemControllerTests
 
         // Assert
         Assert.IsAssignableFrom<OperationCanceledException>(exception);
-        await secondPlugin.Received(1).StartAsync(Arg.Any<CancellationToken>());
+        await secondPlugin.DidNotReceive().StartAsync(Arg.Any<CancellationToken>());
         await _pluginServicesReloader.Received(1).ReinitializeAsync(Arg.Any<CancellationToken>());
     }
 
     [Fact]
-    public async Task ReloadAsync_WhenReinitializeIsCanceled_RestartsStoppedPluginsAndRethrows()
+    public async Task ReloadAsync_WhenReinitializeIsCanceled_RethrowsAndLeavesPluginsStopped()
     {
         // Arrange
         var servicePlugin = Substitute.For<IServicePlugin>();
@@ -252,12 +240,8 @@ public class PluginSystemControllerTests
 
         // Assert
         Assert.IsAssignableFrom<OperationCanceledException>(exception);
-        Received.InOrder(() =>
-        {
-            servicePlugin.StopAsync(Arg.Any<CancellationToken>());
-            _pluginServicesReloader.ReinitializeAsync(Arg.Any<CancellationToken>());
-            servicePlugin.StartAsync(Arg.Any<CancellationToken>());
-        });
+        await servicePlugin.Received(1).StopAsync(Arg.Any<CancellationToken>());
+        await servicePlugin.DidNotReceive().StartAsync(Arg.Any<CancellationToken>());
     }
 
     [Fact]

@@ -22,6 +22,11 @@ public interface IPluginSystemController
     /// The underlying plugin assembly load contexts (ALCs) are left untouched, so no assembly is
     /// reloaded and no ALC is leaked. A plugin binary that was absent at startup is therefore not
     /// picked up by a reload and still requires a controlled restart.
+    /// <para>
+    /// Failures of individual plugins are logged and do not abort the reload. A reload is never rolled
+    /// back: if the reload itself fails or is canceled, the exception is rethrown and the plugin system
+    /// is left in the state the reload reached.
+    /// </para>
     /// </remarks>
     /// <param name="cancellationToken">A token that signals cancellation of the reload.</param>
     /// <returns>A task that completes once the plugin system has been reloaded.</returns>

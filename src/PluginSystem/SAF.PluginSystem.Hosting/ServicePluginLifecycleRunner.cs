@@ -26,26 +26,12 @@ internal sealed class ServicePluginLifecycleRunner(
             cancellationToken);
 
     /// <inheritdoc />
-    public async Task StartAsync(IEnumerable<IServicePlugin> servicePlugins, CancellationToken cancellationToken)
-    {
-        using var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
-
-        foreach (IServicePlugin servicePlugin in servicePlugins)
-        {
-            try
-            {
-                await servicePlugin.StartAsync(linkedCts.Token).ConfigureAwait(false);
-            }
-            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
-            {
-                throw;
-            }
-            catch (Exception ex)
-            {
-                logger.LogError(ex, "Failed to start service plug-in.");
-            }
-        }
-    }
+    public Task StartAsync(IEnumerable<IServicePlugin> servicePlugins, CancellationToken cancellationToken)
+        => ExecuteAsync(
+            servicePlugins,
+            static (plugin, ct) => plugin.StartAsync(ct),
+            ex => logger.LogError(ex, "Failed to start service plug-in."),
+            cancellationToken);
 
     /// <inheritdoc />
     public Task StartedAsync(IEnumerable<IServicePlugin> servicePlugins, CancellationToken cancellationToken)
@@ -64,33 +50,12 @@ internal sealed class ServicePluginLifecycleRunner(
             cancellationToken);
 
     /// <inheritdoc />
-    public async Task<List<IServicePlugin>> StopAsync(IEnumerable<IServicePlugin> servicePlugins, CancellationToken cancellationToken)
-    {
-        List<IServicePlugin> servicePluginsList = [.. servicePlugins];
-        List<IServicePlugin> stoppedServicePlugins = [];
-
-        using (var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken))
-        {
-            foreach (IServicePlugin servicePlugin in servicePluginsList)
-            {
-                try
-                {
-                    await servicePlugin.StopAsync(linkedCts.Token).ConfigureAwait(false);
-                    stoppedServicePlugins.Add(servicePlugin);
-                }
-                catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
-                {
-                    throw;
-                }
-                catch (Exception ex)
-                {
-                    logger.LogError(ex, "Failed to stop service plug-in.");
-                }
-            }
-        }
-
-        return stoppedServicePlugins;
-    }
+    public Task StopAsync(IEnumerable<IServicePlugin> servicePlugins, CancellationToken cancellationToken)
+        => ExecuteAsync(
+            servicePlugins,
+            static (plugin, ct) => plugin.StopAsync(ct),
+            ex => logger.LogError(ex, "Failed to stop service plug-in."),
+            cancellationToken);
 
     /// <inheritdoc />
     public Task StoppedAsync(IEnumerable<IServicePlugin> servicePlugins, CancellationToken cancellationToken)
@@ -100,23 +65,38 @@ internal sealed class ServicePluginLifecycleRunner(
             nameof(ILifecycleServicePlugin.StoppedAsync),
             cancellationToken);
 
-    private async Task ExecuteLifecyclePhaseAsync(
+    private Task ExecuteLifecyclePhaseAsync(
         IEnumerable<IServicePlugin> servicePlugins,
         Func<ILifecycleServicePlugin, CancellationToken, Task> executePhase,
         string phaseName,
         CancellationToken cancellationToken)
+        => ExecuteAsync(
+            servicePlugins.OfType<ILifecycleServicePlugin>(),
+            executePhase,
+            ex => logger.LogError(ex, "Failed to execute {PhaseName} for service plug-in.", phaseName),
+            cancellationToken);
+
+    private static async Task ExecuteAsync<TPlugin>(
+        IEnumerable<TPlugin> servicePlugins,
+        Func<TPlugin, CancellationToken, Task> execute,
+        Action<Exception> logFailure,
+        CancellationToken cancellationToken)
     {
         using var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
 
-        foreach (ILifecycleServicePlugin servicePlugin in servicePlugins.OfType<ILifecycleServicePlugin>())
+        foreach (TPlugin servicePlugin in servicePlugins)
         {
             try
             {
-                await executePhase(servicePlugin, linkedCts.Token).ConfigureAwait(false);
+                await execute(servicePlugin, linkedCts.Token).ConfigureAwait(false);
+            }
+            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+            {
+                throw;
             }
             catch (Exception ex)
             {
-                logger.LogError(ex, "Failed to execute {PhaseName} for service plug-in.", phaseName);
+                logFailure(ex);
             }
         }
     }

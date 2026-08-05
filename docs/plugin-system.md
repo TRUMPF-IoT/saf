@@ -489,16 +489,19 @@ StartingAsync → StartAsync → StartedAsync     on the new instances
   running one to finish.
 - **Per-plugin failures are tolerated.** An exception from an individual plugin's `StartAsync`/`StopAsync`
   or from any `ILifecycleServicePlugin` phase is logged and the reload continues with the remaining
-  plugins.
-- **A failed rebuild is rolled back.** If rebuilding the providers fails, the previously built providers
-  stay in place, the service plugins that were stopped are started again, and the original exception is
-  rethrown to the caller.
-- **Cancellation aborts at the next plugin boundary.** Cancelling the token stops the reload, restarts the
-  service plugins that had already been stopped, and rethrows `OperationCanceledException`. The restart
-  itself is not cancellable.
+  plugins. This is the same best-effort behavior the plugin system applies at host startup and shutdown: a
+  plugin that fails to start does not bring down the host, and a plugin that fails to stop does not block
+  the shutdown.
+- **There is no rollback.** A reload is a one-way operation: the old instances and their providers are
+  discarded, so the plugin system never tries to revive the previous state. A plugin that fails to stop
+  may leak the resources it still holds — the failure is logged, and releasing resources reliably in
+  `StopAsync` remains the plugin's responsibility.
+- **Cancellation aborts at the next plugin boundary** and rethrows `OperationCanceledException`. The
+  plugin system is then left exactly where the reload got to — for example with the old plugins stopped
+  and the new ones not started yet — and is not restored to its previous state.
 
-Because the exception is rethrown, the caller decides how to react — retry the reload, keep running with
-the previous configuration, or shut the host down.
+Because failures of the reload itself are rethrown, the caller decides how to react — retry the reload,
+keep running with what is left, or shut the host down.
 
 ### Reload Sequence Diagram
 
