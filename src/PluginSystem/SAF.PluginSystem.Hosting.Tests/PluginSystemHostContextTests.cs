@@ -133,11 +133,24 @@ public class PluginSystemHostContextTests
         using var context = new PluginSystemHostContext(logger, environment, hostConfiguration, options, fileSystem);
 
         // Assert — the plugin settings file(s) must be watched so ReinitializeAsync/ReloadAsync see fresh values.
-        var root = Assert.IsAssignableFrom<IConfigurationRoot>(context.PluginConfiguration);
+        var root = Assert.IsType<IConfigurationRoot>(context.PluginConfiguration, exactMatch: false);
         var fileProviders = root.Providers.OfType<FileConfigurationProvider>().ToList();
         Assert.NotEmpty(fileProviders);
         Assert.All(fileProviders, provider => Assert.True(provider.Source.ReloadOnChange));
-        Assert.All(fileProviders, provider => Assert.DoesNotContain(fileSystem.Path.DirectorySeparatorChar, provider.Source.Path));
-        Assert.All(fileProviders, provider => Assert.DoesNotContain(fileSystem.Path.AltDirectorySeparatorChar, provider.Source.Path));
+        Assert.All(fileProviders, provider => Assert.DoesNotContain(fileSystem.Path.DirectorySeparatorChar, provider.Source.Path!));
+        Assert.All(fileProviders, provider => Assert.DoesNotContain(fileSystem.Path.AltDirectorySeparatorChar, provider.Source.Path!));
+        Assert.All(fileProviders, provider => Assert.NotNull(provider.Source.OnLoadException));
+
+        foreach (var provider in fileProviders)
+        {
+            var contextWithException = new FileLoadExceptionContext
+            {
+                Provider = provider,
+                Exception = new InvalidDataException("invalid json")
+            };
+
+            provider.Source.OnLoadException!(contextWithException);
+            Assert.True(contextWithException.Ignore);
+        }
     }
 }

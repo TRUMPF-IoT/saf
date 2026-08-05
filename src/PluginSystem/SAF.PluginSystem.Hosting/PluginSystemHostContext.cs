@@ -77,13 +77,29 @@ public sealed class PluginSystemHostContext : IPluginSystemHostContext, IDisposa
                 options.PluginSettingsFilePath, settingsFilePath);
         }
 
-        builder.AddJsonFile(settingsFileProvider, settingsFileName, optional: true, reloadOnChange: true);
+        AddJsonFile(builder, logger, settingsFileProvider, settingsFileName);
 
         var environmentSettingsFileName = $"{fileSystem.Path.GetFileNameWithoutExtension(settingsFileName)}.{environment.EnvironmentName}{fileSystem.Path.GetExtension(settingsFileName)}";
-        builder.AddJsonFile(settingsFileProvider, environmentSettingsFileName, optional: true, reloadOnChange: true);
+        AddJsonFile(builder, logger, settingsFileProvider, environmentSettingsFileName);
 
         return (builder.Build(), settingsFileProvider);
     }
+
+    private static void AddJsonFile(ConfigurationBuilder builder, ILogger logger, PhysicalFileProvider settingsFileProvider, string settingsFileName)
+        => builder.AddJsonFile(source =>
+        {
+            source.FileProvider = settingsFileProvider;
+            source.Path = settingsFileName;
+            source.Optional = true;
+            source.ReloadOnChange = true;
+            source.OnLoadException = context =>
+            {
+                context.Ignore = true;
+                logger.LogWarning(context.Exception,
+                    "Failed to load plugin configuration file {PluginSettingsFilePath}. A later successful reload will apply updated values.",
+                    settingsFileName);
+            };
+        });
 
     private static string CreateAbsolutePath(IFileSystem fileSystem, string basePath, string path)
     {
