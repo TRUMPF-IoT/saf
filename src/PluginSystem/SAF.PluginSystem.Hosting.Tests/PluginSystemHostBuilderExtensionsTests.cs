@@ -5,8 +5,10 @@
 namespace SAF.PluginSystem.Hosting.Tests;
 
 using Contracts;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 using NSubstitute;
 using System.Reflection;
 using System.IO.Abstractions;
@@ -69,5 +71,41 @@ public class PluginSystemHostBuilderExtensionsTests
 
         var searchOptions = service.GetType().GetProperty("SearchOptions", BindingFlags.NonPublic | BindingFlags.Instance)?.GetValue(service) as PluginAssemblyFolderSearchOptions;
         Assert.Equal(configuredPath, searchOptions!.SearchRootPath);
+    }
+
+    [Fact]
+    public void AddPluginConfigurationSource_ThrowsIfHostBuilderEqualsNull()
+    {
+        IPluginSystemHostBuilder? hostBuilder = null;
+        Assert.Throws<ArgumentNullException>(() => hostBuilder!.AddPluginConfigurationSource(_ => { }));
+    }
+
+    [Fact]
+    public void AddPluginConfigurationSource_ThrowsIfConfigureSourceEqualsNull()
+    {
+        Assert.Throws<ArgumentNullException>(() => _hostBuilder.AddPluginConfigurationSource(null!));
+    }
+
+    [Fact]
+    public void AddPluginConfigurationSource_MultipleCalls_PreserveRegistrationOrder()
+    {
+        // Arrange
+        _hostBuilder.AddPluginConfigurationSource(builder =>
+            builder.AddInMemoryCollection(new Dictionary<string, string?> { ["Key"] = "First" }));
+        _hostBuilder.AddPluginConfigurationSource(builder =>
+            builder.AddInMemoryCollection(new Dictionary<string, string?> { ["Key"] = "Second" }));
+
+        // Act
+        var serviceProvider = _serviceCollection.BuildServiceProvider();
+        var configureSources = serviceProvider.GetRequiredService<IOptions<PluginConfigurationSourcesOptions>>().Value.ConfigureSources;
+
+        var configurationBuilder = new ConfigurationBuilder();
+        foreach (var configureSource in configureSources)
+            configureSource(configurationBuilder);
+        var configuration = configurationBuilder.Build();
+
+        // Assert — registration order is preserved, so the second call's provider overrides the first's.
+        Assert.Equal(2, configureSources.Count);
+        Assert.Equal("Second", configuration["Key"]);
     }
 }
