@@ -9,10 +9,6 @@ on:
   pull_request:
     branches: [ main ]
 
-permissions:
-  contents: read
-  pull-requests: read
-
 concurrency:
   group: ${{ github.workflow }}-${{ github.event_name }}-${{ github.head_ref || github.ref_name }}
   cancel-in-progress: true
@@ -20,6 +16,8 @@ concurrency:
 jobs:
   precheck_push_without_pr:
     runs-on: ubuntu-latest
+    permissions:
+      pull-requests: read
     outputs:
       should_run_build: ${{ steps.open_pr_check.outputs.should_run_build }}
     steps:
@@ -55,6 +53,9 @@ jobs:
     if: github.event_name != 'push' || startsWith(github.ref, 'refs/tags/') || github.ref == 'refs/heads/main' || needs.precheck_push_without_pr.outputs.should_run_build == 'true'
     needs: [precheck_push_without_pr]
     runs-on: windows-latest
+    permissions:
+      contents: read
+      pull-requests: read
 
     steps:
     - name: Setup JDK
