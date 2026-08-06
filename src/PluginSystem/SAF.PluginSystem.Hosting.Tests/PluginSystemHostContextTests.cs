@@ -5,6 +5,7 @@
 namespace SAF.PluginSystem.Hosting.Tests;
 
 using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.FileProviders;
 using Microsoft.Extensions.Logging;
 using NSubstitute;
 using Contracts;
@@ -426,5 +427,58 @@ public class PluginSystemHostContextTests
             new PluginSystemHostContext(logger, environment, hostConfiguration, options, fileSystem, configureSources));
 
         Assert.Same(expectedException, thrownException);
+    }
+
+    [Fact]
+    public void BuildPluginConfiguration_MultipleCustomFileSources_ShareSingleDefaultFileProvider()
+    {
+        // Arrange
+        // Verifies that the shared PhysicalFileProvider seeded on the builder is reused by every custom
+        // FileConfigurationSource that does not set its own FileProvider, instead of each source creating
+        // its own PhysicalFileProvider(AppContext.BaseDirectory) via EnsureDefaults — which would leave
+        // N undisposed FileSystemWatcher handles after the context is disposed.
+        //
+        // This test also acts as a canary for future SDK changes to FileConfigurationSource.EnsureDefaults:
+        //   • Assert.NotNull  — detects if EnsureDefaults stops assigning FileProvider at all.
+        //   • Assert.Same     — detects if EnsureDefaults starts allocating a new provider per source.
+        //   • Root assertion  — detects if the shared provider is no longer rooted at AppContext.BaseDirectory.
+        // Any of these failing means the fix in BuildPluginConfiguration must be revisited.
+        var logger = Substitute.For<ILogger<PluginSystemHostContext>>();
+        var environment = Substitute.For<IPluginSystemHostEnvironment>();
+        var hostConfiguration = Substitute.For<IConfigurationManager>();
+        var options = new PluginSystemOptions { PluginSettingsFilePath = string.Empty };
+        var fileSystem = new RealFileSystem();
+
+        var configureSources = new List<Action<IConfigurationBuilder>>
+        {
+            builder => builder.AddJsonFile("nonexistent-a.json", optional: true, reloadOnChange: true),
+            builder => builder.AddJsonFile("nonexistent-b.json", optional: true, reloadOnChange: true),
+        };
+
+        // Act
+        using var context = new PluginSystemHostContext(logger, environment, hostConfiguration, options, fileSystem, configureSources);
+
+        // Assert
+        var root = Assert.IsType<IConfigurationRoot>(context.PluginConfiguration, exactMatch: false);
+        var customProviders = root.Providers
+            .OfType<FileConfigurationProvider>()
+            .Select(p => p.Source.FileProvider)
+            .ToList();
+
+        Assert.Equal(2, customProviders.Count);
+
+        // Both providers must be non-null: if EnsureDefaults stops assigning FileProvider, Assert.Same(null, null)
+        // would pass silently and the canary would be blind.
+        Assert.All(customProviders, p => Assert.NotNull(p));
+
+        // Both sources must share the exact same instance, proving no per-source allocation occurred.
+        Assert.Same(customProviders[0], customProviders[1]);
+
+        // The shared instance must be the PhysicalFileProvider seeded on the builder, rooted at
+        // AppContext.BaseDirectory — the same root the SDK fallback would have used per source.
+        var physicalProvider = Assert.IsType<PhysicalFileProvider>(customProviders[0]);
+        Assert.Equal(
+            fileSystem.Path.GetFullPath(AppContext.BaseDirectory),
+            fileSystem.Path.GetFullPath(physicalProvider.Root));
     }
 }

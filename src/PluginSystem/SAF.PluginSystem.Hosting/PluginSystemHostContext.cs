@@ -15,6 +15,7 @@ public sealed class PluginSystemHostContext : IPluginSystemHostContext, IDisposa
 {
     private readonly IConfigurationRoot _pluginConfigurationRoot;
     private readonly PhysicalFileProvider? _pluginSettingsFileProvider;
+    private readonly PhysicalFileProvider _customSourcesDefaultFileProvider;
 
     public PluginSystemHostContext(
         ILogger<PluginSystemHostContext> logger,
@@ -27,7 +28,7 @@ public sealed class PluginSystemHostContext : IPluginSystemHostContext, IDisposa
         Environment = environment;
         HostConfiguration = hostConfiguration;
 
-        (_pluginConfigurationRoot, _pluginSettingsFileProvider) =
+        (_pluginConfigurationRoot, _pluginSettingsFileProvider, _customSourcesDefaultFileProvider) =
             BuildPluginConfiguration(logger, options, environment, fileSystem, configurePluginConfigurationSources ?? []);
     }
 
@@ -43,9 +44,10 @@ public sealed class PluginSystemHostContext : IPluginSystemHostContext, IDisposa
         }
 
         _pluginSettingsFileProvider?.Dispose();
+        _customSourcesDefaultFileProvider.Dispose();
     }
 
-    private static (IConfigurationRoot configurationRoot, PhysicalFileProvider? settingsFileProvider) BuildPluginConfiguration(
+    private static (IConfigurationRoot configurationRoot, PhysicalFileProvider? settingsFileProvider, PhysicalFileProvider customSourcesDefaultFileProvider) BuildPluginConfiguration(
         ILogger logger,
         PluginSystemOptions options,
         IPluginSystemHostEnvironment environment,
@@ -55,16 +57,25 @@ public sealed class PluginSystemHostContext : IPluginSystemHostContext, IDisposa
         var builder = new ConfigurationBuilder();
 
         var settingsFileProvider = AddDefaultPluginConfigurationSources(builder, logger, options, environment, fileSystem);
+
+        // Seed a single shared PhysicalFileProvider as the builder's default so that every custom
+        // FileConfigurationSource that does not set its own FileProvider reuses this one instance
+        // instead of having FileConfigurationSource.EnsureDefaults() create a new
+        // PhysicalFileProvider(AppContext.BaseDirectory) per source. All of those per-source providers
+        // would otherwise be undisposed, each holding a recursive FileSystemWatcher on the base directory.
+        var customSourcesDefaultFileProvider = new PhysicalFileProvider(AppContext.BaseDirectory);
+        builder.SetFileProvider(customSourcesDefaultFileProvider);
+
         try
         {
             AddCustomPluginConfigurationSources(builder, logger, configurePluginConfigurationSources);
-            return (builder.Build(), settingsFileProvider);
+            return (builder.Build(), settingsFileProvider, customSourcesDefaultFileProvider);
         }
         catch
         {
-            // settingsFileProvider owns a PhysicalFilesWatcher / FileSystemWatcher handle. If anything
-            // between its construction and the successful return throws, the constructor will never assign
-            // _pluginSettingsFileProvider and Dispose() will never run, leaking the handle.
+            // Both providers own FileSystemWatcher handles. Dispose them before the exception escapes
+            // so that the constructor failure does not leak handles until process exit.
+            customSourcesDefaultFileProvider.Dispose();
             settingsFileProvider?.Dispose();
             throw;
         }
