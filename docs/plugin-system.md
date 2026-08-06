@@ -343,7 +343,7 @@ All plugins share a single plugin settings file, exposed to each manifest as `co
 {PluginSettingsRootPath}/{PluginSettingsFilePath}
 ```
 
-with `PluginSettingsRootPath` defaulting to `.` and `PluginSettingsFilePath` defaulting to `./pluginsettings.json`. An optional environment-specific overlay named `{file}.{EnvironmentName}.json` (e.g. `pluginsettings.Development.json`) is layered on top if present. Both paths come from the `PluginSystem` configuration section.
+with `PluginSettingsRootPath` defaulting to `./config` and `PluginSettingsFilePath` defaulting to `./pluginsettings.json`. An optional environment-specific overlay named `{file}.{EnvironmentName}.json` (e.g. `pluginsettings.Development.json`) is layered on top if present. Both paths come from the `PluginSystem` configuration section.
 
 `PluginSystemOptions` stays a pure data object (paths/patterns only). To add further plugin configuration providers from outside (for example XML, INI, custom sources, or application-specific file names/extensions), use the host builder API:
 

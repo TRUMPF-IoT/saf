@@ -270,7 +270,7 @@ Configuration was typically read directly from `IConfiguration` injected from th
 
 ### After
 
-All plugins share a single plugin settings file, resolved from `{PluginSettingsRootPath}/{PluginSettingsFilePath}` (defaults: `.` and `./pluginsettings.json`) plus an optional `{file}.{EnvironmentName}.json` overlay. Each plugin reads its own top-level section. It is exposed as `context.PluginConfiguration`:
+All plugins share a single plugin settings file, resolved from `{PluginSettingsRootPath}/{PluginSettingsFilePath}` (defaults: `./config` and `./pluginsettings.json`) plus an optional `{file}.{EnvironmentName}.json` overlay. Each plugin reads its own top-level section. It is exposed as `context.PluginConfiguration`:
 
 ```csharp
 public void ConfigureServices(IPluginSystemHostContext context, IServiceCollection pluginServices)
