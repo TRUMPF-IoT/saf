@@ -55,7 +55,7 @@ public sealed class PluginSystemHostContext : IPluginSystemHostContext, IDisposa
         var builder = new ConfigurationBuilder();
 
         var settingsFileProvider = AddDefaultPluginConfigurationSources(builder, logger, options, environment, fileSystem);
-        AddCustomPluginConfigurationSources(builder, configurePluginConfigurationSources);
+        AddCustomPluginConfigurationSources(builder, logger, configurePluginConfigurationSources);
 
         return (builder.Build(), settingsFileProvider);
     }
@@ -104,12 +104,32 @@ public sealed class PluginSystemHostContext : IPluginSystemHostContext, IDisposa
     }
 
     private static void AddCustomPluginConfigurationSources(
-      IConfigurationBuilder builder,
-      IEnumerable<Action<IConfigurationBuilder>> configurePluginConfigurationSources)
+        ConfigurationBuilder builder,
+        ILogger logger,
+        IEnumerable<Action<IConfigurationBuilder>> configurePluginConfigurationSources)
     {
+        var countBefore = builder.Sources.Count;
+
         foreach (var configureSource in configurePluginConfigurationSources)
         {
             configureSource(builder);
+        }
+
+        // Apply the same OnLoadException guard that default sources receive to any FileConfigurationSource
+        // added by custom callbacks that does not already have one, so a malformed or half-written file
+        // neither crashes host startup nor silently wipes values on reload.
+        for (var i = countBefore; i < builder.Sources.Count; i++)
+        {
+            if (builder.Sources[i] is FileConfigurationSource { OnLoadException: null } fileSource)
+            {
+                fileSource.OnLoadException = context =>
+                {
+                    context.Ignore = true;
+                    logger.LogWarning(context.Exception,
+                        "Failed to load plugin configuration file {PluginSettingsFilePath}. A later successful reload will apply updated values.",
+                        fileSource.Path);
+                };
+            }
         }
     }
 

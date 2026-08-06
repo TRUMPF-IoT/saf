@@ -207,4 +207,168 @@ public class PluginSystemHostContextTests
         // Assert
         Assert.Equal("OverriddenByCustomSource", context.PluginConfiguration["Key"]);
     }
+
+    [Fact]
+    public void BuildPluginConfiguration_CustomFileSource_WithoutOnLoadException_GetsDefaultGuardApplied()
+    {
+        // Arrange
+        var logger = Substitute.For<ILogger<PluginSystemHostContext>>();
+        var environment = Substitute.For<IPluginSystemHostEnvironment>();
+        var hostConfiguration = Substitute.For<IConfigurationManager>();
+        var options = new PluginSystemOptions { PluginSettingsFilePath = string.Empty };
+        var fileSystem = new RealFileSystem();
+
+        FileConfigurationSource? capturedSource = null;
+        var configureSources = new List<Action<IConfigurationBuilder>>
+        {
+            builder =>
+            {
+                builder.AddJsonFile("nonexistent-custom.json", optional: true, reloadOnChange: false);
+                capturedSource = (FileConfigurationSource)builder.Sources[^1];
+            },
+        };
+
+        // Act
+        using var context = new PluginSystemHostContext(logger, environment, hostConfiguration, options, fileSystem, configureSources);
+
+        // Assert — the default OnLoadException guard must have been attached because the callback did not set one.
+        Assert.NotNull(capturedSource);
+        Assert.NotNull(capturedSource.OnLoadException);
+
+        // Verify the guard is also present on the provider that the built IConfigurationRoot actually uses,
+        // not only on the source object we captured in the callback. This guards against a future SDK change
+        // where ConfigurationBuilder.Build() snapshots/clones sources instead of referencing them directly.
+        var root = Assert.IsType<IConfigurationRoot>(context.PluginConfiguration, exactMatch: false);
+        var builtProvider = root.Providers
+            .OfType<FileConfigurationProvider>()
+            .Single(p => p.Source.Path == "nonexistent-custom.json");
+        Assert.NotNull(builtProvider.Source.OnLoadException);
+
+        var exceptionContext = new FileLoadExceptionContext
+        {
+            Exception = new InvalidDataException("malformed json"),
+        };
+        builtProvider.Source.OnLoadException!(exceptionContext);
+
+        Assert.True(exceptionContext.Ignore);
+        logger.Received().Log(
+            LogLevel.Warning,
+            Arg.Any<EventId>(),
+            Arg.Any<object>(),
+            Arg.Any<Exception>(),
+            Arg.Any<Func<object, Exception?, string>>());
+    }
+
+    [Fact]
+    public void BuildPluginConfiguration_CustomFileSource_WithExistingOnLoadException_IsNotOverwritten()
+    {
+        // Arrange
+        var logger = Substitute.For<ILogger<PluginSystemHostContext>>();
+        var environment = Substitute.For<IPluginSystemHostEnvironment>();
+        var hostConfiguration = Substitute.For<IConfigurationManager>();
+        var options = new PluginSystemOptions { PluginSettingsFilePath = string.Empty };
+        var fileSystem = new RealFileSystem();
+
+        var customHandlerInvoked = false;
+        Action<FileLoadExceptionContext> customHandler = _ => customHandlerInvoked = true;
+
+        FileConfigurationSource? capturedSource = null;
+        var configureSources = new List<Action<IConfigurationBuilder>>
+        {
+            builder =>
+            {
+                builder.AddJsonFile("nonexistent-custom.json", optional: true, reloadOnChange: false);
+                capturedSource = (FileConfigurationSource)builder.Sources[^1];
+                capturedSource.OnLoadException = customHandler;
+            },
+        };
+
+        // Act
+        using var context = new PluginSystemHostContext(logger, environment, hostConfiguration, options, fileSystem, configureSources);
+
+        // Assert — the custom handler must not have been replaced by the default guard.
+        Assert.NotNull(capturedSource);
+        Assert.Same(customHandler, capturedSource.OnLoadException);
+
+        capturedSource.OnLoadException!(new FileLoadExceptionContext { Exception = new InvalidDataException() });
+        Assert.True(customHandlerInvoked);
+    }
+
+    [Fact]
+    public void BuildPluginConfiguration_CustomFileSource_MalformedJson_DoesNotThrowDuringBuild()
+    {
+        // Arrange
+        var logger = Substitute.For<ILogger<PluginSystemHostContext>>();
+        var environment = Substitute.For<IPluginSystemHostEnvironment>();
+        var hostConfiguration = Substitute.For<IConfigurationManager>();
+        var options = new PluginSystemOptions { PluginSettingsFilePath = string.Empty };
+        var fileSystem = new RealFileSystem();
+
+        var malformedJsonPath = fileSystem.Path.Combine(fileSystem.Path.GetTempPath(), $"{Guid.NewGuid()}.json");
+        try
+        {
+            fileSystem.File.WriteAllText(malformedJsonPath, "{ this is not valid json");
+
+            var configureSources = new List<Action<IConfigurationBuilder>>
+            {
+                builder => builder.AddJsonFile(malformedJsonPath, optional: true, reloadOnChange: false),
+            };
+
+            // Act & Assert — a malformed custom JSON file must not crash the host context construction.
+            var exception = Record.Exception(() =>
+            {
+                using var context = new PluginSystemHostContext(logger, environment, hostConfiguration, options, fileSystem, configureSources);
+            });
+            Assert.Null(exception);
+        }
+        finally
+        {
+            fileSystem.File.Delete(malformedJsonPath);
+        }
+    }
+
+    [Fact]
+    public void BuildPluginConfiguration_CustomFileSource_IndexBasedOnLoadExceptionOverwrite_IsPreservedAndNotReplacedByDefaultGuard()
+    {
+        // Arrange
+        // This test documents the supported escape-hatch: a caller that needs full control over exception
+        // behaviour can set OnLoadException on the source by index *inside the callback*, and the default
+        // guard will not overwrite it afterwards.
+        var logger = Substitute.For<ILogger<PluginSystemHostContext>>();
+        var environment = Substitute.For<IPluginSystemHostEnvironment>();
+        var hostConfiguration = Substitute.For<IConfigurationManager>();
+        var options = new PluginSystemOptions { PluginSettingsFilePath = string.Empty };
+        var fileSystem = new RealFileSystem();
+
+        var customHandlerCallCount = 0;
+
+        var configureSources = new List<Action<IConfigurationBuilder>>
+        {
+            builder =>
+            {
+                builder.AddJsonFile("nonexistent-index-test.json", optional: true, reloadOnChange: false);
+
+                // Index-based access: the source that was just added is the last one in the builder's source list.
+                var source = (FileConfigurationSource)builder.Sources[^1];
+                source.OnLoadException = ctx =>
+                {
+                    ctx.Ignore = true;
+                    customHandlerCallCount++;
+                };
+            },
+        };
+
+        // Act
+        using var context = new PluginSystemHostContext(logger, environment, hostConfiguration, options, fileSystem, configureSources);
+
+        // Assert — the custom handler set via index access must be intact and be the one that fires.
+        var root = Assert.IsType<IConfigurationRoot>(context.PluginConfiguration, exactMatch: false);
+        var customSource = root.Providers
+            .OfType<FileConfigurationProvider>()
+            .Single(p => p.Source.Path == "nonexistent-index-test.json");
+
+        Assert.NotNull(customSource.Source.OnLoadException);
+        customSource.Source.OnLoadException(new FileLoadExceptionContext { Exception = new InvalidDataException() });
+        Assert.Equal(1, customHandlerCallCount);
+    }
 }
