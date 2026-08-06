@@ -371,4 +371,60 @@ public class PluginSystemHostContextTests
         customSource.Source.OnLoadException(new FileLoadExceptionContext { Exception = new InvalidDataException() });
         Assert.Equal(1, customHandlerCallCount);
     }
+
+    [Fact]
+    public void BuildPluginConfiguration_CustomCallbackThrows_ExceptionPropagatesAndDoesNotLeakSettingsFileProvider()
+    {
+        // Arrange
+        // A settings file path is required so that a PhysicalFileProvider (and its FileSystemWatcher) is
+        // constructed before the custom callbacks run. If the catch block did not dispose it on throw, the
+        // watcher handle would leak until process exit.
+        var logger = Substitute.For<ILogger<PluginSystemHostContext>>();
+        var environment = Substitute.For<IPluginSystemHostEnvironment>();
+        environment.PluginSettingsRootPath.Returns("./test-plugin-configs");
+        var hostConfiguration = Substitute.For<IConfigurationManager>();
+        var options = new PluginSystemOptions { PluginSettingsFilePath = "settings.json" };
+        var fileSystem = new RealFileSystem();
+
+        var expectedException = new InvalidOperationException("custom callback failure");
+        var configureSources = new List<Action<IConfigurationBuilder>>
+        {
+            _ => throw expectedException,
+        };
+
+        // Act & Assert — the original exception must propagate; it must not be wrapped or swallowed.
+        var thrownException = Assert.Throws<InvalidOperationException>(() =>
+            new PluginSystemHostContext(logger, environment, hostConfiguration, options, fileSystem, configureSources));
+
+        Assert.Same(expectedException, thrownException);
+    }
+
+    [Fact]
+    public void BuildPluginConfiguration_CustomSourceBuildThrows_ExceptionPropagatesAndDoesNotLeakSettingsFileProvider()
+    {
+        // Arrange
+        // Same leak scenario as above but the throw originates inside ConfigurationBuilder.Build() when
+        // a custom IConfigurationSource.Build() throws, not from the registration callback itself.
+        var logger = Substitute.For<ILogger<PluginSystemHostContext>>();
+        var environment = Substitute.For<IPluginSystemHostEnvironment>();
+        environment.PluginSettingsRootPath.Returns("./test-plugin-configs");
+        var hostConfiguration = Substitute.For<IConfigurationManager>();
+        var options = new PluginSystemOptions { PluginSettingsFilePath = "settings.json" };
+        var fileSystem = new RealFileSystem();
+
+        var expectedException = new InvalidOperationException("source build failure");
+        var throwingSource = Substitute.For<IConfigurationSource>();
+        throwingSource.Build(Arg.Any<IConfigurationBuilder>()).Returns(_ => throw expectedException);
+
+        var configureSources = new List<Action<IConfigurationBuilder>>
+        {
+            builder => builder.Add(throwingSource),
+        };
+
+        // Act & Assert — the original exception must propagate; it must not be wrapped or swallowed.
+        var thrownException = Assert.Throws<InvalidOperationException>(() =>
+            new PluginSystemHostContext(logger, environment, hostConfiguration, options, fileSystem, configureSources));
+
+        Assert.Same(expectedException, thrownException);
+    }
 }

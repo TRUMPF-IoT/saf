@@ -55,9 +55,19 @@ public sealed class PluginSystemHostContext : IPluginSystemHostContext, IDisposa
         var builder = new ConfigurationBuilder();
 
         var settingsFileProvider = AddDefaultPluginConfigurationSources(builder, logger, options, environment, fileSystem);
-        AddCustomPluginConfigurationSources(builder, logger, configurePluginConfigurationSources);
-
-        return (builder.Build(), settingsFileProvider);
+        try
+        {
+            AddCustomPluginConfigurationSources(builder, logger, configurePluginConfigurationSources);
+            return (builder.Build(), settingsFileProvider);
+        }
+        catch
+        {
+            // settingsFileProvider owns a PhysicalFilesWatcher / FileSystemWatcher handle. If anything
+            // between its construction and the successful return throws, the constructor will never assign
+            // _pluginSettingsFileProvider and Dispose() will never run, leaking the handle.
+            settingsFileProvider?.Dispose();
+            throw;
+        }
     }
 
     private static PhysicalFileProvider? AddDefaultPluginConfigurationSources(
