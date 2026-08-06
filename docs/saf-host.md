@@ -131,14 +131,30 @@ builder.AddSafHost(pluginSystemOptions =>
 })
 .ConfigurePluginSystem(ps =>
 {
-    ps.AddPluginConfigurationSource(config =>
-        config.AddXmlFile("config/pluginsettings.myapp", optional: true, reloadOnChange: true));
+    ps.AddPluginConfigurationSource(source =>
+    {
+        var extension = ".myapp";
+        var overlayFileName = $"{Path.GetFileNameWithoutExtension(source.SettingsFileName)}.{source.EnvironmentName}" +
+            Path.GetExtension(source.SettingsFileName);
 
-    ps.AddPluginConfigurationSource(config =>
-        config.AddXmlFile(
-            $"./config/pluginsettings.{builder.Environment.EnvironmentName}.myapp",
-            optional: true,
-            reloadOnChange: true));
+        source.Builder.AddXmlFile(xml =>
+        {
+            xml.FileProvider = source.SettingsFileProvider;
+            xml.Path = Path.ChangeExtension(source.SettingsFileName, extension);
+            xml.Optional = true;
+            xml.ReloadOnChange = true;
+            xml.OnLoadException = source.OnLoadException;
+        });
+
+        source.Builder.AddXmlFile(xml =>
+        {
+            xml.FileProvider = source.SettingsFileProvider;
+            xml.Path = Path.ChangeExtension(overlayFileName, extension);
+            xml.Optional = true;
+            xml.ReloadOnChange = true;
+            xml.OnLoadException = source.OnLoadException;
+        });
+    });
 
     ps.AddPluginAssemblyFolderContainer(options =>
     {

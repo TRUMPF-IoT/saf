@@ -122,8 +122,8 @@ public class HostApplicationBuilderExtensionsTests
         {
             options.PluginSettingsFilePath = string.Empty;
         });
-        pluginSystemHostBuilder.AddPluginConfigurationSource(configurationBuilder =>
-            configurationBuilder.AddInMemoryCollection(new Dictionary<string, string?>
+        pluginSystemHostBuilder.AddPluginConfigurationSource(sourceContext =>
+            sourceContext.Builder.AddInMemoryCollection(new Dictionary<string, string?>
             {
                 ["Custom:Setting"] = "ValueFromOutside",
             }));

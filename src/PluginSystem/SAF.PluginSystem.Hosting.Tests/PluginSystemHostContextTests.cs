@@ -156,6 +156,102 @@ public class PluginSystemHostContextTests
     }
 
     [Fact]
+    public void BuildPluginConfiguration_PassesSettingsFileProviderAndFileNameToCustomSources_WhenSettingsFileConfigured()
+    {
+        // Arrange
+        var logger = Substitute.For<ILogger<PluginSystemHostContext>>();
+        var environment = Substitute.For<IPluginSystemHostEnvironment>();
+        environment.EnvironmentName.Returns("Environment");
+        environment.PluginSettingsRootPath.Returns("./test-plugin-configs");
+        var hostConfiguration = Substitute.For<IConfigurationManager>();
+        var options = new PluginSystemOptions { PluginSettingsFilePath = "settings.json" };
+        var fileSystem = new RealFileSystem();
+
+        PluginConfigurationSourceContext? capturedContext = null;
+        var configureSources = new List<Action<PluginConfigurationSourceContext>>
+        {
+            sourceContext => capturedContext = sourceContext,
+        };
+
+        // Act
+        using var context = new PluginSystemHostContext(logger, environment, hostConfiguration, options, fileSystem, configureSources);
+
+        // Assert — the callback receives the same information the default plugin settings sources use.
+        Assert.NotNull(capturedContext);
+        Assert.NotNull(capturedContext.SettingsFileProvider);
+        Assert.Equal("settings.json", capturedContext.SettingsFileName);
+        Assert.Equal("Environment", capturedContext.EnvironmentName);
+        Assert.NotNull(capturedContext.OnLoadException);
+    }
+
+    [Fact]
+    public void BuildPluginConfiguration_PassesNullSettingsFileProviderAndFileName_WhenNoPluginSettingsFilePath()
+    {
+        // Arrange
+        var logger = Substitute.For<ILogger<PluginSystemHostContext>>();
+        var environment = Substitute.For<IPluginSystemHostEnvironment>();
+        environment.EnvironmentName.Returns("Environment");
+        var hostConfiguration = Substitute.For<IConfigurationManager>();
+        var options = new PluginSystemOptions { PluginSettingsFilePath = string.Empty };
+        var fileSystem = new RealFileSystem();
+
+        PluginConfigurationSourceContext? capturedContext = null;
+        var configureSources = new List<Action<PluginConfigurationSourceContext>>
+        {
+            sourceContext => capturedContext = sourceContext,
+        };
+
+        // Act
+        using var context = new PluginSystemHostContext(logger, environment, hostConfiguration, options, fileSystem, configureSources);
+
+        // Assert
+        Assert.NotNull(capturedContext);
+        Assert.Null(capturedContext.SettingsFileProvider);
+        Assert.Null(capturedContext.SettingsFileName);
+        Assert.Equal("Environment", capturedContext.EnvironmentName);
+    }
+
+    [Fact]
+    public void BuildPluginConfiguration_ContextOnLoadException_IgnoresAndLogsWarning_WhenAssignedToCustomSource()
+    {
+        // Arrange — verifies the escape hatch documented on PluginConfigurationSourceContext.OnLoadException:
+        // assigning the shared handler to a custom source gets the same ignore-and-log behavior as the
+        // default plugin settings sources.
+        var logger = Substitute.For<ILogger<PluginSystemHostContext>>();
+        var environment = Substitute.For<IPluginSystemHostEnvironment>();
+        var hostConfiguration = Substitute.For<IConfigurationManager>();
+        var options = new PluginSystemOptions { PluginSettingsFilePath = string.Empty };
+        var fileSystem = new RealFileSystem();
+
+        FileConfigurationSource? capturedSource = null;
+        var configureSources = new List<Action<PluginConfigurationSourceContext>>
+        {
+            sourceContext =>
+            {
+                sourceContext.Builder.AddJsonFile("nonexistent-explicit.json", optional: true, reloadOnChange: false);
+                capturedSource = (FileConfigurationSource)sourceContext.Builder.Sources[^1];
+                capturedSource.OnLoadException = sourceContext.OnLoadException;
+            },
+        };
+
+        // Act
+        using var context = new PluginSystemHostContext(logger, environment, hostConfiguration, options, fileSystem, configureSources);
+
+        // Assert
+        Assert.NotNull(capturedSource);
+        var exceptionContext = new FileLoadExceptionContext { Exception = new InvalidDataException("malformed json") };
+        capturedSource.OnLoadException!(exceptionContext);
+
+        Assert.True(exceptionContext.Ignore);
+        logger.Received().Log(
+            LogLevel.Warning,
+            Arg.Any<EventId>(),
+            Arg.Any<object>(),
+            Arg.Any<Exception>(),
+            Arg.Any<Func<object, Exception?, string>>());
+    }
+
+    [Fact]
     public void BuildPluginConfiguration_ShouldApplyCustomConfigurationSources()
     {
         // Arrange
@@ -163,10 +259,10 @@ public class PluginSystemHostContextTests
         var environment = Substitute.For<IPluginSystemHostEnvironment>();
         var hostConfiguration = Substitute.For<IConfigurationManager>();
         var options = new PluginSystemOptions { PluginSettingsFilePath = string.Empty };
-        var configureSources = new List<Action<IConfigurationBuilder>>
+        var configureSources = new List<Action<PluginConfigurationSourceContext>>
         {
-            builder =>
-            builder.AddInMemoryCollection(new Dictionary<string, string?>
+            sourceContext =>
+            sourceContext.Builder.AddInMemoryCollection(new Dictionary<string, string?>
             {
                 ["Custom:Key"] = "CustomValue",
             }),
@@ -191,10 +287,10 @@ public class PluginSystemHostContextTests
         environment.PluginSettingsRootPath.Returns("./test-plugin-configs");
         var hostConfiguration = Substitute.For<IConfigurationManager>();
         var options = new PluginSystemOptions { PluginSettingsFilePath = "settings.json" };
-        var configureSources = new List<Action<IConfigurationBuilder>>
+        var configureSources = new List<Action<PluginConfigurationSourceContext>>
         {
-            builder =>
-            builder.AddInMemoryCollection(new Dictionary<string, string?>
+            sourceContext =>
+            sourceContext.Builder.AddInMemoryCollection(new Dictionary<string, string?>
             {
                 ["Key"] = "OverriddenByCustomSource",
             }),
@@ -220,12 +316,12 @@ public class PluginSystemHostContextTests
         var fileSystem = new RealFileSystem();
 
         FileConfigurationSource? capturedSource = null;
-        var configureSources = new List<Action<IConfigurationBuilder>>
+        var configureSources = new List<Action<PluginConfigurationSourceContext>>
         {
-            builder =>
+            sourceContext =>
             {
-                builder.AddJsonFile("nonexistent-custom.json", optional: true, reloadOnChange: false);
-                capturedSource = (FileConfigurationSource)builder.Sources[^1];
+                sourceContext.Builder.AddJsonFile("nonexistent-custom.json", optional: true, reloadOnChange: false);
+                capturedSource = (FileConfigurationSource)sourceContext.Builder.Sources[^1];
             },
         };
 
@@ -274,12 +370,12 @@ public class PluginSystemHostContextTests
         Action<FileLoadExceptionContext> customHandler = _ => customHandlerInvoked = true;
 
         FileConfigurationSource? capturedSource = null;
-        var configureSources = new List<Action<IConfigurationBuilder>>
+        var configureSources = new List<Action<PluginConfigurationSourceContext>>
         {
-            builder =>
+            sourceContext =>
             {
-                builder.AddJsonFile("nonexistent-custom.json", optional: true, reloadOnChange: false);
-                capturedSource = (FileConfigurationSource)builder.Sources[^1];
+                sourceContext.Builder.AddJsonFile("nonexistent-custom.json", optional: true, reloadOnChange: false);
+                capturedSource = (FileConfigurationSource)sourceContext.Builder.Sources[^1];
                 capturedSource.OnLoadException = customHandler;
             },
         };
@@ -310,9 +406,9 @@ public class PluginSystemHostContextTests
         {
             fileSystem.File.WriteAllText(malformedJsonPath, "{ this is not valid json");
 
-            var configureSources = new List<Action<IConfigurationBuilder>>
+            var configureSources = new List<Action<PluginConfigurationSourceContext>>
             {
-                builder => builder.AddJsonFile(malformedJsonPath, optional: true, reloadOnChange: false),
+                sourceContext => sourceContext.Builder.AddJsonFile(malformedJsonPath, optional: true, reloadOnChange: false),
             };
 
             // Act & Assert — a malformed custom JSON file must not crash the host context construction.
@@ -343,14 +439,14 @@ public class PluginSystemHostContextTests
 
         var customHandlerCallCount = 0;
 
-        var configureSources = new List<Action<IConfigurationBuilder>>
+        var configureSources = new List<Action<PluginConfigurationSourceContext>>
         {
-            builder =>
+            sourceContext =>
             {
-                builder.AddJsonFile("nonexistent-index-test.json", optional: true, reloadOnChange: false);
+                sourceContext.Builder.AddJsonFile("nonexistent-index-test.json", optional: true, reloadOnChange: false);
 
                 // Index-based access: the source that was just added is the last one in the builder's source list.
-                var source = (FileConfigurationSource)builder.Sources[^1];
+                var source = (FileConfigurationSource)sourceContext.Builder.Sources[^1];
                 source.OnLoadException = ctx =>
                 {
                     ctx.Ignore = true;
@@ -388,7 +484,7 @@ public class PluginSystemHostContextTests
         var fileSystem = new RealFileSystem();
 
         var expectedException = new InvalidOperationException("custom callback failure");
-        var configureSources = new List<Action<IConfigurationBuilder>>
+        var configureSources = new List<Action<PluginConfigurationSourceContext>>
         {
             _ => throw expectedException,
         };
@@ -417,9 +513,9 @@ public class PluginSystemHostContextTests
         var throwingSource = Substitute.For<IConfigurationSource>();
         throwingSource.Build(Arg.Any<IConfigurationBuilder>()).Returns(_ => throw expectedException);
 
-        var configureSources = new List<Action<IConfigurationBuilder>>
+        var configureSources = new List<Action<PluginConfigurationSourceContext>>
         {
-            builder => builder.Add(throwingSource),
+            sourceContext => sourceContext.Builder.Add(throwingSource),
         };
 
         // Act & Assert — the original exception must propagate; it must not be wrapped or swallowed.
@@ -449,10 +545,10 @@ public class PluginSystemHostContextTests
         var options = new PluginSystemOptions { PluginSettingsFilePath = string.Empty };
         var fileSystem = new RealFileSystem();
 
-        var configureSources = new List<Action<IConfigurationBuilder>>
+        var configureSources = new List<Action<PluginConfigurationSourceContext>>
         {
-            builder => builder.AddJsonFile("nonexistent-a.json", optional: true, reloadOnChange: true),
-            builder => builder.AddJsonFile("nonexistent-b.json", optional: true, reloadOnChange: true),
+            sourceContext => sourceContext.Builder.AddJsonFile("nonexistent-a.json", optional: true, reloadOnChange: true),
+            sourceContext => sourceContext.Builder.AddJsonFile("nonexistent-b.json", optional: true, reloadOnChange: true),
         };
 
         // Act

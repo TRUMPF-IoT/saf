@@ -4,9 +4,7 @@
 
 namespace SAF.PluginSystem.Hosting;
 
-using Microsoft.Extensions.Configuration;
-
 internal sealed class PluginConfigurationSourcesOptions
 {
-    public IList<Action<IConfigurationBuilder>> ConfigureSources { get; } = [];
+    public IList<Action<PluginConfigurationSourceContext>> ConfigureSources { get; } = [];
 }

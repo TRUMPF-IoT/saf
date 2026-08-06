@@ -90,18 +90,26 @@ public class PluginSystemHostBuilderExtensionsTests
     public void AddPluginConfigurationSource_MultipleCalls_PreserveRegistrationOrder()
     {
         // Arrange
-        _hostBuilder.AddPluginConfigurationSource(builder =>
-            builder.AddInMemoryCollection(new Dictionary<string, string?> { ["Key"] = "First" }));
-        _hostBuilder.AddPluginConfigurationSource(builder =>
-            builder.AddInMemoryCollection(new Dictionary<string, string?> { ["Key"] = "Second" }));
+        _hostBuilder.AddPluginConfigurationSource(sourceContext =>
+            sourceContext.Builder.AddInMemoryCollection(new Dictionary<string, string?> { ["Key"] = "First" }));
+        _hostBuilder.AddPluginConfigurationSource(sourceContext =>
+            sourceContext.Builder.AddInMemoryCollection(new Dictionary<string, string?> { ["Key"] = "Second" }));
 
         // Act
         var serviceProvider = _serviceCollection.BuildServiceProvider();
         var configureSources = serviceProvider.GetRequiredService<IOptions<PluginConfigurationSourcesOptions>>().Value.ConfigureSources;
 
         var configurationBuilder = new ConfigurationBuilder();
+        var sourceContext = new PluginConfigurationSourceContext
+        {
+            Builder = configurationBuilder,
+            SettingsFileProvider = null,
+            EnvironmentName = "Test",
+            SettingsFileName = null,
+            OnLoadException = _ => { },
+        };
         foreach (var configureSource in configureSources)
-            configureSource(configurationBuilder);
+            configureSource(sourceContext);
         var configuration = configurationBuilder.Build();
 
         // Assert — registration order is preserved, so the second call's provider overrides the first's.

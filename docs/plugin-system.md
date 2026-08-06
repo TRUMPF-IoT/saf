@@ -350,37 +350,48 @@ with `PluginSettingsRootPath` defaulting to `./config` and `PluginSettingsFilePa
 ```csharp
 var builder = Host.CreateApplicationBuilder(args);
 
-var pluginConfigRootPath = Path.Combine(AppContext.BaseDirectory, "config");
-
 var pluginSystemBuilder = builder.AddPluginSystem(options =>
 {
-    options.PluginSettingsRootPath = pluginConfigRootPath;
     options.PluginSettingsFilePath = "./pluginsettings.json";
 });
 
-pluginSystemBuilder.AddPluginConfigurationSource(config =>
-    config.AddXmlFile(Path.Combine(pluginConfigRootPath, "pluginsettings.myapp"), optional: true, reloadOnChange: true));
+pluginSystemBuilder.AddPluginConfigurationSource(source =>
+{
+    var extension = ".myapp";
+    var overlayFileName = $"{Path.GetFileNameWithoutExtension(source.SettingsFileName)}.{source.EnvironmentName}" +
+        Path.GetExtension(source.SettingsFileName);
 
-pluginSystemBuilder.AddPluginConfigurationSource(config =>
-    config.AddXmlFile(
-        Path.Combine(pluginConfigRootPath, $"pluginsettings.{builder.Environment.EnvironmentName}.myapp"),
-        optional: true,
-        reloadOnChange: true));
+    source.Builder.AddXmlFile(xml =>
+    {
+        xml.FileProvider = source.SettingsFileProvider;
+        xml.Path = Path.ChangeExtension(source.SettingsFileName, extension);
+        xml.Optional = true;
+        xml.ReloadOnChange = true;
+        xml.OnLoadException = source.OnLoadException;
+    });
+
+    source.Builder.AddXmlFile(xml =>
+    {
+        xml.FileProvider = source.SettingsFileProvider;
+        xml.Path = Path.ChangeExtension(overlayFileName, extension);
+        xml.Optional = true;
+        xml.ReloadOnChange = true;
+        xml.OnLoadException = source.OnLoadException;
+    });
+});
 ```
 
-Additional providers are appended after the default plugin JSON sources. Configuration precedence follows normal .NET rules (later providers override earlier ones).
+The callback receives a `PluginConfigurationSourceContext` with everything the built-in plugin settings
+pipeline already resolved: `SettingsFileProvider` (the `IFileProvider` scoped to the resolved settings
+directory — the same instance the default plugin JSON files use), `SettingsFileName` (e.g.
+`pluginsettings.json`), `EnvironmentName`, and `OnLoadException` (the shared handler that ignores a failed
+load and logs a warning instead of crashing host startup or silently wiping values on reload). Building
+sources through `source.SettingsFileProvider` keeps them rooted at the same directory as the default plugin
+JSON regardless of how `PluginSettingsRootPath` resolves — there is no separate path to keep in sync.
 
-> **`PluginSettingsRootPath` and custom source paths resolve independently.** The default plugin JSON is
-> located by resolving `PluginSettingsRootPath` (after `Environment.ExpandEnvironmentVariables`) against
-> `AppContext.BaseDirectory` — and `PluginSettingsRootPath` may itself be absolute (e.g.
-> `%ProgramData%/MyApp/config`). Custom sources added via `AddPluginConfigurationSource`, in contrast,
-> resolve through the configuration builder's file provider, which defaults to a
-> `PhysicalFileProvider(AppContext.BaseDirectory)` — it has no knowledge of `PluginSettingsRootPath` at all.
-> A relative path like `"./config"` used for both happens to resolve to the same place, but the two only
-> agree by coincidence — if `PluginSettingsRootPath` is changed to an absolute path elsewhere, the plugin
-> JSON and the custom sources silently start reading from different directories (worse yet, with
-> `optional: true` a miss stays silent). Building one absolute root and reusing it for both, as above, keeps
-> them in sync regardless of what `PluginSettingsRootPath` resolves to.
+The callback runs exactly once, during `IPluginSystemHostContext` construction; any exception it throws
+propagates into host startup. Additional providers are appended after the default plugin JSON sources.
+Configuration precedence follows normal .NET rules (later providers override earlier ones).
 
 Because the file is shared, plugins keep their settings under distinct top-level sections (the built-in messaging/storage plugins use `Messaging`, `Redis`, `Nats`, `LiteDb`, `SQLite`, `MessageRouting`).
 
