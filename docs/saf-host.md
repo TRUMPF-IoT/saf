@@ -132,7 +132,7 @@ builder.AddSafHost(pluginSystemOptions =>
 .ConfigurePluginSystem(ps =>
 {
     ps.AddPluginConfigurationSource(config =>
-        config.AddXmlFile("./config/pluginsettings.myapp", optional: true, reloadOnChange: true));
+        config.AddXmlFile("config/pluginsettings.myapp", optional: true, reloadOnChange: true));
 
     ps.AddPluginConfigurationSource(config =>
         config.AddXmlFile(

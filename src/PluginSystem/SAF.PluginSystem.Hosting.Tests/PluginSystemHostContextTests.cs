@@ -202,7 +202,7 @@ public class PluginSystemHostContextTests
         var fileSystem = new RealFileSystem();
 
         // Act
-        var context = new PluginSystemHostContext(logger, environment, hostConfiguration, options, fileSystem, configureSources);
+        using var context = new PluginSystemHostContext(logger, environment, hostConfiguration, options, fileSystem, configureSources);
 
         // Assert
         Assert.Equal("OverriddenByCustomSource", context.PluginConfiguration["Key"]);

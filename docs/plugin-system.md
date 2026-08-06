@@ -357,7 +357,7 @@ var pluginSystemBuilder = builder.AddPluginSystem(options =>
 });
 
 pluginSystemBuilder.AddPluginConfigurationSource(config =>
-    config.AddXmlFile("./config/pluginsettings.myapp", optional: true, reloadOnChange: true));
+    config.AddXmlFile("config/pluginsettings.myapp", optional: true, reloadOnChange: true));
 
 pluginSystemBuilder.AddPluginConfigurationSource(config =>
     config.AddXmlFile(

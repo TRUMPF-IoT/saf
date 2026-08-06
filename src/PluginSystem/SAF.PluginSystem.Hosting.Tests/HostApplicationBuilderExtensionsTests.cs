@@ -128,7 +128,7 @@ public class HostApplicationBuilderExtensionsTests
                 ["Custom:Setting"] = "ValueFromOutside",
             }));
 
-        var serviceProvider = services.BuildServiceProvider();
+        using var serviceProvider = services.BuildServiceProvider();
         var hostContext = serviceProvider.GetRequiredService<IPluginSystemHostContext>();
 
         // Assert

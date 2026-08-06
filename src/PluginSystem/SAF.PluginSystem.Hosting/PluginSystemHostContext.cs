@@ -102,14 +102,11 @@ public sealed class PluginSystemHostContext : IPluginSystemHostContext, IDisposa
 
         return settingsFileProvider;
     }
-    
-    private static void AddCustomPluginConfigurationSources(
-        IConfigurationBuilder builder,
-        IEnumerable<Action<IConfigurationBuilder>> configurePluginConfigurationSources)
-    {
-        ArgumentNullException.ThrowIfNull(builder);
-        ArgumentNullException.ThrowIfNull(configurePluginConfigurationSources);
 
+    private static void AddCustomPluginConfigurationSources(
+      IConfigurationBuilder builder,
+      IEnumerable<Action<IConfigurationBuilder>> configurePluginConfigurationSources)
+    {
         foreach (var configureSource in configurePluginConfigurationSources)
         {
             configureSource(builder);
