@@ -10,19 +10,52 @@ on:
     branches: [ main ]
 
 concurrency:
-  # For pull_request events github.head_ref contains the source branch name (e.g. "feature/foo").
-  # For a plain push to that same branch, github.head_ref is empty and we fall back to github.ref
-  # which becomes "refs/heads/feature/foo". Both resolve to the same logical group by stripping
-  # the refs/heads/ prefix via the replace expression.
-  # Result: a push to a branch with an open PR lands in the same concurrency group as the PR build,
-  # so only the latest run survives and duplicate work is avoided.
-  group: ${{ github.workflow }}-${{ github.head_ref || github.ref_name }}
+  group: ${{ github.workflow }}-${{ github.event_name }}-${{ github.head_ref || github.ref_name }}
   cancel-in-progress: true
 
 jobs:
-  build_test_pack:
+  precheck_push_without_pr:
+    runs-on: ubuntu-latest
+    permissions:
+      pull-requests: read
+    outputs:
+      should_run_build: ${{ steps.open_pr_check.outputs.should_run_build }}
+    steps:
+      - name: Check for open PR from branch
+        id: open_pr_check
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const isBranchPush = context.eventName === 'push' && context.ref.startsWith('refs/heads/');
+            const isMainPush = context.ref === 'refs/heads/main';
 
+            if (!isBranchPush || isMainPush) {
+              core.setOutput('should_run_build', 'true');
+              return;
+            }
+
+            const branch = context.ref.replace('refs/heads/', '');
+            const owner = context.repo.owner;
+            const repo = context.repo.repo;
+            const head = `${owner}:${branch}`;
+
+            const { data: pulls } = await github.rest.pulls.list({
+              owner,
+              repo,
+              state: 'open',
+              head
+            });
+
+            const shouldRunBuild = pulls.length === 0;
+            core.setOutput('should_run_build', shouldRunBuild ? 'true' : 'false');
+
+  build_test_pack:
+    if: github.event_name != 'push' || startsWith(github.ref, 'refs/tags/') || github.ref == 'refs/heads/main' || needs.precheck_push_without_pr.outputs.should_run_build == 'true'
+    needs: [precheck_push_without_pr]
     runs-on: windows-latest
+    permissions:
+      contents: read
+      pull-requests: read
 
     steps:
     - name: Setup JDK

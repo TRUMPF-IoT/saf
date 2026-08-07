@@ -15,18 +15,21 @@ public sealed class PluginSystemHostContext : IPluginSystemHostContext, IDisposa
 {
     private readonly IConfigurationRoot _pluginConfigurationRoot;
     private readonly PhysicalFileProvider? _pluginSettingsFileProvider;
+    private readonly PhysicalFileProvider _customSourcesDefaultFileProvider;
 
     public PluginSystemHostContext(
         ILogger<PluginSystemHostContext> logger,
         IPluginSystemHostEnvironment environment,
         IConfigurationManager hostConfiguration,
         PluginSystemOptions options,
-        IFileSystem fileSystem)
+        IFileSystem fileSystem,
+        IEnumerable<Action<PluginConfigurationSourceContext>>? configurePluginConfigurationSources = null)
     {
         Environment = environment;
         HostConfiguration = hostConfiguration;
 
-        (_pluginConfigurationRoot, _pluginSettingsFileProvider) = BuildPluginConfiguration(logger, options, environment, fileSystem);
+        (_pluginConfigurationRoot, _pluginSettingsFileProvider, _customSourcesDefaultFileProvider) =
+            BuildPluginConfiguration(logger, options, environment, fileSystem, configurePluginConfigurationSources ?? []);
     }
 
     public IPluginSystemHostEnvironment Environment { get; }
@@ -41,20 +44,67 @@ public sealed class PluginSystemHostContext : IPluginSystemHostContext, IDisposa
         }
 
         _pluginSettingsFileProvider?.Dispose();
+        _customSourcesDefaultFileProvider.Dispose();
     }
 
-    private static (IConfigurationRoot ConfigurationRoot, PhysicalFileProvider? SettingsFileProvider) BuildPluginConfiguration(
+    private static (IConfigurationRoot configurationRoot, PhysicalFileProvider? settingsFileProvider, PhysicalFileProvider customSourcesDefaultFileProvider) BuildPluginConfiguration(
         ILogger logger,
         PluginSystemOptions options,
         IPluginSystemHostEnvironment environment,
-        IFileSystem fileSystem)
+        IFileSystem fileSystem,
+        IEnumerable<Action<PluginConfigurationSourceContext>> configurePluginConfigurationSources)
     {
         var builder = new ConfigurationBuilder();
+        var onLoadException = CreateOnLoadExceptionHandler(logger);
+
+        var (settingsFileProvider, settingsFileName) = AddDefaultPluginConfigurationSources(builder, logger, options, environment, fileSystem, onLoadException);
+
+        // Seed a single shared PhysicalFileProvider as the builder's default so that every custom
+        // FileConfigurationSource that does not set its own FileProvider reuses this one instance
+        // instead of having FileConfigurationSource.EnsureDefaults() create a new
+        // PhysicalFileProvider(AppContext.BaseDirectory) per source. All of those per-source providers
+        // would otherwise be undisposed, each holding a recursive FileSystemWatcher on the base directory.
+        var customSourcesDefaultFileProvider = new PhysicalFileProvider(AppContext.BaseDirectory);
+        builder.SetFileProvider(customSourcesDefaultFileProvider);
+
+        try
+        {
+            var sourceContext = new PluginConfigurationSourceContext
+            {
+                Builder = builder,
+                SettingsFileProvider = settingsFileProvider,
+                EnvironmentName = environment.EnvironmentName,
+                SettingsFileName = settingsFileName,
+                OnLoadException = onLoadException,
+            };
+
+            AddCustomPluginConfigurationSources(builder, sourceContext, configurePluginConfigurationSources, onLoadException);
+            return (builder.Build(), settingsFileProvider, customSourcesDefaultFileProvider);
+        }
+        catch
+        {
+            // Both providers own FileSystemWatcher handles. Dispose them before the exception escapes
+            // so that the constructor failure does not leak handles until process exit.
+            customSourcesDefaultFileProvider.Dispose();
+            settingsFileProvider?.Dispose();
+            throw;
+        }
+    }
+
+    private static (PhysicalFileProvider? settingsFileProvider, string? settingsFileName) AddDefaultPluginConfigurationSources(
+        IConfigurationBuilder builder,
+        ILogger logger,
+        PluginSystemOptions options,
+        IPluginSystemHostEnvironment environment,
+        IFileSystem fileSystem,
+        Action<FileLoadExceptionContext> onLoadException)
+    {
+        ArgumentNullException.ThrowIfNull(builder);
 
         if (string.IsNullOrEmpty(options.PluginSettingsFilePath))
         {
             logger.LogInformation("No plugin configuration file configured.");
-            return (builder.Build(), null);
+            return (null, null);
         }
 
         var settingsFilePath = CreateAbsolutePath(fileSystem, AppContext.BaseDirectory, fileSystem.Path.Combine(environment.PluginSettingsRootPath, options.PluginSettingsFilePath));
@@ -77,28 +127,55 @@ public sealed class PluginSystemHostContext : IPluginSystemHostContext, IDisposa
                 options.PluginSettingsFilePath, settingsFilePath);
         }
 
-        AddJsonFile(builder, logger, settingsFileProvider, settingsFileName);
+        AddJsonFile(builder, settingsFileProvider, settingsFileName, onLoadException);
 
         var environmentSettingsFileName = $"{fileSystem.Path.GetFileNameWithoutExtension(settingsFileName)}.{environment.EnvironmentName}{fileSystem.Path.GetExtension(settingsFileName)}";
-        AddJsonFile(builder, logger, settingsFileProvider, environmentSettingsFileName);
+        AddJsonFile(builder, settingsFileProvider, environmentSettingsFileName, onLoadException);
 
-        return (builder.Build(), settingsFileProvider);
+        return (settingsFileProvider, settingsFileName);
     }
 
-    private static void AddJsonFile(ConfigurationBuilder builder, ILogger logger, PhysicalFileProvider settingsFileProvider, string settingsFileName)
+    private static void AddCustomPluginConfigurationSources(
+        ConfigurationBuilder builder,
+        PluginConfigurationSourceContext sourceContext,
+        IEnumerable<Action<PluginConfigurationSourceContext>> configurePluginConfigurationSources,
+        Action<FileLoadExceptionContext> onLoadException)
+    {
+        var countBefore = builder.Sources.Count;
+
+        foreach (var configureSource in configurePluginConfigurationSources)
+        {
+            configureSource(sourceContext);
+        }
+
+        // Apply the same OnLoadException guard that default sources receive to any FileConfigurationSource
+        // added by custom callbacks that does not already have one, so a malformed or half-written file
+        // neither crashes host startup nor silently wipes values on reload.
+        for (var i = countBefore; i < builder.Sources.Count; i++)
+        {
+            if (builder.Sources[i] is FileConfigurationSource { OnLoadException: null } fileSource)
+            {
+                fileSource.OnLoadException = onLoadException;
+            }
+        }
+    }
+
+    private static Action<FileLoadExceptionContext> CreateOnLoadExceptionHandler(ILogger logger) => exceptionContext =>
+    {
+        exceptionContext.Ignore = true;
+        logger.LogWarning(exceptionContext.Exception,
+            "Failed to load plugin configuration file {PluginSettingsFilePath}. A later successful reload will apply updated values.",
+            exceptionContext.Provider?.Source.Path);
+    };
+
+    private static void AddJsonFile(IConfigurationBuilder builder, PhysicalFileProvider settingsFileProvider, string settingsFileName, Action<FileLoadExceptionContext> onLoadException)
         => builder.AddJsonFile(source =>
         {
             source.FileProvider = settingsFileProvider;
             source.Path = settingsFileName;
             source.Optional = true;
             source.ReloadOnChange = true;
-            source.OnLoadException = context =>
-            {
-                context.Ignore = true;
-                logger.LogWarning(context.Exception,
-                    "Failed to load plugin configuration file {PluginSettingsFilePath}. A later successful reload will apply updated values.",
-                    settingsFileName);
-            };
+            source.OnLoadException = onLoadException;
         });
 
     private static string CreateAbsolutePath(IFileSystem fileSystem, string basePath, string path)

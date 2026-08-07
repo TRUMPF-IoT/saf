@@ -131,6 +131,31 @@ builder.AddSafHost(pluginSystemOptions =>
 })
 .ConfigurePluginSystem(ps =>
 {
+    ps.AddPluginConfigurationSource(source =>
+    {
+        var extension = ".myapp";
+        var overlayFileName = $"{Path.GetFileNameWithoutExtension(source.SettingsFileName)}.{source.EnvironmentName}" +
+            Path.GetExtension(source.SettingsFileName);
+
+        source.Builder.AddXmlFile(xml =>
+        {
+            xml.FileProvider = source.SettingsFileProvider;
+            xml.Path = Path.ChangeExtension(source.SettingsFileName, extension);
+            xml.Optional = true;
+            xml.ReloadOnChange = true;
+            xml.OnLoadException = source.OnLoadException;
+        });
+
+        source.Builder.AddXmlFile(xml =>
+        {
+            xml.FileProvider = source.SettingsFileProvider;
+            xml.Path = Path.ChangeExtension(overlayFileName, extension);
+            xml.Optional = true;
+            xml.ReloadOnChange = true;
+            xml.OnLoadException = source.OnLoadException;
+        });
+    });
+
     ps.AddPluginAssemblyFolderContainer(options =>
     {
         options.SearchRootPath = AppContext.BaseDirectory;
@@ -140,6 +165,8 @@ builder.AddSafHost(pluginSystemOptions =>
 })
 .AddHostDiagnostics();
 ```
+
+If you use `AddXmlFile(...)`, add the package `Microsoft.Extensions.Configuration.Xml` to the host project.
 
 ---
 

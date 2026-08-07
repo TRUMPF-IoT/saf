@@ -343,7 +343,55 @@ All plugins share a single plugin settings file, exposed to each manifest as `co
 {PluginSettingsRootPath}/{PluginSettingsFilePath}
 ```
 
-with `PluginSettingsRootPath` defaulting to `.` and `PluginSettingsFilePath` defaulting to `./pluginsettings.json`. An optional environment-specific overlay named `{file}.{EnvironmentName}.json` (e.g. `pluginsettings.Development.json`) is layered on top if present. Both paths come from the `PluginSystem` configuration section.
+with `PluginSettingsRootPath` defaulting to `./config` and `PluginSettingsFilePath` defaulting to `./pluginsettings.json`. An optional environment-specific overlay named `{file}.{EnvironmentName}.json` (e.g. `pluginsettings.Development.json`) is layered on top if present. Both paths come from the `PluginSystem` configuration section.
+
+`PluginSystemOptions` stays a pure data object (paths/patterns only). To add further plugin configuration providers from outside (for example XML, INI, custom sources, or application-specific file names/extensions), use the host builder API:
+
+```csharp
+var builder = Host.CreateApplicationBuilder(args);
+
+var pluginSystemBuilder = builder.AddPluginSystem(options =>
+{
+    options.PluginSettingsFilePath = "./pluginsettings.json";
+});
+
+pluginSystemBuilder.AddPluginConfigurationSource(source =>
+{
+    var extension = ".myapp";
+    var overlayFileName = $"{Path.GetFileNameWithoutExtension(source.SettingsFileName)}.{source.EnvironmentName}" +
+        Path.GetExtension(source.SettingsFileName);
+
+    source.Builder.AddXmlFile(xml =>
+    {
+        xml.FileProvider = source.SettingsFileProvider;
+        xml.Path = Path.ChangeExtension(source.SettingsFileName, extension);
+        xml.Optional = true;
+        xml.ReloadOnChange = true;
+        xml.OnLoadException = source.OnLoadException;
+    });
+
+    source.Builder.AddXmlFile(xml =>
+    {
+        xml.FileProvider = source.SettingsFileProvider;
+        xml.Path = Path.ChangeExtension(overlayFileName, extension);
+        xml.Optional = true;
+        xml.ReloadOnChange = true;
+        xml.OnLoadException = source.OnLoadException;
+    });
+});
+```
+
+The callback receives a `PluginConfigurationSourceContext` with everything the built-in plugin settings
+pipeline already resolved: `SettingsFileProvider` (the `IFileProvider` scoped to the resolved settings
+directory — the same instance the default plugin JSON files use), `SettingsFileName` (e.g.
+`pluginsettings.json`), `EnvironmentName`, and `OnLoadException` (the shared handler that ignores a failed
+load and logs a warning instead of crashing host startup or silently wiping values on reload). Building
+sources through `source.SettingsFileProvider` keeps them rooted at the same directory as the default plugin
+JSON regardless of how `PluginSettingsRootPath` resolves — there is no separate path to keep in sync.
+
+The callback runs exactly once, during `IPluginSystemHostContext` construction; any exception it throws
+propagates into host startup. Additional providers are appended after the default plugin JSON sources.
+Configuration precedence follows normal .NET rules (later providers override earlier ones).
 
 Because the file is shared, plugins keep their settings under distinct top-level sections (the built-in messaging/storage plugins use `Messaging`, `Redis`, `Nats`, `LiteDb`, `SQLite`, `MessageRouting`).
 
@@ -369,6 +417,8 @@ Example `pluginsettings.json`:
 ```
 
 > A plugin may also fall back to host configuration (`context.HostConfiguration`) — the built-in plugins read their section from `PluginConfiguration` first and fall back to `HostConfiguration`. In the simplest setups you can point `PluginSettingsFilePath` at the host's `appsettings.json` and keep everything in one file.
+>
+> If you use `AddXmlFile(...)`, add the package `Microsoft.Extensions.Configuration.Xml` to the host project.
 
 ### Change tracking
 
