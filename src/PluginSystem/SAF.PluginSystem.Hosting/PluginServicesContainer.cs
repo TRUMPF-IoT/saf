@@ -43,7 +43,7 @@ public sealed class PluginServicesContainer(
         return publicServices;
     }
 
-    public async Task ReinitializeAsync(CancellationToken cancellationToken = default)
+    public async ValueTask ReinitializeAsync(CancellationToken cancellationToken = default)
     {
         List<IPluginManifest> pluginManifests;
 
