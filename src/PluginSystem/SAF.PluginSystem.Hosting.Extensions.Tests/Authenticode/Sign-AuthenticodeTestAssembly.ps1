@@ -44,7 +44,7 @@ elseif (-not (Test-Path -LiteralPath $SignToolPath -PathType Leaf))
 New-Item -ItemType Directory -Force -Path $OutputDirectory | Out-Null
 
 $fixtureAssemblyPath = Join-Path $OutputDirectory 'SAF.Authenticode.SignedFixture.dll'
-$thumbprintPath = [IO.Path]::ChangeExtension($fixtureAssemblyPath, '.thumbprint')
+$certificatePath = [IO.Path]::ChangeExtension($fixtureAssemblyPath, '.cer')
 $pfxPath = Join-Path ([IO.Path]::GetTempPath()) "saf-authenticode-$([Guid]::NewGuid().ToString('N')).pfx"
 $pfxPasswordText = [Guid]::NewGuid().ToString('N')
 $pfxPassword = ConvertTo-SecureString $pfxPasswordText -AsPlainText -Force
@@ -63,6 +63,7 @@ try
         -NotAfter (Get-Date).AddDays(1)
 
     Export-PfxCertificate -Cert $certificate -FilePath $pfxPath -Password $pfxPassword | Out-Null
+    Export-Certificate -Cert $certificate -FilePath $certificatePath | Out-Null
     Copy-Item -LiteralPath $InputAssembly -Destination $fixtureAssemblyPath -Force
 
     & $SignToolPath sign /fd SHA256 /f $pfxPath /p $pfxPasswordText $fixtureAssemblyPath
@@ -71,7 +72,6 @@ try
         throw "signtool.exe failed with exit code $LASTEXITCODE."
     }
 
-    [IO.File]::WriteAllText($thumbprintPath, $certificate.Thumbprint)
 }
 finally
 {

@@ -13,12 +13,30 @@ public sealed class AuthenticodeSignatureReaderIntegrationTests
     private const string SignedAssemblyEnvironmentVariable = "SAF_AUTHENTICODE_SIGNED_ASSEMBLY";
 
     [Fact]
-    public void ReadSignature_ValidatesSigntoolSignedAssembly_OnAllSupportedPlatforms()
+    public void ReadSignature_ValidatesSigntoolSignedAssembly_UsingWindowsTrust()
     {
+        Assert.SkipUnless(OperatingSystem.IsWindows(), "This test covers the Windows WinVerifyTrust path.");
         var signedAssemblyPath = GetSignedAssemblyPath();
         Assert.SkipWhen(signedAssemblyPath is null, "The signtool-signed fixture is not configured.");
 
-        var reader = new AuthenticodeSignatureReader(new TrustingVerifier());
+        using var trustedCertificate = TrustSignerCertificate(signedAssemblyPath!);
+        var reader = new AuthenticodeSignatureReader();
+        var result = reader.ReadSignature(signedAssemblyPath!);
+
+        Assert.NotNull(result);
+        Assert.Equal(ReadExpectedThumbprint(signedAssemblyPath!), result!.SignerThumbprint);
+        Assert.True(result.HasValidDigitalSignature);
+    }
+
+    [Fact]
+    public void ReadSignature_ValidatesSigntoolSignedAssembly_UsingLinuxChainTrust()
+    {
+        Assert.SkipUnless(!OperatingSystem.IsWindows(), "This test covers the non-Windows X509Chain path.");
+        var signedAssemblyPath = GetSignedAssemblyPath();
+        Assert.SkipWhen(signedAssemblyPath is null, "The signtool-signed fixture is not configured.");
+
+        using var trustedCertificate = TrustSignerCertificate(signedAssemblyPath!);
+        var reader = new AuthenticodeSignatureReader();
         var result = reader.ReadSignature(signedAssemblyPath!);
 
         Assert.NotNull(result);
@@ -35,7 +53,7 @@ public sealed class AuthenticodeSignatureReaderIntegrationTests
         var tamperedAssemblyPath = CreateTamperedCopy(signedAssemblyPath!);
         try
         {
-            var reader = new AuthenticodeSignatureReader(new TrustingVerifier());
+            var reader = new AuthenticodeSignatureReader();
             var result = reader.ReadSignature(tamperedAssemblyPath);
 
             Assert.Null(result?.SignerThumbprint);
@@ -69,8 +87,45 @@ public sealed class AuthenticodeSignatureReaderIntegrationTests
 
     private static string ReadExpectedThumbprint(string signedAssemblyPath)
     {
-        var thumbprintPath = Path.ChangeExtension(signedAssemblyPath, ".thumbprint");
-        return File.ReadAllText(thumbprintPath).Trim();
+        using var certificate = X509CertificateLoader.LoadCertificateFromFile(GetCertificatePath(signedAssemblyPath));
+        return certificate.Thumbprint ?? throw new InvalidOperationException("Signer thumbprint is missing.");
+    }
+
+    private static TrustedCertificateScope TrustSignerCertificate(string signedAssemblyPath)
+    {
+        var certificate = X509CertificateLoader.LoadCertificateFromFile(GetCertificatePath(signedAssemblyPath));
+        var store = new X509Store(StoreName.Root, StoreLocation.CurrentUser);
+        try
+        {
+            store.Open(OpenFlags.ReadWrite);
+            store.Add(certificate);
+            return new TrustedCertificateScope(store, certificate);
+        }
+        catch
+        {
+            certificate.Dispose();
+            store.Dispose();
+            throw;
+        }
+    }
+
+    private static string GetCertificatePath(string signedAssemblyPath)
+        => Path.ChangeExtension(signedAssemblyPath, ".cer");
+
+    private sealed class TrustedCertificateScope(X509Store store, X509Certificate2 certificate) : IDisposable
+    {
+        public void Dispose()
+        {
+            try
+            {
+                store.Remove(certificate);
+            }
+            finally
+            {
+                certificate.Dispose();
+                store.Dispose();
+            }
+        }
     }
 
     private static string CreateTamperedCopy(string signedAssemblyPath)
@@ -101,10 +156,4 @@ public sealed class AuthenticodeSignatureReaderIntegrationTests
         }
     }
 
-    private sealed class TrustingVerifier : IAuthenticodeChainTrustVerifier
-    {
-        public bool VerifiesFileIntegrity => false;
-
-        public bool IsTrusted(string assemblyPath, X509Certificate2 signerCertificate) => true;
-    }
 }

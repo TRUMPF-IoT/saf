@@ -227,8 +227,8 @@ jobs:
         SIGNED_ASSEMBLY: ${{ github.workspace }}/signed-authenticode/SAF.Authenticode.SignedFixture.dll
       run: |
         if (-not (Test-Path -LiteralPath $env:SIGNED_ASSEMBLY -PathType Leaf)) { throw "Signed assembly fixture was not found: $env:SIGNED_ASSEMBLY" }
-        $thumbprintPath = [IO.Path]::ChangeExtension($env:SIGNED_ASSEMBLY, '.thumbprint')
-        if (-not (Test-Path -LiteralPath $thumbprintPath -PathType Leaf)) { throw "Signer thumbprint fixture was not found: $thumbprintPath" }
+        $certificatePath = [IO.Path]::ChangeExtension($env:SIGNED_ASSEMBLY, '.cer')
+        if (-not (Test-Path -LiteralPath $certificatePath -PathType Leaf)) { throw "Signer certificate fixture was not found: $certificatePath" }
 
     - name: Run Authenticode integration tests
       env:
