@@ -5,6 +5,8 @@
 namespace SAF.PluginSystem.Hosting.Extensions.Tests.Authenticode;
 
 using SAF.PluginSystem.Hosting.Extensions.Authenticode;
+using System.Buffers.Binary;
+using System.Reflection.PortableExecutable;
 using System.Security.Cryptography.X509Certificates;
 
 public class AuthenticodeSignatureReaderTests
@@ -28,6 +30,44 @@ public class AuthenticodeSignatureReaderTests
         var result = _reader.ReadSignature("does-not-exist.dll");
 
         Assert.Null(result);
+    }
+
+    [Fact]
+    public void ReadSignature_ReturnsNull_WhenCertificateTableSizeExceedsRemainingFile()
+    {
+        var path = CreatePeWithCertificateTable(int.MaxValue, []);
+        try
+        {
+            var result = _reader.ReadSignature(path);
+
+            Assert.Null(result);
+        }
+        finally
+        {
+            File.Delete(path);
+        }
+    }
+
+    [Fact]
+    public void ReadSignature_ReturnsNull_WhenWinCertificateLengthOverflowsBoundsCheck()
+    {
+        var certificateBlob = new byte[16];
+        BinaryPrimitives.WriteUInt32LittleEndian(certificateBlob.AsSpan(0, 4), 8);
+        BinaryPrimitives.WriteUInt16LittleEndian(certificateBlob.AsSpan(6, 2), 1);
+        BinaryPrimitives.WriteUInt32LittleEndian(certificateBlob.AsSpan(8, 4), 0x7FFF_FFFFu);
+        BinaryPrimitives.WriteUInt16LittleEndian(certificateBlob.AsSpan(14, 2), 2);
+
+        var path = CreatePeWithCertificateTable(certificateBlob.Length, certificateBlob);
+        try
+        {
+            var result = _reader.ReadSignature(path);
+
+            Assert.Null(result);
+        }
+        finally
+        {
+            File.Delete(path);
+        }
     }
 
     [Fact]
@@ -134,6 +174,37 @@ public class AuthenticodeSignatureReaderTests
         {
             yield return Environment.SystemDirectory;
         }
+    }
+
+    private static string CreatePeWithCertificateTable(int certificateTableSize, byte[] certificateBlob)
+    {
+        var sourceBytes = File.ReadAllBytes(typeof(AuthenticodeSignatureReaderTests).Assembly.Location);
+        var directoryOffset = FindCertificateTableDirectoryOffset(sourceBytes);
+        var tableOffset = sourceBytes.Length;
+        var peBytes = new byte[checked(sourceBytes.Length + certificateBlob.Length)];
+        sourceBytes.CopyTo(peBytes, 0);
+        certificateBlob.AsSpan().CopyTo(peBytes.AsSpan(tableOffset));
+
+        BinaryPrimitives.WriteInt32LittleEndian(peBytes.AsSpan(directoryOffset, sizeof(int)), tableOffset);
+        BinaryPrimitives.WriteInt32LittleEndian(
+            peBytes.AsSpan(directoryOffset + sizeof(int), sizeof(int)),
+            certificateTableSize);
+
+        var path = Path.Combine(Path.GetTempPath(), $"authenticode-malformed-{Guid.NewGuid():N}.dll");
+        File.WriteAllBytes(path, peBytes);
+        return path;
+    }
+
+    private static int FindCertificateTableDirectoryOffset(byte[] peBytes)
+    {
+        using var stream = new MemoryStream(peBytes, writable: false);
+        using var peReader = new PEReader(stream);
+        var peHeaders = peReader.PEHeaders;
+        var peHeader = peHeaders.PEHeader ?? throw new InvalidOperationException("PE header is missing.");
+        var dataDirectoriesOffset = peHeaders.PEHeaderStartOffset +
+            (peHeader.Magic == PEMagic.PE32Plus ? 112 : 96);
+
+        return dataDirectoriesOffset + (4 * 8);
     }
 
     private sealed class ChainOnlyTrustingVerifier : IAuthenticodeChainTrustVerifier

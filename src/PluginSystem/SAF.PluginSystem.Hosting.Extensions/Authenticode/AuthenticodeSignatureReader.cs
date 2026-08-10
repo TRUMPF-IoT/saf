@@ -111,9 +111,18 @@ internal sealed class AuthenticodeSignatureReader : IAuthenticodeSignatureReader
             return null;
         }
 
+        var certificateTableOffset = (long)certificateDirectory.Value.RelativeVirtualAddress;
+        var certificateTableSize = (long)certificateDirectory.Value.Size;
+        var fileLength = stream.Length;
+        if (certificateTableOffset > fileLength ||
+            certificateTableSize > fileLength - certificateTableOffset)
+        {
+            return null;
+        }
+
         // For the certificate table the data directory holds a file offset, not an RVA.
-        stream.Position = certificateDirectory.Value.RelativeVirtualAddress;
-        var certificateBlob = new byte[certificateDirectory.Value.Size];
+        stream.Position = certificateTableOffset;
+        var certificateBlob = new byte[(int)certificateTableSize];
         try
         {
             stream.ReadExactly(certificateBlob);
@@ -131,24 +140,33 @@ internal sealed class AuthenticodeSignatureReader : IAuthenticodeSignatureReader
         const ushort winCertificateTypePkcsSignedData = 0x0002;
         var offset = 0;
 
-        while (offset + WinCertificateHeaderSize <= certificateBlob.Length)
+        while (offset <= certificateBlob.Length - WinCertificateHeaderSize)
         {
             // WIN_CERTIFICATE: DWORD dwLength; WORD wRevision; WORD wCertificateType; BYTE bCertificate[].
-            var length = BinaryPrimitives.ReadInt32LittleEndian(certificateBlob.AsSpan(offset));
-            if (length < WinCertificateHeaderSize || offset + length > certificateBlob.Length)
+            var length = BinaryPrimitives.ReadUInt32LittleEndian(certificateBlob.AsSpan(offset));
+            if (length < (uint)WinCertificateHeaderSize ||
+                length > (uint)(certificateBlob.Length - offset))
             {
                 break;
             }
 
+            var lengthAsInt = (int)length;
             var certificateType = BinaryPrimitives.ReadUInt16LittleEndian(certificateBlob.AsSpan(offset + 6));
             if (certificateType == winCertificateTypePkcsSignedData)
             {
                 return certificateBlob
-                    .AsSpan(offset + WinCertificateHeaderSize, length - WinCertificateHeaderSize)
+                    .AsSpan(offset + WinCertificateHeaderSize, lengthAsInt - WinCertificateHeaderSize)
                     .ToArray();
             }
 
-            offset += (length + 7) & ~7;
+            var alignedLength = ((long)length + 7) & ~7L;
+            var nextOffset = offset + alignedLength;
+            if (nextOffset > certificateBlob.Length)
+            {
+                break;
+            }
+
+            offset = (int)nextOffset;
         }
 
         return null;
