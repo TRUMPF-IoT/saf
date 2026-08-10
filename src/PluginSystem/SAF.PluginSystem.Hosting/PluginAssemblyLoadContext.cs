@@ -87,7 +87,7 @@ public class PluginAssemblyLoadContext(ILoggerFactory loggerFactory, string plug
                 try
                 {
                     var assemblyName = AssemblyName.GetAssemblyName(assemblyFilePath);
-                    _defaultApplicationAssemblies.Add(assemblyName.FullName!);
+                    _defaultApplicationAssemblies.Add(assemblyName.FullName);
                 }
                 catch (Exception ex)
                 {

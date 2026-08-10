@@ -158,7 +158,7 @@ internal sealed class AuthenticodePeHasher : IAuthenticodePeHasher
         // Authenticode omits three ranges from the hash: the optional-header CheckSum field, the
         // certificate-table data directory entry, and the certificate table itself. Everything else
         // is hashed in ascending file order.
-        var endBeforeCertificateTable = certificateTableStart > 0 ? certificateTableStart : fileLength;
+        var endBeforeCertificateTable = certificateTableStart;
 
         using var hasher = IncrementalHash.CreateHash(hashAlgorithm);
 
@@ -166,13 +166,10 @@ internal sealed class AuthenticodePeHasher : IAuthenticodePeHasher
         HashRange(stream, hasher, checkSumStart + CheckSumSize, certificateTableEntryStart);
         HashRange(stream, hasher, certificateTableEntryStart + DataDirectoryEntrySize, endBeforeCertificateTable);
 
-        if (certificateTableStart > 0)
+        var afterCertificateTable = certificateTableStart + certificateTableSize;
+        if (afterCertificateTable < fileLength)
         {
-            var afterCertificateTable = certificateTableStart + certificateTableSize;
-            if (afterCertificateTable < fileLength)
-            {
-                HashRange(stream, hasher, afterCertificateTable, fileLength);
-            }
+            HashRange(stream, hasher, afterCertificateTable, fileLength);
         }
 
         return hasher.GetHashAndReset();

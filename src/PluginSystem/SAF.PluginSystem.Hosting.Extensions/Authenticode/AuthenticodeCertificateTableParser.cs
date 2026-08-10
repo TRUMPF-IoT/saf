@@ -97,7 +97,7 @@ internal sealed class AuthenticodeCertificateTableParser : IAuthenticodeCertific
         return signedData is not null;
     }
 
-    private bool HasZeroPadding(Stream stream, long offset, long size)
+    private static bool HasZeroPadding(Stream stream, long offset, long size)
     {
         if (size == 0)
         {
@@ -118,8 +118,6 @@ internal sealed class AuthenticodeCertificateTableParser : IAuthenticodeCertific
         return padding[..(int)size].IndexOfAnyExcept((byte)0) < 0;
     }
 
-    private bool HasZeroPadding(ReadOnlySpan<byte> buffer, int offset, int size)
-    {
-        return size == 0 || buffer.Slice(offset, size).IndexOfAnyExcept((byte)0) < 0;
-    }
+    private static bool HasZeroPadding(ReadOnlySpan<byte> buffer, int offset, int size)
+        => size == 0 || buffer.Slice(offset, size).IndexOfAnyExcept((byte)0) < 0;
 }
