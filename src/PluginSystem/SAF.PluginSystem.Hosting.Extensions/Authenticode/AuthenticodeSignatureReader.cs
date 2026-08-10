@@ -4,7 +4,6 @@
 
 namespace SAF.PluginSystem.Hosting.Extensions.Authenticode;
 
-using System.Buffers.Binary;
 using System.Reflection.PortableExecutable;
 using System.Security.Cryptography;
 using System.Security.Cryptography.Pkcs;
@@ -16,25 +15,47 @@ internal sealed class AuthenticodeSignatureReader : IAuthenticodeSignatureReader
 
     private readonly IAuthenticodeChainTrustVerifier _trustVerifier;
     private readonly IAuthenticodePeHasher _peHasher;
+    private readonly IAuthenticodeCertificateTableParser _certificateTableParser;
 
     public AuthenticodeSignatureReader()
-        : this(OperatingSystem.IsWindows()
-            ? new WindowsAuthenticodeTrustVerifier()
-            : new CrossPlatformAuthenticodeTrustVerifier())
+        : this(
+            OperatingSystem.IsWindows()
+                ? new WindowsAuthenticodeTrustVerifier()
+                : new CrossPlatformAuthenticodeTrustVerifier(),
+            new AuthenticodeCertificateTableParser())
     {
     }
 
     internal AuthenticodeSignatureReader(IAuthenticodeChainTrustVerifier trustVerifier)
-        : this(trustVerifier, new AuthenticodePeHasher())
+        : this(trustVerifier, new AuthenticodeCertificateTableParser())
     {
     }
 
-    internal AuthenticodeSignatureReader(IAuthenticodeChainTrustVerifier trustVerifier, IAuthenticodePeHasher peHasher)
+    internal AuthenticodeSignatureReader(
+        IAuthenticodeChainTrustVerifier trustVerifier,
+        IAuthenticodeCertificateTableParser certificateTableParser)
+        : this(trustVerifier, new AuthenticodePeHasher(certificateTableParser), certificateTableParser)
+    {
+    }
+
+    internal AuthenticodeSignatureReader(
+        IAuthenticodeChainTrustVerifier trustVerifier,
+        IAuthenticodePeHasher peHasher)
+        : this(trustVerifier, peHasher, new AuthenticodeCertificateTableParser())
+    {
+    }
+
+    internal AuthenticodeSignatureReader(
+        IAuthenticodeChainTrustVerifier trustVerifier,
+        IAuthenticodePeHasher peHasher,
+        IAuthenticodeCertificateTableParser certificateTableParser)
     {
         ArgumentNullException.ThrowIfNull(trustVerifier);
         ArgumentNullException.ThrowIfNull(peHasher);
+        ArgumentNullException.ThrowIfNull(certificateTableParser);
         _trustVerifier = trustVerifier;
         _peHasher = peHasher;
+        _certificateTableParser = certificateTableParser;
     }
 
     public AuthenticodeSignatureInfo? ReadSignature(string assemblyPath)
@@ -98,7 +119,7 @@ internal sealed class AuthenticodeSignatureReader : IAuthenticodeSignatureReader
             ? null
             : thumbprint.Replace(" ", string.Empty, StringComparison.Ordinal);
 
-    private static byte[]? TryReadAuthenticodeSignedData(string assemblyPath)
+    private byte[]? TryReadAuthenticodeSignedData(string assemblyPath)
     {
         using var stream = File.OpenRead(assemblyPath);
         using var peReader = new PEReader(stream);
@@ -132,43 +153,8 @@ internal sealed class AuthenticodeSignatureReader : IAuthenticodeSignatureReader
             return null;
         }
 
-        return ExtractPkcsSignedData(certificateBlob);
-    }
-
-    private static byte[]? ExtractPkcsSignedData(byte[] certificateBlob)
-    {
-        const ushort winCertificateTypePkcsSignedData = 0x0002;
-        var offset = 0;
-
-        while (offset <= certificateBlob.Length - WinCertificateHeaderSize)
-        {
-            // WIN_CERTIFICATE: DWORD dwLength; WORD wRevision; WORD wCertificateType; BYTE bCertificate[].
-            var length = BinaryPrimitives.ReadUInt32LittleEndian(certificateBlob.AsSpan(offset));
-            if (length < (uint)WinCertificateHeaderSize ||
-                length > (uint)(certificateBlob.Length - offset))
-            {
-                break;
-            }
-
-            var lengthAsInt = (int)length;
-            var certificateType = BinaryPrimitives.ReadUInt16LittleEndian(certificateBlob.AsSpan(offset + 6));
-            if (certificateType == winCertificateTypePkcsSignedData)
-            {
-                return certificateBlob
-                    .AsSpan(offset + WinCertificateHeaderSize, lengthAsInt - WinCertificateHeaderSize)
-                    .ToArray();
-            }
-
-            var alignedLength = ((long)length + 7) & ~7L;
-            var nextOffset = offset + alignedLength;
-            if (nextOffset > certificateBlob.Length)
-            {
-                break;
-            }
-
-            offset = (int)nextOffset;
-        }
-
-        return null;
+        return _certificateTableParser.TryExtractPkcsSignedData(certificateBlob, out var signedData)
+            ? signedData
+            : null;
     }
 }

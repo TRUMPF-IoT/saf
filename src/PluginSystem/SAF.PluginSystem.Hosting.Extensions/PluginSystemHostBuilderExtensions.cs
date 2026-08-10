@@ -6,6 +6,7 @@ namespace SAF.PluginSystem.Hosting.Extensions;
 
 using Contracts;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Options;
 using SAF.PluginSystem.Hosting.Extensions.Authenticode;
 
 public static class PluginSystemHostBuilderExtensions
@@ -49,8 +50,23 @@ public static class PluginSystemHostBuilderExtensions
 
         hostBuilder.Services.AddOptions();
         hostBuilder.Services.Configure<DigitalSignaturePluginAssemblyValidatorOptions>(opts => configure?.Invoke(opts));
-        hostBuilder.Services.AddSingleton<IAuthenticodeSignatureReader, AuthenticodeSignatureReader>();
-        hostBuilder.Services.AddSingleton<IPluginAssemblyValidator, DigitalSignaturePluginAssemblyValidator>();
+        hostBuilder.Services.AddSingleton<IAuthenticodeCertificateTableParser, AuthenticodeCertificateTableParser>();
+        hostBuilder.Services.AddSingleton<IAuthenticodeChainTrustVerifier>(_ =>
+            OperatingSystem.IsWindows()
+                ? new WindowsAuthenticodeTrustVerifier()
+                : new CrossPlatformAuthenticodeTrustVerifier());
+        hostBuilder.Services.AddSingleton<IAuthenticodePeHasher>(serviceProvider =>
+            new AuthenticodePeHasher(
+                serviceProvider.GetRequiredService<IAuthenticodeCertificateTableParser>()));
+        hostBuilder.Services.AddSingleton<IAuthenticodeSignatureReader>(serviceProvider =>
+            new AuthenticodeSignatureReader(
+                serviceProvider.GetRequiredService<IAuthenticodeChainTrustVerifier>(),
+                serviceProvider.GetRequiredService<IAuthenticodePeHasher>(),
+                serviceProvider.GetRequiredService<IAuthenticodeCertificateTableParser>()));
+        hostBuilder.Services.AddSingleton<IPluginAssemblyValidator>(serviceProvider =>
+            new DigitalSignaturePluginAssemblyValidator(
+                serviceProvider.GetRequiredService<IOptions<DigitalSignaturePluginAssemblyValidatorOptions>>(),
+                serviceProvider.GetRequiredService<IAuthenticodeSignatureReader>()));
         return hostBuilder;
     }
 }

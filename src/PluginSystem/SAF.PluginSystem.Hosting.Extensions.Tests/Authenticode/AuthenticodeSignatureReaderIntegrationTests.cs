@@ -5,7 +5,9 @@
 namespace SAF.PluginSystem.Hosting.Extensions.Tests.Authenticode;
 
 using SAF.PluginSystem.Hosting.Extensions.Authenticode;
+using System.Buffers.Binary;
 using System.Reflection.PortableExecutable;
+using System.Security.Cryptography.Pkcs;
 using System.Security.Cryptography.X509Certificates;
 
 public sealed class AuthenticodeSignatureReaderIntegrationTests
@@ -55,6 +57,49 @@ public sealed class AuthenticodeSignatureReaderIntegrationTests
         Assert.NotNull(result);
         Assert.Equal(ReadExpectedThumbprint(signedAssemblyPath!), result!.SignerThumbprint);
         Assert.False(result.HasValidDigitalSignature);
+    }
+
+    [Fact]
+    public void ReadSignature_RejectsSigntoolSignedAssembly_WhenCertificateTableIncludesAppendedPayload()
+    {
+        var signedAssemblyPath = GetSignedAssemblyPath();
+        Assert.SkipWhen(signedAssemblyPath is null, "The signtool-signed fixture is not configured.");
+
+        var malformedAssemblyPath = CreateCertificateTablePayloadCopy(signedAssemblyPath!);
+        try
+        {
+            var reader = new AuthenticodeSignatureReader(new ChainOnlyTrustingVerifier());
+            var result = reader.ReadSignature(malformedAssemblyPath);
+
+            Assert.Null(result?.SignerThumbprint);
+            Assert.False(result?.HasValidDigitalSignature ?? false);
+        }
+        finally
+        {
+            File.Delete(malformedAssemblyPath);
+        }
+    }
+
+    [Fact]
+    public void AuthenticodePeHasher_RejectsCertificateTableWithAppendedPayload()
+    {
+        var signedAssemblyPath = GetSignedAssemblyPath();
+        Assert.SkipWhen(signedAssemblyPath is null, "The signtool-signed fixture is not configured.");
+
+        var malformedAssemblyPath = CreateCertificateTablePayloadCopy(signedAssemblyPath!);
+        try
+        {
+            var signedCms = ReadSignedCms(signedAssemblyPath!);
+            var hasher = new AuthenticodePeHasher();
+
+            var result = hasher.VerifyEmbeddedHashMatchesFile(malformedAssemblyPath, signedCms);
+
+            Assert.False(result);
+        }
+        finally
+        {
+            File.Delete(malformedAssemblyPath);
+        }
     }
 
     [Fact]
@@ -139,6 +184,59 @@ public sealed class AuthenticodeSignatureReaderIntegrationTests
             File.Delete(tamperedAssemblyPath);
             throw;
         }
+    }
+
+    private static string CreateCertificateTablePayloadCopy(string signedAssemblyPath)
+    {
+        var sourceBytes = File.ReadAllBytes(signedAssemblyPath);
+        using var stream = new MemoryStream(sourceBytes, writable: false);
+        using var peReader = new PEReader(stream);
+        var peHeaders = peReader.PEHeaders;
+        var peHeader = peHeaders.PEHeader ?? throw new InvalidOperationException("PE header is missing.");
+        var certificateTableOffset = checked((int)peHeader.CertificateTableDirectory.RelativeVirtualAddress);
+        var certificateTableSize = checked((int)peHeader.CertificateTableDirectory.Size);
+        Assert.Equal(sourceBytes.Length, checked(certificateTableOffset + certificateTableSize));
+
+        var payload = new byte[32];
+        Array.Fill(payload, (byte)0xA5);
+        var malformedBytes = new byte[checked(sourceBytes.Length + payload.Length)];
+        sourceBytes.CopyTo(malformedBytes, 0);
+        payload.AsSpan().CopyTo(malformedBytes.AsSpan(sourceBytes.Length));
+
+        var dataDirectoriesOffset = peHeaders.PEHeaderStartOffset +
+            (peHeader.Magic == PEMagic.PE32Plus ? 112 : 96);
+        var certificateTableSizeOffset = dataDirectoriesOffset + (4 * 8) + sizeof(int);
+        BinaryPrimitives.WriteInt32LittleEndian(
+            malformedBytes.AsSpan(certificateTableSizeOffset, sizeof(int)),
+            checked(certificateTableSize + payload.Length));
+
+        var malformedAssemblyPath = Path.Combine(Path.GetTempPath(), $"authenticode-malformed-{Guid.NewGuid():N}.dll");
+        File.WriteAllBytes(malformedAssemblyPath, malformedBytes);
+        return malformedAssemblyPath;
+    }
+
+    private static SignedCms ReadSignedCms(string signedAssemblyPath)
+    {
+        using var stream = File.OpenRead(signedAssemblyPath);
+        using var peReader = new PEReader(stream);
+        var certificateDirectory = peReader.PEHeaders.PEHeader?.CertificateTableDirectory
+            ?? throw new InvalidOperationException("PE certificate table is missing.");
+        var certificateBlob = new byte[checked((int)certificateDirectory.Size)];
+        stream.Position = certificateDirectory.RelativeVirtualAddress;
+        stream.ReadExactly(certificateBlob);
+
+        var parser = new AuthenticodeCertificateTableParser();
+        Assert.True(parser.TryExtractPkcsSignedData(certificateBlob, out var signedData));
+        var signedCms = new SignedCms();
+        signedCms.Decode(signedData!);
+        return signedCms;
+    }
+
+    private sealed class ChainOnlyTrustingVerifier : IAuthenticodeChainTrustVerifier
+    {
+        public bool VerifiesFileIntegrity => false;
+
+        public bool IsTrusted(string assemblyPath, X509Certificate2 signerCertificate) => true;
     }
 
 }

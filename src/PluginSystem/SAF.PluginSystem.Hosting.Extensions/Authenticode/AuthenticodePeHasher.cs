@@ -38,6 +38,19 @@ internal sealed class AuthenticodePeHasher : IAuthenticodePeHasher
     private const int DataDirectoryEntrySize = 8;
     private const int CertificateTableDirectoryIndex = 4;
 
+    private readonly IAuthenticodeCertificateTableParser _certificateTableParser;
+
+    internal AuthenticodePeHasher()
+        : this(new AuthenticodeCertificateTableParser())
+    {
+    }
+
+    internal AuthenticodePeHasher(IAuthenticodeCertificateTableParser certificateTableParser)
+    {
+        ArgumentNullException.ThrowIfNull(certificateTableParser);
+        _certificateTableParser = certificateTableParser;
+    }
+
     public bool VerifyEmbeddedHashMatchesFile(string assemblyPath, SignedCms signedCms)
     {
         if (!TryReadExpectedDigest(signedCms, out var hashAlgorithm, out var expectedDigest))
@@ -95,7 +108,7 @@ internal sealed class AuthenticodePeHasher : IAuthenticodePeHasher
         }
     }
 
-    private static byte[]? ComputeAuthenticodeHash(string assemblyPath, HashAlgorithmName hashAlgorithm)
+    private byte[]? ComputeAuthenticodeHash(string assemblyPath, HashAlgorithmName hashAlgorithm)
     {
         using var stream = File.OpenRead(assemblyPath);
         using var peReader = new PEReader(stream);
@@ -118,6 +131,14 @@ internal sealed class AuthenticodePeHasher : IAuthenticodePeHasher
         var certificateTableStart = (long)peHeader.CertificateTableDirectory.RelativeVirtualAddress;
         var certificateTableSize = (long)peHeader.CertificateTableDirectory.Size;
         var fileLength = stream.Length;
+        if (certificateTableStart <= 0 ||
+            certificateTableSize <= 0 ||
+            certificateTableStart > fileLength ||
+            certificateTableSize > fileLength - certificateTableStart ||
+            !_certificateTableParser.IsWellFormed(stream, certificateTableStart, certificateTableSize))
+        {
+            return null;
+        }
 
         // Authenticode omits three ranges from the hash: the optional-header CheckSum field, the
         // certificate-table data directory entry, and the certificate table itself. Everything else
