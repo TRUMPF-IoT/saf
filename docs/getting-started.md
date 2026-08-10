@@ -220,7 +220,16 @@ MyApp/
     └── SubscriberService.cs
 ```
 
-Build and publish the plug-in assemblies next to the host binary. The `IncludePatterns` setting controls which DLLs are scanned for `IPluginManifest` implementations. Remember this must also include the messaging and storage implementation DLLs (`SAF.Messaging.InProcess.dll`, `SAF.Storage.LiteDb.dll`) since those are plug-ins too. `SAF.Messaging.Runtime.dll` is added automatically by `AddSafHost`.
+For development, build and publish the plug-in assemblies next to the host binary. The
+`IncludePatterns` setting controls which DLLs are scanned for `IPluginManifest` implementations.
+Remember this must also include the messaging and storage implementation DLLs
+(`SAF.Messaging.InProcess.dll`, `SAF.Storage.LiteDb.dll`) since those are plug-ins too.
+`SAF.Messaging.Runtime.dll` is added automatically by `AddSafHost`.
+
+For production third-party deployment, do not let untrusted users write directly to the configured
+plugin search root. Use an installer-controlled active directory and keep any upload or staging
+directory outside the search root. See [Plugin Deployment Security](./plugin-security.md) for the
+required installer and filesystem controls.
 
 ---
 

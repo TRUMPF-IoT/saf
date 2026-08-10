@@ -12,6 +12,9 @@ The plugin system (`SAF.PluginSystem.*`) is a **SAF-independent** assembly loadi
 
 SAF uses the plugin system as its foundation and adds messaging, storage, and host-info on top, but the plugin system itself has no dependency on SAF.
 
+For the security boundary of the current folder-based loader and the installer requirements for
+in-process third-party plugins, see [Plugin Deployment Security](./plugin-security.md).
+
 ---
 
 ## Core Concepts
@@ -338,6 +341,12 @@ Services are **not** forwarded into plugin containers automatically. Use `IHostS
 ## Assembly Validation (optional)
 
 Plugin assembly validation is opt-in. SAF does not enable validators by default.
+
+Validators run for assemblies selected as discovery candidates, before their manifests are loaded.
+They do not validate managed or native dependencies resolved later by
+`AssemblyDependencyResolver`. Entry-assembly validation is therefore an additional check, not a
+replacement for the protected active-directory requirements described in
+[Plugin Deployment Security](./plugin-security.md).
 
 To validate plug-ins before loading, register one or more `IPluginAssemblyValidator` implementations. Validators are executed in registration order and can reject loading by returning `PluginAssemblyValidationResult.Rejected(...)`.
 

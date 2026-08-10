@@ -75,6 +75,7 @@ graph TB
 - [Getting Started](./getting-started.md) — create your first SAF application end-to-end
 - [SAF Host](./saf-host.md) — initialise and configure the host
 - [Plugin System](./plugin-system.md) — deep-dive into the plugin loading engine (SAF-independent)
+- [Plugin Deployment Security](./plugin-security.md) — installer and filesystem requirements for in-process plugins
 - [Messaging Infrastructure](./messaging.md) — pub/sub how-tos and all implementations
 - [Storage Infrastructure](./storage.md) — key/value store how-tos and all implementations
 - [Toolbox Services](./toolbox.md) — Heartbeat, Request/Reply, File Transfer
