@@ -35,7 +35,9 @@ public sealed class DigitalSignaturePluginAssemblyValidator : IPluginAssemblyVal
     {
         ArgumentNullException.ThrowIfNull(context);
 
-        var signature = _authenticodeSignatureReader.ReadSignature(context.AssemblyPath);
+        var signature = context.AssemblyBytes.IsEmpty
+            ? _authenticodeSignatureReader.ReadSignature(context.AssemblyPath)
+            : _authenticodeSignatureReader.ReadSignature(context.AssemblyBytes);
         var signerThumbprint = signature?.SignerThumbprint;
         var hasValidDigitalSignature = signature?.HasValidDigitalSignature ?? false;
 

@@ -17,4 +17,10 @@ internal interface IAuthenticodePeHasher
     /// matches the recomputed Authenticode hash of the file at <paramref name="assemblyPath"/>.
     /// </summary>
     bool VerifyEmbeddedHashMatchesFile(string assemblyPath, SignedCms signedCms);
+
+    /// <summary>
+    /// Returns <see langword="true"/> when the digest embedded in <paramref name="signedCms"/>
+    /// matches the recomputed Authenticode hash of <paramref name="assemblyBytes"/>.
+    /// </summary>
+    bool VerifyEmbeddedHashMatchesFile(ReadOnlyMemory<byte> assemblyBytes, SignedCms signedCms);
 }

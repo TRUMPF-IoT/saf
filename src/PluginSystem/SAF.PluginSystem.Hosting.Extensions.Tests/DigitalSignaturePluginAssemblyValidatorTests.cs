@@ -123,6 +123,29 @@ public class DigitalSignaturePluginAssemblyValidatorTests
         Assert.Null(result.Reason);
     }
 
+    [Fact]
+    public void Validate_UsesContentSnapshot_WhenProvided()
+    {
+        var assemblyBytes = new byte[] { 0x01, 0x02, 0x03 };
+        _signatureReader.ReadSignature(Arg.Any<ReadOnlyMemory<byte>>())
+            .Returns(new AuthenticodeSignatureInfo("AABBCC", HasValidDigitalSignature: true));
+        var validator = CreateValidator(new DigitalSignaturePluginAssemblyValidatorOptions
+        {
+            RequireValidDigitalSignature = true
+        });
+        var context = new PluginAssemblyValidationContext(
+            AssemblyPath,
+            new AssemblyName("AnyAssembly"),
+            assemblyBytes);
+
+        var result = validator.Validate(context);
+
+        Assert.True(result.IsAccepted);
+        _signatureReader.Received(1).ReadSignature(
+            Arg.Is<ReadOnlyMemory<byte>>(bytes => bytes.ToArray().SequenceEqual(assemblyBytes)));
+        _signatureReader.DidNotReceive().ReadSignature(AssemblyPath);
+    }
+
     private DigitalSignaturePluginAssemblyValidator CreateValidator(DigitalSignaturePluginAssemblyValidatorOptions options)
         => new(Options.Create(options), _signatureReader);
 

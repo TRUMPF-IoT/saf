@@ -388,7 +388,7 @@ pluginSystemBuilder.AddDigitalSignaturePluginAssemblyValidator(options =>
 });
 ```
 
-The digital-signature validator reads Authenticode signatures from the plugin assembly file (PE certificate table) and validates signer trust using `X509Chain`.
+The hosting pipeline reads each candidate once into a content snapshot, validates that snapshot, and loads the same bytes with `LoadFromStream`. The digital-signature validator reads Authenticode signatures from that snapshot (PE certificate table) and validates signer trust using `X509Chain`.
 
 Custom validation can be added with your own validator implementation:
 
@@ -401,7 +401,7 @@ public sealed class MyAssemblyValidator : IPluginAssemblyValidator
 {
     public PluginAssemblyValidationResult Validate(PluginAssemblyValidationContext context)
     {
-        // custom checks based on context.AssemblyPath / context.AssemblyName
+        // Use AssemblyBytes for content checks; AssemblyPath identifies the discovered file.
         return PluginAssemblyValidationResult.Accepted();
     }
 }

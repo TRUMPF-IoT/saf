@@ -10,6 +10,8 @@ using Microsoft.Extensions.Logging;
 using System.Collections.Generic;
 using System.IO;
 using System.Reflection;
+using System.Reflection.Metadata;
+using System.Reflection.PortableExecutable;
 using System.Runtime.Loader;
 using System.IO.Abstractions;
 
@@ -88,26 +90,33 @@ public class PluginAssemblyFolderContainer(
 
         foreach (var pluginAssemblyPath in pluginAssemblyPaths)
         {
-            if (!TryValidateAssembly(pluginAssemblyPath, out var rejectionReason))
-            {
-                _logger.LogWarning("Skip plugin assembly {PluginAssemblyPath}: {Reason}", pluginAssemblyPath, rejectionReason);
-                continue;
-            }
-
-            _logger.LogDebug("Create AssemblyLoadContext for {PluginAssemblyPath}", pluginAssemblyPath);
-
-            var isInBaseDirectory = string.Compare(
-                _fileSystem.Path.GetDirectoryName(AppContext.BaseDirectory),
-                _fileSystem.Path.GetDirectoryName(pluginAssemblyPath),
-                StringComparison.OrdinalIgnoreCase) == 0;
-
-            var pluginLoadContext = isInBaseDirectory
-                ? AssemblyLoadContext.Default
-                : new PluginAssemblyLoadContext(loggerFactory, pluginAssemblyPath, _fileSystem);
-
             try
             {
-                var assembly = pluginLoadContext.LoadFromAssemblyPath(pluginAssemblyPath);
+                using var assemblyFile = _fileSystem.FileInfo.New(pluginAssemblyPath)
+                    .Open(FileMode.Open, FileAccess.Read, FileShare.Read);
+                using var assemblyBuffer = new MemoryStream();
+                assemblyFile.CopyTo(assemblyBuffer);
+                var assemblyBytes = assemblyBuffer.ToArray();
+
+                if (!TryValidateAssembly(pluginAssemblyPath, assemblyBytes, out var rejectionReason))
+                {
+                    _logger.LogWarning("Skip plugin assembly {PluginAssemblyPath}: {Reason}", pluginAssemblyPath, rejectionReason);
+                    continue;
+                }
+
+                _logger.LogDebug("Create AssemblyLoadContext for {PluginAssemblyPath}", pluginAssemblyPath);
+
+                var isInBaseDirectory = string.Compare(
+                    _fileSystem.Path.GetDirectoryName(AppContext.BaseDirectory),
+                    _fileSystem.Path.GetDirectoryName(pluginAssemblyPath),
+                    StringComparison.OrdinalIgnoreCase) == 0;
+
+                var pluginLoadContext = isInBaseDirectory
+                    ? AssemblyLoadContext.Default
+                    : new PluginAssemblyLoadContext(loggerFactory, pluginAssemblyPath, _fileSystem);
+
+                using var assemblyStream = new MemoryStream(assemblyBytes, writable: false);
+                var assembly = pluginLoadContext.LoadFromStream(assemblyStream);
                 var manifest = _manifestLoader.LoadPluginManifest(assembly);
 
                 if (manifest == null)
@@ -128,14 +137,17 @@ public class PluginAssemblyFolderContainer(
         return manifests;
     }
 
-    private bool TryValidateAssembly(string pluginAssemblyPath, out string rejectionReason)
+    private bool TryValidateAssembly(
+        string pluginAssemblyPath,
+        ReadOnlyMemory<byte> assemblyBytes,
+        out string rejectionReason)
     {
         rejectionReason = string.Empty;
 
         AssemblyName assemblyName;
         try
         {
-            assemblyName = AssemblyName.GetAssemblyName(pluginAssemblyPath);
+            assemblyName = GetAssemblyName(assemblyBytes);
         }
         catch (Exception ex) when (ex is BadImageFormatException or FileLoadException or FileNotFoundException)
         {
@@ -143,7 +155,7 @@ public class PluginAssemblyFolderContainer(
             return false;
         }
 
-        var validationContext = new PluginAssemblyValidationContext(pluginAssemblyPath, assemblyName);
+        var validationContext = new PluginAssemblyValidationContext(pluginAssemblyPath, assemblyName, assemblyBytes);
 
         foreach (var validator in _assemblyValidators)
         {
@@ -160,5 +172,32 @@ public class PluginAssemblyFolderContainer(
         }
 
         return true;
+    }
+
+    private static AssemblyName GetAssemblyName(ReadOnlyMemory<byte> assemblyBytes)
+    {
+        using var stream = new MemoryStream(assemblyBytes.ToArray(), writable: false);
+        using var peReader = new PEReader(stream);
+        if (!peReader.HasMetadata)
+        {
+            throw new BadImageFormatException("Assembly metadata is missing.");
+        }
+
+        var metadataReader = peReader.GetMetadataReader();
+        var assemblyDefinition = metadataReader.GetAssemblyDefinition();
+        var assemblyName = new AssemblyName(metadataReader.GetString(assemblyDefinition.Name))
+        {
+            CultureName = assemblyDefinition.Culture.IsNil
+                ? null
+                : metadataReader.GetString(assemblyDefinition.Culture),
+            Version = assemblyDefinition.Version
+        };
+
+        if (!assemblyDefinition.PublicKey.IsNil)
+        {
+            assemblyName.SetPublicKey(metadataReader.GetBlobBytes(assemblyDefinition.PublicKey));
+        }
+
+        return assemblyName;
     }
 }

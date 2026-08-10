@@ -167,14 +167,17 @@ public sealed class PluginAssemblyFolderContainerTests : IDisposable
     public void GetPluginManifests_ReturnsManifest_ForAssemblyLoadedInDefaultContext()
     {
         // Arrange
+        var manifestLoader = Substitute.For<IPluginManifestLoader>();
+        manifestLoader.LoadPluginManifest(Arg.Any<Assembly>()).Returns(Substitute.For<IPluginManifest>());
+
         var options = new PluginAssemblyFolderSearchOptions
         {
-            SearchRootPath = _testRootPath,
-            IncludePatterns = Path.GetFileName(_testAssemblyPath),
+            SearchRootPath = AppContext.BaseDirectory,
+            IncludePatterns = "SAF.PluginSystem.Hosting.Tests.dll",
             ExcludePatterns = string.Empty,
             Recursive = false
         };
-        var container = new PluginAssemblyFolderContainer(_loggerFactory, _manifestLoader, options, [], _fileSystem);
+        var container = new PluginAssemblyFolderContainer(_loggerFactory, manifestLoader, options, [], _fileSystem);
 
         // Act
         var result = container.GetPluginManifests().ToList();
@@ -368,10 +371,92 @@ public sealed class PluginAssemblyFolderContainerTests : IDisposable
         manifestLoader.DidNotReceive().LoadPluginManifest(Arg.Any<Assembly>());
     }
 
+    [Fact]
+    public void GetPluginManifests_HoldsReadShareLock_ThroughAssemblyLoad()
+    {
+        Assert.SkipUnless(OperatingSystem.IsWindows(), "File share locking is platform-specific.");
+
+        var manifestLoader = new WriteCheckingManifestLoader(_testAssemblyPath);
+        var options = new PluginAssemblyFolderSearchOptions
+        {
+            SearchRootPath = _testRootPath,
+            IncludePatterns = Path.GetFileName(_testAssemblyPath),
+            ExcludePatterns = string.Empty,
+            Recursive = false
+        };
+        var container = new PluginAssemblyFolderContainer(_loggerFactory, manifestLoader, options, [], _fileSystem);
+
+        var result = container.GetPluginManifests().ToList();
+
+        Assert.Single(result);
+        Assert.True(manifestLoader.WriteWasBlocked);
+    }
+
+    [Fact]
+    public void GetPluginManifests_LoadsSnapshot_WhenAssemblyPathChangesAfterValidation()
+    {
+        var manifestLoader = Substitute.For<IPluginManifestLoader>();
+        manifestLoader.LoadPluginManifest(Arg.Any<Assembly>()).Returns(Substitute.For<IPluginManifest>());
+
+        var validator = new ReplacingPluginAssemblyValidator(_testAssemblyPath);
+        var options = new PluginAssemblyFolderSearchOptions
+        {
+            SearchRootPath = _testRootPath,
+            IncludePatterns = Path.GetFileName(_testAssemblyPath),
+            ExcludePatterns = string.Empty,
+            Recursive = false
+        };
+        var container = new PluginAssemblyFolderContainer(_loggerFactory, manifestLoader, options, [validator], _fileSystem);
+
+        var result = container.GetPluginManifests().ToList();
+
+        Assert.Single(result);
+        Assert.True(validator.ReceivedContentSnapshot);
+    }
+
     private sealed class RejectingPluginAssemblyValidator : IPluginAssemblyValidator
     {
         public PluginAssemblyValidationResult Validate(PluginAssemblyValidationContext context)
             => PluginAssemblyValidationResult.Rejected("Rejected by test");
+    }
+
+    private sealed class WriteCheckingManifestLoader(string assemblyPath) : IPluginManifestLoader
+    {
+        public bool WriteWasBlocked { get; private set; }
+
+        public IPluginManifest? LoadPluginManifest(Assembly assembly)
+        {
+            try
+            {
+                using var writeStream = new FileStream(assemblyPath, FileMode.Open, FileAccess.Write, FileShare.Read);
+            }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+            {
+                WriteWasBlocked = true;
+            }
+
+            return Substitute.For<IPluginManifest>();
+        }
+    }
+
+    private sealed class ReplacingPluginAssemblyValidator(string assemblyPath) : IPluginAssemblyValidator
+    {
+        public bool ReceivedContentSnapshot { get; private set; }
+
+        public PluginAssemblyValidationResult Validate(PluginAssemblyValidationContext context)
+        {
+            ReceivedContentSnapshot = !context.AssemblyBytes.IsEmpty;
+
+            try
+            {
+                File.WriteAllBytes(assemblyPath, [0x01, 0x02, 0x03, 0x04]);
+            }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+            {
+            }
+
+            return PluginAssemblyValidationResult.Accepted();
+        }
     }
 
     public void Dispose()

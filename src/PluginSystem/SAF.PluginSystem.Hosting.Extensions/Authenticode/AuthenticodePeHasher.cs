@@ -62,6 +62,17 @@ internal sealed class AuthenticodePeHasher : IAuthenticodePeHasher
         return actualDigest is not null && CryptographicOperations.FixedTimeEquals(actualDigest, expectedDigest);
     }
 
+    public bool VerifyEmbeddedHashMatchesFile(ReadOnlyMemory<byte> assemblyBytes, SignedCms signedCms)
+    {
+        if (!TryReadExpectedDigest(signedCms, out var hashAlgorithm, out var expectedDigest))
+        {
+            return false;
+        }
+
+        var actualDigest = ComputeAuthenticodeHash(assemblyBytes, hashAlgorithm);
+        return actualDigest is not null && CryptographicOperations.FixedTimeEquals(actualDigest, expectedDigest);
+    }
+
     [SuppressMessage("Code Smell", "S125:Sections of code should not be commented out", Justification = "The comment documents the ASN.1 binary structure and is not commented-out executable code.")]
     private static bool TryReadExpectedDigest(SignedCms signedCms, out HashAlgorithmName hashAlgorithm, out byte[] expectedDigest)
     {
@@ -111,6 +122,17 @@ internal sealed class AuthenticodePeHasher : IAuthenticodePeHasher
     private byte[]? ComputeAuthenticodeHash(string assemblyPath, HashAlgorithmName hashAlgorithm)
     {
         using var stream = File.OpenRead(assemblyPath);
+        return ComputeAuthenticodeHash(stream, hashAlgorithm);
+    }
+
+    private byte[]? ComputeAuthenticodeHash(ReadOnlyMemory<byte> assemblyBytes, HashAlgorithmName hashAlgorithm)
+    {
+        using var stream = new MemoryStream(assemblyBytes.ToArray(), writable: false);
+        return ComputeAuthenticodeHash(stream, hashAlgorithm);
+    }
+
+    private byte[]? ComputeAuthenticodeHash(Stream stream, HashAlgorithmName hashAlgorithm)
+    {
         using var peReader = new PEReader(stream);
 
         var peHeaders = peReader.PEHeaders;

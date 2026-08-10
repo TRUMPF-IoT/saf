@@ -62,32 +62,10 @@ internal sealed class AuthenticodeSignatureReader : IAuthenticodeSignatureReader
     {
         try
         {
-            var signedData = TryReadAuthenticodeSignedData(assemblyPath);
-            if (signedData is null)
-            {
-                return null;
-            }
-
-            var cms = new SignedCms();
-            cms.Decode(signedData);
-            cms.CheckSignature(verifySignatureOnly: true);
-
-            using var signerCertificate = ResolveSignerCertificate(cms);
-            if (signerCertificate is null)
-            {
-                return new AuthenticodeSignatureInfo(SignerThumbprint: null, HasValidDigitalSignature: false);
-            }
-
-            var isTrusted = _trustVerifier.IsTrusted(assemblyPath, signerCertificate);
-
-            // The signer's identity may only be trusted once we know the signature actually covers
-            // this file. Only verifiers that hash the file themselves (Windows/WinVerifyTrust) let us
-            // infer coverage from trust; otherwise we must always compare the embedded PE hash.
-            var signatureCoversFile = (isTrusted && _trustVerifier.VerifiesFileIntegrity)
-                || _peHasher.VerifyEmbeddedHashMatchesFile(assemblyPath, cms);
-
-            var signerThumbprint = signatureCoversFile ? NormalizeThumbprint(signerCertificate.Thumbprint) : null;
-            return new AuthenticodeSignatureInfo(signerThumbprint, isTrusted && signatureCoversFile);
+            return ReadSignatureCore(
+                TryReadAuthenticodeSignedData(assemblyPath),
+                signerCertificate => _trustVerifier.IsTrusted(assemblyPath, signerCertificate),
+                cms => _peHasher.VerifyEmbeddedHashMatchesFile(assemblyPath, cms));
         }
         catch (Exception ex) when (ex is CryptographicException
                                    or PlatformNotSupportedException
@@ -98,6 +76,73 @@ internal sealed class AuthenticodeSignatureReader : IAuthenticodeSignatureReader
         {
             return null;
         }
+    }
+
+    public AuthenticodeSignatureInfo? ReadSignature(ReadOnlyMemory<byte> assemblyBytes)
+    {
+        try
+        {
+            var signedData = TryReadAuthenticodeSignedData(assemblyBytes);
+            if (signedData is null)
+            {
+                return null;
+            }
+
+            var trustSnapshotPath = Path.Combine(Path.GetTempPath(), $"saf-authenticode-{Guid.NewGuid():N}.dll");
+            try
+            {
+                using var trustSnapshot = OpenTrustSnapshot(assemblyBytes, trustSnapshotPath);
+                return ReadSignatureCore(
+                    signedData,
+                    signerCertificate => _trustVerifier.IsTrusted(trustSnapshot.Name, signerCertificate),
+                    cms => _peHasher.VerifyEmbeddedHashMatchesFile(assemblyBytes, cms));
+            }
+            finally
+            {
+                File.Delete(trustSnapshotPath);
+            }
+        }
+        catch (Exception ex) when (ex is CryptographicException
+                                   or PlatformNotSupportedException
+                                   or FileNotFoundException
+                                   or DirectoryNotFoundException
+                                   or IOException
+                                   or BadImageFormatException)
+        {
+            return null;
+        }
+    }
+
+    private AuthenticodeSignatureInfo? ReadSignatureCore(
+        byte[]? signedData,
+        Func<X509Certificate2, bool> trustVerifier,
+        Func<SignedCms, bool> fileIntegrityVerifier)
+    {
+        if (signedData is null)
+        {
+            return null;
+        }
+
+        var cms = new SignedCms();
+        cms.Decode(signedData);
+        cms.CheckSignature(verifySignatureOnly: true);
+
+        using var signerCertificate = ResolveSignerCertificate(cms);
+        if (signerCertificate is null)
+        {
+            return new AuthenticodeSignatureInfo(SignerThumbprint: null, HasValidDigitalSignature: false);
+        }
+
+        var isTrusted = trustVerifier(signerCertificate);
+
+        // The signer's identity may only be trusted once we know the signature actually covers
+        // this file. Only verifiers that hash the file themselves (Windows/WinVerifyTrust) let us
+        // infer coverage from trust; otherwise we must always compare the embedded PE hash.
+        var signatureCoversFile = (isTrusted && _trustVerifier.VerifiesFileIntegrity)
+            || fileIntegrityVerifier(cms);
+
+        var signerThumbprint = signatureCoversFile ? NormalizeThumbprint(signerCertificate.Thumbprint) : null;
+        return new AuthenticodeSignatureInfo(signerThumbprint, isTrusted && signatureCoversFile);
     }
 
     private static X509Certificate2? ResolveSignerCertificate(SignedCms cms)
@@ -122,6 +167,17 @@ internal sealed class AuthenticodeSignatureReader : IAuthenticodeSignatureReader
     private byte[]? TryReadAuthenticodeSignedData(string assemblyPath)
     {
         using var stream = File.OpenRead(assemblyPath);
+        return TryReadAuthenticodeSignedData(stream);
+    }
+
+    private byte[]? TryReadAuthenticodeSignedData(ReadOnlyMemory<byte> assemblyBytes)
+    {
+        using var stream = new MemoryStream(assemblyBytes.ToArray(), writable: false);
+        return TryReadAuthenticodeSignedData(stream);
+    }
+
+    private byte[]? TryReadAuthenticodeSignedData(Stream stream)
+    {
         using var peReader = new PEReader(stream);
         var certificateDirectory = peReader.PEHeaders.PEHeader?.CertificateTableDirectory;
 
@@ -156,5 +212,35 @@ internal sealed class AuthenticodeSignatureReader : IAuthenticodeSignatureReader
         return _certificateTableParser.TryExtractPkcsSignedData(certificateBlob, out var signedData)
             ? signedData
             : null;
+    }
+
+    private static FileStream OpenTrustSnapshot(ReadOnlyMemory<byte> assemblyBytes, string path)
+    {
+        var options = new FileStreamOptions
+        {
+            Mode = FileMode.CreateNew,
+            Access = FileAccess.ReadWrite,
+            Share = FileShare.Read,
+            Options = FileOptions.SequentialScan
+        };
+        if (!OperatingSystem.IsWindows())
+        {
+            options.UnixCreateMode = UnixFileMode.UserRead | UnixFileMode.UserWrite;
+        }
+
+        var stream = new FileStream(path, options);
+
+        try
+        {
+            stream.Write(assemblyBytes.Span);
+            stream.Flush(flushToDisk: true);
+            return stream;
+        }
+        catch
+        {
+            stream.Dispose();
+            File.Delete(path);
+            throw;
+        }
     }
 }

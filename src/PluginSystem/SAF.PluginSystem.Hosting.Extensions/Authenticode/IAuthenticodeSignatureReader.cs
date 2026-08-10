@@ -16,6 +16,16 @@ internal interface IAuthenticodeSignatureReader
     /// signature is cryptographically intact and actually covers the file contents.
     /// </returns>
     AuthenticodeSignatureInfo? ReadSignature(string assemblyPath);
+
+    /// <summary>
+    /// Reads and verifies the Authenticode signature embedded in an assembly content snapshot.
+    /// </summary>
+    /// <param name="assemblyBytes">The stable PE file content to inspect.</param>
+    /// <returns>
+    /// <see langword="null"/> when the content carries no Authenticode signature at all;
+    /// otherwise the signature information.
+    /// </returns>
+    AuthenticodeSignatureInfo? ReadSignature(ReadOnlyMemory<byte> assemblyBytes);
 }
 
 /// <summary>

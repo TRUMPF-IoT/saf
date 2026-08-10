@@ -25,6 +25,16 @@ public class AuthenticodeSignatureReaderTests
     }
 
     [Fact]
+    public void ReadSignature_ReturnsNull_WhenContentSnapshotIsNotSigned()
+    {
+        var unsignedBytes = File.ReadAllBytes(typeof(AuthenticodeSignatureReaderTests).Assembly.Location);
+
+        var result = _reader.ReadSignature(unsignedBytes);
+
+        Assert.Null(result);
+    }
+
+    [Fact]
     public void ReadSignature_ReturnsNull_WhenFileDoesNotExist()
     {
         var result = _reader.ReadSignature("does-not-exist.dll");
