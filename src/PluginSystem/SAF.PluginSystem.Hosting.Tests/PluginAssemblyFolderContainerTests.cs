@@ -336,12 +336,14 @@ public sealed class PluginAssemblyFolderContainerTests : IDisposable
         };
         var validatorOptions = new StrongNamePluginAssemblyValidatorOptions();
         validatorOptions.AllowedPublicKeyTokens.Add("0011223344556677");
+        var optionsMonitor = Substitute.For<IOptionsMonitor<StrongNamePluginAssemblyValidatorOptions>>();
+        optionsMonitor.Get(Options.DefaultName).Returns(validatorOptions);
 
         var container = new PluginAssemblyFolderContainer(
             _loggerFactory,
             manifestLoader,
             options,
-            [new StrongNamePluginAssemblyValidator(Options.Create(validatorOptions))],
+            [new StrongNamePluginAssemblyValidator(optionsMonitor)],
             _fileSystem);
 
         var result = container.GetPluginManifests().ToList();

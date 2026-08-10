@@ -34,8 +34,14 @@ public static class PluginSystemHostBuilderExtensions
         ArgumentNullException.ThrowIfNull(hostBuilder);
 
         hostBuilder.Services.AddOptions();
-        hostBuilder.Services.Configure<StrongNamePluginAssemblyValidatorOptions>(opts => configure?.Invoke(opts));
-        hostBuilder.Services.AddSingleton<IPluginAssemblyValidator, StrongNamePluginAssemblyValidator>();
+        var uniqueOptionsKey = $"{nameof(StrongNamePluginAssemblyValidatorOptions)}_{Guid.NewGuid():N}";
+        hostBuilder.Services.Configure<StrongNamePluginAssemblyValidatorOptions>(
+            uniqueOptionsKey,
+            options => configure?.Invoke(options));
+        hostBuilder.Services.AddSingleton<IPluginAssemblyValidator>(serviceProvider =>
+            new StrongNamePluginAssemblyValidator(
+                serviceProvider.GetRequiredService<IOptionsMonitor<StrongNamePluginAssemblyValidatorOptions>>(),
+                uniqueOptionsKey));
         return hostBuilder;
     }
 
@@ -49,7 +55,10 @@ public static class PluginSystemHostBuilderExtensions
         ArgumentNullException.ThrowIfNull(hostBuilder);
 
         hostBuilder.Services.AddOptions();
-        hostBuilder.Services.Configure<DigitalSignaturePluginAssemblyValidatorOptions>(opts => configure?.Invoke(opts));
+        var uniqueOptionsKey = $"{nameof(DigitalSignaturePluginAssemblyValidatorOptions)}_{Guid.NewGuid():N}";
+        hostBuilder.Services.Configure<DigitalSignaturePluginAssemblyValidatorOptions>(
+            uniqueOptionsKey,
+            options => configure?.Invoke(options));
         hostBuilder.Services.AddSingleton<IAuthenticodeCertificateTableParser, AuthenticodeCertificateTableParser>();
         hostBuilder.Services.AddSingleton<IAuthenticodeChainTrustVerifier>(_ =>
             OperatingSystem.IsWindows()
@@ -65,7 +74,8 @@ public static class PluginSystemHostBuilderExtensions
                 serviceProvider.GetRequiredService<IAuthenticodeCertificateTableParser>()));
         hostBuilder.Services.AddSingleton<IPluginAssemblyValidator>(serviceProvider =>
             new DigitalSignaturePluginAssemblyValidator(
-                serviceProvider.GetRequiredService<IOptions<DigitalSignaturePluginAssemblyValidatorOptions>>(),
+                serviceProvider.GetRequiredService<IOptionsMonitor<DigitalSignaturePluginAssemblyValidatorOptions>>(),
+                uniqueOptionsKey,
                 serviceProvider.GetRequiredService<IAuthenticodeSignatureReader>()));
         return hostBuilder;
     }

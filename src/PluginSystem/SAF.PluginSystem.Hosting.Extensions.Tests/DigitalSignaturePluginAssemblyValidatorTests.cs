@@ -146,8 +146,37 @@ public class DigitalSignaturePluginAssemblyValidatorTests
         _signatureReader.DidNotReceive().ReadSignature(AssemblyPath);
     }
 
+    [Fact]
+    public void Validate_UsesCurrentOptionsFromMonitor()
+    {
+        _signatureReader.ReadSignature(AssemblyPath)
+            .Returns(new AuthenticodeSignatureInfo("AABBCC", HasValidDigitalSignature: true));
+
+        var currentOptions = new DigitalSignaturePluginAssemblyValidatorOptions();
+        currentOptions.AllowedSignerThumbprints.Add("AABBCC");
+        var optionsMonitor = Substitute.For<IOptionsMonitor<DigitalSignaturePluginAssemblyValidatorOptions>>();
+        optionsMonitor.Get(Arg.Any<string>()).Returns(_ => currentOptions);
+        var validator = new DigitalSignaturePluginAssemblyValidator(
+            optionsMonitor,
+            Options.DefaultName,
+            _signatureReader);
+
+        var initialResult = validator.Validate(CreateContext());
+
+        currentOptions = new DigitalSignaturePluginAssemblyValidatorOptions();
+        currentOptions.AllowedSignerThumbprints.Add("DDEEFF");
+        var updatedResult = validator.Validate(CreateContext());
+
+        Assert.True(initialResult.IsAccepted);
+        Assert.False(updatedResult.IsAccepted);
+    }
+
     private DigitalSignaturePluginAssemblyValidator CreateValidator(DigitalSignaturePluginAssemblyValidatorOptions options)
-        => new(Options.Create(options), _signatureReader);
+    {
+        var optionsMonitor = Substitute.For<IOptionsMonitor<DigitalSignaturePluginAssemblyValidatorOptions>>();
+        optionsMonitor.Get(Options.DefaultName).Returns(options);
+        return new(optionsMonitor, Options.DefaultName, _signatureReader);
+    }
 
     private static PluginAssemblyValidationContext CreateContext()
         => new(AssemblyPath, new AssemblyName("AnyAssembly"));

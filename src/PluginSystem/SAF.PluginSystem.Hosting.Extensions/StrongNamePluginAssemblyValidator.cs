@@ -9,23 +9,41 @@ using Microsoft.Extensions.Options;
 /// <summary>
 /// Enforces strong-name related plugin assembly trust checks.
 /// </summary>
-public sealed class StrongNamePluginAssemblyValidator(IOptions<StrongNamePluginAssemblyValidatorOptions> options) : IPluginAssemblyValidator
+public sealed class StrongNamePluginAssemblyValidator : IPluginAssemblyValidator
 {
-    private readonly StrongNamePluginAssemblyValidatorOptions _options = options.Value;
+    private readonly IOptionsMonitor<StrongNamePluginAssemblyValidatorOptions> _optionsMonitor;
+    private readonly string _optionsName;
+
+    public StrongNamePluginAssemblyValidator(IOptionsMonitor<StrongNamePluginAssemblyValidatorOptions> optionsMonitor)
+        : this(optionsMonitor, Options.DefaultName)
+    {
+    }
+
+    internal StrongNamePluginAssemblyValidator(
+        IOptionsMonitor<StrongNamePluginAssemblyValidatorOptions> optionsMonitor,
+        string optionsName)
+    {
+        ArgumentNullException.ThrowIfNull(optionsMonitor);
+        ArgumentNullException.ThrowIfNull(optionsName);
+
+        _optionsMonitor = optionsMonitor;
+        _optionsName = optionsName;
+    }
 
     public PluginAssemblyValidationResult Validate(PluginAssemblyValidationContext context)
     {
         ArgumentNullException.ThrowIfNull(context);
 
+        var options = _optionsMonitor.Get(_optionsName);
         var publicKeyToken = GetPublicKeyToken(context.AssemblyName);
 
-        if (_options.RequireStrongName && string.IsNullOrWhiteSpace(publicKeyToken))
+        if (options.RequireStrongName && string.IsNullOrWhiteSpace(publicKeyToken))
         {
             return PluginAssemblyValidationResult.Rejected("assembly is not strong-name signed");
         }
 
-        if (_options.AllowedPublicKeyTokens.Count > 0 &&
-            (string.IsNullOrWhiteSpace(publicKeyToken) || !_options.AllowedPublicKeyTokens.Contains(publicKeyToken)))
+        if (options.AllowedPublicKeyTokens.Count > 0 &&
+            (string.IsNullOrWhiteSpace(publicKeyToken) || !options.AllowedPublicKeyTokens.Contains(publicKeyToken)))
         {
             return PluginAssemblyValidationResult.Rejected("assembly public key token is not in the configured allow-list");
         }

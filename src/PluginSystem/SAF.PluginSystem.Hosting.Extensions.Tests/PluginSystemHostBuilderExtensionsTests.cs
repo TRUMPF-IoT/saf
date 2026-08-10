@@ -74,6 +74,48 @@ public class PluginSystemHostBuilderExtensionsTests
     }
 
     [Fact]
+    public void AddStrongNamePluginAssemblyValidator_MultipleRegistrations_ShouldKeepOptionsIsolated()
+    {
+        var assemblyName = typeof(object).Assembly.GetName();
+        var publicKeyToken = Convert.ToHexString(assemblyName.GetPublicKeyToken()!).ToLowerInvariant();
+
+        _hostBuilder.AddStrongNamePluginAssemblyValidator(options =>
+            options.AllowedPublicKeyTokens.Add(publicKeyToken));
+        _hostBuilder.AddStrongNamePluginAssemblyValidator(options =>
+            options.AllowedPublicKeyTokens.Add("0011223344556677"));
+
+        var serviceProvider = _serviceCollection.BuildServiceProvider();
+        var validators = serviceProvider.GetServices<IPluginAssemblyValidator>()
+            .Cast<StrongNamePluginAssemblyValidator>()
+            .ToList();
+        var context = new PluginAssemblyValidationContext("dummy.dll", assemblyName);
+
+        Assert.Equal(2, validators.Count);
+        Assert.True(validators[0].Validate(context).IsAccepted);
+        Assert.False(validators[1].Validate(context).IsAccepted);
+    }
+
+    [Fact]
+    public void AddDigitalSignaturePluginAssemblyValidator_MultipleRegistrations_ShouldKeepOptionsIsolated()
+    {
+        var assemblyPath = Assembly.GetExecutingAssembly().Location;
+        var context = new PluginAssemblyValidationContext(assemblyPath, AssemblyName.GetAssemblyName(assemblyPath));
+
+        _hostBuilder.AddDigitalSignaturePluginAssemblyValidator();
+        _hostBuilder.AddDigitalSignaturePluginAssemblyValidator(options =>
+            options.AllowedSignerThumbprints.Add("00112233445566778899AABBCCDDEEFF00112233"));
+
+        var serviceProvider = _serviceCollection.BuildServiceProvider();
+        var validators = serviceProvider.GetServices<IPluginAssemblyValidator>()
+            .Cast<DigitalSignaturePluginAssemblyValidator>()
+            .ToList();
+
+        Assert.Equal(2, validators.Count);
+        Assert.True(validators[0].Validate(context).IsAccepted);
+        Assert.False(validators[1].Validate(context).IsAccepted);
+    }
+
+    [Fact]
     public void AddPluginAssemblyValidator_ShouldPreserveRegistrationOrder()
     {
         _hostBuilder.AddPluginAssemblyValidator<FirstValidator>();

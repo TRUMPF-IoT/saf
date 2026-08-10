@@ -12,22 +12,26 @@ using SAF.PluginSystem.Hosting.Extensions.Authenticode;
 /// </summary>
 public sealed class DigitalSignaturePluginAssemblyValidator : IPluginAssemblyValidator
 {
-    private readonly DigitalSignaturePluginAssemblyValidatorOptions _options;
+    private readonly IOptionsMonitor<DigitalSignaturePluginAssemblyValidatorOptions> _optionsMonitor;
+    private readonly string _optionsName;
     private readonly IAuthenticodeSignatureReader _authenticodeSignatureReader;
 
-    public DigitalSignaturePluginAssemblyValidator(IOptions<DigitalSignaturePluginAssemblyValidatorOptions> options)
-        : this(options, new AuthenticodeSignatureReader())
+    public DigitalSignaturePluginAssemblyValidator(IOptionsMonitor<DigitalSignaturePluginAssemblyValidatorOptions> optionsMonitor)
+        : this(optionsMonitor, Options.DefaultName, new AuthenticodeSignatureReader())
     {
     }
 
     internal DigitalSignaturePluginAssemblyValidator(
-        IOptions<DigitalSignaturePluginAssemblyValidatorOptions> options,
+        IOptionsMonitor<DigitalSignaturePluginAssemblyValidatorOptions> optionsMonitor,
+        string optionsName,
         IAuthenticodeSignatureReader authenticodeSignatureReader)
     {
-        ArgumentNullException.ThrowIfNull(options);
+        ArgumentNullException.ThrowIfNull(optionsMonitor);
+        ArgumentNullException.ThrowIfNull(optionsName);
         ArgumentNullException.ThrowIfNull(authenticodeSignatureReader);
 
-        _options = options.Value;
+        _optionsMonitor = optionsMonitor;
+        _optionsName = optionsName;
         _authenticodeSignatureReader = authenticodeSignatureReader;
     }
 
@@ -35,19 +39,20 @@ public sealed class DigitalSignaturePluginAssemblyValidator : IPluginAssemblyVal
     {
         ArgumentNullException.ThrowIfNull(context);
 
+        var options = _optionsMonitor.Get(_optionsName);
         var signature = context.AssemblyBytes.IsEmpty
             ? _authenticodeSignatureReader.ReadSignature(context.AssemblyPath)
             : _authenticodeSignatureReader.ReadSignature(context.AssemblyBytes);
         var signerThumbprint = signature?.SignerThumbprint;
         var hasValidDigitalSignature = signature?.HasValidDigitalSignature ?? false;
 
-        if (_options.RequireValidDigitalSignature && !hasValidDigitalSignature)
+        if (options.RequireValidDigitalSignature && !hasValidDigitalSignature)
         {
             return PluginAssemblyValidationResult.Rejected("assembly does not have a valid digital signature");
         }
 
-        if (_options.AllowedSignerThumbprints.Count > 0 &&
-            (string.IsNullOrWhiteSpace(signerThumbprint) || !_options.AllowedSignerThumbprints.Contains(signerThumbprint)))
+        if (options.AllowedSignerThumbprints.Count > 0 &&
+            (string.IsNullOrWhiteSpace(signerThumbprint) || !options.AllowedSignerThumbprints.Contains(signerThumbprint)))
         {
             return PluginAssemblyValidationResult.Rejected("assembly signer thumbprint is not in the configured allow-list");
         }
