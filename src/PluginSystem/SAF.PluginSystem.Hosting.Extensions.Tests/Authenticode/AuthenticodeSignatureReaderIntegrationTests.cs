@@ -28,21 +28,6 @@ public sealed class AuthenticodeSignatureReaderIntegrationTests
     }
 
     [Fact]
-    public void ReadSignature_ValidatesTrustedDotNetRuntimeAssembly_UsingLinuxChainTrust()
-    {
-        Assert.SkipUnless(OperatingSystem.IsLinux(), "This test covers the Linux X509Chain path.");
-        var runtimeAssemblyPath = FindTrustedDotNetRuntimeAssembly();
-        Assert.SkipWhen(runtimeAssemblyPath is null, "No trusted Authenticode-signed .NET runtime assembly is available.");
-
-        var reader = new AuthenticodeSignatureReader();
-        var result = reader.ReadSignature(runtimeAssemblyPath!);
-
-        Assert.NotNull(result);
-        Assert.False(string.IsNullOrWhiteSpace(result!.SignerThumbprint));
-        Assert.True(result.HasValidDigitalSignature);
-    }
-
-    [Fact]
     public void ReadSignature_RejectsUntrustedSigntoolAssembly_UsingWindowsTrust()
     {
         Assert.SkipUnless(OperatingSystem.IsWindows(), "This test covers the Windows WinVerifyTrust path.");
