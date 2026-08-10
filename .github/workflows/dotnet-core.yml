@@ -158,3 +158,79 @@ jobs:
       if: github.event_name == 'push' && contains(github.ref, 'refs/tags/')
       run: |
         dotnet nuget push ".\artifacts\*.nupkg" --api-key "$env:SAF_NUGETORG_APIKEY" --source https://api.nuget.org/v3/index.json --skip-duplicate
+
+  authenticode_fixture:
+    name: Prepare signtool Authenticode fixture
+    if: github.event_name != 'push' || startsWith(github.ref, 'refs/tags/') || github.ref == 'refs/heads/main' || needs.precheck_push_without_pr.outputs.should_run_build == 'true'
+    needs: [precheck_push_without_pr]
+    runs-on: windows-latest
+    permissions:
+      contents: read
+
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v4
+
+    - name: Setup .NET
+      uses: actions/setup-dotnet@v4
+      with:
+        dotnet-version: '10.x'
+
+    - name: Build assembly fixture
+      env:
+        FIXTURE_BUILD_DIRECTORY: ${{ github.workspace }}\authenticode-build
+      run: dotnet build './src/PluginSystem/SAF.PluginSystem.Hosting.Extensions.Tests/SAF.PluginSystem.Hosting.Extensions.Tests.csproj' --configuration Release --output $env:FIXTURE_BUILD_DIRECTORY
+
+    - name: Sign assembly fixture with signtool
+      shell: pwsh
+      env:
+        INPUT_ASSEMBLY: ${{ github.workspace }}\authenticode-build\SAF.PluginSystem.Hosting.Extensions.Tests.dll
+        OUTPUT_DIRECTORY: ${{ github.workspace }}\signed-authenticode
+      run: .\src\PluginSystem\SAF.PluginSystem.Hosting.Extensions.Tests\Authenticode\Sign-AuthenticodeTestAssembly.ps1 -InputAssembly $env:INPUT_ASSEMBLY -OutputDirectory $env:OUTPUT_DIRECTORY
+
+    - name: Upload signed assembly fixture
+      uses: actions/upload-artifact@v4
+      with:
+        name: authenticode-signed-fixture
+        path: signed-authenticode
+
+  authenticode_integration:
+    name: Authenticode integration (${{ matrix.os }})
+    if: github.event_name != 'push' || startsWith(github.ref, 'refs/tags/') || github.ref == 'refs/heads/main' || needs.precheck_push_without_pr.outputs.should_run_build == 'true'
+    needs: [precheck_push_without_pr, authenticode_fixture]
+    runs-on: ${{ matrix.os }}
+    permissions:
+      contents: read
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v4
+
+    - name: Setup .NET
+      uses: actions/setup-dotnet@v4
+      with:
+        dotnet-version: '10.x'
+
+    - name: Download signed assembly fixture
+      uses: actions/download-artifact@v4
+      with:
+        name: authenticode-signed-fixture
+        path: signed-authenticode
+
+    - name: Verify signed assembly fixture
+      shell: pwsh
+      env:
+        SIGNED_ASSEMBLY: ${{ github.workspace }}/signed-authenticode/SAF.Authenticode.SignedFixture.dll
+      run: |
+        if (-not (Test-Path -LiteralPath $env:SIGNED_ASSEMBLY -PathType Leaf)) { throw "Signed assembly fixture was not found: $env:SIGNED_ASSEMBLY" }
+        $thumbprintPath = [IO.Path]::ChangeExtension($env:SIGNED_ASSEMBLY, '.thumbprint')
+        if (-not (Test-Path -LiteralPath $thumbprintPath -PathType Leaf)) { throw "Signer thumbprint fixture was not found: $thumbprintPath" }
+
+    - name: Run Authenticode integration tests
+      env:
+        SAF_AUTHENTICODE_SIGNED_ASSEMBLY: ${{ github.workspace }}/signed-authenticode/SAF.Authenticode.SignedFixture.dll
+      run: dotnet test './src/PluginSystem/SAF.PluginSystem.Hosting.Extensions.Tests/SAF.PluginSystem.Hosting.Extensions.Tests.csproj' --configuration Release --filter 'FullyQualifiedName~AuthenticodeSignatureReaderIntegrationTests' --verbosity normal
