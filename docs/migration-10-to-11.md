@@ -207,7 +207,11 @@ ps.AddPluginAssemblyFolderContainer(options =>
 
 Without `SAF.Messaging.Runtime`, calls to inject `IMessagingInfrastructure` will throw `InvalidOperationException` at runtime.
 
----
+The `SAF.PluginSystem.Hosting.Extensions` package now references `System.Security.Cryptography.Pkcs` for Authenticode CMS signature parsing. Package consumers normally receive it transitively; projects that declare package dependencies explicitly should also restore this package:
+
+```xml
+<PackageReference Include="System.Security.Cryptography.Pkcs" />
+```
 
 ## Step 5 — Migrate Plugin Lifecycle Code
 

@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: MPL-2.0
 
-namespace SAF.PluginSystem.Hosting;
+namespace SAF.PluginSystem.Hosting.Contracts;
 
 using System.Reflection;
 
@@ -11,11 +11,22 @@ using System.Reflection;
 /// </summary>
 public sealed class PluginAssemblyValidationContext
 {
+    /// <summary>
+    /// Initializes a validation context without an in-memory assembly snapshot.
+    /// </summary>
+    /// <param name="assemblyPath">The path of the assembly candidate.</param>
+    /// <param name="assemblyName">The identity of the assembly candidate.</param>
     public PluginAssemblyValidationContext(string assemblyPath, AssemblyName assemblyName)
         : this(assemblyPath, assemblyName, ReadOnlyMemory<byte>.Empty)
     {
     }
 
+    /// <summary>
+    /// Initializes a validation context with an in-memory assembly snapshot.
+    /// </summary>
+    /// <param name="assemblyPath">The path of the assembly candidate.</param>
+    /// <param name="assemblyName">The identity of the assembly candidate.</param>
+    /// <param name="assemblyBytes">The immutable content snapshot of the assembly candidate.</param>
     public PluginAssemblyValidationContext(
         string assemblyPath,
         AssemblyName assemblyName,
@@ -26,8 +37,14 @@ public sealed class PluginAssemblyValidationContext
         AssemblyBytes = assemblyBytes;
     }
 
+    /// <summary>
+    /// Gets the path of the assembly candidate.
+    /// </summary>
     public string AssemblyPath { get; }
 
+    /// <summary>
+    /// Gets the identity of the assembly candidate.
+    /// </summary>
     public AssemblyName AssemblyName { get; }
 
     /// <summary>

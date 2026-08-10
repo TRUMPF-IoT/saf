@@ -5,6 +5,7 @@
 namespace SAF.PluginSystem.Hosting.Extensions;
 
 using Microsoft.Extensions.Options;
+using SAF.PluginSystem.Hosting.Contracts;
 using SAF.PluginSystem.Hosting.Extensions.Authenticode;
 
 /// <summary>
@@ -16,6 +17,10 @@ public sealed class DigitalSignaturePluginAssemblyValidator : IPluginAssemblyVal
     private readonly string _optionsName;
     private readonly IAuthenticodeSignatureReader _authenticodeSignatureReader;
 
+    /// <summary>
+    /// Initializes a digital-signature plugin assembly validator.
+    /// </summary>
+    /// <param name="optionsMonitor">The monitor that supplies validator options.</param>
     public DigitalSignaturePluginAssemblyValidator(IOptionsMonitor<DigitalSignaturePluginAssemblyValidatorOptions> optionsMonitor)
         : this(optionsMonitor, Options.DefaultName, new AuthenticodeSignatureReader())
     {
@@ -35,6 +40,7 @@ public sealed class DigitalSignaturePluginAssemblyValidator : IPluginAssemblyVal
         _authenticodeSignatureReader = authenticodeSignatureReader;
     }
 
+    /// <inheritdoc />
     public PluginAssemblyValidationResult Validate(PluginAssemblyValidationContext context)
     {
         ArgumentNullException.ThrowIfNull(context);

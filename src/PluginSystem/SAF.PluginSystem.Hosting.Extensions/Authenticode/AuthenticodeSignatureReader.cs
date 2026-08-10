@@ -58,6 +58,7 @@ internal sealed class AuthenticodeSignatureReader : IAuthenticodeSignatureReader
         _certificateTableParser = certificateTableParser;
     }
 
+    /// <inheritdoc />
     public AuthenticodeSignatureInfo? ReadSignature(string assemblyPath)
     {
         try
@@ -78,6 +79,7 @@ internal sealed class AuthenticodeSignatureReader : IAuthenticodeSignatureReader
         }
     }
 
+    /// <inheritdoc />
     public AuthenticodeSignatureInfo? ReadSignature(ReadOnlyMemory<byte> assemblyBytes)
     {
         try
@@ -135,9 +137,6 @@ internal sealed class AuthenticodeSignatureReader : IAuthenticodeSignatureReader
 
         var isTrusted = trustVerifier(signerCertificate);
 
-        // The signer's identity may only be trusted once we know the signature actually covers
-        // this file. Only verifiers that hash the file themselves (Windows/WinVerifyTrust) let us
-        // infer coverage from trust; otherwise we must always compare the embedded PE hash.
         var signatureCoversFile = (isTrusted && _trustVerifier.VerifiesFileIntegrity)
             || fileIntegrityVerifier(cms);
 
@@ -153,9 +152,6 @@ internal sealed class AuthenticodeSignatureReader : IAuthenticodeSignatureReader
             return null;
         }
 
-        // Authenticode always embeds the signing certificate, so use it directly. If it is missing
-        // we cannot identify the signer safely - falling back to an arbitrary certificate in the bag
-        // could select an unrelated intermediate CA - so the signature is treated as unusable.
         return signerInfos[0].Certificate;
     }
 

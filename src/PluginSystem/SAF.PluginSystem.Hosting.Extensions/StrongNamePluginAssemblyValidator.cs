@@ -5,6 +5,7 @@
 namespace SAF.PluginSystem.Hosting.Extensions;
 
 using Microsoft.Extensions.Options;
+using SAF.PluginSystem.Hosting.Contracts;
 
 /// <summary>
 /// Enforces strong-name related plugin assembly trust checks.
@@ -14,6 +15,10 @@ public sealed class StrongNamePluginAssemblyValidator : IPluginAssemblyValidator
     private readonly IOptionsMonitor<StrongNamePluginAssemblyValidatorOptions> _optionsMonitor;
     private readonly string _optionsName;
 
+    /// <summary>
+    /// Initializes a strong-name plugin assembly validator.
+    /// </summary>
+    /// <param name="optionsMonitor">The monitor that supplies validator options.</param>
     public StrongNamePluginAssemblyValidator(IOptionsMonitor<StrongNamePluginAssemblyValidatorOptions> optionsMonitor)
         : this(optionsMonitor, Options.DefaultName)
     {
@@ -30,6 +35,7 @@ public sealed class StrongNamePluginAssemblyValidator : IPluginAssemblyValidator
         _optionsName = optionsName;
     }
 
+    /// <inheritdoc />
     public PluginAssemblyValidationResult Validate(PluginAssemblyValidationContext context)
     {
         ArgumentNullException.ThrowIfNull(context);

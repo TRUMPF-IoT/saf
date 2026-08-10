@@ -9,12 +9,18 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
 using SAF.PluginSystem.Hosting.Extensions.Authenticode;
 
-public static class PluginSystemHostBuilderExtensions
+/// <summary>
+/// Provides host-builder extensions for registering plugin assembly validators.
+/// </summary>
+public static class PluginAssemblyValidationBuilderExtensions
 {
     /// <summary>
     /// Registers an additional plugin assembly validator in the execution chain.
     /// Validators are executed in registration order.
     /// </summary>
+    /// <typeparam name="TValidator">The validator implementation type.</typeparam>
+    /// <param name="hostBuilder">The plugin system host builder.</param>
+    /// <returns>The same host builder instance.</returns>
     public static IPluginSystemHostBuilder AddPluginAssemblyValidator<TValidator>(this IPluginSystemHostBuilder hostBuilder)
         where TValidator : class, IPluginAssemblyValidator
     {
@@ -27,6 +33,9 @@ public static class PluginSystemHostBuilderExtensions
     /// <summary>
     /// Registers SAF's built-in strong-name plugin assembly validator.
     /// </summary>
+    /// <param name="hostBuilder">The plugin system host builder.</param>
+    /// <param name="configure">An optional callback for configuring the validator.</param>
+    /// <returns>The same host builder instance.</returns>
     public static IPluginSystemHostBuilder AddStrongNamePluginAssemblyValidator(
         this IPluginSystemHostBuilder hostBuilder,
         Action<StrongNamePluginAssemblyValidatorOptions>? configure = null)
@@ -48,6 +57,9 @@ public static class PluginSystemHostBuilderExtensions
     /// <summary>
     /// Registers SAF's built-in digital-signature plugin assembly validator.
     /// </summary>
+    /// <param name="hostBuilder">The plugin system host builder.</param>
+    /// <param name="configure">An optional callback for configuring the validator.</param>
+    /// <returns>The same host builder instance.</returns>
     public static IPluginSystemHostBuilder AddDigitalSignaturePluginAssemblyValidator(
         this IPluginSystemHostBuilder hostBuilder,
         Action<DigitalSignaturePluginAssemblyValidatorOptions>? configure = null)

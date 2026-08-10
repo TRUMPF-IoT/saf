@@ -393,6 +393,7 @@ The hosting pipeline reads each candidate once into a content snapshot, validate
 Custom validation can be added with your own validator implementation:
 
 ```csharp
+using Microsoft.Extensions.Hosting;
 using SAF.PluginSystem.Hosting;
 using SAF.PluginSystem.Hosting.Contracts;
 using SAF.PluginSystem.Hosting.Extensions;
@@ -406,8 +407,17 @@ public sealed class MyAssemblyValidator : IPluginAssemblyValidator
     }
 }
 
-// Register in chain order
-pluginSystemBuilder.AddPluginAssemblyValidator<MyAssemblyValidator>();
+public static class Program
+{
+    public static void Main(string[] args)
+    {
+        var builder = Host.CreateApplicationBuilder(args);
+        var pluginSystemBuilder = builder.AddPluginSystem(_ => { });
+
+        // Register in chain order
+        pluginSystemBuilder.AddPluginAssemblyValidator<MyAssemblyValidator>();
+    }
+}
 ```
 
 ---

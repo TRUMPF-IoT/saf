@@ -16,7 +16,6 @@ public class AuthenticodeSignatureReaderTests
     [Fact]
     public void ReadSignature_ReturnsNull_WhenFileIsNotSigned()
     {
-        // The test assembly itself is not Authenticode signed.
         var unsignedPath = typeof(AuthenticodeSignatureReaderTests).Assembly.Location;
 
         var result = _reader.ReadSignature(unsignedPath);
@@ -103,15 +102,12 @@ public class AuthenticodeSignatureReaderTests
         {
             var bytes = File.ReadAllBytes(signedPath!);
 
-            // Flip a byte roughly in the middle of the file - inside the hashed section content but
-            // before the trailing certificate table - so the embedded digest no longer matches.
             var tamperOffset = bytes.Length / 2;
             bytes[tamperOffset] ^= 0xFF;
             File.WriteAllBytes(tamperedPath, bytes);
 
             var result = _reader.ReadSignature(tamperedPath);
 
-            // The signature no longer covers the file: no trustworthy signer, not a valid signature.
             Assert.Null(result?.SignerThumbprint);
             Assert.False(result?.HasValidDigitalSignature ?? false);
         }
@@ -127,9 +123,6 @@ public class AuthenticodeSignatureReaderTests
     [Fact]
     public void ReadSignature_RejectsTamperedFile_EvenWhenChainOnlyVerifierTrustsTheSigner()
     {
-        // Simulates the non-Windows path: the trust verifier validates only the certificate chain and
-        // does NOT confirm the signature covers the file. Without the mandatory PE-hash comparison a
-        // transplanted/tampered signature would slip through, so this guards that regression.
         var signedPath = FindSignedFile();
         Assert.SkipWhen(signedPath is null, "No Authenticode-signed binary available in this environment.");
 

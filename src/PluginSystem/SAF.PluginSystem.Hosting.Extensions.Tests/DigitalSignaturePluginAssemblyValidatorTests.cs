@@ -6,6 +6,7 @@ namespace SAF.PluginSystem.Hosting.Extensions.Tests;
 
 using Microsoft.Extensions.Options;
 using NSubstitute;
+using SAF.PluginSystem.Hosting.Contracts;
 using SAF.PluginSystem.Hosting.Extensions;
 using SAF.PluginSystem.Hosting.Extensions.Authenticode;
 using System.Reflection;
