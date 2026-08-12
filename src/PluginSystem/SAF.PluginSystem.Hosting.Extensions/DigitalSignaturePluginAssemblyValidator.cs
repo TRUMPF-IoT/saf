@@ -46,9 +46,12 @@ public sealed class DigitalSignaturePluginAssemblyValidator : IPluginAssemblyVal
         ArgumentNullException.ThrowIfNull(context);
 
         var options = _optionsMonitor.Get(_optionsName);
-        var signature = context.AssemblyBytes.IsEmpty
-            ? _authenticodeSignatureReader.ReadSignature(context.AssemblyPath)
-            : _authenticodeSignatureReader.ReadSignature(context.AssemblyBytes);
+
+        // Prefer the path: the hosting pipeline rejects a candidate whose file diverges from the snapshot
+        // before loading it, so reading the file avoids materializing the snapshot for path-based verifiers.
+        var signature = string.IsNullOrEmpty(context.AssemblyPath)
+            ? _authenticodeSignatureReader.ReadSignature(context.AssemblyBytes)
+            : _authenticodeSignatureReader.ReadSignature(context.AssemblyPath);
         var signerThumbprint = signature?.SignerThumbprint;
         var hasValidDigitalSignature = signature?.HasValidDigitalSignature ?? false;
 

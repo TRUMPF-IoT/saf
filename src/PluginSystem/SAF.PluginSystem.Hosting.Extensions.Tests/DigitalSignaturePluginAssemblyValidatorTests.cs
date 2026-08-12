@@ -125,10 +125,10 @@ public class DigitalSignaturePluginAssemblyValidatorTests
     }
 
     [Fact]
-    public void Validate_UsesContentSnapshot_WhenProvided()
+    public void Validate_ReadsTheFile_WhenAPathIsAvailable()
     {
         var assemblyBytes = new byte[] { 0x01, 0x02, 0x03 };
-        _signatureReader.ReadSignature(Arg.Any<ReadOnlyMemory<byte>>())
+        _signatureReader.ReadSignature(AssemblyPath)
             .Returns(new AuthenticodeSignatureInfo("AABBCC", HasValidDigitalSignature: true));
         var validator = CreateValidator(new DigitalSignaturePluginAssemblyValidatorOptions
         {
@@ -141,10 +141,33 @@ public class DigitalSignaturePluginAssemblyValidatorTests
 
         var result = validator.Validate(context);
 
+        // The hosting pipeline rejects a candidate whose file diverged from the snapshot, so reading the
+        // file is safe and spares a path-based verifier the temporary copy of the snapshot.
+        Assert.True(result.IsAccepted);
+        _signatureReader.Received(1).ReadSignature(AssemblyPath);
+        _signatureReader.DidNotReceive().ReadSignature(Arg.Any<ReadOnlyMemory<byte>>());
+    }
+
+    [Fact]
+    public void Validate_UsesContentSnapshot_WhenNoPathIsAvailable()
+    {
+        var assemblyBytes = new byte[] { 0x01, 0x02, 0x03 };
+        _signatureReader.ReadSignature(Arg.Any<ReadOnlyMemory<byte>>())
+            .Returns(new AuthenticodeSignatureInfo("AABBCC", HasValidDigitalSignature: true));
+        var validator = CreateValidator(new DigitalSignaturePluginAssemblyValidatorOptions
+        {
+            RequireValidDigitalSignature = true
+        });
+        var context = new PluginAssemblyValidationContext(
+            string.Empty,
+            new AssemblyName("AnyAssembly"),
+            assemblyBytes);
+
+        var result = validator.Validate(context);
+
         Assert.True(result.IsAccepted);
         _signatureReader.Received(1).ReadSignature(
             Arg.Is<ReadOnlyMemory<byte>>(bytes => bytes.ToArray().SequenceEqual(assemblyBytes)));
-        _signatureReader.DidNotReceive().ReadSignature(AssemblyPath);
     }
 
     [Fact]

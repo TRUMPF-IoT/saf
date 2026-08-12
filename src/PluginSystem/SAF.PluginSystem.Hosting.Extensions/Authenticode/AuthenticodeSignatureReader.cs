@@ -14,6 +14,7 @@ internal sealed class AuthenticodeSignatureReader : IAuthenticodeSignatureReader
     private const int WinCertificateHeaderSize = 8;
 
     private readonly IAuthenticodeChainTrustVerifier _trustVerifier;
+    private readonly IAuthenticodeChainTrustVerifier _contentTrustVerifier;
     private readonly IAuthenticodePeHasher _peHasher;
     private readonly IAuthenticodeCertificateTableParser _certificateTableParser;
 
@@ -56,6 +57,14 @@ internal sealed class AuthenticodeSignatureReader : IAuthenticodeSignatureReader
         _trustVerifier = trustVerifier;
         _peHasher = peHasher;
         _certificateTableParser = certificateTableParser;
+
+        // A verifier that reads the file cannot serve a caller that only holds a content snapshot, and
+        // materializing the snapshot just to satisfy it would make signature checking depend on a
+        // writable temp directory. Chain building works on the decoded signature alone, so the snapshot
+        // route uses it and pairs it with the in-memory PE hash check for the file binding.
+        _contentTrustVerifier = trustVerifier.RequiresFilePath
+            ? new CrossPlatformAuthenticodeTrustVerifier()
+            : trustVerifier;
     }
 
     /// <inheritdoc />
@@ -64,8 +73,9 @@ internal sealed class AuthenticodeSignatureReader : IAuthenticodeSignatureReader
         try
         {
             return ReadSignatureCore(
+                _trustVerifier,
                 TryReadAuthenticodeSignedData(assemblyPath),
-                signerCertificate => _trustVerifier.IsTrusted(assemblyPath, signerCertificate),
+                assemblyPath,
                 cms => _peHasher.VerifyEmbeddedHashMatchesFile(assemblyPath, cms));
         }
         catch (Exception ex) when (ex is CryptographicException
@@ -84,25 +94,14 @@ internal sealed class AuthenticodeSignatureReader : IAuthenticodeSignatureReader
     {
         try
         {
-            var signedData = TryReadAuthenticodeSignedData(assemblyBytes);
-            if (signedData is null)
-            {
-                return null;
-            }
-
-            var trustSnapshotPath = Path.Combine(Path.GetTempPath(), $"saf-authenticode-{Guid.NewGuid():N}.dll");
-            try
-            {
-                using var trustSnapshot = OpenTrustSnapshot(assemblyBytes, trustSnapshotPath);
-                return ReadSignatureCore(
-                    signedData,
-                    signerCertificate => _trustVerifier.IsTrusted(trustSnapshot.Name, signerCertificate),
-                    cms => _peHasher.VerifyEmbeddedHashMatchesFile(assemblyBytes, cms));
-            }
-            finally
-            {
-                File.Delete(trustSnapshotPath);
-            }
+            // Verified entirely in memory: the signature math from the decoded CMS, the file binding from
+            // the PE hash recomputed over the snapshot, and the trust anchor from the certificate chain.
+            // Nothing is written to disk, so signature checking cannot fail on a locked-down temp path.
+            return ReadSignatureCore(
+                _contentTrustVerifier,
+                TryReadAuthenticodeSignedData(assemblyBytes),
+                assemblyPath: null,
+                cms => _peHasher.VerifyEmbeddedHashMatchesFile(assemblyBytes, cms));
         }
         catch (Exception ex) when (ex is CryptographicException
                                    or PlatformNotSupportedException
@@ -115,9 +114,10 @@ internal sealed class AuthenticodeSignatureReader : IAuthenticodeSignatureReader
         }
     }
 
-    private AuthenticodeSignatureInfo? ReadSignatureCore(
+    private static AuthenticodeSignatureInfo? ReadSignatureCore(
+        IAuthenticodeChainTrustVerifier trustVerifier,
         byte[]? signedData,
-        Func<X509Certificate2, bool> trustVerifier,
+        string? assemblyPath,
         Func<SignedCms, bool> fileIntegrityVerifier)
     {
         if (signedData is null)
@@ -135,9 +135,9 @@ internal sealed class AuthenticodeSignatureReader : IAuthenticodeSignatureReader
             return new AuthenticodeSignatureInfo(SignerThumbprint: null, HasValidDigitalSignature: false);
         }
 
-        var isTrusted = trustVerifier(signerCertificate);
+        var isTrusted = trustVerifier.IsTrusted(assemblyPath, cms);
 
-        var signatureCoversFile = (isTrusted && _trustVerifier.VerifiesFileIntegrity)
+        var signatureCoversFile = (isTrusted && trustVerifier.VerifiesFileIntegrity)
             || fileIntegrityVerifier(cms);
 
         var signerThumbprint = signatureCoversFile ? NormalizeThumbprint(signerCertificate.Thumbprint) : null;
@@ -208,35 +208,5 @@ internal sealed class AuthenticodeSignatureReader : IAuthenticodeSignatureReader
         return _certificateTableParser.TryExtractPkcsSignedData(certificateBlob, out var signedData)
             ? signedData
             : null;
-    }
-
-    private static FileStream OpenTrustSnapshot(ReadOnlyMemory<byte> assemblyBytes, string path)
-    {
-        var options = new FileStreamOptions
-        {
-            Mode = FileMode.CreateNew,
-            Access = FileAccess.ReadWrite,
-            Share = FileShare.Read,
-            Options = FileOptions.SequentialScan
-        };
-        if (!OperatingSystem.IsWindows())
-        {
-            options.UnixCreateMode = UnixFileMode.UserRead | UnixFileMode.UserWrite;
-        }
-
-        var stream = new FileStream(path, options);
-
-        try
-        {
-            stream.Write(assemblyBytes.Span);
-            stream.Flush(flushToDisk: true);
-            return stream;
-        }
-        catch
-        {
-            stream.Dispose();
-            File.Delete(path);
-            throw;
-        }
     }
 }

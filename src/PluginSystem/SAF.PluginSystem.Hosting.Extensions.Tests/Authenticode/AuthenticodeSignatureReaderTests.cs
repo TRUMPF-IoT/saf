@@ -7,7 +7,7 @@ namespace SAF.PluginSystem.Hosting.Extensions.Tests.Authenticode;
 using SAF.PluginSystem.Hosting.Extensions.Authenticode;
 using System.Buffers.Binary;
 using System.Reflection.PortableExecutable;
-using System.Security.Cryptography.X509Certificates;
+using System.Security.Cryptography.Pkcs;
 
 public class AuthenticodeSignatureReaderTests
 {
@@ -149,6 +149,37 @@ public class AuthenticodeSignatureReaderTests
         }
     }
 
+    [Fact]
+    public void ReadSignature_VerifiesSnapshotsWithoutAFilePath()
+    {
+        var signedPath = FindSignedFile();
+        Assert.SkipWhen(signedPath is null, "No Authenticode-signed binary available in this environment.");
+
+        var verifier = new PathRecordingVerifier();
+        var reader = new AuthenticodeSignatureReader(verifier);
+
+        _ = reader.ReadSignature(File.ReadAllBytes(signedPath!));
+
+        // Nothing is materialized on disk, so the verifier is called without a path.
+        Assert.True(verifier.WasCalled);
+        Assert.Null(verifier.ReceivedAssemblyPath);
+    }
+
+    [Fact]
+    public void ReadSignature_FallsBackToChainTrust_WhenTheVerifierNeedsAFileButOnlyBytesAreAvailable()
+    {
+        var signedPath = FindSignedFile();
+        Assert.SkipWhen(signedPath is null, "No Authenticode-signed binary available in this environment.");
+
+        var verifier = new FileBoundVerifier();
+        var reader = new AuthenticodeSignatureReader(verifier);
+
+        _ = reader.ReadSignature(File.ReadAllBytes(signedPath!));
+
+        // A file-bound verifier must never be handed a snapshot route it cannot serve without a temp file.
+        Assert.False(verifier.WasCalled);
+    }
+
     private string? FindSignedFile()
     {
         foreach (var directory in CandidateDirectories())
@@ -210,10 +241,45 @@ public class AuthenticodeSignatureReaderTests
         return dataDirectoriesOffset + (4 * 8);
     }
 
+    private sealed class PathRecordingVerifier : IAuthenticodeChainTrustVerifier
+    {
+        public bool WasCalled { get; private set; }
+
+        public string? ReceivedAssemblyPath { get; private set; }
+
+        public bool VerifiesFileIntegrity => false;
+
+        public bool RequiresFilePath => false;
+
+        public bool IsTrusted(string? assemblyPath, SignedCms signedCms)
+        {
+            WasCalled = true;
+            ReceivedAssemblyPath = assemblyPath;
+            return false;
+        }
+    }
+
+    private sealed class FileBoundVerifier : IAuthenticodeChainTrustVerifier
+    {
+        public bool WasCalled { get; private set; }
+
+        public bool VerifiesFileIntegrity => true;
+
+        public bool RequiresFilePath => true;
+
+        public bool IsTrusted(string? assemblyPath, SignedCms signedCms)
+        {
+            WasCalled = true;
+            return true;
+        }
+    }
+
     private sealed class ChainOnlyTrustingVerifier : IAuthenticodeChainTrustVerifier
     {
         public bool VerifiesFileIntegrity => false;
 
-        public bool IsTrusted(string assemblyPath, X509Certificate2 signerCertificate) => true;
+        public bool RequiresFilePath => false;
+
+        public bool IsTrusted(string? assemblyPath, SignedCms signedCms) => true;
     }
 }

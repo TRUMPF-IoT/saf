@@ -30,6 +30,37 @@ public sealed class AuthenticodeSignatureReaderIntegrationTests
     }
 
     [Fact]
+    public void ReadSignature_ValidatesTrustedDotNetRuntimeAssembly_FromContentSnapshot()
+    {
+        var runtimeAssemblyPath = FindTrustedDotNetRuntimeAssembly();
+        Assert.SkipWhen(runtimeAssemblyPath is null, "No trusted Authenticode-signed .NET runtime assembly is available.");
+
+        var reader = new AuthenticodeSignatureReader();
+        var result = reader.ReadSignature(File.ReadAllBytes(runtimeAssemblyPath!));
+
+        // Regression: the snapshot used to be verified through a temporary file, which WinVerifyTrust
+        // could not open while the writing handle was alive, so every snapshot was reported untrusted.
+        Assert.NotNull(result);
+        Assert.False(string.IsNullOrWhiteSpace(result!.SignerThumbprint));
+        Assert.True(result.HasValidDigitalSignature);
+    }
+
+    [Fact]
+    public void ReadSignature_DoesNotTouchTheFileSystem_ForContentSnapshots()
+    {
+        var runtimeAssemblyPath = FindTrustedDotNetRuntimeAssembly();
+        Assert.SkipWhen(runtimeAssemblyPath is null, "No trusted Authenticode-signed .NET runtime assembly is available.");
+
+        var reader = new AuthenticodeSignatureReader();
+
+        var result = reader.ReadSignature(File.ReadAllBytes(runtimeAssemblyPath!));
+
+        // Signature checking must not depend on a writable temp directory.
+        Assert.True(result?.HasValidDigitalSignature);
+        Assert.Empty(Directory.EnumerateFiles(Path.GetTempPath(), "saf-authenticode-*.dll"));
+    }
+
+    [Fact]
     public void ReadSignature_RejectsUntrustedSigntoolAssembly_UsingWindowsTrust()
     {
         Assert.SkipUnless(OperatingSystem.IsWindows(), "This test covers the Windows WinVerifyTrust path.");
@@ -236,7 +267,9 @@ public sealed class AuthenticodeSignatureReaderIntegrationTests
     {
         public bool VerifiesFileIntegrity => false;
 
-        public bool IsTrusted(string assemblyPath, X509Certificate2 signerCertificate) => true;
+        public bool RequiresFilePath => false;
+
+        public bool IsTrusted(string? assemblyPath, SignedCms signedCms) => true;
     }
 
 }

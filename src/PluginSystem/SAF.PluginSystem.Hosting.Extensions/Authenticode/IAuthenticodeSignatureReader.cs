@@ -18,12 +18,16 @@ internal interface IAuthenticodeSignatureReader
     AuthenticodeSignatureInfo? ReadSignature(string assemblyPath);
 
     /// <summary>
-    /// Reads and verifies the Authenticode signature embedded in an assembly content snapshot.
+    /// Reads and verifies the Authenticode signature embedded in an assembly content snapshot. The check
+    /// runs entirely in memory and never touches the file system.
     /// </summary>
     /// <param name="assemblyBytes">The stable PE file content to inspect.</param>
     /// <returns>
     /// <see langword="null"/> when the content carries no Authenticode signature at all;
-    /// otherwise the signature information.
+    /// otherwise the signature information. Trust is anchored by certificate chain building instead of by
+    /// the platform Authenticode API, which would need a file. Both use the same chain engine and the same
+    /// certificate stores; what this route does not apply is the Authenticode policy layer above the
+    /// chain, most notably the weak-hash policy.
     /// </returns>
     AuthenticodeSignatureInfo? ReadSignature(ReadOnlyMemory<byte> assemblyBytes);
 }

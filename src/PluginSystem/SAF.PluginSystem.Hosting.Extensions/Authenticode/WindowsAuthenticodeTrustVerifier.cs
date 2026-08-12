@@ -7,7 +7,7 @@ namespace SAF.PluginSystem.Hosting.Extensions.Authenticode;
 using System.Diagnostics.CodeAnalysis;
 using System.Runtime.InteropServices;
 using System.Runtime.Versioning;
-using System.Security.Cryptography.X509Certificates;
+using System.Security.Cryptography.Pkcs;
 
 /// <summary>
 /// Uses the Windows <c>WinVerifyTrust</c> API to authoritatively validate an Authenticode signature.
@@ -32,10 +32,15 @@ internal sealed class WindowsAuthenticodeTrustVerifier : IAuthenticodeChainTrust
     // WinVerifyTrust recomputes and compares the PE hash, so trust implies file integrity.
     public bool VerifiesFileIntegrity => true;
 
-    // The signer certificate is not needed here: WinVerifyTrust validates the embedded signature,
-    // its hash coverage and the trust chain directly from the file.
-    public bool IsTrusted(string assemblyPath, X509Certificate2 signerCertificate)
+    // WinVerifyTrust reads the file, so callers holding only a snapshot must materialize it first.
+    public bool RequiresFilePath => true;
+
+    // The decoded signature is not needed here: WinVerifyTrust validates the embedded signature, its
+    // hash coverage, the trust chain and the timestamp directly from the file.
+    public bool IsTrusted(string? assemblyPath, SignedCms signedCms)
     {
+        ArgumentException.ThrowIfNullOrEmpty(assemblyPath);
+
         var fileInfo = new WinTrustFileInfo
         {
             cbStruct = (uint)Marshal.SizeOf<WinTrustFileInfo>(),
