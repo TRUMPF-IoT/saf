@@ -316,6 +316,36 @@ Update your `.csproj` files:
 | `SAF.Hosting` (for host bootstrap) | `SAF.Hosting` (unchanged, but API changed) |
 | `IMessageHandler` plugin registration without extensions | Add package `SAF.Messaging.Extensions` and use `AddSingletonMessageHandler<T>()` / `AddTransientMessageHandler<T>()` + `AddMessageHandlerResolver()` |
 
+### Plugin assembly validation is a separate package
+
+Plugin assembly validation is opt-in and lives in `SAF.PluginSystem.Hosting.Extensions`. `SAF.PluginSystem.Hosting` does not reference it, so the core engine does not pull the validators and their cryptography dependencies into applications that load plug-ins without validating them.
+
+To use `AddStrongNamePluginAssemblyValidator`, `AddDigitalSignaturePluginAssemblyValidator` or your own `IPluginAssemblyValidator`, reference the package explicitly:
+
+```xml
+<PackageReference Include="SAF.PluginSystem.Hosting.Extensions" />
+```
+
+That package references `System.Security.Cryptography.Pkcs` for Authenticode CMS signature parsing, which it brings along transitively.
+
+### `PluginAssemblyFolderContainer` constructor
+
+`IEnumerable<IPluginAssemblyValidator> assemblyValidators` was added as the **last** constructor parameter, after `IFileSystem fileSystem`, and is required. Code that constructs the container directly instead of using `AddPluginAssemblyFolderContainer` must pass a sequence — an empty one keeps the 10.x behaviour of loading without validation:
+
+```csharp
+new PluginAssemblyFolderContainer(loggerFactory, manifestLoader, options, fileSystem, []);
+```
+
+This is an intentional break. It is a compile error rather than a silent behaviour change, which is the point: a container built with a stale call would otherwise load plug-ins with validators that were configured but never consulted.
+
+### Digital-signature validation is secure by default
+
+`DigitalSignaturePluginAssemblyValidatorOptions.RequireValidDigitalSignature` defaults to `true`, so registering the validator without configuration demands a signature that is intact, covers the file and chains to a trusted root. Check that against the signatures your plug-ins actually carry before enabling the validator: unsigned plug-ins, and plug-ins whose signer chains to a root the host does not trust, are skipped with a warning.
+
+Switching the requirement off is only meaningful together with `AllowedSignerThumbprints`, which still requires a signature covering the file and only skips the trust chain. Switching off both is refused: the host fails to start with an `OptionsValidationException` instead of registering a validator that checks nothing.
+
+`DigitalSignaturePluginAssemblyValidator` is constructed by `AddDigitalSignaturePluginAssemblyValidator` only; it has no public constructor, and registering it as a plain service type (`AddPluginAssemblyValidator<DigitalSignaturePluginAssemblyValidator>()`) fails when the service provider resolves it.
+
 ---
 
 ## Quick Migration Checklist
@@ -330,3 +360,4 @@ Update your `.csproj` files:
 - [ ] Replace manual lifecycle background tasks with `IServicePlugin` / `ILifecycleServicePlugin` registered via `AddServicePlugin<T>()`
 - [ ] Move plugin configuration into the shared plugin settings file (or host `appsettings.json`) under a per-plugin section
 - [ ] Deploy messaging/storage as plug-ins (add their DLLs to `IncludePatterns`) instead of calling `Add*Infrastructure()` on the host
+- [ ] Reference `SAF.PluginSystem.Hosting.Extensions` explicitly if you use plugin assembly validation, and check the `RequireValidDigitalSignature = true` default against the signatures your plug-ins actually carry

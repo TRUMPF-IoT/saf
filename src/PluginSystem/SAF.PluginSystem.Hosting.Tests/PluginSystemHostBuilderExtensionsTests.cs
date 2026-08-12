@@ -53,6 +53,7 @@ public class PluginSystemHostBuilderExtensionsTests
         // Assert
         var serviceProvider = _serviceCollection.BuildServiceProvider();
         Assert.NotNull(serviceProvider.GetService<IPluginAssemblyContainer>() as PluginAssemblyFolderContainer);
+        Assert.Empty(serviceProvider.GetServices<IPluginAssemblyValidator>());
     }
 
     [Fact]
@@ -82,9 +83,7 @@ public class PluginSystemHostBuilderExtensionsTests
 
     [Fact]
     public void AddPluginConfigurationSource_ThrowsIfConfigureSourceEqualsNull()
-    {
-        Assert.Throws<ArgumentNullException>(() => _hostBuilder.AddPluginConfigurationSource(null!));
-    }
+        => Assert.Throws<ArgumentNullException>(() => _hostBuilder.AddPluginConfigurationSource(null!));
 
     [Fact]
     public void AddPluginConfigurationSource_MultipleCalls_PreserveRegistrationOrder()

@@ -5,6 +5,7 @@
 namespace SAF.PluginSystem.Hosting;
 
 using Contracts;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
@@ -73,7 +74,8 @@ public static class PluginSystemHostBuilderExtensions
                 sp.GetRequiredService<ILoggerFactory>(),
                 sp.GetRequiredService<IPluginManifestLoader>(),
                 options,
-                sp.GetRequiredService<IFileSystem>());
+                sp.GetRequiredService<IFileSystem>(),
+                sp.GetServices<IPluginAssemblyValidator>());
         });
 
         return hostBuilder;

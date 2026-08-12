@@ -12,6 +12,9 @@ The plugin system (`SAF.PluginSystem.*`) is a **SAF-independent** assembly loadi
 
 SAF uses the plugin system as its foundation and adds messaging, storage, and host-info on top, but the plugin system itself has no dependency on SAF.
 
+For the security boundary of the current folder-based loader and the installer requirements for
+in-process third-party plugins, see [Plugin Deployment Security](./plugin-security.md).
+
 ---
 
 ## Core Concepts
@@ -332,6 +335,101 @@ await host.RunAsync();
 ```
 
 Services are **not** forwarded into plugin containers automatically. Use `IHostServiceForwarder` / `HostServiceForwarder<T>` to bridge specific host services explicitly.
+
+---
+
+## Assembly Validation (optional)
+
+Plugin assembly validation is opt-in. SAF does not enable validators by default.
+
+Validators run for assemblies selected as discovery candidates, before their manifests are loaded.
+They do not validate managed or native dependencies resolved later by
+`AssemblyDependencyResolver`. Entry-assembly validation is therefore an additional check, not a
+replacement for the protected active-directory requirements described in
+[Plugin Deployment Security](./plugin-security.md).
+
+To validate plug-ins before loading, register one or more `IPluginAssemblyValidator` implementations. Validators are executed in registration order and can reject loading by returning `PluginAssemblyValidationResult.Rejected(...)`.
+
+Contracts for this feature (`IPluginAssemblyValidator`, `PluginAssemblyValidationContext`, `PluginAssemblyValidationResult`) are part of `SAF.PluginSystem.Hosting.Contracts`.
+
+SAF provides built-in validators in `SAF.PluginSystem.Hosting.Extensions`:
+
+- `AddStrongNamePluginAssemblyValidator(...)`
+- `AddDigitalSignaturePluginAssemblyValidator(...)`
+
+To use these helper extension methods, reference package `SAF.PluginSystem.Hosting.Extensions`.
+
+```csharp
+using SAF.PluginSystem.Hosting;
+using SAF.PluginSystem.Hosting.Extensions;
+
+var builder = Host.CreateApplicationBuilder(args);
+
+var pluginSystemBuilder = builder.AddPluginSystem(_ => { });
+
+pluginSystemBuilder.AddPluginAssemblyFolderContainer(options =>
+{
+    options.SearchRootPath = AppContext.BaseDirectory;
+    options.IncludePatterns = "MyApp.Plugin.*.dll";
+});
+
+// Optional strong-name validation
+pluginSystemBuilder.AddStrongNamePluginAssemblyValidator(options =>
+{
+    options.RequireStrongName = true;
+    options.AllowedPublicKeyTokens.Add("0011223344556677");
+});
+
+// Optional Authenticode validation
+pluginSystemBuilder.AddDigitalSignaturePluginAssemblyValidator(options =>
+{
+    options.RequireValidDigitalSignature = true;
+    options.AllowedSignerThumbprints.Add("AABBCCDDEEFF00112233445566778899AABBCCDD");
+});
+```
+
+The hosting pipeline opens each candidate once with `FileShare.Read`, reads it into a content snapshot, validates that snapshot, and loads the file itself with `LoadFromAssemblyPath` while the handle is still open. `Assembly.Location` therefore reports the deployment path on every platform.
+
+How much the pipeline can guarantee about the file it loads depends on the platform:
+
+- **Windows**: `FileShare.Read` denies every subsequent open that asks for write or delete access, so the candidate can neither be modified nor swapped between validation and load. The handle pins the validated file.
+- **Linux and macOS**: POSIX has no mandatory locking, so a held descriptor cannot stop the *path* from being replaced. When at least one validator is registered, the file is re-read and compared against the validated snapshot immediately before the load, and a mismatch skips the candidate with a warning. This shortens the window between validation and load to the load call itself. It does not close it.
+
+Neither mechanism extends to the plugin's dependencies. Managed and native dependencies are resolved from the deployment folder by `AssemblyDependencyResolver` when they are first needed, without validation and without either guarantee above, which is why the protected active directory described in [Plugin Deployment Security](./plugin-security.md) remains the control that matters.
+
+Candidates that sit in `AppContext.BaseDirectory` are loaded into `AssemblyLoadContext.Default`, whose binder resolves by assembly *identity* first. If an assembly of that identity is already loaded, or ships with the host and is therefore on the default binder's list of platform assemblies, that one wins and the validated file is never loaded. `SAF.Messaging.Runtime.dll` is the case you are most likely to meet: `AddSafHost` discovers it from the base directory, where the host's own package reference has already placed it. Validation still runs for such a candidate, but it does not decide which bytes end up in the process.
+
+The digital-signature validator reads the Authenticode signature from the PE certificate table and recomputes the PE hash to confirm that the signature covers the file. Signer trust is decided by `WinVerifyTrust` on Windows and by `X509Chain` against the platform certificate store elsewhere; the semantics differ, because the cross-platform verifier validates only the certificate chain and leaves file integrity to the PE hash check, whereas `WinVerifyTrust` also applies the Authenticode policy layer above the chain.
+
+Custom validation can be added with your own validator implementation:
+
+```csharp
+using Microsoft.Extensions.Hosting;
+using SAF.PluginSystem.Hosting;
+using SAF.PluginSystem.Hosting.Contracts;
+using SAF.PluginSystem.Hosting.Extensions;
+
+public sealed class MyAssemblyValidator : IPluginAssemblyValidator
+{
+    public PluginAssemblyValidationResult Validate(PluginAssemblyValidationContext context)
+    {
+        // Use AssemblyBytes for content checks; AssemblyPath identifies the discovered file.
+        return PluginAssemblyValidationResult.Accepted();
+    }
+}
+
+public static class Program
+{
+    public static void Main(string[] args)
+    {
+        var builder = Host.CreateApplicationBuilder(args);
+        var pluginSystemBuilder = builder.AddPluginSystem(_ => { });
+
+        // Register in chain order
+        pluginSystemBuilder.AddPluginAssemblyValidator<MyAssemblyValidator>();
+    }
+}
+```
 
 ---
 

@@ -35,7 +35,7 @@ internal class ServiceHostDiagnostics(
 
             var basePath = string.IsNullOrWhiteSpace(hostInfo?.FileSystemUserBasePath)
                 ? fileSystem.Path.Combine(AppContext.BaseDirectory, "tempfs")
-                : hostInfo!.FileSystemUserBasePath;
+                : hostInfo.FileSystemUserBasePath;
 
             var targetDir = fileSystem.Path.Combine(basePath, "diagnostics");
             fileSystem.Directory.CreateDirectory(targetDir);
