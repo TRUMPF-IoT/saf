@@ -20,8 +20,8 @@ public class PluginAssemblyFolderContainer(
     ILoggerFactory loggerFactory,
     IPluginManifestLoader manifestLoader,
     PluginAssemblyFolderSearchOptions options,
-    IEnumerable<IPluginAssemblyValidator> assemblyValidators,
-    IFileSystem fileSystem)
+    IFileSystem fileSystem,
+    IEnumerable<IPluginAssemblyValidator> assemblyValidators)
     : IPluginAssemblyContainer
 {
     private readonly ILogger _logger = loggerFactory.CreateLogger<PluginAssemblyFolderContainer>();
@@ -128,7 +128,9 @@ public class PluginAssemblyFolderContainer(
                 _logger.LogDebug("Found manifest in {Assembly} from {AssemblyLocation}", assembly, assembly.Location);
                 manifests.Add(manifest);
             }
-            catch (Exception ex) when (ex is BadImageFormatException or FileLoadException or FileNotFoundException or ReflectionTypeLoadException or TypeLoadException)
+            catch (Exception ex) when (ex is BadImageFormatException or FileLoadException or FileNotFoundException
+                                          or ReflectionTypeLoadException or TypeLoadException
+                                          or IOException or UnauthorizedAccessException)
             {
                 _logger.LogError(ex, "Failed to load plugin manifest from {PluginAssemblyPath}, skipping assembly.", pluginAssemblyPath);
             }
@@ -159,7 +161,20 @@ public class PluginAssemblyFolderContainer(
 
         foreach (var validator in _assemblyValidators)
         {
-            var result = validator.Validate(validationContext);
+            PluginAssemblyValidationResult result;
+            try
+            {
+                result = validator.Validate(validationContext);
+            }
+            catch (Exception ex)
+            {
+                // IPluginAssemblyValidator is a public extension point: a throwing implementation
+                // must not abort the host, and the assembly is rejected (fail closed).
+                _logger.LogError(ex, "Validator {ValidatorType} threw while validating {PluginAssemblyPath}", validator.GetType().Name, pluginAssemblyPath);
+                rejectionReason = $"validator {validator.GetType().Name} threw {ex.GetType().Name}";
+                return false;
+            }
+
             if (result.IsAccepted)
             {
                 continue;

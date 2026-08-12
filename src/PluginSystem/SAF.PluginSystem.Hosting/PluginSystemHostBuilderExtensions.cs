@@ -74,8 +74,8 @@ public static class PluginSystemHostBuilderExtensions
                 sp.GetRequiredService<ILoggerFactory>(),
                 sp.GetRequiredService<IPluginManifestLoader>(),
                 options,
-                sp.GetServices<IPluginAssemblyValidator>(),
-                sp.GetRequiredService<IFileSystem>());
+                sp.GetRequiredService<IFileSystem>(),
+                sp.GetServices<IPluginAssemblyValidator>());
         });
 
         return hostBuilder;

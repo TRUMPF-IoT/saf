@@ -10,6 +10,9 @@ using Microsoft.Extensions.Options;
 using NSubstitute;
 using SAF.PluginSystem.Hosting.Extensions;
 using System.Reflection;
+using System.Runtime.Versioning;
+using System.Security.AccessControl;
+using System.Security.Principal;
 using Testably.Abstractions;
 
 public sealed class PluginAssemblyFolderContainerTests : IDisposable
@@ -59,7 +62,7 @@ public sealed class PluginAssemblyFolderContainerTests : IDisposable
             ExcludePatterns = "*.exclude.*",
             Recursive = true
         };
-        var container = new PluginAssemblyFolderContainer(_loggerFactory, manifestLoader, options, [], _fileSystem);
+        var container = new PluginAssemblyFolderContainer(_loggerFactory, manifestLoader, options, _fileSystem, []);
 
         // Act
         var result = container.GetPluginManifests().ToList();
@@ -90,7 +93,7 @@ public sealed class PluginAssemblyFolderContainerTests : IDisposable
             ExcludePatterns = "*.exclude.*",
             Recursive = false
         };
-        var container = new PluginAssemblyFolderContainer(_loggerFactory, manifestLoader, options, [], _fileSystem);
+        var container = new PluginAssemblyFolderContainer(_loggerFactory, manifestLoader, options, _fileSystem, []);
 
         // Act
         var result = container.GetPluginManifests().ToList();
@@ -113,7 +116,7 @@ public sealed class PluginAssemblyFolderContainerTests : IDisposable
             ExcludePatterns = "*.exclude.*",
             Recursive = true
         };
-        var container = new PluginAssemblyFolderContainer(_loggerFactory, manifestLoader, options, [], _fileSystem);
+        var container = new PluginAssemblyFolderContainer(_loggerFactory, manifestLoader, options, _fileSystem, []);
 
         // Act
         var result = container.GetPluginManifests().ToList();
@@ -134,7 +137,7 @@ public sealed class PluginAssemblyFolderContainerTests : IDisposable
             ExcludePatterns = "*.exclude.*",
             Recursive = true
         };
-        var container = new PluginAssemblyFolderContainer(_loggerFactory, _manifestLoader, options, [], _fileSystem);
+        var container = new PluginAssemblyFolderContainer(_loggerFactory, _manifestLoader, options, _fileSystem, []);
 
         // Act
         var result = container.GetPluginManifests();
@@ -154,7 +157,7 @@ public sealed class PluginAssemblyFolderContainerTests : IDisposable
             ExcludePatterns = string.Empty,
             Recursive = false
         };
-        var container = new PluginAssemblyFolderContainer(_loggerFactory, _manifestLoader, options, [], _fileSystem);
+        var container = new PluginAssemblyFolderContainer(_loggerFactory, _manifestLoader, options, _fileSystem, []);
 
         // Act
         var result = container.GetPluginManifests().ToList();
@@ -177,7 +180,7 @@ public sealed class PluginAssemblyFolderContainerTests : IDisposable
             ExcludePatterns = string.Empty,
             Recursive = false
         };
-        var container = new PluginAssemblyFolderContainer(_loggerFactory, manifestLoader, options, [], _fileSystem);
+        var container = new PluginAssemblyFolderContainer(_loggerFactory, manifestLoader, options, _fileSystem, []);
 
         // Act
         var result = container.GetPluginManifests().ToList();
@@ -206,7 +209,7 @@ public sealed class PluginAssemblyFolderContainerTests : IDisposable
             ExcludePatterns = string.Empty,
             Recursive = false
         };
-        var container = new PluginAssemblyFolderContainer(_loggerFactory, _manifestLoader, options, [], _fileSystem);
+        var container = new PluginAssemblyFolderContainer(_loggerFactory, _manifestLoader, options, _fileSystem, []);
 
         // Act
         var result = container.GetPluginManifests().ToList();
@@ -226,7 +229,7 @@ public sealed class PluginAssemblyFolderContainerTests : IDisposable
             ExcludePatterns = string.Empty,
             Recursive = false
         };
-        var container = new PluginAssemblyFolderContainer(_loggerFactory, _manifestLoader, options, [], _fileSystem);
+        var container = new PluginAssemblyFolderContainer(_loggerFactory, _manifestLoader, options, _fileSystem, []);
 
         // Act
         var firstCall = container.GetPluginManifests();
@@ -251,7 +254,7 @@ public sealed class PluginAssemblyFolderContainerTests : IDisposable
             ExcludePatterns = string.Empty,
             Recursive = false
         };
-        var container = new PluginAssemblyFolderContainer(_loggerFactory, manifestLoader, options, [], _fileSystem);
+        var container = new PluginAssemblyFolderContainer(_loggerFactory, manifestLoader, options, _fileSystem, []);
 
         // Act – call twice
         _ = container.GetPluginManifests().ToList();
@@ -276,7 +279,7 @@ public sealed class PluginAssemblyFolderContainerTests : IDisposable
             ExcludePatterns = string.Empty,
             Recursive = false
         };
-        var container = new PluginAssemblyFolderContainer(_loggerFactory, manifestLoader, options, [], _fileSystem);
+        var container = new PluginAssemblyFolderContainer(_loggerFactory, manifestLoader, options, _fileSystem, []);
 
         // Act
         var firstCall = container.GetPluginManifests().ToList();
@@ -310,7 +313,7 @@ public sealed class PluginAssemblyFolderContainerTests : IDisposable
             Recursive = false
         };
 
-        var container = new PluginAssemblyFolderContainer(_loggerFactory, manifestLoader, options, [], _fileSystem);
+        var container = new PluginAssemblyFolderContainer(_loggerFactory, manifestLoader, options, _fileSystem, []);
 
         // Act
         var result = container.GetPluginManifests().ToList();
@@ -343,8 +346,8 @@ public sealed class PluginAssemblyFolderContainerTests : IDisposable
             _loggerFactory,
             manifestLoader,
             options,
-            [new StrongNamePluginAssemblyValidator(optionsMonitor)],
-            _fileSystem);
+            _fileSystem,
+            [new StrongNamePluginAssemblyValidator(optionsMonitor)]);
 
         var result = container.GetPluginManifests().ToList();
 
@@ -365,7 +368,7 @@ public sealed class PluginAssemblyFolderContainerTests : IDisposable
             ExcludePatterns = string.Empty,
             Recursive = false
         };
-        var container = new PluginAssemblyFolderContainer(_loggerFactory, manifestLoader, options, [new RejectingPluginAssemblyValidator()], _fileSystem);
+        var container = new PluginAssemblyFolderContainer(_loggerFactory, manifestLoader, options, _fileSystem, [new RejectingPluginAssemblyValidator()]);
 
         var result = container.GetPluginManifests().ToList();
 
@@ -386,7 +389,7 @@ public sealed class PluginAssemblyFolderContainerTests : IDisposable
             ExcludePatterns = string.Empty,
             Recursive = false
         };
-        var container = new PluginAssemblyFolderContainer(_loggerFactory, manifestLoader, options, [], _fileSystem);
+        var container = new PluginAssemblyFolderContainer(_loggerFactory, manifestLoader, options, _fileSystem, []);
 
         var result = container.GetPluginManifests().ToList();
 
@@ -408,12 +411,120 @@ public sealed class PluginAssemblyFolderContainerTests : IDisposable
             ExcludePatterns = string.Empty,
             Recursive = false
         };
-        var container = new PluginAssemblyFolderContainer(_loggerFactory, manifestLoader, options, [validator], _fileSystem);
+        var container = new PluginAssemblyFolderContainer(_loggerFactory, manifestLoader, options, _fileSystem, [validator]);
 
         var result = container.GetPluginManifests().ToList();
 
         Assert.Single(result);
         Assert.True(validator.ReceivedContentSnapshot);
+    }
+
+    [Fact]
+    public void GetPluginManifests_SkipsAssembly_WhenFileIsExclusivelyLocked()
+    {
+        var testDirectory = CreateTestDirectory($"test-plugins-{Guid.NewGuid():N}");
+        var lockedPath = Path.Combine(testDirectory, "locked.include.dll");
+        var loadablePath = Path.Combine(testDirectory, "loadable.include.dll");
+        _fileSystem.File.Copy(_testAssemblyPath, lockedPath);
+        _fileSystem.File.Copy(_testAssemblyPath, loadablePath);
+
+        var manifestLoader = Substitute.For<IPluginManifestLoader>();
+        manifestLoader.LoadPluginManifest(Arg.Any<Assembly>()).Returns(Substitute.For<IPluginManifest>());
+
+        var options = new PluginAssemblyFolderSearchOptions
+        {
+            SearchRootPath = testDirectory,
+            IncludePatterns = "*.include.dll",
+            ExcludePatterns = string.Empty,
+            Recursive = false
+        };
+        var container = new PluginAssemblyFolderContainer(_loggerFactory, manifestLoader, options, _fileSystem, []);
+
+        using (new FileStream(lockedPath, FileMode.Open, FileAccess.ReadWrite, FileShare.None))
+        {
+            var result = container.GetPluginManifests().ToList();
+
+            Assert.Single(result);
+        }
+    }
+
+    [Fact]
+    public void GetPluginManifests_SkipsAssembly_WhenAccessIsDenied()
+    {
+        if (!OperatingSystem.IsWindows())
+        {
+            Assert.Skip("Denying read access requires Windows ACLs.");
+            return;
+        }
+
+        var testDirectory = CreateTestDirectory($"test-plugins-{Guid.NewGuid():N}");
+        var deniedPath = Path.Combine(testDirectory, "denied.include.dll");
+        var loadablePath = Path.Combine(testDirectory, "loadable.include.dll");
+        _fileSystem.File.Copy(_testAssemblyPath, deniedPath);
+        _fileSystem.File.Copy(_testAssemblyPath, loadablePath);
+        DenyReadAccessForCurrentUser(deniedPath);
+
+        var manifestLoader = Substitute.For<IPluginManifestLoader>();
+        manifestLoader.LoadPluginManifest(Arg.Any<Assembly>()).Returns(Substitute.For<IPluginManifest>());
+
+        var options = new PluginAssemblyFolderSearchOptions
+        {
+            SearchRootPath = testDirectory,
+            IncludePatterns = "*.include.dll",
+            ExcludePatterns = string.Empty,
+            Recursive = false
+        };
+        var container = new PluginAssemblyFolderContainer(_loggerFactory, manifestLoader, options, _fileSystem, []);
+
+        var result = container.GetPluginManifests().ToList();
+
+        Assert.Single(result);
+    }
+
+    [Fact]
+    public void GetPluginManifests_SkipsAssembly_WhenCustomValidationThrows()
+    {
+        var testDirectory = CreateTestDirectory($"test-plugins-{Guid.NewGuid():N}");
+        var throwingPath = Path.Combine(testDirectory, "throwing.include.dll");
+        var loadablePath = Path.Combine(testDirectory, "loadable.include.dll");
+        _fileSystem.File.Copy(_testAssemblyPath, throwingPath);
+        _fileSystem.File.Copy(_testAssemblyPath, loadablePath);
+
+        var manifestLoader = Substitute.For<IPluginManifestLoader>();
+        manifestLoader.LoadPluginManifest(Arg.Any<Assembly>()).Returns(Substitute.For<IPluginManifest>());
+
+        var options = new PluginAssemblyFolderSearchOptions
+        {
+            SearchRootPath = testDirectory,
+            IncludePatterns = "*.include.dll",
+            ExcludePatterns = string.Empty,
+            Recursive = false
+        };
+        var container = new PluginAssemblyFolderContainer(
+            _loggerFactory, manifestLoader, options, _fileSystem, [new ThrowingPluginAssemblyValidator(throwingPath)]);
+
+        var result = container.GetPluginManifests().ToList();
+
+        Assert.Single(result);
+        manifestLoader.Received(1).LoadPluginManifest(Arg.Any<Assembly>());
+    }
+
+    [SupportedOSPlatform("windows")]
+    private static void DenyReadAccessForCurrentUser(string path)
+    {
+        var fileInfo = new FileInfo(path);
+        var security = fileInfo.GetAccessControl();
+        security.AddAccessRule(new FileSystemAccessRule(
+            WindowsIdentity.GetCurrent().User!, FileSystemRights.Read, AccessControlType.Deny));
+        fileInfo.SetAccessControl(security);
+    }
+
+    private sealed class ThrowingPluginAssemblyValidator(string throwingAssemblyPath) : IPluginAssemblyValidator
+    {
+        public PluginAssemblyValidationResult Validate(PluginAssemblyValidationContext context)
+            => string.Equals(context.AssemblyPath, throwingAssemblyPath, StringComparison.OrdinalIgnoreCase)
+                ? throw new InvalidOperationException("Validator failure by test")
+                : PluginAssemblyValidationResult.Accepted();
     }
 
     private sealed class RejectingPluginAssemblyValidator : IPluginAssemblyValidator
