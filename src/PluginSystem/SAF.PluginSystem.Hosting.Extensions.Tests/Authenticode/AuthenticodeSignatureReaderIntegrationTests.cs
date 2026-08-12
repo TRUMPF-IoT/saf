@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: 2017-2026 TRUMPF Laser SE
+﻿// SPDX-FileCopyrightText: 2017-2026 TRUMPF Laser SE
 //
 // SPDX-License-Identifier: MPL-2.0
 
@@ -12,15 +12,13 @@ using System.Security.Cryptography.X509Certificates;
 
 public sealed class AuthenticodeSignatureReaderIntegrationTests
 {
-    private const string SignedAssemblyEnvironmentVariable = "SAF_AUTHENTICODE_SIGNED_ASSEMBLY";
-
     [Fact]
     public void ReadSignature_ValidatesTrustedDotNetRuntimeAssembly_UsingWindowsTrust()
     {
         // The Microsoft code-signing root is trusted on Windows, so the runtime assembly is trusted there.
         // Other platforms do not carry that root, which is why only this test asserts trust.
         Assert.SkipUnless(OperatingSystem.IsWindows(), "This test covers the Windows WinVerifyTrust path.");
-        var runtimeAssemblyPath = FindSignedDotNetRuntimeAssembly();
+        var runtimeAssemblyPath = AuthenticodeFixtures.FindSignedDotNetRuntimeAssembly();
         Assert.SkipWhen(runtimeAssemblyPath is null, "No Authenticode-signed .NET runtime assembly is available.");
 
         var reader = AuthenticodeReaderFactory.CreateDefault();
@@ -34,7 +32,7 @@ public sealed class AuthenticodeSignatureReaderIntegrationTests
     [Fact]
     public void ReadSignature_FromContentSnapshot_AgreesWithTheFileRoute()
     {
-        var runtimeAssemblyPath = FindSignedDotNetRuntimeAssembly();
+        var runtimeAssemblyPath = AuthenticodeFixtures.FindSignedDotNetRuntimeAssembly();
         Assert.SkipWhen(runtimeAssemblyPath is null, "No Authenticode-signed .NET runtime assembly is available.");
 
         var reader = AuthenticodeReaderFactory.CreateDefault();
@@ -48,12 +46,19 @@ public sealed class AuthenticodeSignatureReaderIntegrationTests
         Assert.False(string.IsNullOrWhiteSpace(fromSnapshot!.SignerThumbprint));
         Assert.Equal(fromFile!.SignerThumbprint, fromSnapshot.SignerThumbprint);
         Assert.Equal(fromFile.HasValidDigitalSignature, fromSnapshot.HasValidDigitalSignature);
+
+        // Agreement alone would also hold if both routes reported untrusted, which is exactly the state
+        // the regression produced. On Windows the verdict is known, so it is asserted outright.
+        if (OperatingSystem.IsWindows())
+        {
+            Assert.True(fromSnapshot.HasValidDigitalSignature);
+        }
     }
 
     [Fact]
     public void ReadSignature_DoesNotTouchTheFileSystem_ForContentSnapshots()
     {
-        var runtimeAssemblyPath = FindSignedDotNetRuntimeAssembly();
+        var runtimeAssemblyPath = AuthenticodeFixtures.FindSignedDotNetRuntimeAssembly();
         Assert.SkipWhen(runtimeAssemblyPath is null, "No Authenticode-signed .NET runtime assembly is available.");
 
         var reader = AuthenticodeReaderFactory.CreateDefault();
@@ -70,7 +75,7 @@ public sealed class AuthenticodeSignatureReaderIntegrationTests
     public void ReadSignature_RejectsUntrustedSigntoolAssembly_UsingWindowsTrust()
     {
         Assert.SkipUnless(OperatingSystem.IsWindows(), "This test covers the Windows WinVerifyTrust path.");
-        var signedAssemblyPath = GetSignedAssemblyPath();
+        var signedAssemblyPath = AuthenticodeFixtures.FindSigntoolSignedAssembly();
         Assert.SkipWhen(signedAssemblyPath is null, "The signtool-signed fixture is not configured.");
 
         var reader = AuthenticodeReaderFactory.CreateDefault();
@@ -85,7 +90,7 @@ public sealed class AuthenticodeSignatureReaderIntegrationTests
     public void ReadSignature_RejectsUntrustedSigntoolAssembly_UsingLinuxChainTrust()
     {
         Assert.SkipUnless(OperatingSystem.IsLinux(), "This test covers the Linux X509Chain path.");
-        var signedAssemblyPath = GetSignedAssemblyPath();
+        var signedAssemblyPath = AuthenticodeFixtures.FindSigntoolSignedAssembly();
         Assert.SkipWhen(signedAssemblyPath is null, "The signtool-signed fixture is not configured.");
 
         var reader = AuthenticodeReaderFactory.CreateDefault();
@@ -99,7 +104,7 @@ public sealed class AuthenticodeSignatureReaderIntegrationTests
     [Fact]
     public void ReadSignature_RejectsSigntoolSignedAssembly_WhenCertificateTableIncludesAppendedPayload()
     {
-        var signedAssemblyPath = GetSignedAssemblyPath();
+        var signedAssemblyPath = AuthenticodeFixtures.FindSigntoolSignedAssembly();
         Assert.SkipWhen(signedAssemblyPath is null, "The signtool-signed fixture is not configured.");
 
         var malformedAssemblyPath = CreateCertificateTablePayloadCopy(signedAssemblyPath!);
@@ -120,7 +125,7 @@ public sealed class AuthenticodeSignatureReaderIntegrationTests
     [Fact]
     public void AuthenticodePeHasher_RejectsCertificateTableWithAppendedPayload()
     {
-        var signedAssemblyPath = GetSignedAssemblyPath();
+        var signedAssemblyPath = AuthenticodeFixtures.FindSigntoolSignedAssembly();
         Assert.SkipWhen(signedAssemblyPath is null, "The signtool-signed fixture is not configured.");
 
         var malformedAssemblyPath = CreateCertificateTablePayloadCopy(signedAssemblyPath!);
@@ -142,7 +147,7 @@ public sealed class AuthenticodeSignatureReaderIntegrationTests
     [Fact]
     public void ReadSignature_RejectsSigntoolSignedAssembly_WhenFileIsTampered()
     {
-        var signedAssemblyPath = GetSignedAssemblyPath();
+        var signedAssemblyPath = AuthenticodeFixtures.FindSigntoolSignedAssembly();
         Assert.SkipWhen(signedAssemblyPath is null, "The signtool-signed fixture is not configured.");
 
         var tamperedAssemblyPath = CreateTamperedCopy(signedAssemblyPath!);
@@ -158,34 +163,6 @@ public sealed class AuthenticodeSignatureReaderIntegrationTests
         {
             File.Delete(tamperedAssemblyPath);
         }
-    }
-
-    private static string? GetSignedAssemblyPath()
-    {
-        var path = Environment.GetEnvironmentVariable(SignedAssemblyEnvironmentVariable);
-        return !string.IsNullOrWhiteSpace(path) && File.Exists(path) ? path : null;
-    }
-
-    // Finds an assembly whose signature verifiably covers the file. Whether it also chains to a trusted
-    // root depends on the platform trust store, so callers must not assume it.
-    private static string? FindSignedDotNetRuntimeAssembly()
-    {
-        var runtimeDirectory = Path.GetDirectoryName(typeof(object).Assembly.Location);
-        if (string.IsNullOrWhiteSpace(runtimeDirectory) || !Directory.Exists(runtimeDirectory))
-        {
-            return null;
-        }
-
-        var reader = AuthenticodeReaderFactory.CreateDefault();
-        foreach (var candidate in Directory.EnumerateFiles(runtimeDirectory, "*.dll"))
-        {
-            if (reader.ReadSignature(candidate) is { SignerThumbprint: { Length: > 0 } })
-            {
-                return candidate;
-            }
-        }
-
-        return null;
     }
 
     private static string ReadExpectedThumbprint(string signedAssemblyPath)

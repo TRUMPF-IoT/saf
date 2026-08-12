@@ -21,13 +21,10 @@ using System.Security.Cryptography.X509Certificates;
 /// </remarks>
 public sealed class AuthenticodeTrustedRootIntegrationTests
 {
-    private const string SignedAssemblyEnvironmentVariable = "SAF_AUTHENTICODE_SIGNED_ASSEMBLY";
-    private const string TrustedRootEnvironmentVariable = "SAF_AUTHENTICODE_TRUSTED_ROOT";
-
     [Fact]
     public void ReadSignature_ReportsATrustedSignature_ThroughThePlatformTrustStore()
     {
-        var signedAssemblyPath = GetTrustedFixturePath();
+        var signedAssemblyPath = AuthenticodeFixtures.FindTrustedSigntoolSignedAssembly();
         Assert.SkipWhen(signedAssemblyPath is null, "The fixture certificate is not installed as a trusted root.");
 
         var result = AuthenticodeReaderFactory.CreateDefault().ReadSignature(signedAssemblyPath!);
@@ -39,7 +36,7 @@ public sealed class AuthenticodeTrustedRootIntegrationTests
     [Fact]
     public void ReadSignature_ReportsATrustedSignature_FromAContentSnapshot()
     {
-        var signedAssemblyPath = GetTrustedFixturePath();
+        var signedAssemblyPath = AuthenticodeFixtures.FindTrustedSigntoolSignedAssembly();
         Assert.SkipWhen(signedAssemblyPath is null, "The fixture certificate is not installed as a trusted root.");
 
         var result = AuthenticodeReaderFactory.CreateDefault().ReadSignature(File.ReadAllBytes(signedAssemblyPath!));
@@ -52,7 +49,7 @@ public sealed class AuthenticodeTrustedRootIntegrationTests
     [Fact]
     public void ReadSignature_RejectsTheFixture_WhenItWasModifiedAfterSigning()
     {
-        var signedAssemblyPath = GetTrustedFixturePath();
+        var signedAssemblyPath = AuthenticodeFixtures.FindTrustedSigntoolSignedAssembly();
         Assert.SkipWhen(signedAssemblyPath is null, "The fixture certificate is not installed as a trusted root.");
 
         var tamperedPath = Path.Combine(Path.GetTempPath(), $"authenticode-trusted-tampered-{Guid.NewGuid():N}.dll");
@@ -72,17 +69,6 @@ public sealed class AuthenticodeTrustedRootIntegrationTests
         {
             File.Delete(tamperedPath);
         }
-    }
-
-    private static string? GetTrustedFixturePath()
-    {
-        if (Environment.GetEnvironmentVariable(TrustedRootEnvironmentVariable) != "1")
-        {
-            return null;
-        }
-
-        var path = Environment.GetEnvironmentVariable(SignedAssemblyEnvironmentVariable);
-        return !string.IsNullOrWhiteSpace(path) && File.Exists(path) ? path : null;
     }
 
     private static string ReadExpectedThumbprint(string signedAssemblyPath)

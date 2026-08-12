@@ -230,9 +230,12 @@ jobs:
         $certificatePath = [IO.Path]::ChangeExtension($env:SIGNED_ASSEMBLY, '.cer')
         if (-not (Test-Path -LiteralPath $certificatePath -PathType Leaf)) { throw "Signer certificate fixture was not found: $certificatePath" }
 
+    # Every test here begins with a skip when its fixture is missing, so without the require flag a broken
+    # download or a renamed variable would leave the job green having asserted nothing.
     - name: Run Authenticode integration tests
       env:
         SAF_AUTHENTICODE_SIGNED_ASSEMBLY: ${{ github.workspace }}/signed-authenticode/SAF.Authenticode.SignedFixture.dll
+        SAF_AUTHENTICODE_REQUIRE_FIXTURE: '1'
       run: dotnet test './src/PluginSystem/SAF.PluginSystem.Hosting.Extensions.Tests/SAF.PluginSystem.Hosting.Extensions.Tests.csproj' --configuration Release --filter 'FullyQualifiedName~AuthenticodeSignatureReaderIntegrationTests' --verbosity normal
 
   # Installs the fixture certificate as a trusted root, which is the only way to see the production
