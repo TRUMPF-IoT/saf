@@ -17,9 +17,11 @@ public sealed class AuthenticodeSignatureReaderIntegrationTests
     [Fact]
     public void ReadSignature_ValidatesTrustedDotNetRuntimeAssembly_UsingWindowsTrust()
     {
+        // The Microsoft code-signing root is trusted on Windows, so the runtime assembly is trusted there.
+        // Other platforms do not carry that root, which is why only this test asserts trust.
         Assert.SkipUnless(OperatingSystem.IsWindows(), "This test covers the Windows WinVerifyTrust path.");
-        var runtimeAssemblyPath = FindTrustedDotNetRuntimeAssembly();
-        Assert.SkipWhen(runtimeAssemblyPath is null, "No trusted Authenticode-signed .NET runtime assembly is available.");
+        var runtimeAssemblyPath = FindSignedDotNetRuntimeAssembly();
+        Assert.SkipWhen(runtimeAssemblyPath is null, "No Authenticode-signed .NET runtime assembly is available.");
 
         var reader = new AuthenticodeSignatureReader();
         var result = reader.ReadSignature(runtimeAssemblyPath!);
@@ -30,33 +32,37 @@ public sealed class AuthenticodeSignatureReaderIntegrationTests
     }
 
     [Fact]
-    public void ReadSignature_ValidatesTrustedDotNetRuntimeAssembly_FromContentSnapshot()
+    public void ReadSignature_FromContentSnapshot_AgreesWithTheFileRoute()
     {
-        var runtimeAssemblyPath = FindTrustedDotNetRuntimeAssembly();
-        Assert.SkipWhen(runtimeAssemblyPath is null, "No trusted Authenticode-signed .NET runtime assembly is available.");
+        var runtimeAssemblyPath = FindSignedDotNetRuntimeAssembly();
+        Assert.SkipWhen(runtimeAssemblyPath is null, "No Authenticode-signed .NET runtime assembly is available.");
 
         var reader = new AuthenticodeSignatureReader();
-        var result = reader.ReadSignature(File.ReadAllBytes(runtimeAssemblyPath!));
+        var fromFile = reader.ReadSignature(runtimeAssemblyPath!);
+        var fromSnapshot = reader.ReadSignature(File.ReadAllBytes(runtimeAssemblyPath!));
 
         // Regression: the snapshot used to be verified through a temporary file, which WinVerifyTrust
-        // could not open while the writing handle was alive, so every snapshot was reported untrusted.
-        Assert.NotNull(result);
-        Assert.False(string.IsNullOrWhiteSpace(result!.SignerThumbprint));
-        Assert.True(result.HasValidDigitalSignature);
+        // could not open while the writing handle was alive, so every snapshot was reported untrusted
+        // while the same file was trusted through the path route.
+        Assert.NotNull(fromSnapshot);
+        Assert.False(string.IsNullOrWhiteSpace(fromSnapshot!.SignerThumbprint));
+        Assert.Equal(fromFile!.SignerThumbprint, fromSnapshot.SignerThumbprint);
+        Assert.Equal(fromFile.HasValidDigitalSignature, fromSnapshot.HasValidDigitalSignature);
     }
 
     [Fact]
     public void ReadSignature_DoesNotTouchTheFileSystem_ForContentSnapshots()
     {
-        var runtimeAssemblyPath = FindTrustedDotNetRuntimeAssembly();
-        Assert.SkipWhen(runtimeAssemblyPath is null, "No trusted Authenticode-signed .NET runtime assembly is available.");
+        var runtimeAssemblyPath = FindSignedDotNetRuntimeAssembly();
+        Assert.SkipWhen(runtimeAssemblyPath is null, "No Authenticode-signed .NET runtime assembly is available.");
 
         var reader = new AuthenticodeSignatureReader();
 
         var result = reader.ReadSignature(File.ReadAllBytes(runtimeAssemblyPath!));
 
-        // Signature checking must not depend on a writable temp directory.
-        Assert.True(result?.HasValidDigitalSignature);
+        // A non-empty thumbprint means the PE hash was recomputed over the snapshot and matched, so the
+        // check did its work without a writable temp directory.
+        Assert.False(string.IsNullOrWhiteSpace(result?.SignerThumbprint));
         Assert.Empty(Directory.EnumerateFiles(Path.GetTempPath(), "saf-authenticode-*.dll"));
     }
 
@@ -160,7 +166,9 @@ public sealed class AuthenticodeSignatureReaderIntegrationTests
         return !string.IsNullOrWhiteSpace(path) && File.Exists(path) ? path : null;
     }
 
-    private static string? FindTrustedDotNetRuntimeAssembly()
+    // Finds an assembly whose signature verifiably covers the file. Whether it also chains to a trusted
+    // root depends on the platform trust store, so callers must not assume it.
+    private static string? FindSignedDotNetRuntimeAssembly()
     {
         var runtimeDirectory = Path.GetDirectoryName(typeof(object).Assembly.Location);
         if (string.IsNullOrWhiteSpace(runtimeDirectory) || !Directory.Exists(runtimeDirectory))
