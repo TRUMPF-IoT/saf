@@ -7,6 +7,7 @@ namespace SAF.PluginSystem.Hosting;
 using Contracts;
 using Microsoft.Extensions.FileSystemGlobbing;
 using Microsoft.Extensions.Logging;
+using System.Buffers;
 using System.Collections.Generic;
 using System.IO;
 using System.Reflection;
@@ -24,6 +25,8 @@ public class PluginAssemblyFolderContainer(
     IEnumerable<IPluginAssemblyValidator> assemblyValidators)
     : IPluginAssemblyContainer
 {
+    private const int CompareBufferSize = 64 * 1024;
+
     private readonly ILogger _logger = loggerFactory.CreateLogger<PluginAssemblyFolderContainer>();
     private readonly IPluginManifestLoader _manifestLoader = manifestLoader;
     private readonly IFileSystem _fileSystem = fileSystem;
@@ -52,8 +55,9 @@ public class PluginAssemblyFolderContainer(
         }
     }
 
+    // Absolute paths: LoadFromAssemblyPath rejects relative ones, and validators see a canonical path.
     private List<string> GetPluginAssemblyPaths()
-        => SearchDirectoryForMatchingFiles(SearchOptions.SearchRootPath);
+        => [.. SearchDirectoryForMatchingFiles(SearchOptions.SearchRootPath).Select(_fileSystem.Path.GetFullPath)];
 
     private List<string> SearchDirectoryForMatchingFiles(string directory)
     {
@@ -92,6 +96,9 @@ public class PluginAssemblyFolderContainer(
         {
             try
             {
+                // FileShare.Read denies every subsequent open that asks for write or delete access, so on
+                // Windows this handle pins the candidate: it cannot be modified or swapped between the
+                // validation below and the load further down. The handle is kept open until both are done.
                 using var assemblyFile = _fileSystem.FileInfo.New(pluginAssemblyPath)
                     .Open(FileMode.Open, FileAccess.Read, FileShare.Read);
                 using var assemblyBuffer = new MemoryStream();
@@ -111,12 +118,17 @@ public class PluginAssemblyFolderContainer(
                     _fileSystem.Path.GetDirectoryName(pluginAssemblyPath),
                     StringComparison.OrdinalIgnoreCase) == 0;
 
+                if (!IsUnchangedOnDisk(pluginAssemblyPath, assemblyBytes))
+                {
+                    _logger.LogWarning("Skip plugin assembly {PluginAssemblyPath}: the file changed after it was validated", pluginAssemblyPath);
+                    continue;
+                }
+
                 var pluginLoadContext = isInBaseDirectory
                     ? AssemblyLoadContext.Default
                     : new PluginAssemblyLoadContext(loggerFactory, pluginAssemblyPath, _fileSystem);
 
-                using var assemblyStream = new MemoryStream(assemblyBytes, writable: false);
-                var assembly = pluginLoadContext.LoadFromStream(assemblyStream);
+                var assembly = pluginLoadContext.LoadFromAssemblyPath(pluginAssemblyPath);
                 var manifest = _manifestLoader.LoadPluginManifest(assembly);
 
                 if (manifest == null)
@@ -137,6 +149,67 @@ public class PluginAssemblyFolderContainer(
         }
 
         return manifests;
+    }
+
+    /// <summary>
+    /// Confirms that the file still holds the content that was just validated.
+    /// </summary>
+    /// <remarks>
+    /// POSIX file locks are advisory, so the open handle cannot keep the path stable: the file can still
+    /// be modified or replaced after validation. Re-reading it immediately before the load does not close
+    /// that window, but shrinks it from the duration of validation - certificate chain building, possibly
+    /// including network revocation checks - down to the load call itself.
+    /// </remarks>
+    private bool IsUnchangedOnDisk(string pluginAssemblyPath, byte[] validatedBytes)
+    {
+        // Windows pins the file with the FileShare.Read handle held around validation and load, which is
+        // a stronger guarantee than re-reading. Without validators there is no result a swap could
+        // invalidate, so neither check buys anything.
+        if (OperatingSystem.IsWindows() || _assemblyValidators.Count == 0)
+        {
+            return true;
+        }
+
+        try
+        {
+            return MatchesFileContent(_fileSystem, pluginAssemblyPath, validatedBytes);
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            _logger.LogWarning(ex, "Cannot re-read plugin assembly {PluginAssemblyPath} before loading it", pluginAssemblyPath);
+            return false;
+        }
+    }
+
+    internal static bool MatchesFileContent(IFileSystem fileSystem, string path, ReadOnlySpan<byte> expected)
+    {
+        using var stream = fileSystem.FileInfo.New(path).Open(FileMode.Open, FileAccess.Read, FileShare.Read);
+        if (stream.Length != expected.Length)
+        {
+            return false;
+        }
+
+        var buffer = ArrayPool<byte>.Shared.Rent(CompareBufferSize);
+        try
+        {
+            var offset = 0;
+            while (offset < expected.Length)
+            {
+                var read = stream.Read(buffer, 0, Math.Min(buffer.Length, expected.Length - offset));
+                if (read <= 0 || !buffer.AsSpan(0, read).SequenceEqual(expected.Slice(offset, read)))
+                {
+                    return false;
+                }
+
+                offset += read;
+            }
+
+            return true;
+        }
+        finally
+        {
+            ArrayPool<byte>.Shared.Return(buffer);
+        }
     }
 
     private bool TryValidateAssembly(

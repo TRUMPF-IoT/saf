@@ -5,6 +5,7 @@
 namespace SAF.PluginSystem.Hosting.Tests;
 
 using Contracts;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using NSubstitute;
@@ -398,7 +399,7 @@ public sealed class PluginAssemblyFolderContainerTests : IDisposable
     }
 
     [Fact]
-    public void GetPluginManifests_LoadsSnapshot_WhenAssemblyPathChangesAfterValidation()
+    public void GetPluginManifests_NeverLoadsContent_ThatWasNotValidated()
     {
         var manifestLoader = Substitute.For<IPluginManifestLoader>();
         manifestLoader.LoadPluginManifest(Arg.Any<Assembly>()).Returns(Substitute.For<IPluginManifest>());
@@ -411,12 +412,111 @@ public sealed class PluginAssemblyFolderContainerTests : IDisposable
             ExcludePatterns = string.Empty,
             Recursive = false
         };
-        var container = new PluginAssemblyFolderContainer(_loggerFactory, manifestLoader, options, _fileSystem, [validator]);
+        var loggerFactory = new CapturingLoggerFactory();
+        var container = new PluginAssemblyFolderContainer(loggerFactory, manifestLoader, options, _fileSystem, [validator]);
+
+        var result = container.GetPluginManifests().ToList();
+
+        Assert.True(validator.ReceivedContentSnapshot);
+
+        if (OperatingSystem.IsWindows())
+        {
+            // The pinning handle denies the write, so the validated file is still the one that is loaded.
+            Assert.Single(result);
+        }
+        else
+        {
+            // The replacement succeeds, and the check before the load must catch it.
+            Assert.Empty(result);
+            Assert.Contains(loggerFactory.Entries, entry => entry.Message.Contains("changed after it was validated", StringComparison.Ordinal));
+        }
+    }
+
+    [Fact]
+    public void MatchesFileContent_ReturnsTrue_ForUnchangedFile()
+    {
+        var path = Path.Combine(_testRootPath, $"compare-{Guid.NewGuid():N}.bin");
+        var content = new byte[(64 * 1024) + 137];
+        Random.Shared.NextBytes(content);
+        _fileSystem.File.WriteAllBytes(path, content);
+
+        Assert.True(PluginAssemblyFolderContainer.MatchesFileContent(_fileSystem, path, content));
+    }
+
+    [Fact]
+    public void MatchesFileContent_ReturnsFalse_WhenContentOrLengthChanged()
+    {
+        var path = Path.Combine(_testRootPath, $"compare-{Guid.NewGuid():N}.bin");
+        var content = new byte[(64 * 1024) + 137];
+        Random.Shared.NextBytes(content);
+
+        // Same length, different content in the second buffer window.
+        _fileSystem.File.WriteAllBytes(path, content);
+        var modified = (byte[])content.Clone();
+        modified[^1] ^= 0xFF;
+        Assert.False(PluginAssemblyFolderContainer.MatchesFileContent(_fileSystem, path, modified));
+
+        // Shorter and longer than the validated content.
+        _fileSystem.File.WriteAllBytes(path, content[..1024]);
+        Assert.False(PluginAssemblyFolderContainer.MatchesFileContent(_fileSystem, path, content));
+        _fileSystem.File.WriteAllBytes(path, [.. content, 0x00]);
+        Assert.False(PluginAssemblyFolderContainer.MatchesFileContent(_fileSystem, path, content));
+    }
+
+    [Fact]
+    public void GetPluginManifests_PopulatesAssemblyLocation_ForPluginOutsideBaseDirectory()
+    {
+        var testDirectory = CreateTestDirectory($"test-plugins-{Guid.NewGuid():N}");
+        var pluginPath = Path.Combine(testDirectory, "located.include.dll");
+        _fileSystem.File.Copy(_testAssemblyPath, pluginPath);
+
+        var manifestLoader = new LocationCapturingManifestLoader();
+        var options = new PluginAssemblyFolderSearchOptions
+        {
+            SearchRootPath = testDirectory,
+            IncludePatterns = "*.include.dll",
+            ExcludePatterns = string.Empty,
+            Recursive = false
+        };
+        var container = new PluginAssemblyFolderContainer(
+            _loggerFactory, manifestLoader, options, _fileSystem, [new AcceptingPluginAssemblyValidator()]);
 
         var result = container.GetPluginManifests().ToList();
 
         Assert.Single(result);
-        Assert.True(validator.ReceivedContentSnapshot);
+
+        // The deployment path itself, so that code resolving resources next to Assembly.Location works.
+        Assert.Equal(pluginPath, manifestLoader.CapturedLocation, StringComparer.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public void GetPluginManifests_ResolvesPluginDependencies_FromDeploymentFolder()
+    {
+        var pluginOutputDirectory = Path.Combine(AppContext.BaseDirectory, "plugins", "TestPlugin.PluginA");
+        var pluginDirectory = CreateTestDirectory($"test-plugins-{Guid.NewGuid():N}");
+        foreach (var filePath in _fileSystem.Directory.GetFiles(pluginOutputDirectory))
+        {
+            _fileSystem.File.Copy(filePath, Path.Combine(pluginDirectory, Path.GetFileName(filePath)));
+        }
+
+        var options = new PluginAssemblyFolderSearchOptions
+        {
+            SearchRootPath = pluginDirectory,
+            IncludePatterns = "TestPlugin.PluginA.dll",
+            ExcludePatterns = string.Empty,
+            Recursive = false
+        };
+        var container = new PluginAssemblyFolderContainer(_loggerFactory, _manifestLoader, options, _fileSystem, []);
+
+        var manifest = Assert.Single(container.GetPluginManifests());
+
+        var entryType = manifest.GetType().Assembly.GetType("TestPlugin.PluginA.PluginAEntry");
+        Assert.NotNull(entryType);
+        var dependency = (Assembly)entryType.GetMethod("GetDependencyAssembly")!.Invoke(null, null)!;
+
+        // The dependency must resolve through the .deps.json of the deployment folder.
+        Assert.Equal("TestPlugin.DependencyA", dependency.GetName().Name);
+        Assert.Equal(pluginDirectory, Path.GetDirectoryName(dependency.Location), StringComparer.OrdinalIgnoreCase);
     }
 
     [Fact]
@@ -517,6 +617,46 @@ public sealed class PluginAssemblyFolderContainerTests : IDisposable
         security.AddAccessRule(new FileSystemAccessRule(
             WindowsIdentity.GetCurrent().User!, FileSystemRights.Read, AccessControlType.Deny));
         fileInfo.SetAccessControl(security);
+    }
+
+    private sealed class AcceptingPluginAssemblyValidator : IPluginAssemblyValidator
+    {
+        public PluginAssemblyValidationResult Validate(PluginAssemblyValidationContext context)
+            => PluginAssemblyValidationResult.Accepted();
+    }
+
+    private sealed record LogEntry(LogLevel Level, string Message);
+
+    private sealed class CapturingLoggerFactory : ILoggerFactory
+    {
+        public List<LogEntry> Entries { get; } = [];
+
+        public ILogger CreateLogger(string categoryName) => new CapturingLogger(Entries);
+
+        public void AddProvider(ILoggerProvider provider) { }
+
+        public void Dispose() { }
+
+        private sealed class CapturingLogger(List<LogEntry> entries) : ILogger
+        {
+            public IDisposable? BeginScope<TState>(TState state) where TState : notnull => null;
+
+            public bool IsEnabled(LogLevel logLevel) => true;
+
+            public void Log<TState>(LogLevel logLevel, EventId eventId, TState state, Exception? exception, Func<TState, Exception?, string> formatter)
+                => entries.Add(new LogEntry(logLevel, formatter(state, exception)));
+        }
+    }
+
+    private sealed class LocationCapturingManifestLoader : IPluginManifestLoader
+    {
+        public string? CapturedLocation { get; private set; }
+
+        public IPluginManifest? LoadPluginManifest(Assembly assembly)
+        {
+            CapturedLocation = assembly.Location;
+            return Substitute.For<IPluginManifest>();
+        }
     }
 
     private sealed class ThrowingPluginAssemblyValidator(string throwingAssemblyPath) : IPluginAssemblyValidator

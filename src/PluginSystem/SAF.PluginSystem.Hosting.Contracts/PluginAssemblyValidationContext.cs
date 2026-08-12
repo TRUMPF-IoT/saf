@@ -38,7 +38,10 @@ public sealed class PluginAssemblyValidationContext
     }
 
     /// <summary>
-    /// Gets the path of the assembly candidate.
+    /// Gets the path of the assembly candidate. A validator may read the file directly instead of working
+    /// on <see cref="AssemblyBytes"/>: where the hosting pipeline cannot keep the file stable for the
+    /// duration of the call, it compares the file against the snapshot again before loading it, so a
+    /// divergence leads to a rejected candidate rather than to an unnoticed load.
     /// </summary>
     public string AssemblyPath { get; }
 
