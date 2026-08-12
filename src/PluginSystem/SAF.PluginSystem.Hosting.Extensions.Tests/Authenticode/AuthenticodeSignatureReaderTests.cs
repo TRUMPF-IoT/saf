@@ -11,7 +11,7 @@ using System.Security.Cryptography.Pkcs;
 
 public class AuthenticodeSignatureReaderTests
 {
-    private readonly AuthenticodeSignatureReader _reader = new();
+    private readonly IAuthenticodeSignatureReader _reader = AuthenticodeReaderFactory.CreateDefault();
 
     [Fact]
     public void ReadSignature_ReturnsNull_WhenFileIsNotSigned()
@@ -133,7 +133,7 @@ public class AuthenticodeSignatureReaderTests
             bytes[bytes.Length / 2] ^= 0xFF;
             File.WriteAllBytes(tamperedPath, bytes);
 
-            var reader = new AuthenticodeSignatureReader(new ChainOnlyTrustingVerifier());
+            var reader = AuthenticodeReaderFactory.Create(new ChainOnlyTrustingVerifier());
 
             var result = reader.ReadSignature(tamperedPath);
 
@@ -156,7 +156,7 @@ public class AuthenticodeSignatureReaderTests
         Assert.SkipWhen(signedPath is null, "No Authenticode-signed binary available in this environment.");
 
         var verifier = new PathRecordingVerifier();
-        var reader = new AuthenticodeSignatureReader(verifier);
+        var reader = AuthenticodeReaderFactory.Create(verifier);
 
         _ = reader.ReadSignature(File.ReadAllBytes(signedPath!));
 
@@ -172,7 +172,7 @@ public class AuthenticodeSignatureReaderTests
         Assert.SkipWhen(signedPath is null, "No Authenticode-signed binary available in this environment.");
 
         var verifier = new FileBoundVerifier();
-        var reader = new AuthenticodeSignatureReader(verifier);
+        var reader = AuthenticodeReaderFactory.Create(verifier);
 
         _ = reader.ReadSignature(File.ReadAllBytes(signedPath!));
 

@@ -16,7 +16,7 @@ public sealed class AuthenticodePeHasherTests
     [Fact]
     public void VerifyEmbeddedHashMatchesFile_ReturnsFalse_WhenContentTypeIsNotAuthenticode()
     {
-        var hasher = new AuthenticodePeHasher();
+        var hasher = new AuthenticodePeHasher(new AuthenticodeCertificateTableParser());
         var signedCms = new SignedCms(new ContentInfo([]));
 
         Assert.False(hasher.VerifyEmbeddedHashMatchesFile("unused.dll", signedCms));
@@ -25,7 +25,7 @@ public sealed class AuthenticodePeHasherTests
     [Fact]
     public void VerifyEmbeddedHashMatchesFile_ReturnsFalse_WhenDigestAlgorithmIsUnsupported()
     {
-        var hasher = new AuthenticodePeHasher();
+        var hasher = new AuthenticodePeHasher(new AuthenticodeCertificateTableParser());
         var signedCms = CreateSignedCms("1.2.3.4", [0x01]);
 
         Assert.False(hasher.VerifyEmbeddedHashMatchesFile("unused.dll", signedCms));
@@ -38,7 +38,7 @@ public sealed class AuthenticodePeHasherTests
             new Oid("1.3.6.1.4.1.311.2.1.4"),
             [0x01]);
         var signedCms = new SignedCms(contentInfo);
-        var hasher = new AuthenticodePeHasher();
+        var hasher = new AuthenticodePeHasher(new AuthenticodeCertificateTableParser());
 
         Assert.False(hasher.VerifyEmbeddedHashMatchesFile("unused.dll", signedCms));
     }
@@ -52,7 +52,7 @@ public sealed class AuthenticodePeHasherTests
             var signedCms = CreateSignedCms(
                 "2.16.840.1.101.3.4.2.1",
                 new byte[32]);
-            var hasher = new AuthenticodePeHasher();
+            var hasher = new AuthenticodePeHasher(new AuthenticodeCertificateTableParser());
 
             Assert.False(hasher.VerifyEmbeddedHashMatchesFile(assemblyPath, signedCms));
             Assert.False(hasher.VerifyEmbeddedHashMatchesFile(File.ReadAllBytes(assemblyPath), signedCms));

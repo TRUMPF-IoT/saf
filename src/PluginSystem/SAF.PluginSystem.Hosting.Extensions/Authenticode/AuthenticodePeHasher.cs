@@ -33,12 +33,7 @@ internal sealed class AuthenticodePeHasher : IAuthenticodePeHasher
 
     private readonly IAuthenticodeCertificateTableParser _certificateTableParser;
 
-    internal AuthenticodePeHasher()
-        : this(new AuthenticodeCertificateTableParser())
-    {
-    }
-
-    internal AuthenticodePeHasher(IAuthenticodeCertificateTableParser certificateTableParser)
+    public AuthenticodePeHasher(IAuthenticodeCertificateTableParser certificateTableParser)
     {
         ArgumentNullException.ThrowIfNull(certificateTableParser);
         _certificateTableParser = certificateTableParser;

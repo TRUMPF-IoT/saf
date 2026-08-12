@@ -6,6 +6,7 @@ namespace SAF.PluginSystem.Hosting.Extensions;
 
 using Contracts;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Options;
 using SAF.PluginSystem.Hosting.Extensions.Authenticode;
 
@@ -57,6 +58,10 @@ public static class PluginAssemblyValidationBuilderExtensions
     /// <summary>
     /// Registers SAF's built-in digital-signature plugin assembly validator.
     /// </summary>
+    /// <remarks>
+    /// May be called repeatedly to define several trust domains; each call adds one validator with its own
+    /// options, while the Authenticode services behind them are registered once and shared.
+    /// </remarks>
     /// <param name="hostBuilder">The plugin system host builder.</param>
     /// <param name="configure">An optional callback for configuring the validator.</param>
     /// <returns>The same host builder instance.</returns>
@@ -71,19 +76,16 @@ public static class PluginAssemblyValidationBuilderExtensions
         hostBuilder.Services.Configure<DigitalSignaturePluginAssemblyValidatorOptions>(
             uniqueOptionsKey,
             options => configure?.Invoke(options));
-        hostBuilder.Services.AddSingleton<IAuthenticodeCertificateTableParser, AuthenticodeCertificateTableParser>();
-        hostBuilder.Services.AddSingleton<IAuthenticodeChainTrustVerifier>(_ =>
+        // The Authenticode services carry no per-registration state, so a second trust domain must reuse
+        // them instead of duplicating the whole object graph. Only the validator below is per-call, since
+        // it is the one bound to this call's options.
+        hostBuilder.Services.TryAddSingleton<IAuthenticodeCertificateTableParser, AuthenticodeCertificateTableParser>();
+        hostBuilder.Services.TryAddSingleton<IAuthenticodeChainTrustVerifier>(_ =>
             OperatingSystem.IsWindows()
                 ? new WindowsAuthenticodeTrustVerifier()
                 : new CrossPlatformAuthenticodeTrustVerifier());
-        hostBuilder.Services.AddSingleton<IAuthenticodePeHasher>(serviceProvider =>
-            new AuthenticodePeHasher(
-                serviceProvider.GetRequiredService<IAuthenticodeCertificateTableParser>()));
-        hostBuilder.Services.AddSingleton<IAuthenticodeSignatureReader>(serviceProvider =>
-            new AuthenticodeSignatureReader(
-                serviceProvider.GetRequiredService<IAuthenticodeChainTrustVerifier>(),
-                serviceProvider.GetRequiredService<IAuthenticodePeHasher>(),
-                serviceProvider.GetRequiredService<IAuthenticodeCertificateTableParser>()));
+        hostBuilder.Services.TryAddSingleton<IAuthenticodePeHasher, AuthenticodePeHasher>();
+        hostBuilder.Services.TryAddSingleton<IAuthenticodeSignatureReader, AuthenticodeSignatureReader>();
         hostBuilder.Services.AddSingleton<IPluginAssemblyValidator>(serviceProvider =>
             new DigitalSignaturePluginAssemblyValidator(
                 serviceProvider.GetRequiredService<IOptionsMonitor<DigitalSignaturePluginAssemblyValidatorOptions>>(),

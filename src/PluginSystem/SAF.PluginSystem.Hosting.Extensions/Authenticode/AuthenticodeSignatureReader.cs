@@ -18,35 +18,14 @@ internal sealed class AuthenticodeSignatureReader : IAuthenticodeSignatureReader
     private readonly IAuthenticodePeHasher _peHasher;
     private readonly IAuthenticodeCertificateTableParser _certificateTableParser;
 
-    public AuthenticodeSignatureReader()
-        : this(
-            OperatingSystem.IsWindows()
-                ? new WindowsAuthenticodeTrustVerifier()
-                : new CrossPlatformAuthenticodeTrustVerifier(),
-            new AuthenticodeCertificateTableParser())
-    {
-    }
-
-    internal AuthenticodeSignatureReader(IAuthenticodeChainTrustVerifier trustVerifier)
-        : this(trustVerifier, new AuthenticodeCertificateTableParser())
-    {
-    }
-
-    internal AuthenticodeSignatureReader(
-        IAuthenticodeChainTrustVerifier trustVerifier,
-        IAuthenticodeCertificateTableParser certificateTableParser)
-        : this(trustVerifier, new AuthenticodePeHasher(certificateTableParser), certificateTableParser)
-    {
-    }
-
-    internal AuthenticodeSignatureReader(
-        IAuthenticodeChainTrustVerifier trustVerifier,
-        IAuthenticodePeHasher peHasher)
-        : this(trustVerifier, peHasher, new AuthenticodeCertificateTableParser())
-    {
-    }
-
-    internal AuthenticodeSignatureReader(
+    /// <summary>
+    /// Initializes a signature reader from its collaborators.
+    /// </summary>
+    /// <remarks>
+    /// The only constructor on purpose: every convenience overload that assembled the collaborators itself
+    /// was a second composition root beside the service registration, free to drift away from it unnoticed.
+    /// </remarks>
+    public AuthenticodeSignatureReader(
         IAuthenticodeChainTrustVerifier trustVerifier,
         IAuthenticodePeHasher peHasher,
         IAuthenticodeCertificateTableParser certificateTableParser)

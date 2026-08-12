@@ -13,13 +13,14 @@ using System.Reflection;
 using System.IO.Abstractions;
 using Testably.Abstractions.Testing;
 using SAF.PluginSystem.Hosting.Extensions;
+using SAF.PluginSystem.Hosting.Extensions.Authenticode;
 
-public class PluginSystemHostBuilderExtensionsTests
+public class PluginAssemblyValidationBuilderExtensionsTests
 {
     private readonly IPluginSystemHostBuilder _hostBuilder = Substitute.For<IPluginSystemHostBuilder>();
     private readonly ServiceCollection _serviceCollection = [];
 
-    public PluginSystemHostBuilderExtensionsTests()
+    public PluginAssemblyValidationBuilderExtensionsTests()
     {
         _serviceCollection.AddTransient(typeof(ILogger<>), typeof(Logger<>));
         _serviceCollection.AddTransient(typeof(ILoggerFactory), _ => Substitute.For<ILoggerFactory>());
@@ -116,6 +117,32 @@ public class PluginSystemHostBuilderExtensionsTests
     }
 
     [Fact]
+    public void AddDigitalSignaturePluginAssemblyValidator_MultipleRegistrations_ShouldShareTheAuthenticodeServices()
+    {
+        _hostBuilder.AddDigitalSignaturePluginAssemblyValidator();
+        _hostBuilder.AddDigitalSignaturePluginAssemblyValidator(options =>
+            options.AllowedSignerThumbprints.Add("00112233445566778899AABBCCDDEEFF00112233"));
+
+        // A second trust domain is a second validator, not a second copy of the machinery behind it.
+        Assert.Equal(2, CountRegistrations<IPluginAssemblyValidator>());
+        Assert.Equal(1, CountRegistrations<IAuthenticodeCertificateTableParser>());
+        Assert.Equal(1, CountRegistrations<IAuthenticodeChainTrustVerifier>());
+        Assert.Equal(1, CountRegistrations<IAuthenticodePeHasher>());
+        Assert.Equal(1, CountRegistrations<IAuthenticodeSignatureReader>());
+    }
+
+    [Fact]
+    public void AddDigitalSignaturePluginAssemblyValidator_ShouldRegisterAResolvableSignatureReader()
+    {
+        _hostBuilder.AddDigitalSignaturePluginAssemblyValidator();
+
+        var serviceProvider = _serviceCollection.BuildServiceProvider();
+
+        // The registration is the only place the reader's graph is assembled, so it has to be complete.
+        Assert.NotNull(serviceProvider.GetRequiredService<IAuthenticodeSignatureReader>());
+    }
+
+    [Fact]
     public void AddPluginAssemblyValidator_ShouldPreserveRegistrationOrder()
     {
         _hostBuilder.AddPluginAssemblyValidator<FirstValidator>();
@@ -131,6 +158,9 @@ public class PluginSystemHostBuilderExtensionsTests
         Assert.Equal(typeof(DigitalSignaturePluginAssemblyValidator), validatorTypes[2]);
         Assert.Equal(typeof(SecondValidator), validatorTypes[3]);
     }
+
+    private int CountRegistrations<TService>()
+        => _serviceCollection.Count(descriptor => descriptor.ServiceType == typeof(TService));
 
     private sealed class FirstValidator : IPluginAssemblyValidator
     {

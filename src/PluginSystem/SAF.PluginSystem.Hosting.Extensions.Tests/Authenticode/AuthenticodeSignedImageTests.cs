@@ -50,7 +50,7 @@ public sealed class AuthenticodeSignedImageTests : IDisposable
         var signedImage = SignTestImage(signer);
 
         // The stock reader anchors trust in the machine stores, which carry no root of this test's making.
-        var result = new AuthenticodeSignatureReader().ReadSignature(WriteTemporaryFile(signedImage));
+        var result = AuthenticodeReaderFactory.CreateDefault().ReadSignature(WriteTemporaryFile(signedImage));
 
         // The signature still verifiably covers the image, which is why the thumbprint is reported.
         Assert.Equal(signer.Thumbprint, result?.SignerThumbprint);
@@ -174,8 +174,8 @@ public sealed class AuthenticodeSignedImageTests : IDisposable
         _pki.Dispose();
     }
 
-    private static AuthenticodeSignatureReader CreateReaderTrusting(AuthenticodeTestPki pki)
-        => new(new CrossPlatformAuthenticodeTrustVerifier(pki.TrustAnchors));
+    private static IAuthenticodeSignatureReader CreateReaderTrusting(AuthenticodeTestPki pki)
+        => AuthenticodeReaderFactory.Create(new CrossPlatformAuthenticodeTrustVerifier(pki.TrustAnchors));
 
     private byte[] SignTestImage(X509Certificate2 signer, HashAlgorithmName? hashAlgorithm = null)
         => AuthenticodeTestPeSigner.Sign(ReadUnsignedTestImage(), signer, [_pki.Intermediate], hashAlgorithm);

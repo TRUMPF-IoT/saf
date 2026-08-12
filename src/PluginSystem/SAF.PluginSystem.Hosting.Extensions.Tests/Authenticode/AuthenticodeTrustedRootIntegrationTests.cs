@@ -30,7 +30,7 @@ public sealed class AuthenticodeTrustedRootIntegrationTests
         var signedAssemblyPath = GetTrustedFixturePath();
         Assert.SkipWhen(signedAssemblyPath is null, "The fixture certificate is not installed as a trusted root.");
 
-        var result = new AuthenticodeSignatureReader().ReadSignature(signedAssemblyPath!);
+        var result = AuthenticodeReaderFactory.CreateDefault().ReadSignature(signedAssemblyPath!);
 
         Assert.Equal(ReadExpectedThumbprint(signedAssemblyPath!), result?.SignerThumbprint);
         Assert.True(result?.HasValidDigitalSignature);
@@ -42,7 +42,7 @@ public sealed class AuthenticodeTrustedRootIntegrationTests
         var signedAssemblyPath = GetTrustedFixturePath();
         Assert.SkipWhen(signedAssemblyPath is null, "The fixture certificate is not installed as a trusted root.");
 
-        var result = new AuthenticodeSignatureReader().ReadSignature(File.ReadAllBytes(signedAssemblyPath!));
+        var result = AuthenticodeReaderFactory.CreateDefault().ReadSignature(File.ReadAllBytes(signedAssemblyPath!));
 
         // The snapshot route builds the chain itself and must reach the same verdict as the file route.
         Assert.Equal(ReadExpectedThumbprint(signedAssemblyPath!), result?.SignerThumbprint);
@@ -62,7 +62,7 @@ public sealed class AuthenticodeTrustedRootIntegrationTests
             bytes[bytes.Length / 2] ^= 0xFF;
             File.WriteAllBytes(tamperedPath, bytes);
 
-            var result = new AuthenticodeSignatureReader().ReadSignature(tamperedPath);
+            var result = AuthenticodeReaderFactory.CreateDefault().ReadSignature(tamperedPath);
 
             // A trusted signer must not carry a modified image with it.
             Assert.Null(result?.SignerThumbprint);

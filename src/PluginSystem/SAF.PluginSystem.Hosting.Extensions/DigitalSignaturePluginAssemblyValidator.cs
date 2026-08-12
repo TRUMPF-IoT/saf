@@ -9,7 +9,9 @@ using SAF.PluginSystem.Hosting.Contracts;
 using SAF.PluginSystem.Hosting.Extensions.Authenticode;
 
 /// <summary>
-/// Enforces digital-signature related plugin assembly trust checks.
+/// Enforces digital-signature related plugin assembly trust checks. Register it with
+/// <see cref="PluginAssemblyValidationBuilderExtensions.AddDigitalSignaturePluginAssemblyValidator"/>;
+/// it cannot be constructed or registered as a plain service type.
 /// </summary>
 public sealed class DigitalSignaturePluginAssemblyValidator : IPluginAssemblyValidator
 {
@@ -20,12 +22,12 @@ public sealed class DigitalSignaturePluginAssemblyValidator : IPluginAssemblyVal
     /// <summary>
     /// Initializes a digital-signature plugin assembly validator.
     /// </summary>
-    /// <param name="optionsMonitor">The monitor that supplies validator options.</param>
-    public DigitalSignaturePluginAssemblyValidator(IOptionsMonitor<DigitalSignaturePluginAssemblyValidatorOptions> optionsMonitor)
-        : this(optionsMonitor, Options.DefaultName, new AuthenticodeSignatureReader())
-    {
-    }
-
+    /// <remarks>
+    /// Not public: the signature reader is an implementation detail, and a constructor that built one
+    /// itself would be a second composition root beside
+    /// <see cref="PluginAssemblyValidationBuilderExtensions.AddDigitalSignaturePluginAssemblyValidator"/>,
+    /// which is how this validator is meant to be registered.
+    /// </remarks>
     internal DigitalSignaturePluginAssemblyValidator(
         IOptionsMonitor<DigitalSignaturePluginAssemblyValidatorOptions> optionsMonitor,
         string optionsName,

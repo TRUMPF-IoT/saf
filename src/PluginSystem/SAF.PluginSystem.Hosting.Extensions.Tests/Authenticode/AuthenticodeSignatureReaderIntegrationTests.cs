@@ -23,7 +23,7 @@ public sealed class AuthenticodeSignatureReaderIntegrationTests
         var runtimeAssemblyPath = FindSignedDotNetRuntimeAssembly();
         Assert.SkipWhen(runtimeAssemblyPath is null, "No Authenticode-signed .NET runtime assembly is available.");
 
-        var reader = new AuthenticodeSignatureReader();
+        var reader = AuthenticodeReaderFactory.CreateDefault();
         var result = reader.ReadSignature(runtimeAssemblyPath!);
 
         Assert.NotNull(result);
@@ -37,7 +37,7 @@ public sealed class AuthenticodeSignatureReaderIntegrationTests
         var runtimeAssemblyPath = FindSignedDotNetRuntimeAssembly();
         Assert.SkipWhen(runtimeAssemblyPath is null, "No Authenticode-signed .NET runtime assembly is available.");
 
-        var reader = new AuthenticodeSignatureReader();
+        var reader = AuthenticodeReaderFactory.CreateDefault();
         var fromFile = reader.ReadSignature(runtimeAssemblyPath!);
         var fromSnapshot = reader.ReadSignature(File.ReadAllBytes(runtimeAssemblyPath!));
 
@@ -56,7 +56,7 @@ public sealed class AuthenticodeSignatureReaderIntegrationTests
         var runtimeAssemblyPath = FindSignedDotNetRuntimeAssembly();
         Assert.SkipWhen(runtimeAssemblyPath is null, "No Authenticode-signed .NET runtime assembly is available.");
 
-        var reader = new AuthenticodeSignatureReader();
+        var reader = AuthenticodeReaderFactory.CreateDefault();
 
         var result = reader.ReadSignature(File.ReadAllBytes(runtimeAssemblyPath!));
 
@@ -73,7 +73,7 @@ public sealed class AuthenticodeSignatureReaderIntegrationTests
         var signedAssemblyPath = GetSignedAssemblyPath();
         Assert.SkipWhen(signedAssemblyPath is null, "The signtool-signed fixture is not configured.");
 
-        var reader = new AuthenticodeSignatureReader();
+        var reader = AuthenticodeReaderFactory.CreateDefault();
         var result = reader.ReadSignature(signedAssemblyPath!);
 
         Assert.NotNull(result);
@@ -88,7 +88,7 @@ public sealed class AuthenticodeSignatureReaderIntegrationTests
         var signedAssemblyPath = GetSignedAssemblyPath();
         Assert.SkipWhen(signedAssemblyPath is null, "The signtool-signed fixture is not configured.");
 
-        var reader = new AuthenticodeSignatureReader();
+        var reader = AuthenticodeReaderFactory.CreateDefault();
         var result = reader.ReadSignature(signedAssemblyPath!);
 
         Assert.NotNull(result);
@@ -105,7 +105,7 @@ public sealed class AuthenticodeSignatureReaderIntegrationTests
         var malformedAssemblyPath = CreateCertificateTablePayloadCopy(signedAssemblyPath!);
         try
         {
-            var reader = new AuthenticodeSignatureReader(new ChainOnlyTrustingVerifier());
+            var reader = AuthenticodeReaderFactory.Create(new ChainOnlyTrustingVerifier());
             var result = reader.ReadSignature(malformedAssemblyPath);
 
             Assert.Null(result?.SignerThumbprint);
@@ -127,7 +127,7 @@ public sealed class AuthenticodeSignatureReaderIntegrationTests
         try
         {
             var signedCms = ReadSignedCms(signedAssemblyPath!);
-            var hasher = new AuthenticodePeHasher();
+            var hasher = new AuthenticodePeHasher(new AuthenticodeCertificateTableParser());
 
             var result = hasher.VerifyEmbeddedHashMatchesFile(malformedAssemblyPath, signedCms);
 
@@ -148,7 +148,7 @@ public sealed class AuthenticodeSignatureReaderIntegrationTests
         var tamperedAssemblyPath = CreateTamperedCopy(signedAssemblyPath!);
         try
         {
-            var reader = new AuthenticodeSignatureReader();
+            var reader = AuthenticodeReaderFactory.CreateDefault();
             var result = reader.ReadSignature(tamperedAssemblyPath);
 
             Assert.Null(result?.SignerThumbprint);
@@ -176,7 +176,7 @@ public sealed class AuthenticodeSignatureReaderIntegrationTests
             return null;
         }
 
-        var reader = new AuthenticodeSignatureReader();
+        var reader = AuthenticodeReaderFactory.CreateDefault();
         foreach (var candidate in Directory.EnumerateFiles(runtimeDirectory, "*.dll"))
         {
             if (reader.ReadSignature(candidate) is { SignerThumbprint: { Length: > 0 } })
