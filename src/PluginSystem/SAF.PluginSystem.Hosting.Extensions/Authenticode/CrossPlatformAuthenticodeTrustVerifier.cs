@@ -28,6 +28,26 @@ internal sealed class CrossPlatformAuthenticodeTrustVerifier : IAuthenticodeChai
     // 1.2.840.113549.1.9.5 - PKCS#9 signingTime, used by the legacy Authenticode counter-signature
     private const string SigningTimeOid = "1.2.840.113549.1.9.5";
 
+    private readonly X509Certificate2Collection? _customTrustAnchors;
+
+    public CrossPlatformAuthenticodeTrustVerifier()
+    {
+    }
+
+    /// <summary>
+    /// Anchors trust in an explicit set of roots instead of the platform certificate stores.
+    /// </summary>
+    /// <remarks>
+    /// Lets a caller decide the trust anchors itself, which is the only way to obtain a trusted chain
+    /// without provisioning the host store - the case for tests, and for hosts whose store cannot be
+    /// changed. Only the anchors are replaced; every other rule of the policy still applies.
+    /// </remarks>
+    internal CrossPlatformAuthenticodeTrustVerifier(X509Certificate2Collection customTrustAnchors)
+    {
+        ArgumentNullException.ThrowIfNull(customTrustAnchors);
+        _customTrustAnchors = customTrustAnchors;
+    }
+
     // This verifier only validates the certificate chain; the file binding must be checked
     // separately, so callers must not treat a trusted result as proof the signature covers the file.
     public bool VerifiesFileIntegrity => false;
@@ -55,7 +75,7 @@ internal sealed class CrossPlatformAuthenticodeTrustVerifier : IAuthenticodeChai
         return chain.Build(signerCertificate);
     }
 
-    internal static X509ChainPolicy CreateChainPolicy(SignedCms signedCms, SignerInfo signerInfo)
+    internal X509ChainPolicy CreateChainPolicy(SignedCms signedCms, SignerInfo signerInfo)
     {
         var policy = new X509ChainPolicy
         {
@@ -64,6 +84,12 @@ internal sealed class CrossPlatformAuthenticodeTrustVerifier : IAuthenticodeChai
             VerificationFlags = X509VerificationFlags.NoFlag
         };
         policy.ApplicationPolicy.Add(new Oid(CodeSigningEnhancedKeyUsageOid));
+
+        if (_customTrustAnchors is not null)
+        {
+            policy.TrustMode = X509ChainTrustMode.CustomRootTrust;
+            policy.CustomTrustStore.AddRange(_customTrustAnchors);
+        }
 
         // Authenticode carries the leaf and its intermediates inside the PKCS#7 blob, while platform
         // certificate stores hold roots only. Without them the chain ends in PartialChain on every host

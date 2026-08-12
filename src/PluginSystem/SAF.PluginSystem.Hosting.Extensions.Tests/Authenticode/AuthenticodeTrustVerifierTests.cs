@@ -53,7 +53,7 @@ public sealed class AuthenticodeTrustVerifierTests
         using var embeddedCertificate = CreateSelfSignedCodeSigningCertificate("CN=SAF Authenticode intermediate");
         var signedCms = CreateSignedCms(signerCertificate, embeddedCertificate);
 
-        var policy = CrossPlatformAuthenticodeTrustVerifier.CreateChainPolicy(signedCms, signedCms.SignerInfos[0]);
+        var policy = new CrossPlatformAuthenticodeTrustVerifier().CreateChainPolicy(signedCms, signedCms.SignerInfos[0]);
 
         // Without these the chain cannot get past the leaf on a host that cannot fetch the issuer via AIA.
         var extraStoreThumbprints = policy.ExtraStore.Cast<X509Certificate2>().Select(c => c.Thumbprint).ToList();
@@ -67,7 +67,7 @@ public sealed class AuthenticodeTrustVerifierTests
         using var certificate = CreateSelfSignedCodeSigningCertificate();
         var signedCms = CreateSignedCms(certificate);
 
-        var policy = CrossPlatformAuthenticodeTrustVerifier.CreateChainPolicy(signedCms, signedCms.SignerInfos[0]);
+        var policy = new CrossPlatformAuthenticodeTrustVerifier().CreateChainPolicy(signedCms, signedCms.SignerInfos[0]);
 
         Assert.Contains(policy.ApplicationPolicy.Cast<Oid>(), oid => oid.Value == "1.3.6.1.5.5.7.3.3");
         Assert.Equal(X509RevocationMode.NoCheck, policy.RevocationMode);
@@ -80,7 +80,7 @@ public sealed class AuthenticodeTrustVerifierTests
         using var certificate = CreateSelfSignedCodeSigningCertificate();
         var signedCms = CreateCounterSignedCms(certificate, signingTime);
 
-        var policy = CrossPlatformAuthenticodeTrustVerifier.CreateChainPolicy(signedCms, signedCms.SignerInfos[0]);
+        var policy = new CrossPlatformAuthenticodeTrustVerifier().CreateChainPolicy(signedCms, signedCms.SignerInfos[0]);
 
         // Otherwise a certificate that expired after signing would invalidate an intact signature,
         // which is not what WinVerifyTrust does on Windows.
@@ -93,7 +93,7 @@ public sealed class AuthenticodeTrustVerifierTests
         using var certificate = CreateSelfSignedCodeSigningCertificate();
         var signedCms = CreateSignedCms(certificate);
 
-        var policy = CrossPlatformAuthenticodeTrustVerifier.CreateChainPolicy(signedCms, signedCms.SignerInfos[0]);
+        var policy = new CrossPlatformAuthenticodeTrustVerifier().CreateChainPolicy(signedCms, signedCms.SignerInfos[0]);
 
         Assert.InRange(
             policy.VerificationTime.ToUniversalTime(),

@@ -234,3 +234,72 @@ jobs:
       env:
         SAF_AUTHENTICODE_SIGNED_ASSEMBLY: ${{ github.workspace }}/signed-authenticode/SAF.Authenticode.SignedFixture.dll
       run: dotnet test './src/PluginSystem/SAF.PluginSystem.Hosting.Extensions.Tests/SAF.PluginSystem.Hosting.Extensions.Tests.csproj' --configuration Release --filter 'FullyQualifiedName~AuthenticodeSignatureReaderIntegrationTests' --verbosity normal
+
+  # Installs the fixture certificate as a trusted root, which is the only way to see the production
+  # verifiers reach a trusted verdict on their own: WinVerifyTrust against the Windows root store, and
+  # X509Chain against the OpenSSL bundle. It changes machine state, so it runs on its own throwaway
+  # runner and never alongside the tests that expect the same fixture to be untrusted.
+  authenticode_trusted_root:
+    name: Authenticode trusted root (${{ matrix.os }})
+    if: github.event_name != 'push' || startsWith(github.ref, 'refs/tags/') || github.ref == 'refs/heads/main' || needs.precheck_push_without_pr.outputs.should_run_build == 'true'
+    needs: [precheck_push_without_pr, authenticode_fixture]
+    runs-on: ${{ matrix.os }}
+    permissions:
+      contents: read
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v7
+
+    - name: Setup .NET
+      uses: actions/setup-dotnet@v6
+      with:
+        dotnet-version: '10.x'
+
+    - name: Download signed assembly fixture
+      uses: actions/download-artifact@v8
+      with:
+        name: authenticode-signed-fixture
+        path: signed-authenticode
+
+    - name: Trust the fixture certificate (Windows)
+      if: runner.os == 'Windows'
+      shell: pwsh
+      env:
+        FIXTURE_CERTIFICATE: ${{ github.workspace }}/signed-authenticode/SAF.Authenticode.SignedFixture.cer
+      run: |
+        $certificate = Import-Certificate -FilePath $env:FIXTURE_CERTIFICATE -CertStoreLocation Cert:\LocalMachine\Root
+        "SAF_AUTHENTICODE_TEST_ROOT_THUMBPRINT=$($certificate.Thumbprint)" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+
+    - name: Trust the fixture certificate (Linux)
+      if: runner.os == 'Linux'
+      env:
+        FIXTURE_CERTIFICATE: ${{ github.workspace }}/signed-authenticode/SAF.Authenticode.SignedFixture.cer
+      run: |
+        sudo openssl x509 -inform der -in "$FIXTURE_CERTIFICATE" -out /usr/local/share/ca-certificates/saf-authenticode-test.crt
+        sudo update-ca-certificates
+
+    - name: Run trusted root integration tests
+      env:
+        SAF_AUTHENTICODE_SIGNED_ASSEMBLY: ${{ github.workspace }}/signed-authenticode/SAF.Authenticode.SignedFixture.dll
+        SAF_AUTHENTICODE_TRUSTED_ROOT: '1'
+      run: dotnet test './src/PluginSystem/SAF.PluginSystem.Hosting.Extensions.Tests/SAF.PluginSystem.Hosting.Extensions.Tests.csproj' --configuration Release --filter 'FullyQualifiedName~AuthenticodeTrustedRootIntegrationTests' --verbosity normal
+
+    - name: Remove the fixture certificate (Windows)
+      if: always() && runner.os == 'Windows'
+      shell: pwsh
+      run: |
+        if ($env:SAF_AUTHENTICODE_TEST_ROOT_THUMBPRINT)
+        {
+            Remove-Item -Path "Cert:\LocalMachine\Root\$env:SAF_AUTHENTICODE_TEST_ROOT_THUMBPRINT" -Force -ErrorAction SilentlyContinue
+        }
+
+    - name: Remove the fixture certificate (Linux)
+      if: always() && runner.os == 'Linux'
+      run: |
+        sudo rm -f /usr/local/share/ca-certificates/saf-authenticode-test.crt
+        sudo update-ca-certificates --fresh
