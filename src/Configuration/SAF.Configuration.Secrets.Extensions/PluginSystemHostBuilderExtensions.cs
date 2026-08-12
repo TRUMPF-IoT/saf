@@ -90,7 +90,7 @@ public static class PluginSystemHostBuilderExtensions
         hostBuilder.Services.AddHostedService(sp => new HostSecretStoreAccessorInitializer(accessor, sp));
 
         hostBuilder.AddPluginConfigurationSource(
-            builder => builder.AddResolvedSecrets(accessor, configure, configureProviders));
+            source => source.Builder.AddResolvedSecrets(accessor, configure, configureProviders));
         return hostBuilder;
     }
 }
