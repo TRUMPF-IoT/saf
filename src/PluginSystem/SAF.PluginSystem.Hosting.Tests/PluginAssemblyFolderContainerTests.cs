@@ -464,6 +464,29 @@ public sealed class PluginAssemblyFolderContainerTests : IDisposable
     }
 
     [Fact]
+    public void ReadAllBytes_ReadsTheWholeFile()
+    {
+        var content = new byte[(128 * 1024) + 17];
+        Random.Shared.NextBytes(content);
+        var path = Path.Combine(_testRootPath, $"read-{Guid.NewGuid():N}.bin");
+        _fileSystem.File.WriteAllBytes(path, content);
+
+        using var stream = _fileSystem.FileInfo.New(path).Open(FileMode.Open, FileAccess.Read, FileShare.Read);
+        var result = PluginAssemblyFolderContainer.ReadAllBytes(stream);
+
+        Assert.Equal(content, result);
+    }
+
+    [Fact]
+    public void ReadAllBytes_Fails_WhenTheFileExceedsTheLargestBuffer()
+    {
+        using var stream = new OversizedStream();
+
+        // Truncating the length to int would validate less content than is later loaded.
+        Assert.Throws<IOException>(() => PluginAssemblyFolderContainer.ReadAllBytes(stream));
+    }
+
+    [Fact]
     public void GetPluginManifests_PopulatesAssemblyLocation_ForPluginOutsideBaseDirectory()
     {
         var testDirectory = CreateTestDirectory($"test-plugins-{Guid.NewGuid():N}");
@@ -623,6 +646,29 @@ public sealed class PluginAssemblyFolderContainerTests : IDisposable
     {
         public PluginAssemblyValidationResult Validate(PluginAssemblyValidationContext context)
             => PluginAssemblyValidationResult.Accepted();
+    }
+
+    private sealed class OversizedStream : Stream
+    {
+        public override bool CanRead => true;
+
+        public override bool CanSeek => true;
+
+        public override bool CanWrite => false;
+
+        public override long Length => (long)Array.MaxLength + 1;
+
+        public override long Position { get; set; }
+
+        public override int Read(byte[] buffer, int offset, int count) => 0;
+
+        public override long Seek(long offset, SeekOrigin origin) => 0;
+
+        public override void SetLength(long value) => throw new NotSupportedException();
+
+        public override void Write(byte[] buffer, int offset, int count) => throw new NotSupportedException();
+
+        public override void Flush() { }
     }
 
     private sealed record LogEntry(LogLevel Level, string Message);

@@ -29,6 +29,8 @@ internal sealed class AuthenticodePeHasher : IAuthenticodePeHasher
     private const int DataDirectoryEntrySize = 8;
     private const int CertificateTableDirectoryIndex = 4;
 
+    private const int HashBufferSize = 81920;
+
     private readonly IAuthenticodeCertificateTableParser _certificateTableParser;
 
     internal AuthenticodePeHasher()
@@ -120,7 +122,7 @@ internal sealed class AuthenticodePeHasher : IAuthenticodePeHasher
 
     private byte[]? ComputeAuthenticodeHash(ReadOnlyMemory<byte> assemblyBytes, HashAlgorithmName hashAlgorithm)
     {
-        using var stream = new MemoryStream(assemblyBytes.ToArray(), writable: false);
+        using var stream = SnapshotStream.Create(assemblyBytes);
         return ComputeAuthenticodeHash(stream, hashAlgorithm);
     }
 
@@ -162,20 +164,29 @@ internal sealed class AuthenticodePeHasher : IAuthenticodePeHasher
 
         using var hasher = IncrementalHash.CreateHash(hashAlgorithm);
 
-        HashRange(stream, hasher, 0, checkSumStart);
-        HashRange(stream, hasher, checkSumStart + CheckSumSize, certificateTableEntryStart);
-        HashRange(stream, hasher, certificateTableEntryStart + DataDirectoryEntrySize, endBeforeCertificateTable);
-
-        var afterCertificateTable = certificateTableStart + certificateTableSize;
-        if (afterCertificateTable < fileLength)
+        // One rental for all four ranges instead of one per range.
+        var buffer = ArrayPool<byte>.Shared.Rent(HashBufferSize);
+        try
         {
-            HashRange(stream, hasher, afterCertificateTable, fileLength);
+            HashRange(stream, hasher, buffer, 0, checkSumStart);
+            HashRange(stream, hasher, buffer, checkSumStart + CheckSumSize, certificateTableEntryStart);
+            HashRange(stream, hasher, buffer, certificateTableEntryStart + DataDirectoryEntrySize, endBeforeCertificateTable);
+
+            var afterCertificateTable = certificateTableStart + certificateTableSize;
+            if (afterCertificateTable < fileLength)
+            {
+                HashRange(stream, hasher, buffer, afterCertificateTable, fileLength);
+            }
+        }
+        finally
+        {
+            ArrayPool<byte>.Shared.Return(buffer);
         }
 
         return hasher.GetHashAndReset();
     }
 
-    private static void HashRange(Stream stream, IncrementalHash hasher, long start, long end)
+    private static void HashRange(Stream stream, IncrementalHash hasher, byte[] buffer, long start, long end)
     {
         if (end <= start)
         {
@@ -184,20 +195,12 @@ internal sealed class AuthenticodePeHasher : IAuthenticodePeHasher
 
         stream.Position = start;
         var remaining = end - start;
-        var buffer = ArrayPool<byte>.Shared.Rent(81920);
-        try
+        while (remaining > 0)
         {
-            while (remaining > 0)
-            {
-                var toRead = (int)Math.Min(buffer.Length, remaining);
-                stream.ReadExactly(buffer, 0, toRead);
-                hasher.AppendData(buffer, 0, toRead);
-                remaining -= toRead;
-            }
-        }
-        finally
-        {
-            ArrayPool<byte>.Shared.Return(buffer);
+            var toRead = (int)Math.Min(buffer.Length, remaining);
+            stream.ReadExactly(buffer, 0, toRead);
+            hasher.AppendData(buffer, 0, toRead);
+            remaining -= toRead;
         }
     }
 

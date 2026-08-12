@@ -168,7 +168,7 @@ internal sealed class AuthenticodeSignatureReader : IAuthenticodeSignatureReader
 
     private byte[]? TryReadAuthenticodeSignedData(ReadOnlyMemory<byte> assemblyBytes)
     {
-        using var stream = new MemoryStream(assemblyBytes.ToArray(), writable: false);
+        using var stream = SnapshotStream.Create(assemblyBytes);
         return TryReadAuthenticodeSignedData(stream);
     }
 

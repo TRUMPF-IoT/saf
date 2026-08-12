@@ -101,9 +101,7 @@ public class PluginAssemblyFolderContainer(
                 // validation below and the load further down. The handle is kept open until both are done.
                 using var assemblyFile = _fileSystem.FileInfo.New(pluginAssemblyPath)
                     .Open(FileMode.Open, FileAccess.Read, FileShare.Read);
-                using var assemblyBuffer = new MemoryStream();
-                assemblyFile.CopyTo(assemblyBuffer);
-                var assemblyBytes = assemblyBuffer.ToArray();
+                var assemblyBytes = ReadAllBytes(assemblyFile);
 
                 if (!TryValidateAssembly(pluginAssemblyPath, assemblyBytes, out var rejectionReason))
                 {
@@ -149,6 +147,27 @@ public class PluginAssemblyFolderContainer(
         }
 
         return manifests;
+    }
+
+    /// <summary>
+    /// Reads the whole candidate into one exactly sized buffer.
+    /// </summary>
+    /// <remarks>
+    /// Both the metadata read and the validators need the complete image, so the buffer is unavoidable.
+    /// Sizing it from the file length keeps it to a single allocation instead of the repeated growth
+    /// of a <see cref="MemoryStream"/> plus a final copy.
+    /// </remarks>
+    internal static byte[] ReadAllBytes(Stream assemblyFile)
+    {
+        var length = assemblyFile.Length;
+        if (length > Array.MaxLength)
+        {
+            throw new IOException($"Plugin assembly is too large to read ({length} bytes).");
+        }
+
+        var assemblyBytes = new byte[(int)length];
+        assemblyFile.ReadExactly(assemblyBytes);
+        return assemblyBytes;
     }
 
     /// <summary>
@@ -214,7 +233,7 @@ public class PluginAssemblyFolderContainer(
 
     private bool TryValidateAssembly(
         string pluginAssemblyPath,
-        ReadOnlyMemory<byte> assemblyBytes,
+        byte[] assemblyBytes,
         out string rejectionReason)
     {
         rejectionReason = string.Empty;
@@ -262,9 +281,10 @@ public class PluginAssemblyFolderContainer(
         return true;
     }
 
-    private static AssemblyName GetAssemblyName(ReadOnlyMemory<byte> assemblyBytes)
+    private static AssemblyName GetAssemblyName(byte[] assemblyBytes)
     {
-        using var stream = new MemoryStream(assemblyBytes.ToArray(), writable: false);
+        // Reads the candidate buffer in place - PEReader needs a Stream, not a copy of the image.
+        using var stream = new MemoryStream(assemblyBytes, writable: false);
         using var peReader = new PEReader(stream);
         if (!peReader.HasMetadata)
         {
