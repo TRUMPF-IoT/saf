@@ -388,7 +388,18 @@ pluginSystemBuilder.AddDigitalSignaturePluginAssemblyValidator(options =>
 });
 ```
 
-The hosting pipeline reads each candidate once into a content snapshot, validates that snapshot, and loads the same bytes with `LoadFromStream`. The digital-signature validator reads Authenticode signatures from that snapshot (PE certificate table) and validates signer trust using `X509Chain`.
+The hosting pipeline opens each candidate once with `FileShare.Read`, reads it into a content snapshot, validates that snapshot, and loads the file itself with `LoadFromAssemblyPath` while the handle is still open. `Assembly.Location` therefore reports the deployment path on every platform.
+
+How much the pipeline can guarantee about the file it loads depends on the platform:
+
+- **Windows**: `FileShare.Read` denies every subsequent open that asks for write or delete access, so the candidate can neither be modified nor swapped between validation and load. The handle pins the validated file.
+- **Linux and macOS**: POSIX has no mandatory locking, so a held descriptor cannot stop the *path* from being replaced. When at least one validator is registered, the file is re-read and compared against the validated snapshot immediately before the load, and a mismatch skips the candidate with a warning. This shortens the window between validation and load to the load call itself. It does not close it.
+
+Neither mechanism extends to the plugin's dependencies. Managed and native dependencies are resolved from the deployment folder by `AssemblyDependencyResolver` when they are first needed, without validation and without either guarantee above, which is why the protected active directory described in [Plugin Deployment Security](./plugin-security.md) remains the control that matters.
+
+Candidates that sit in `AppContext.BaseDirectory` are loaded into `AssemblyLoadContext.Default`, whose binder resolves by assembly *identity* first. If an assembly of that identity is already loaded, or ships with the host and is therefore on the default binder's list of platform assemblies, that one wins and the validated file is never loaded. `SAF.Messaging.Runtime.dll` is the case you are most likely to meet: `AddSafHost` discovers it from the base directory, where the host's own package reference has already placed it. Validation still runs for such a candidate, but it does not decide which bytes end up in the process.
+
+The digital-signature validator reads the Authenticode signature from the PE certificate table and recomputes the PE hash to confirm that the signature covers the file. Signer trust is decided by `WinVerifyTrust` on Windows and by `X509Chain` against the platform certificate store elsewhere; the semantics differ, because the cross-platform verifier validates only the certificate chain and leaves file integrity to the PE hash check, whereas `WinVerifyTrust` also applies the Authenticode policy layer above the chain.
 
 Custom validation can be added with your own validator implementation:
 
