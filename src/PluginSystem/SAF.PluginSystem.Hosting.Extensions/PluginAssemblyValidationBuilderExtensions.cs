@@ -76,6 +76,9 @@ public static class PluginAssemblyValidationBuilderExtensions
         hostBuilder.Services.Configure<DigitalSignaturePluginAssemblyValidatorOptions>(
             uniqueOptionsKey,
             options => configure?.Invoke(options));
+        hostBuilder.Services.TryAddEnumerable(
+            ServiceDescriptor.Singleton<IValidateOptions<DigitalSignaturePluginAssemblyValidatorOptions>,
+                DigitalSignaturePluginAssemblyValidatorOptionsValidator>());
         // The Authenticode services carry no per-registration state, so a second trust domain must reuse
         // them instead of duplicating the whole object graph. Only the validator below is per-call, since
         // it is the one bound to this call's options.

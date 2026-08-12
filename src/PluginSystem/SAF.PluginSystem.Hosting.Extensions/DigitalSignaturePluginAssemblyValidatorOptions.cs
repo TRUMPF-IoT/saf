@@ -11,8 +11,14 @@ public sealed class DigitalSignaturePluginAssemblyValidatorOptions
 {
     /// <summary>
     /// Gets or sets a value indicating whether an assembly must have a valid digital signature.
+    /// Defaults to <see langword="true"/>.
     /// </summary>
-    public bool RequireValidDigitalSignature { get; set; }
+    /// <remarks>
+    /// Switching this off is only meaningful together with <see cref="AllowedSignerThumbprints"/>, which
+    /// still demands a signature that covers the file - it just skips the trust chain. A validator with
+    /// both checks off accepts every assembly, including unsigned ones, and is rejected at startup.
+    /// </remarks>
+    public bool RequireValidDigitalSignature { get; set; } = true;
 
     /// <summary>
     /// Gets the case-insensitive allow-list of signer certificate thumbprints.

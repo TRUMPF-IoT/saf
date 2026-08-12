@@ -26,15 +26,33 @@ public class DigitalSignaturePluginAssemblyValidatorTests
     }
 
     [Fact]
-    public void Validate_Accepts_WhenNoSignatureChecksAreConfigured()
+    public void Validate_Rejects_WhenNothingIsConfigured()
     {
         _signatureReader.ReadSignature(AssemblyPath).Returns((AuthenticodeSignatureInfo?)null);
         var validator = CreateValidator(new DigitalSignaturePluginAssemblyValidatorOptions());
 
         var result = validator.Validate(CreateContext());
 
-        Assert.True(result.IsAccepted);
-        Assert.Null(result.Reason);
+        // The default demands a valid signature; a registered validator must never be a no-op.
+        Assert.False(result.IsAccepted);
+        Assert.Equal("assembly does not have a valid digital signature", result.Reason);
+    }
+
+    [Fact]
+    public void Constructor_Throws_WhenTheOptionsAreInvalid()
+    {
+        var optionsMonitor = Substitute.For<IOptionsMonitor<DigitalSignaturePluginAssemblyValidatorOptions>>();
+        optionsMonitor.Get(Options.DefaultName).Returns(_ => throw new OptionsValidationException(
+            Options.DefaultName,
+            typeof(DigitalSignaturePluginAssemblyValidatorOptions),
+            ["every check is switched off"]));
+
+        // Reading the options in the constructor is what turns a misconfiguration into a startup failure
+        // instead of a surprise on the first plugin.
+        Assert.Throws<OptionsValidationException>(() => new DigitalSignaturePluginAssemblyValidator(
+            optionsMonitor,
+            Options.DefaultName,
+            _signatureReader));
     }
 
     [Fact]
@@ -98,7 +116,8 @@ public class DigitalSignaturePluginAssemblyValidatorTests
         _signatureReader.ReadSignature(AssemblyPath)
             .Returns(new AuthenticodeSignatureInfo(SignerThumbprint: null, HasValidDigitalSignature: false));
 
-        var options = new DigitalSignaturePluginAssemblyValidatorOptions();
+        // The trust requirement is off so that the allow-list is the check being exercised.
+        var options = new DigitalSignaturePluginAssemblyValidatorOptions { RequireValidDigitalSignature = false };
         options.AllowedSignerThumbprints.Add("AABBCC");
         var validator = CreateValidator(options);
 

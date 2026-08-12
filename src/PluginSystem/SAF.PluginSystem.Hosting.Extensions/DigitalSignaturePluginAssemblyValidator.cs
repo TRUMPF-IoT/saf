@@ -40,6 +40,10 @@ public sealed class DigitalSignaturePluginAssemblyValidator : IPluginAssemblyVal
         _optionsMonitor = optionsMonitor;
         _optionsName = optionsName;
         _authenticodeSignatureReader = authenticodeSignatureReader;
+
+        // Reads the options once and discards them: an IValidateOptions failure has to surface while the
+        // container is being composed, not on the first plugin that happens to be checked.
+        _ = optionsMonitor.Get(optionsName);
     }
 
     /// <inheritdoc />

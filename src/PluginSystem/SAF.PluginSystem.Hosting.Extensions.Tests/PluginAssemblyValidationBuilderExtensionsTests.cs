@@ -7,6 +7,7 @@ namespace SAF.PluginSystem.Hosting.Extensions.Tests;
 using Contracts;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 using NSubstitute;
 using System.Linq;
 using System.Reflection;
@@ -104,16 +105,45 @@ public class PluginAssemblyValidationBuilderExtensionsTests
 
         _hostBuilder.AddDigitalSignaturePluginAssemblyValidator();
         _hostBuilder.AddDigitalSignaturePluginAssemblyValidator(options =>
-            options.AllowedSignerThumbprints.Add("00112233445566778899AABBCCDDEEFF00112233"));
+        {
+            options.RequireValidDigitalSignature = false;
+            options.AllowedSignerThumbprints.Add("00112233445566778899AABBCCDDEEFF00112233");
+        });
 
         var serviceProvider = _serviceCollection.BuildServiceProvider();
         var validators = serviceProvider.GetServices<IPluginAssemblyValidator>()
             .Cast<DigitalSignaturePluginAssemblyValidator>()
             .ToList();
 
+        // The same unsigned assembly, rejected for two different reasons: each validator reads its own
+        // options. Neither may accept it - a registered validator is never a no-op.
         Assert.Equal(2, validators.Count);
-        Assert.True(validators[0].Validate(context).IsAccepted);
-        Assert.False(validators[1].Validate(context).IsAccepted);
+        Assert.Equal("assembly does not have a valid digital signature", validators[0].Validate(context).Reason);
+        Assert.Equal("assembly signer thumbprint is not in the configured allow-list", validators[1].Validate(context).Reason);
+    }
+
+    [Fact]
+    public void AddDigitalSignaturePluginAssemblyValidator_WithEveryCheckSwitchedOff_ShouldFailWhileComposing()
+    {
+        _hostBuilder.AddDigitalSignaturePluginAssemblyValidator(options =>
+            options.RequireValidDigitalSignature = false);
+
+        var serviceProvider = _serviceCollection.BuildServiceProvider();
+
+        // Resolving the validators is composition, not plugin loading: the misconfiguration must stop the
+        // host before a single candidate has been waved through.
+        var exception = Assert.Throws<OptionsValidationException>(
+            () => serviceProvider.GetServices<IPluginAssemblyValidator>().ToList());
+        Assert.Contains("would accept every plugin assembly", exception.Message);
+    }
+
+    [Fact]
+    public void AddDigitalSignaturePluginAssemblyValidator_MultipleRegistrations_ShouldRegisterOneOptionsValidator()
+    {
+        _hostBuilder.AddDigitalSignaturePluginAssemblyValidator();
+        _hostBuilder.AddDigitalSignaturePluginAssemblyValidator();
+
+        Assert.Equal(1, CountRegistrations<IValidateOptions<DigitalSignaturePluginAssemblyValidatorOptions>>());
     }
 
     [Fact]

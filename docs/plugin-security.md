@@ -127,6 +127,8 @@ pluginSystemBuilder.AddDigitalSignaturePluginAssemblyValidator(options =>
 });
 ```
 
+`RequireValidDigitalSignature` defaults to `true`, so registering the validator without configuration demands a signature that is intact, covers the file and chains to a trusted root. Switching it off is only meaningful together with `AllowedSignerThumbprints`, which still requires a signature covering the file and only skips the trust chain. A validator with both checks off would accept every assembly while the composition root reads as protection, so that combination is refused: the host fails to start with an `OptionsValidationException`.
+
 This verifies the files selected as manifest candidates. It does not verify their dependencies. Keep the installer package or file-inventory verification as the control that authenticates unsigned dependencies.
 
 Strong names should be treated similarly: they identify an assembly key and help detect changes to the assembly, but they are not a replacement for publisher trust, package integrity, or filesystem protection.
