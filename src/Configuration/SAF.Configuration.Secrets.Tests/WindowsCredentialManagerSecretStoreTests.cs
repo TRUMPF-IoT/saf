@@ -134,6 +134,50 @@ public class WindowsCredentialManagerSecretStoreTests
     }
 
     [Fact]
+    public async Task SetSecretAsync_Throws_WhenValueExceedsBlobSizeLimit()
+    {
+        var store = CreateStore();
+        var tooLong = new string('a', 1281); // 2562 bytes UTF-16, over the 2560-byte CRED_MAX_CREDENTIAL_BLOB_SIZE
+
+        await Assert.ThrowsAsync<ArgumentException>(
+            async () => await store.SetSecretAsync("conn/pw", tooLong, TestToken));
+        _nativeApi.DidNotReceive().WriteGenericCredential(Arg.Any<string>(), Arg.Any<string>());
+    }
+
+    [Fact]
+    public async Task SetSecretAsync_Writes_WhenValueIsAtBlobSizeLimit()
+    {
+        var store = CreateStore();
+        var atLimit = new string('a', 1280); // exactly 2560 bytes UTF-16
+
+        await store.SetSecretAsync("conn/pw", atLimit, TestToken);
+
+        _nativeApi.Received(1).WriteGenericCredential("saf/conn/pw", atLimit);
+    }
+
+    [Fact]
+    public async Task SetSecretAsync_Throws_WhenTargetNameExceedsUsernameLimit()
+    {
+        var store = CreateStore(new SecretStoreOptions { Namespace = string.Empty });
+        var tooLong = new string('a', 514); // over the 513-char CRED_MAX_USERNAME_LENGTH
+
+        await Assert.ThrowsAsync<ArgumentException>(
+            async () => await store.SetSecretAsync(tooLong, "value", TestToken));
+        _nativeApi.DidNotReceive().WriteGenericCredential(Arg.Any<string>(), Arg.Any<string>());
+    }
+
+    [Fact]
+    public async Task SetSecretAsync_Writes_WhenTargetNameIsAtUsernameLimit()
+    {
+        var store = CreateStore(new SecretStoreOptions { Namespace = string.Empty });
+        var atLimit = new string('a', 513); // exactly CRED_MAX_USERNAME_LENGTH
+
+        await store.SetSecretAsync(atLimit, "value", TestToken);
+
+        _nativeApi.Received(1).WriteGenericCredential(atLimit, "value");
+    }
+
+    [Fact]
     public async Task GetSecretAsync_Throws_WhenCancelled()
     {
         var store = CreateStore();
