@@ -2,9 +2,10 @@
 //
 // SPDX-License-Identifier: MPL-2.0
 
-namespace SAF.Configuration.Secrets;
+namespace SAF.Configuration.Secrets.Extensions;
 
 using Microsoft.Extensions.DependencyInjection;
+using SAF.Configuration.Secrets;
 using SAF.Configuration.Secrets.Contracts;
 using SAF.PluginSystem.Hosting;
 using SAF.PluginSystem.Hosting.Contracts;

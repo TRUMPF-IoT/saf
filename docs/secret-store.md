@@ -52,7 +52,7 @@ built-in providers for the current platform and **forwards `ISecretStore` into e
 container**, so any plug-in can inject it.
 
 ```csharp
-using SAF.Configuration.Secrets;
+using SAF.Configuration.Secrets.Extensions;
 
 builder.AddSafHost()
     .ConfigurePluginSystem(ps =>
@@ -205,6 +205,7 @@ using System.Security.Cryptography.X509Certificates;
 using Microsoft.Extensions.DependencyInjection;
 using SAF.Configuration.Secrets;
 using SAF.Configuration.Secrets.Contracts;
+using SAF.Configuration.Secrets.Extensions;
 using SAF.Configuration.Secrets.Protection;
 
 // Register a protector, then the file store. On non-Windows AddDefaults() already registers the file
