@@ -40,7 +40,11 @@ internal class ServiceHostDiagnostics(
             var targetDir = fileSystem.Path.Combine(basePath, "diagnostics");
             fileSystem.Directory.CreateDirectory(targetDir);
 
-            var safeHostId = string.Concat(nodeInfo.HostId.Select(c => fileSystem.Path.GetInvalidFileNameChars().Contains(c) ? '_' : c));
+            // A fixed, OS-independent deny-list rather than fileSystem.Path.GetInvalidFileNameChars():
+            // that set is Linux's ('/' and NUL only), so a host id with e.g. ':' would round-trip
+            // unsanitized on Linux even though the resulting file name is not safe on every OS a
+            // diagnostics dump might later be inspected on.
+            var safeHostId = string.Concat(nodeInfo.HostId.Select(c => IsReservedFileNameChar(c) ? '_' : c));
             var targetFile = fileSystem.Path.Combine(targetDir, $"SafServiceHost_{safeHostId}.json");
 
             if (fileSystem.File.Exists(targetFile))
@@ -56,4 +60,6 @@ internal class ServiceHostDiagnostics(
             log.LogError(ex, "Failed to collect and save service host diagnostic information!");
         }
     }
+
+    private static bool IsReservedFileNameChar(char c) => c < 32 || "<>:\"/\\|?*".Contains(c);
 }
