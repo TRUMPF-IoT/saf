@@ -269,10 +269,12 @@ Then reference secrets in the plugin configuration with the `secret://` prefix:
   `AddSecretStore` compose safely, so transparent resolution and direct `ISecretStore` injection can be
   used together.
 
-> **Resolution before DI exists.** Configuration is built before the application's DI container.
-> Resolution therefore starts with a self-contained reader and automatically switches to the host's DI
-> `ISecretStore` once the container is available (re-resolving if a value changed). This is transparent
-> — no action required.
+> **How resolution reaches the host container.** Plugin configuration is built inside the same factory
+> that constructs `IPluginSystemHostContext`, which the plugin system only ever invokes once the host's
+> `IServiceProvider` is fully built (see [Plugin System: Plugin
+> Settings](./plugin-system.md#plugin-settings)). The resolver receives that provider and reads the
+> `ISecretStore` and `SecretStoreOptions` registered on it directly — there is no separate bootstrap
+> phase, and no action is required to make that happen.
 
 ## Options
 

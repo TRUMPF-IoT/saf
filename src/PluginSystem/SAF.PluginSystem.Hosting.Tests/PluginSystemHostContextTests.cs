@@ -24,9 +24,10 @@ public class PluginSystemHostContextTests
         var options = new PluginSystemOptions { PluginSettingsFilePath = "settings.json" };
         // PluginSystemHostContext builds its configuration from settings files on disk, so a real file system is used.
         var fileSystem = new RealFileSystem();
+        var hostServices = Substitute.For<IServiceProvider>();
 
         // Act
-        using var context = new PluginSystemHostContext(logger, environment, hostConfiguration, options, fileSystem);
+        using var context = new PluginSystemHostContext(logger, environment, hostConfiguration, options, fileSystem, hostServices);
 
         // Assert
         Assert.Equal(environment, context.Environment);
@@ -44,9 +45,10 @@ public class PluginSystemHostContextTests
         var options = new PluginSystemOptions { PluginSettingsFilePath = string.Empty };
         // PluginSystemHostContext builds its configuration from settings files on disk, so a real file system is used.
         var fileSystem = new RealFileSystem();
+        var hostServices = Substitute.For<IServiceProvider>();
 
         // Act
-        using var context = new PluginSystemHostContext(logger, environment, hostConfiguration, options, fileSystem);
+        using var context = new PluginSystemHostContext(logger, environment, hostConfiguration, options, fileSystem, hostServices);
 
         // Assert
         logger.Received().LogInformation("No plugin configuration file configured.");
@@ -65,9 +67,10 @@ public class PluginSystemHostContextTests
         var options = new PluginSystemOptions { PluginSettingsFilePath = "nonexistent.json" };
         // PluginSystemHostContext builds its configuration from settings files on disk, so a real file system is used.
         var fileSystem = new RealFileSystem();
+        var hostServices = Substitute.For<IServiceProvider>();
 
         // Act
-        using var context = new PluginSystemHostContext(logger, environment, hostConfiguration, options, fileSystem);
+        using var context = new PluginSystemHostContext(logger, environment, hostConfiguration, options, fileSystem, hostServices);
 
         // Assert
         Assert.NotNull(context.PluginConfiguration);
@@ -85,9 +88,10 @@ public class PluginSystemHostContextTests
         var options = new PluginSystemOptions { PluginSettingsFilePath = "settings.json" };
         // PluginSystemHostContext builds its configuration from settings files on disk, so a real file system is used.
         var fileSystem = new RealFileSystem();
+        var hostServices = Substitute.For<IServiceProvider>();
 
         // Act
-        using var context = new PluginSystemHostContext(logger, environment, hostConfiguration, options, fileSystem);
+        using var context = new PluginSystemHostContext(logger, environment, hostConfiguration, options, fileSystem, hostServices);
 
         // Assert
         Assert.NotNull(context.HostConfiguration);
@@ -107,9 +111,10 @@ public class PluginSystemHostContextTests
         var options = new PluginSystemOptions { PluginSettingsFilePath = "settings.json" };
         // PluginSystemHostContext builds its configuration from settings files on disk, so a real file system is used.
         var fileSystem = new RealFileSystem();
+        var hostServices = Substitute.For<IServiceProvider>();
 
         // Act
-        using var context = new PluginSystemHostContext(logger, environment, hostConfiguration, options, fileSystem);
+        using var context = new PluginSystemHostContext(logger, environment, hostConfiguration, options, fileSystem, hostServices);
 
         // Assert
         Assert.NotNull(context.HostConfiguration);
@@ -129,9 +134,10 @@ public class PluginSystemHostContextTests
         var options = new PluginSystemOptions { PluginSettingsFilePath = "settings.json" };
         // PluginSystemHostContext builds its configuration from settings files on disk, so a real file system is used.
         var fileSystem = new RealFileSystem();
+        var hostServices = Substitute.For<IServiceProvider>();
 
         // Act
-        using var context = new PluginSystemHostContext(logger, environment, hostConfiguration, options, fileSystem);
+        using var context = new PluginSystemHostContext(logger, environment, hostConfiguration, options, fileSystem, hostServices);
 
         // Assert — the plugin settings file(s) must be watched so ReinitializeAsync/ReloadAsync see fresh values.
         var root = Assert.IsType<IConfigurationRoot>(context.PluginConfiguration, exactMatch: false);
@@ -166,6 +172,7 @@ public class PluginSystemHostContextTests
         var hostConfiguration = Substitute.For<IConfigurationManager>();
         var options = new PluginSystemOptions { PluginSettingsFilePath = "settings.json" };
         var fileSystem = new RealFileSystem();
+        var hostServices = Substitute.For<IServiceProvider>();
 
         PluginConfigurationSourceContext? capturedContext = null;
         var configureSources = new List<Action<PluginConfigurationSourceContext>>
@@ -174,7 +181,7 @@ public class PluginSystemHostContextTests
         };
 
         // Act
-        using var context = new PluginSystemHostContext(logger, environment, hostConfiguration, options, fileSystem, configureSources);
+        using var context = new PluginSystemHostContext(logger, environment, hostConfiguration, options, fileSystem, hostServices, configureSources);
 
         // Assert — the callback receives the same information the default plugin settings sources use.
         Assert.NotNull(capturedContext);
@@ -194,6 +201,7 @@ public class PluginSystemHostContextTests
         var hostConfiguration = Substitute.For<IConfigurationManager>();
         var options = new PluginSystemOptions { PluginSettingsFilePath = string.Empty };
         var fileSystem = new RealFileSystem();
+        var hostServices = Substitute.For<IServiceProvider>();
 
         PluginConfigurationSourceContext? capturedContext = null;
         var configureSources = new List<Action<PluginConfigurationSourceContext>>
@@ -202,7 +210,7 @@ public class PluginSystemHostContextTests
         };
 
         // Act
-        using var context = new PluginSystemHostContext(logger, environment, hostConfiguration, options, fileSystem, configureSources);
+        using var context = new PluginSystemHostContext(logger, environment, hostConfiguration, options, fileSystem, hostServices, configureSources);
 
         // Assert
         Assert.NotNull(capturedContext);
@@ -222,6 +230,7 @@ public class PluginSystemHostContextTests
         var hostConfiguration = Substitute.For<IConfigurationManager>();
         var options = new PluginSystemOptions { PluginSettingsFilePath = string.Empty };
         var fileSystem = new RealFileSystem();
+        var hostServices = Substitute.For<IServiceProvider>();
 
         FileConfigurationSource? capturedSource = null;
         var configureSources = new List<Action<PluginConfigurationSourceContext>>
@@ -235,7 +244,7 @@ public class PluginSystemHostContextTests
         };
 
         // Act
-        using var context = new PluginSystemHostContext(logger, environment, hostConfiguration, options, fileSystem, configureSources);
+        using var context = new PluginSystemHostContext(logger, environment, hostConfiguration, options, fileSystem, hostServices, configureSources);
 
         // Assert
         Assert.NotNull(capturedSource);
@@ -269,9 +278,10 @@ public class PluginSystemHostContextTests
         };
         // PluginSystemHostContext builds its configuration from settings files on disk, so a real file system is used.
         var fileSystem = new RealFileSystem();
+        var hostServices = Substitute.For<IServiceProvider>();
 
         // Act
-        var context = new PluginSystemHostContext(logger, environment, hostConfiguration, options, fileSystem, configureSources);
+        var context = new PluginSystemHostContext(logger, environment, hostConfiguration, options, fileSystem, hostServices, configureSources);
 
         // Assert
         Assert.Equal("CustomValue", context.PluginConfiguration["Custom:Key"]);
@@ -297,9 +307,10 @@ public class PluginSystemHostContextTests
         };
         // PluginSystemHostContext builds its configuration from settings files on disk, so a real file system is used.
         var fileSystem = new RealFileSystem();
+        var hostServices = Substitute.For<IServiceProvider>();
 
         // Act
-        using var context = new PluginSystemHostContext(logger, environment, hostConfiguration, options, fileSystem, configureSources);
+        using var context = new PluginSystemHostContext(logger, environment, hostConfiguration, options, fileSystem, hostServices, configureSources);
 
         // Assert
         Assert.Equal("OverriddenByCustomSource", context.PluginConfiguration["Key"]);
@@ -314,6 +325,7 @@ public class PluginSystemHostContextTests
         var hostConfiguration = Substitute.For<IConfigurationManager>();
         var options = new PluginSystemOptions { PluginSettingsFilePath = string.Empty };
         var fileSystem = new RealFileSystem();
+        var hostServices = Substitute.For<IServiceProvider>();
 
         FileConfigurationSource? capturedSource = null;
         var configureSources = new List<Action<PluginConfigurationSourceContext>>
@@ -326,7 +338,7 @@ public class PluginSystemHostContextTests
         };
 
         // Act
-        using var context = new PluginSystemHostContext(logger, environment, hostConfiguration, options, fileSystem, configureSources);
+        using var context = new PluginSystemHostContext(logger, environment, hostConfiguration, options, fileSystem, hostServices, configureSources);
 
         // Assert — the default OnLoadException guard must have been attached because the callback did not set one.
         Assert.NotNull(capturedSource);
@@ -365,6 +377,7 @@ public class PluginSystemHostContextTests
         var hostConfiguration = Substitute.For<IConfigurationManager>();
         var options = new PluginSystemOptions { PluginSettingsFilePath = string.Empty };
         var fileSystem = new RealFileSystem();
+        var hostServices = Substitute.For<IServiceProvider>();
 
         var customHandlerInvoked = false;
         Action<FileLoadExceptionContext> customHandler = _ => customHandlerInvoked = true;
@@ -381,7 +394,7 @@ public class PluginSystemHostContextTests
         };
 
         // Act
-        using var context = new PluginSystemHostContext(logger, environment, hostConfiguration, options, fileSystem, configureSources);
+        using var context = new PluginSystemHostContext(logger, environment, hostConfiguration, options, fileSystem, hostServices, configureSources);
 
         // Assert — the custom handler must not have been replaced by the default guard.
         Assert.NotNull(capturedSource);
@@ -400,6 +413,7 @@ public class PluginSystemHostContextTests
         var hostConfiguration = Substitute.For<IConfigurationManager>();
         var options = new PluginSystemOptions { PluginSettingsFilePath = string.Empty };
         var fileSystem = new RealFileSystem();
+        var hostServices = Substitute.For<IServiceProvider>();
 
         var malformedJsonPath = fileSystem.Path.Combine(fileSystem.Path.GetTempPath(), $"{Guid.NewGuid()}.json");
         try
@@ -414,7 +428,7 @@ public class PluginSystemHostContextTests
             // Act & Assert — a malformed custom JSON file must not crash the host context construction.
             var exception = Record.Exception(() =>
             {
-                using var context = new PluginSystemHostContext(logger, environment, hostConfiguration, options, fileSystem, configureSources);
+                using var context = new PluginSystemHostContext(logger, environment, hostConfiguration, options, fileSystem, hostServices, configureSources);
             });
             Assert.Null(exception);
         }
@@ -436,6 +450,7 @@ public class PluginSystemHostContextTests
         var hostConfiguration = Substitute.For<IConfigurationManager>();
         var options = new PluginSystemOptions { PluginSettingsFilePath = string.Empty };
         var fileSystem = new RealFileSystem();
+        var hostServices = Substitute.For<IServiceProvider>();
 
         var customHandlerCallCount = 0;
 
@@ -456,7 +471,7 @@ public class PluginSystemHostContextTests
         };
 
         // Act
-        using var context = new PluginSystemHostContext(logger, environment, hostConfiguration, options, fileSystem, configureSources);
+        using var context = new PluginSystemHostContext(logger, environment, hostConfiguration, options, fileSystem, hostServices, configureSources);
 
         // Assert — the custom handler set via index access must be intact and be the one that fires.
         var root = Assert.IsType<IConfigurationRoot>(context.PluginConfiguration, exactMatch: false);
@@ -482,6 +497,7 @@ public class PluginSystemHostContextTests
         var hostConfiguration = Substitute.For<IConfigurationManager>();
         var options = new PluginSystemOptions { PluginSettingsFilePath = "settings.json" };
         var fileSystem = new RealFileSystem();
+        var hostServices = Substitute.For<IServiceProvider>();
 
         var expectedException = new InvalidOperationException("custom callback failure");
         var configureSources = new List<Action<PluginConfigurationSourceContext>>
@@ -491,7 +507,7 @@ public class PluginSystemHostContextTests
 
         // Act & Assert — the original exception must propagate; it must not be wrapped or swallowed.
         var thrownException = Assert.Throws<InvalidOperationException>(() =>
-            new PluginSystemHostContext(logger, environment, hostConfiguration, options, fileSystem, configureSources));
+            new PluginSystemHostContext(logger, environment, hostConfiguration, options, fileSystem, hostServices, configureSources));
 
         Assert.Same(expectedException, thrownException);
     }
@@ -508,6 +524,7 @@ public class PluginSystemHostContextTests
         var hostConfiguration = Substitute.For<IConfigurationManager>();
         var options = new PluginSystemOptions { PluginSettingsFilePath = "settings.json" };
         var fileSystem = new RealFileSystem();
+        var hostServices = Substitute.For<IServiceProvider>();
 
         var expectedException = new InvalidOperationException("source build failure");
         var throwingSource = Substitute.For<IConfigurationSource>();
@@ -520,7 +537,7 @@ public class PluginSystemHostContextTests
 
         // Act & Assert — the original exception must propagate; it must not be wrapped or swallowed.
         var thrownException = Assert.Throws<InvalidOperationException>(() =>
-            new PluginSystemHostContext(logger, environment, hostConfiguration, options, fileSystem, configureSources));
+            new PluginSystemHostContext(logger, environment, hostConfiguration, options, fileSystem, hostServices, configureSources));
 
         Assert.Same(expectedException, thrownException);
     }
@@ -544,6 +561,7 @@ public class PluginSystemHostContextTests
         var hostConfiguration = Substitute.For<IConfigurationManager>();
         var options = new PluginSystemOptions { PluginSettingsFilePath = string.Empty };
         var fileSystem = new RealFileSystem();
+        var hostServices = Substitute.For<IServiceProvider>();
 
         var configureSources = new List<Action<PluginConfigurationSourceContext>>
         {
@@ -552,7 +570,7 @@ public class PluginSystemHostContextTests
         };
 
         // Act
-        using var context = new PluginSystemHostContext(logger, environment, hostConfiguration, options, fileSystem, configureSources);
+        using var context = new PluginSystemHostContext(logger, environment, hostConfiguration, options, fileSystem, hostServices, configureSources);
 
         // Assert
         var root = Assert.IsType<IConfigurationRoot>(context.PluginConfiguration, exactMatch: false);

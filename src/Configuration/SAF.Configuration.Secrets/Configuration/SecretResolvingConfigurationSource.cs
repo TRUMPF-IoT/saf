@@ -16,8 +16,8 @@ internal sealed class SecretResolvingConfigurationSource(
     IEnumerable<IConfigurationSource> innerSources,
     Action<SecretStoreOptions>? configure,
     Action<ISecretStoreBuilder>? configureProviders,
-    HostSecretStoreAccessor? accessor) : IConfigurationSource
+    IServiceProvider? hostServices) : IConfigurationSource
 {
     public IConfigurationProvider Build(IConfigurationBuilder builder)
-        => new SecretResolvingConfigurationProvider(innerSources, configure, configureProviders, accessor);
+        => new SecretResolvingConfigurationProvider(innerSources, configure, configureProviders, hostServices);
 }

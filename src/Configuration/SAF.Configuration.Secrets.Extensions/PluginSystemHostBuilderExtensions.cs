@@ -71,9 +71,9 @@ public static class PluginSystemHostBuilderExtensions
     {
         ArgumentNullException.ThrowIfNull(hostBuilder);
 
-        // Register the host-container store with the same configuration, so that once the container is
-        // available the resolver uses it. Provider registration is idempotent, so this composes with a
-        // separate AddSecretStore call.
+        // Register the store with the same configuration, so the resolver (which reads options and the
+        // reader from the same host container, see source.HostServices below) sees it too. Provider
+        // registration is idempotent, so this composes with a separate AddSecretStore call.
         var storeBuilder = hostBuilder.Services.AddSecretStore(configure);
         if (configureProviders is null)
         {
@@ -84,14 +84,8 @@ public static class PluginSystemHostBuilderExtensions
             configureProviders(storeBuilder);
         }
 
-        // Shared bridge: the resolver (built before the container) and the initializer (run once the
-        // container exists) reference the same accessor instance.
-        var accessor = new HostSecretStoreAccessor();
-        hostBuilder.Services.AddSingleton(accessor);
-        hostBuilder.Services.AddHostedService(sp => new HostSecretStoreAccessorInitializer(accessor, sp));
-
         hostBuilder.AddPluginConfigurationSource(
-            source => source.Builder.AddResolvedSecrets(accessor, configure, configureProviders));
+            source => source.Builder.AddResolvedSecrets(source.HostServices, configure, configureProviders));
         return hostBuilder;
     }
 }

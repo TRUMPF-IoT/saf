@@ -23,13 +23,14 @@ public sealed class PluginSystemHostContext : IPluginSystemHostContext, IDisposa
         IConfigurationManager hostConfiguration,
         PluginSystemOptions options,
         IFileSystem fileSystem,
+        IServiceProvider hostServices,
         IEnumerable<Action<PluginConfigurationSourceContext>>? configurePluginConfigurationSources = null)
     {
         Environment = environment;
         HostConfiguration = hostConfiguration;
 
         (_pluginConfigurationRoot, _pluginSettingsFileProvider, _customSourcesDefaultFileProvider) =
-            BuildPluginConfiguration(logger, options, environment, fileSystem, configurePluginConfigurationSources ?? []);
+            BuildPluginConfiguration(logger, options, environment, fileSystem, hostServices, configurePluginConfigurationSources ?? []);
     }
 
     public IPluginSystemHostEnvironment Environment { get; }
@@ -52,6 +53,7 @@ public sealed class PluginSystemHostContext : IPluginSystemHostContext, IDisposa
         PluginSystemOptions options,
         IPluginSystemHostEnvironment environment,
         IFileSystem fileSystem,
+        IServiceProvider hostServices,
         IEnumerable<Action<PluginConfigurationSourceContext>> configurePluginConfigurationSources)
     {
         var builder = new ConfigurationBuilder();
@@ -76,6 +78,7 @@ public sealed class PluginSystemHostContext : IPluginSystemHostContext, IDisposa
                 EnvironmentName = environment.EnvironmentName,
                 SettingsFileName = settingsFileName,
                 OnLoadException = onLoadException,
+                HostServices = hostServices,
             };
 
             AddCustomPluginConfigurationSources(builder, sourceContext, configurePluginConfigurationSources, onLoadException);

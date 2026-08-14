@@ -77,78 +77,61 @@ public class SecretResolvingConfigurationTests
     }
 
     [Fact]
-    public void UsesBootstrapReader_BeforeHostContainerIsBound()
+    public void ResolvesFromHostContainer_WhenHostServicesProvided()
     {
-        var accessor = new HostSecretStoreAccessor();
-        var config = new ConfigurationBuilder()
-            .AddInMemoryCollection(new Dictionary<string, string?> { ["Db:Password"] = "secret://app/db/pw" })
-            .AddResolvedSecrets(accessor, o => o.AllowEnvironmentOverride = false, p => p.AddProvider<BootstrapProvider>())
-            .Build();
-
-        Assert.Equal("bootstrap:app/db/pw", config["Db:Password"]);
-    }
-
-    [Fact]
-    public void SwitchesToHostStore_WhenAccessorIsBound()
-    {
-        var accessor = new HostSecretStoreAccessor();
-        var config = new ConfigurationBuilder()
-            .AddInMemoryCollection(new Dictionary<string, string?> { ["Db:Password"] = "secret://app/db/pw" })
-            .AddResolvedSecrets(accessor, o => o.AllowEnvironmentOverride = false, p => p.AddProvider<BootstrapProvider>())
-            .Build();
-
-        Assert.Equal("bootstrap:app/db/pw", config["Db:Password"]);
-
-        var hostServices = new ServiceCollection()
-            .AddLogging()
-            .AddSecretStore(o => o.AllowEnvironmentOverride = false)
-            .AddProvider<HostProvider>()
-            .Services
-            .BuildServiceProvider();
-        accessor.Bind(hostServices);
-
-        Assert.Equal("host:app/db/pw", config["Db:Password"]);
-    }
-
-    [Fact]
-    public async Task Initializer_BindsAccessorToHostServices()
-    {
-        var accessor = new HostSecretStoreAccessor();
         var hostServices = new ServiceCollection()
             .AddLogging()
             .AddSecretStore()
             .AddProvider<HostProvider>()
             .Services
             .BuildServiceProvider();
-        var initializer = new HostSecretStoreAccessorInitializer(accessor, hostServices);
 
-        Assert.False(accessor.TryGetReader(out _));
+        var config = new ConfigurationBuilder()
+            .AddInMemoryCollection(new Dictionary<string, string?> { ["Db:Password"] = "secret://app/db/pw" })
+            .AddResolvedSecrets(hostServices)
+            .Build();
 
-        await initializer.StartAsync(TestContext.Current.CancellationToken);
-        await initializer.StopAsync(TestContext.Current.CancellationToken);
-
-        Assert.True(accessor.TryGetReader(out var reader));
-        Assert.NotNull(reader);
+        Assert.Equal("host:app/db/pw", config["Db:Password"]);
     }
 
-    private sealed class BootstrapProvider : NamedFakeProvider
+    [Fact]
+    public void ResolvesFromHostContainer_UsesOptionsConfiguredOnServiceCollection_NotAConfigureCallback()
     {
-        public BootstrapProvider() : base("bootstrap") { }
+        // Regression test for N3: SecretStoreOptions set via services.Configure<SecretStoreOptions>(...)
+        // (as AddSecretStore(o => ...) does) must reach the resolver even though AddResolvedSecrets itself
+        // is called here with no configure callback of its own.
+        var hostServices = new ServiceCollection()
+            .AddLogging()
+            .AddSecretStore(o => o.AllowEnvironmentOverride = false)
+            .AddProvider<HostProvider>()
+            .Services
+            .BuildServiceProvider();
+
+        const string envVar = "SECRET__app__db__pw";
+        Environment.SetEnvironmentVariable(envVar, "should-be-ignored");
+        try
+        {
+            var config = new ConfigurationBuilder()
+                .AddInMemoryCollection(new Dictionary<string, string?> { ["Db:Password"] = "secret://app/db/pw" })
+                .AddResolvedSecrets(hostServices)
+                .Build();
+
+            Assert.Equal("host:app/db/pw", config["Db:Password"]);
+        }
+        finally
+        {
+            Environment.SetEnvironmentVariable(envVar, null);
+        }
     }
 
-    private sealed class HostProvider : NamedFakeProvider
+    private sealed class HostProvider : ISecretStoreProvider
     {
-        public HostProvider() : base("host") { }
-    }
-
-    private abstract class NamedFakeProvider(string prefix) : ISecretStoreProvider
-    {
-        public string Name => prefix;
+        public string Name => "host";
 
         public bool IsAvailable => true;
 
         public Task<string?> GetSecretAsync(string name, CancellationToken cancellationToken = default)
-            => Task.FromResult<string?>($"{prefix}:{name}");
+            => Task.FromResult<string?>($"host:{name}");
 
         public Task SetSecretAsync(string name, string value, CancellationToken cancellationToken = default)
             => Task.CompletedTask;

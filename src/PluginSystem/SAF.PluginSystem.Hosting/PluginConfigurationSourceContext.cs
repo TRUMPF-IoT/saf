@@ -44,4 +44,11 @@ public sealed class PluginConfigurationSourceContext
     /// to get the same behavior.
     /// </summary>
     public required Action<FileLoadExceptionContext> OnLoadException { get; init; }
+
+    /// <summary>
+    /// The host's <see cref="IServiceProvider"/>. It is fully built by the time this context is created,
+    /// so any host-registered service can be resolved from it here — as long as that service does not
+    /// itself depend on <see cref="IPluginSystemHostContext"/>, which would be circular.
+    /// </summary>
+    public required IServiceProvider HostServices { get; init; }
 }

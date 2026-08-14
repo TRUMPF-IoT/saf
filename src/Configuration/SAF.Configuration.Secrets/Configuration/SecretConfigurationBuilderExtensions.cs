@@ -32,23 +32,24 @@ public static class SecretConfigurationBuilderExtensions
     {
         ArgumentNullException.ThrowIfNull(builder);
 
-        return builder.AddResolvedSecrets(accessor: null, configure, configureProviders);
+        return builder.AddResolvedSecrets(hostServices: null, configure, configureProviders);
     }
 
     /// <summary>
-    /// Internal overload that additionally wires a <see cref="HostSecretStoreAccessor"/>, so resolution
-    /// switches from the bootstrap reader to the host's <see cref="ISecretStore"/> once the container is bound.
+    /// Internal overload that additionally passes the host <see cref="IServiceProvider"/> (available while
+    /// plugin configuration is being built), so the resolver reads the reader and options directly from it
+    /// instead of building a self-contained one.
     /// </summary>
     internal static IConfigurationBuilder AddResolvedSecrets(
         this IConfigurationBuilder builder,
-        HostSecretStoreAccessor? accessor,
+        IServiceProvider? hostServices,
         Action<SecretStoreOptions>? configure = null,
         Action<ISecretStoreBuilder>? configureProviders = null)
     {
         ArgumentNullException.ThrowIfNull(builder);
 
         var innerSources = builder.Sources.ToList();
-        builder.Add(new SecretResolvingConfigurationSource(innerSources, configure, configureProviders, accessor));
+        builder.Add(new SecretResolvingConfigurationSource(innerSources, configure, configureProviders, hostServices));
         return builder;
     }
 }

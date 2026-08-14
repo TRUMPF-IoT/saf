@@ -18,37 +18,40 @@ using SAF.Configuration.Secrets.Contracts;
 /// reference name takes precedence over the store (for provisioning in CI/containers).
 /// </summary>
 /// <remarks>
-/// Configuration is built before the application's dependency injection container exists, so resolution
-/// runs in two phases: until the container is available the provider resolves through a self-contained
-/// bootstrap reader; once a <see cref="HostSecretStoreAccessor"/> is bound to the host container the
-/// provider switches to the host's <see cref="ISecretStore"/> and re-resolves.
+/// When a host <see cref="IServiceProvider"/> is available (the SAF plugin-system integration, via
+/// <see cref="PluginConfigurationSourceContext.HostServices"/>), the reader and options are resolved from
+/// it directly. The standalone <c>AddResolvedSecrets(IConfigurationBuilder, ...)</c> overload has no host
+/// container, so it builds a small self-contained one from <c>configure</c>/<c>configureProviders</c> instead.
 /// </remarks>
 internal sealed class SecretResolvingConfigurationProvider : ConfigurationProvider, IDisposable
 {
     private readonly IConfigurationRoot _inner;
     private readonly SecretStoreOptions _options;
-    private readonly HostSecretStoreAccessor? _accessor;
-    private readonly Lazy<ISecretReader> _bootstrapReader;
+    private readonly Lazy<ISecretReader> _reader;
     private readonly IDisposable? _innerReloadRegistration;
-    private readonly IDisposable? _accessorReloadRegistration;
-    private ServiceProvider? _bootstrapServices;
+    private ServiceProvider? _standaloneServices;
 
     public SecretResolvingConfigurationProvider(
         IEnumerable<IConfigurationSource> innerSources,
         Action<SecretStoreOptions>? configure,
         Action<ISecretStoreBuilder>? configureProviders,
-        HostSecretStoreAccessor? accessor)
+        IServiceProvider? hostServices)
     {
         ArgumentNullException.ThrowIfNull(innerSources);
 
-        _accessor = accessor;
-
-        // Options (reference prefix, environment override) are needed even when no reader is ever built,
-        // so derive them directly from the callback instead of from a container.
-        _options = new SecretStoreOptions();
-        configure?.Invoke(_options);
-
-        _bootstrapReader = new Lazy<ISecretReader>(() => BuildBootstrapReader(configure, configureProviders));
+        if (hostServices is not null)
+        {
+            _options = hostServices.GetRequiredService<IOptions<SecretStoreOptions>>().Value;
+            _reader = new Lazy<ISecretReader>(() => hostServices.GetRequiredService<ISecretStore>());
+        }
+        else
+        {
+            // No host container (the standalone AddResolvedSecrets(IConfigurationBuilder, ...) overload):
+            // options are needed even before a reader is built, so derive them directly from the callback.
+            _options = new SecretStoreOptions();
+            configure?.Invoke(_options);
+            _reader = new Lazy<ISecretReader>(() => BuildStandaloneReader(configure, configureProviders));
+        }
 
         var innerBuilder = new ConfigurationBuilder();
         foreach (var source in innerSources)
@@ -58,10 +61,6 @@ internal sealed class SecretResolvingConfigurationProvider : ConfigurationProvid
 
         _inner = innerBuilder.Build();
         _innerReloadRegistration = ChangeToken.OnChange(() => _inner.GetReloadToken(), Reload);
-        if (_accessor is not null)
-        {
-            _accessorReloadRegistration = ChangeToken.OnChange(() => _accessor.GetChangeToken(), Reload);
-        }
     }
 
     public override void Load() => Data = BuildData();
@@ -102,14 +101,10 @@ internal sealed class SecretResolvingConfigurationProvider : ConfigurationProvid
             }
         }
 
-        var reader = _accessor is not null && _accessor.TryGetReader(out var hostReader)
-            ? hostReader
-            : _bootstrapReader.Value;
-
-        return reader.GetSecretAsync(reference.Name).GetAwaiter().GetResult();
+        return _reader.Value.GetSecretAsync(reference.Name).GetAwaiter().GetResult();
     }
 
-    private ISecretReader BuildBootstrapReader(
+    private ISecretReader BuildStandaloneReader(
         Action<SecretStoreOptions>? configure,
         Action<ISecretStoreBuilder>? configureProviders)
     {
@@ -125,8 +120,8 @@ internal sealed class SecretResolvingConfigurationProvider : ConfigurationProvid
             configureProviders(storeBuilder);
         }
 
-        _bootstrapServices = services.BuildServiceProvider();
-        return _bootstrapServices.GetRequiredService<ISecretStore>();
+        _standaloneServices = services.BuildServiceProvider();
+        return _standaloneServices.GetRequiredService<ISecretStore>();
     }
 
     private string BuildEnvironmentVariableName(string name)
@@ -172,8 +167,7 @@ internal sealed class SecretResolvingConfigurationProvider : ConfigurationProvid
     public void Dispose()
     {
         _innerReloadRegistration?.Dispose();
-        _accessorReloadRegistration?.Dispose();
         (_inner as IDisposable)?.Dispose();
-        _bootstrapServices?.Dispose();
+        _standaloneServices?.Dispose();
     }
 }
