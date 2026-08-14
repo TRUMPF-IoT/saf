@@ -16,7 +16,7 @@ SAF builds on top of .NET's `Microsoft.Extensions.Hosting` and adds:
 | **SAF Host** | Opinionated host wiring: service host identity, plug-in folder discovery, optional diagnostics |
 | **Messaging Infrastructure** | Exchangeable pub/sub broker (In-Process, Redis, NATS, C-DEngine, or Routing) |
 | **Storage Infrastructure** | Exchangeable key/value store (LiteDB, SQLite, Redis, C-DEngine) |
-| **Secret Store** | Keep credentials out of configuration files, in an OS-level store (Windows Credential Manager) |
+| **Secret Store** | Keep credentials out of configuration files, in an OS-level store (Windows Credential Manager or a cross-platform encrypted file store) |
 | **Toolbox Services** | Ready-made helpers: Heartbeat, Request/Reply client, File Transfer |
 
 ## Core Design Principles
@@ -39,12 +39,15 @@ graph TB
         subgraph "Shared Infrastructure (injected into every plugin)"
             MSG[IMessagingInfrastructure]
             STO[IStorageInfrastructure]
+            SEC[ISecretStore]
         end
 
         PA --- MSG
         PA --- STO
+        PA --- SEC
         PB --- MSG
         PB --- STO
+        PB --- SEC
     end
 
     PA -->|"publish(topic, payload)"| MSG
@@ -66,8 +69,8 @@ graph TB
 | `SAF.Storage.LiteDb` | LiteDB-backed key/value storage |
 | `SAF.Storage.SQLite` | SQLite-backed key/value storage |
 | `SAF.Configuration.Secrets.Contracts` | Secret store contracts: `ISecretStore`, `SecretStoreOptions`, `SecretReference` |
-| `SAF.Configuration.Secrets` | Secret store providers (Windows Credential Manager) and provider selection |
-| `SAF.Configuration.Secrets.Extensions` | Secret store host-builder integration (`AddSecretStore`) |
+| `SAF.Configuration.Secrets` | Secret store providers (Windows Credential Manager, cross-platform file store), the default `PkcsSecretProtector`, and provider selection |
+| `SAF.Configuration.Secrets.Extensions` | Secret store host-builder integration (`AddSecretStore`, `AddSecretConfigurationResolution`) |
 | `SAF.PluginSystem.Hosting` | Plugin loading engine |
 | `SAF.PluginSystem.Hosting.Contracts` | Plugin contracts: `IPluginManifest`, `IServicePlugin`, `IPluginAssemblyValidator`, validation context/result |
 | `SAF.PluginSystem.Hosting.Extensions` | Plugin-system convenience extensions and built-in assembly validators |

@@ -68,19 +68,21 @@ builder.AddSafHost()
     });
 ```
 
-### 2. Share the contracts assembly across the plug-in boundary
+### 2. The contracts assembly is shared automatically
 
-`ISecretStore` lives in its own contracts assembly, which the plug-in system must recognise as a
-**shared contract** so plug-ins resolve the same type the host forwards. Add it to
-`PluginContractsSearchPattern` (SAF's own contracts are added automatically; this one is not):
+`ISecretStore` is forwarded from the host into every plug-in container via `IHostServiceForwarder` (see
+[Plugin System: IHostServiceForwarder](./plugin-system.md#ihostserviceforwarder)). For a plug-in to
+accept the forwarded instance, its isolated load context must resolve `ISecretStore` to the *same*
+`SAF.Configuration.Secrets.Contracts` assembly the host uses — the plugin system does this automatically
+for any assembly it finds in the host's own base directory. Referencing
+`SAF.Configuration.Secrets.Extensions` from your host project is normally all it takes: the contracts
+assembly is a transitive dependency, so the build already places it next to your host executable.
 
-```json
-{
-  "PluginSystem": {
-    "PluginContractsSearchPattern": "SAF.Configuration.Secrets.Contracts.dll"
-  }
-}
-```
+> Do **not** add it to `PluginContractsSearchPattern` — that setting controls a different mechanism,
+> discovering **cross-plugin service exports** (see
+> [Cross-Plugin Services](./plugin-system.md#cross-plugin-services)), not host-to-plugin forwarding.
+> Adding it here additionally registers `ISecretStore` as an exported cross-plugin service, which is not
+> what you want.
 
 ### 3. Inject and use `ISecretStore` in a plug-in
 
@@ -200,12 +202,14 @@ certificate you supply):
 
 ```csharp
 using System.Security.Cryptography.X509Certificates;
+using Microsoft.Extensions.DependencyInjection;
+using SAF.Configuration.Secrets;
 using SAF.Configuration.Secrets.Contracts;
 using SAF.Configuration.Secrets.Protection;
 
 // Register a protector, then the file store. On non-Windows AddDefaults() already registers the file
 // store, so registering the protector alone is enough there.
-hostBuilder.Services.AddSingleton<ISecretProtector>(_ => new PkcsSecretProtector(certificate));
+ps.Services.AddSingleton<ISecretProtector>(_ => new PkcsSecretProtector(certificate));
 
 ps.AddSecretStore(
     configure: o => o.Namespace = "myapp",
