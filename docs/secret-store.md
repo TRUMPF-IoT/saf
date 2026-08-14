@@ -29,6 +29,11 @@ sufficient privilege can". Understanding that boundary is important:
 - **What you gain over in-file encryption:** the secret is no longer in the file (no leak via copies,
   backups or source control); protection is per-machine and per-principal (hardware-backed where the
   OS supports it); and access can be audited.
+- **Resolved secrets are plaintext in the process's own configuration state.** Once a `secret://`
+  reference resolves, the value lives in `IConfiguration` like any other setting, so
+  `IConfigurationRoot.GetDebugView()` prints it, attributed to the resolving provider. Use the
+  `GetDebugView(Func<string, ConfigurationDebugViewContext, string> processValue)` overload to mask
+  values before logging or displaying a debug view of configuration that may include resolved secrets.
 
 The right operational posture is to run the process under a least-privileged identity and let that
 identity own the secrets.
@@ -260,6 +265,9 @@ Then reference secrets in the plugin configuration with the `secret://` prefix:
 
 - Values **with** the prefix are replaced by the resolved secret; values **without** it (e.g. `Host`)
   pass through unchanged.
+- A reference that **no provider can resolve throws by default** (`ThrowOnUnresolvedReference`), naming
+  the reference and the configured provider, instead of silently becoming `null` and shadowing the
+  original value. Set it to `false` for test/dev scenarios without a populated store.
 - An **environment variable** derived from the reference name overrides the store, which lets
   CI/containers inject secrets without an OS store. The name is `EnvironmentVariablePrefix` plus the
   reference name with `/` → `__` and other non-alphanumeric characters → `_`; e.g.
@@ -288,6 +296,7 @@ Then reference secrets in the plugin configuration with the `secret://` prefix:
 | `ReferencePrefix` | `"secret://"` | Marks a configuration value as a secret reference (transparent resolution). |
 | `AllowEnvironmentOverride` | `true` | When resolving a reference, check a derived environment variable before the store. |
 | `EnvironmentVariablePrefix` | `"SECRET"` | Prefix of that environment variable. |
+| `ThrowOnUnresolvedReference` | `true` | Throw when a `secret://` reference cannot be resolved, instead of passing it through as `null`. |
 
 ### Scope
 
@@ -300,10 +309,6 @@ local/domain user).
 - `Machine` — any local account may read. The Windows Credential Manager has no machine-wide vault, so
   it logs a warning and still stores per-principal; broader readership for the file provider is a matter
   of the file's deployed permissions (see [The file store and its protector](#the-file-store-and-its-protector)).
-
-> `SecretStoreOptions` also exposes `RequireSecretReferences`, intended to fail-fast on plaintext in a
-> secret-backed field. The transparent resolver does not enforce it yet — it resolves references and
-> passes all other values through unchanged.
 
 ## Secret names
 
@@ -326,5 +331,3 @@ The following are planned and not yet available:
   default, registered ahead of the file store in `AddDefaults` once it ships.
 - **DPAPI-backed `ISecretProtector`** for Windows-only file stores, added additively alongside the
   default `PkcsSecretProtector`.
-- **Enforcing `RequireSecretReferences`** — fail-fast when a secret-backed configuration field holds a
-  plaintext value instead of a reference.

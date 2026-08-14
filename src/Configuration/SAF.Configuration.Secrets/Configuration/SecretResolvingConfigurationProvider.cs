@@ -7,6 +7,8 @@ namespace SAF.Configuration.Secrets;
 using System.Text;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using Microsoft.Extensions.Primitives;
 using SAF.Configuration.Secrets.Contracts;
@@ -28,6 +30,7 @@ internal sealed class SecretResolvingConfigurationProvider : ConfigurationProvid
     private readonly IConfigurationRoot _inner;
     private readonly SecretStoreOptions _options;
     private readonly Lazy<ISecretReader> _reader;
+    private readonly ILogger _logger;
     private readonly IDisposable? _innerReloadRegistration;
     private ServiceProvider? _standaloneServices;
 
@@ -43,6 +46,7 @@ internal sealed class SecretResolvingConfigurationProvider : ConfigurationProvid
         {
             _options = hostServices.GetRequiredService<IOptions<SecretStoreOptions>>().Value;
             _reader = new Lazy<ISecretReader>(() => hostServices.GetRequiredService<ISecretStore>());
+            _logger = hostServices.GetRequiredService<ILogger<SecretResolvingConfigurationProvider>>();
         }
         else
         {
@@ -51,6 +55,8 @@ internal sealed class SecretResolvingConfigurationProvider : ConfigurationProvid
             _options = new SecretStoreOptions();
             configure?.Invoke(_options);
             _reader = new Lazy<ISecretReader>(() => BuildStandaloneReader(configure, configureProviders));
+            // No host ILoggerFactory to attach to either; the standalone overload never logged anything before.
+            _logger = NullLogger<SecretResolvingConfigurationProvider>.Instance;
         }
 
         var innerBuilder = new ConfigurationBuilder();
@@ -63,11 +69,26 @@ internal sealed class SecretResolvingConfigurationProvider : ConfigurationProvid
         _innerReloadRegistration = ChangeToken.OnChange(() => _inner.GetReloadToken(), Reload);
     }
 
+    // Initial Load() intentionally lets a build-up exception (an unresolved reference, or the store
+    // itself throwing) propagate: the host should fail fast rather than start with a missing credential.
     public override void Load() => Data = BuildData();
 
+    // Unlike Load(), a failure here must never reach the ChangeToken/file-watcher callback thread that
+    // invokes it, or it takes the whole host down over what may be a transient store/reload failure.
+    // Keep serving the last-known-good Data instead.
     private void Reload()
     {
-        var newData = BuildData();
+        Dictionary<string, string?> newData;
+        try
+        {
+            newData = BuildData();
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Failed to reload secret-resolved configuration; keeping the previously resolved values.");
+            return;
+        }
+
         var changed = !DataEquals(Data, newData);
         Data = newData;
         if (changed)
@@ -101,7 +122,17 @@ internal sealed class SecretResolvingConfigurationProvider : ConfigurationProvid
             }
         }
 
-        return _reader.Value.GetSecretAsync(reference.Name).GetAwaiter().GetResult();
+        var value = _reader.Value.GetSecretAsync(reference.Name).GetAwaiter().GetResult();
+        if (value is null && _options.ThrowOnUnresolvedReference)
+        {
+            throw new InvalidOperationException(
+                $"The secret reference '{reference}' could not be resolved: no value named '{reference.Name}' " +
+                $"was found by the '{_options.ProviderName}' secret store provider. Set " +
+                $"{nameof(SecretStoreOptions.ThrowOnUnresolvedReference)} = false to pass unresolved " +
+                "references through as null instead.");
+        }
+
+        return value;
     }
 
     private ISecretReader BuildStandaloneReader(

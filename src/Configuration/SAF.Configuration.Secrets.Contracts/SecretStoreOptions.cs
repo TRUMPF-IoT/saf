@@ -38,11 +38,12 @@ public sealed class SecretStoreOptions
     public string Namespace { get; set; } = "saf";
 
     /// <summary>
-    /// When <see langword="true"/> (the default, intended for production), a configuration value bound
-    /// to a secret-backed field that is not a secret reference causes a fail-fast. Set to
-    /// <see langword="false"/> in test/dev to allow inline literal values.
+    /// When <see langword="true"/> (the default, intended for production), a <c>secret://</c> reference
+    /// that no provider can resolve throws instead of silently becoming <see langword="null"/>. Set to
+    /// <see langword="false"/> to let an unresolved reference pass through as <see langword="null"/>,
+    /// e.g. in test/dev without a populated store.
     /// </summary>
-    public bool RequireSecretReferences { get; set; } = true;
+    public bool ThrowOnUnresolvedReference { get; set; } = true;
 
     /// <summary>
     /// When <see langword="true"/> (the default), secret resolution first checks an environment

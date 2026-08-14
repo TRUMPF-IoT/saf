@@ -19,7 +19,7 @@ public class SecretStoreOptionsTests
         Assert.Equal(SecretScope.ServiceAccount, options.Scope);
         Assert.Equal("secret://", options.ReferencePrefix);
         Assert.Equal("saf", options.Namespace);
-        Assert.True(options.RequireSecretReferences);
+        Assert.True(options.ThrowOnUnresolvedReference);
         Assert.True(options.AllowEnvironmentOverride);
         Assert.Equal("SECRET", options.EnvironmentVariablePrefix);
     }
