@@ -95,7 +95,7 @@ Backed by [StackExchange.Redis](https://github.com/StackExchange/StackExchange.R
 
 Backed by [NATS.Net](https://nats.io). High-performance, cloud-native messaging. Also provides NATS-backed storage.
 
-**Package / plug-in DLL:** `SAF.Messaging.NATS` (`SAF.Messaging.Nats.dll`)
+**Package / plug-in DLL:** `SAF.Messaging.NATS` (`SAF.Messaging.NATS.dll`)
 
 ```json
 {

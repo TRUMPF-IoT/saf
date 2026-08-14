@@ -30,7 +30,7 @@ SPDX-License-Identifier: MPL-2.0
     <Project Path="Messaging/SAF.Messaging.InProcess/SAF.Messaging.InProcess.csproj" />
     <Project Path="Messaging/SAF.Messaging.LoadTest/SAF.Messaging.LoadTest.csproj" />
     <Project Path="Messaging/SAF.Messaging.Nats.Tests/SAF.Messaging.Nats.Tests.csproj" />
-    <Project Path="Messaging/SAF.Messaging.Nats/SAF.Messaging.Nats.csproj" />
+    <Project Path="Messaging/SAF.Messaging.NATS/SAF.Messaging.NATS.csproj" />
     <Project Path="Messaging/SAF.Messaging.Redis.Tests/SAF.Messaging.Redis.Tests.csproj" />
     <Project Path="Messaging/SAF.Messaging.Redis/SAF.Messaging.Redis.csproj" />
     <Project Path="Messaging/SAF.Messaging.Routing.Tests/SAF.Messaging.Routing.Tests.csproj" />
