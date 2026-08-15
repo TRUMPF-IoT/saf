@@ -112,9 +112,5 @@ internal sealed class WindowsCredentialManagerSecretStore : ISecretStoreProvider
         return Task.CompletedTask;
     }
 
-    private string BuildTargetName(string name)
-    {
-        var ns = _options.Namespace;
-        return string.IsNullOrEmpty(ns) ? name : $"{ns}/{name}";
-    }
+    private string BuildTargetName(string name) => SecretTargetName.Build(_options.Namespace, name);
 }

@@ -328,6 +328,11 @@ A secret name is a logical key such as `opcua/connection-1/password`. The active
 prepended to form the physical store key (e.g. `myapp/opcua/connection-1/password`). Names are not
 secret and may be committed to configuration and source control.
 
+The physical store key is **case-insensitive** — `Namespace` and the name are both lower-cased before
+use, the same way on every provider. This matches the Windows Credential Manager, which treats target
+names case-insensitively regardless of what is written; without normalizing, the same logical secret
+could resolve differently depending on which backend is active.
+
 ## Provisioning secrets
 
 Secrets must exist in the store before the service reads them. Use `ISecretStore.SetSecretAsync` from

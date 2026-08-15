@@ -326,11 +326,7 @@ internal sealed class FileSecretStore : ISecretStoreProvider, IDisposable
         return _fileSystem.Path.Combine(dataDirectory, "secrets.json");
     }
 
-    private string BuildTargetName(string name)
-    {
-        var ns = _options.Namespace;
-        return string.IsNullOrEmpty(ns) ? name : $"{ns}/{name}";
-    }
+    private string BuildTargetName(string name) => SecretTargetName.Build(_options.Namespace, name);
 
     /// <summary>The on-disk shape of the secret store file: encrypted values keyed by namespaced name.</summary>
     private sealed class SecretDocument
@@ -339,6 +335,6 @@ internal sealed class FileSecretStore : ISecretStoreProvider, IDisposable
         public string? Protector { get; set; }
 
         /// <summary>Base64-encoded protected payloads keyed by the namespaced target name.</summary>
-        public Dictionary<string, string> Secrets { get; set; } = new(StringComparer.Ordinal);
+        public Dictionary<string, string> Secrets { get; set; } = new(StringComparer.OrdinalIgnoreCase);
     }
 }

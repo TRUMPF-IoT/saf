@@ -150,6 +150,17 @@ public class FileSecretStoreTests
     }
 
     [Fact]
+    public async Task GetSecretAsync_IsCaseInsensitive_ForNamespaceAndName()
+    {
+        var store = CreateStore(new SecretStoreOptions { Namespace = "MyApp" });
+        await store.SetSecretAsync("Conn/PW", "value", TestToken);
+
+        var otherCasing = CreateStore(new SecretStoreOptions { Namespace = "myapp" });
+
+        Assert.Equal("value", await otherCasing.GetSecretAsync("conn/pw", TestToken));
+    }
+
+    [Fact]
     public async Task ReadDocument_Throws_OnProtectorMismatch()
     {
         var store = CreateStore();
