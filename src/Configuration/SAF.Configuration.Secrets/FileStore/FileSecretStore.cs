@@ -314,7 +314,16 @@ internal sealed class FileSecretStore : ISecretStoreProvider, IDisposable
         }
 
         var ns = string.IsNullOrEmpty(_options.Namespace) ? "saf" : _options.Namespace;
-        return _fileSystem.Path.Combine(AppContext.BaseDirectory, "secrets", $"{ns}.secrets.json");
+
+        // AppContext.BaseDirectory is the host application directory, which per docs/plugin-security.md
+        // must be read-only to the runtime account - writing secrets there would need exactly the write
+        // access that document forbids. Use the conventional per-machine data location instead; the
+        // installer, not this provider, is responsible for creating it with the right permissions.
+        var dataDirectory = OperatingSystem.IsWindows()
+            ? _fileSystem.Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData), ns)
+            : _fileSystem.Path.Combine("/var/lib", ns);
+
+        return _fileSystem.Path.Combine(dataDirectory, "secrets.json");
     }
 
     private string BuildTargetName(string name)

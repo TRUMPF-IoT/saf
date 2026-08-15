@@ -65,6 +65,22 @@ public class FileSecretStoreTests
     }
 
     [Fact]
+    public async Task ResolvePath_DefaultsToPerMachineDataLocation_WhenPathNotConfigured()
+    {
+        var store = CreateStoreWithDefaultPath(new SecretStoreOptions { Namespace = "myapp" });
+
+        await store.SetSecretAsync("conn/pw", "value", TestToken);
+
+        var dataDirectory = OperatingSystem.IsWindows()
+            ? _fileSystem.Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData), "myapp")
+            : _fileSystem.Path.Combine("/var/lib", "myapp");
+        var expectedPath = _fileSystem.Path.Combine(dataDirectory, "secrets.json");
+
+        Assert.True(_fileSystem.File.Exists(expectedPath));
+        Assert.False(expectedPath.StartsWith(AppContext.BaseDirectory, StringComparison.Ordinal));
+    }
+
+    [Fact]
     public async Task SetSecretAsync_OverwritesExistingSecret()
     {
         var store = CreateStore();
@@ -313,6 +329,14 @@ public class FileSecretStoreTests
             Options.Create(new FileSecretStoreOptions { Path = StorePath }),
             NullLogger<FileSecretStore>.Instance,
             protector ?? new ReversingSecretProtector());
+
+    private FileSecretStore CreateStoreWithDefaultPath(SecretStoreOptions options)
+        => new(
+            _fileSystem,
+            Options.Create(options),
+            Options.Create(new FileSecretStoreOptions()),
+            NullLogger<FileSecretStore>.Instance,
+            new ReversingSecretProtector());
 
     private FileSecretStore CreateStoreWithoutProtector()
         => new(

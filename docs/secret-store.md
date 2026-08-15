@@ -195,10 +195,13 @@ ps.AddSecretStore(null, providers => providers
 
 ## The file store and its protector
 
-The `file` provider persists secrets to a single JSON file (default:
-`<BaseDirectory>/secrets/<namespace>.secrets.json`, override with `FileSecretStoreOptions.Path`). The
-**logical names stay in clear** — a secret reference is not itself sensitive — while **each value is
-encrypted at rest** through an injected `ISecretProtector`.
+The `file` provider persists secrets to a single JSON file. Unless `FileSecretStoreOptions.Path` is set,
+it defaults to a per-machine data location — `%ProgramData%\<namespace>\secrets.json` on Windows,
+`/var/lib/<namespace>/secrets.json` elsewhere — not the host application directory: per
+[Plugin Deployment Security](./plugin-security.md), that directory must be read-only to the runtime
+account, which rules it out as a location this provider writes to. The **logical names stay in clear**
+— a secret reference is not itself sensitive — while **each value is encrypted at rest** through an
+injected `ISecretProtector`.
 
 The protector (and its key/certificate material) is *not* registered for you: it is a deployment
 decision, so you register it explicitly. The built-in, cross-platform default is `PkcsSecretProtector`
