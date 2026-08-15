@@ -4,6 +4,7 @@
 
 namespace SAF.Configuration.Secrets.FileStore;
 
+using System.IO;
 using System.IO.Abstractions;
 using System.Text;
 using System.Text.Json;
@@ -29,15 +30,20 @@ internal sealed class FileSecretStore : ISecretStoreProvider, IDisposable
         PropertyNameCaseInsensitive = true
     };
 
+    // Retry interval while waiting for another process to release the cross-process lock (see
+    // AcquireCrossProcessLockAsync). FileShare.None fails a contended Open immediately rather than
+    // queuing it, so the wait is implemented as a poll loop instead of a blocking OS wait.
+    private static readonly TimeSpan CrossProcessLockRetryDelay = TimeSpan.FromMilliseconds(25);
+
     private readonly IFileSystem _fileSystem;
     private readonly ISecretProtector? _protector;
     private readonly SecretStoreOptions _options;
     private readonly FileSecretStoreOptions _fileOptions;
     private readonly ILogger<FileSecretStore> _logger;
 
-    // Serializes all file access. Writers must not lose updates in their read-modify-write cycle, and a
-    // read must not overlap the atomic replace of a write: on Windows an open read handle (FileShare.Read,
-    // no delete-share) would make the writer's overwrite Move fail with a sharing violation.
+    // Serializes all file access within this process. A cross-process lock (see
+    // AcquireCrossProcessLockAsync) additionally serializes against other processes, e.g. an installer
+    // or CLI tool writing to the same store file concurrently with this one.
     private readonly SemaphoreSlim _fileGate = new(1, 1);
 
     public FileSecretStore(
@@ -100,6 +106,8 @@ internal sealed class FileSecretStore : ISecretStoreProvider, IDisposable
         await _fileGate.WaitAsync(cancellationToken).ConfigureAwait(false);
         try
         {
+            await using var crossProcessLock = await AcquireCrossProcessLockAsync(cancellationToken).ConfigureAwait(false);
+
             var document = await ReadDocumentAsync(cancellationToken).ConfigureAwait(false);
             return document.Secrets.TryGetValue(BuildTargetName(name), out var encoded)
                 ? Decrypt(encoded)
@@ -121,6 +129,8 @@ internal sealed class FileSecretStore : ISecretStoreProvider, IDisposable
         await _fileGate.WaitAsync(cancellationToken).ConfigureAwait(false);
         try
         {
+            await using var crossProcessLock = await AcquireCrossProcessLockAsync(cancellationToken).ConfigureAwait(false);
+
             var document = await ReadDocumentAsync(cancellationToken).ConfigureAwait(false);
             document.Secrets[BuildTargetName(name)] = Encrypt(value);
             await WriteDocumentAsync(document, cancellationToken).ConfigureAwait(false);
@@ -140,6 +150,8 @@ internal sealed class FileSecretStore : ISecretStoreProvider, IDisposable
         await _fileGate.WaitAsync(cancellationToken).ConfigureAwait(false);
         try
         {
+            await using var crossProcessLock = await AcquireCrossProcessLockAsync(cancellationToken).ConfigureAwait(false);
+
             var document = await ReadDocumentAsync(cancellationToken).ConfigureAwait(false);
             if (document.Secrets.Remove(BuildTargetName(name)))
             {
@@ -149,6 +161,32 @@ internal sealed class FileSecretStore : ISecretStoreProvider, IDisposable
         finally
         {
             _fileGate.Release();
+        }
+    }
+
+    // Serializes access to the store file across processes (e.g. this host and an installer/CLI tool
+    // writing to the same file). FileShare.None fails immediately rather than queuing, so a contended
+    // open is retried until the holder releases it or the caller cancels.
+    private async Task<Stream> AcquireCrossProcessLockAsync(CancellationToken cancellationToken)
+    {
+        var path = ResolvePath();
+        var directory = _fileSystem.Path.GetDirectoryName(path);
+        if (!string.IsNullOrEmpty(directory))
+        {
+            _fileSystem.Directory.CreateDirectory(directory);
+        }
+
+        var lockPath = path + ".lock";
+        while (true)
+        {
+            try
+            {
+                return _fileSystem.File.Open(lockPath, FileMode.OpenOrCreate, FileAccess.ReadWrite, FileShare.None);
+            }
+            catch (IOException)
+            {
+                await Task.Delay(CrossProcessLockRetryDelay, cancellationToken).ConfigureAwait(false);
+            }
         }
     }
 
@@ -217,9 +255,58 @@ internal sealed class FileSecretStore : ISecretStoreProvider, IDisposable
         document.Protector = Protector.Name;
         var json = JsonSerializer.Serialize(document, JsonOptions);
 
-        // Write to a sibling temp file first, then replace, so a crash mid-write cannot corrupt the store.
-        var tempPath = path + ".tmp";
-        await _fileSystem.File.WriteAllTextAsync(tempPath, json, cancellationToken).ConfigureAwait(false);
+        // A randomized sibling name: a fixed "<path>.tmp" collides across concurrent writers and is a
+        // predictable target if the directory is writable by more than intended.
+        var tempPath = _fileSystem.Path.Combine(
+            string.IsNullOrEmpty(directory) ? string.Empty : directory,
+            $"{_fileSystem.Path.GetFileName(path)}.{Guid.NewGuid():N}.tmp");
+
+        try
+        {
+            await _fileSystem.File.WriteAllTextAsync(tempPath, json, cancellationToken).ConfigureAwait(false);
+            PreserveExistingPermissions(path, tempPath);
+            ReplaceAtomically(tempPath, path);
+        }
+        catch
+        {
+            if (_fileSystem.File.Exists(tempPath))
+            {
+                _fileSystem.File.Delete(tempPath);
+            }
+
+            throw;
+        }
+    }
+
+    // Move()/rename() keep the SOURCE file's permissions, so a freshly written temp file would silently
+    // widen an existing store file's access on every write. Restrict the temp file first, then adopt the
+    // destination's actual mode if it already exists, preserving whatever the installer configured.
+    private void PreserveExistingPermissions(string path, string tempPath)
+    {
+        if (OperatingSystem.IsWindows())
+        {
+            // The Windows ACL is preserved by ReplaceAtomically itself (File.Replace keeps the
+            // destination's security descriptor; File.Move does not - confirmed empirically).
+            return;
+        }
+
+        _fileSystem.File.SetUnixFileMode(tempPath, UnixFileMode.UserRead | UnixFileMode.UserWrite);
+        if (_fileSystem.File.Exists(path))
+        {
+            _fileSystem.File.SetUnixFileMode(tempPath, _fileSystem.File.GetUnixFileMode(path));
+        }
+    }
+
+    private void ReplaceAtomically(string tempPath, string path)
+    {
+        if (OperatingSystem.IsWindows() && _fileSystem.File.Exists(path))
+        {
+            // File.Replace preserves the destination's ACL; File.Move does not (confirmed empirically
+            // against real NTFS). File.Replace requires the destination to already exist.
+            _fileSystem.File.Replace(tempPath, path, destinationBackupFileName: null);
+            return;
+        }
+
         _fileSystem.File.Move(tempPath, path, overwrite: true);
     }
 

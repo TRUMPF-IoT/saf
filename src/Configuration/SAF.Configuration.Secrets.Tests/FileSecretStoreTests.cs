@@ -4,6 +4,7 @@
 
 namespace SAF.Configuration.Secrets.Tests;
 
+using System.IO;
 using System.IO.Abstractions;
 using System.Text;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -232,6 +233,89 @@ public class FileSecretStoreTests
     [Fact]
     public void Constructor_AllowsNullProtector()
         => Assert.NotNull(CreateStoreWithoutProtector());
+
+    [Fact]
+    public async Task SetSecretAsync_LeavesNoTempFiles_AfterSeveralWrites()
+    {
+        var store = CreateStore();
+
+        await store.SetSecretAsync("conn/pw", "one", TestToken);
+        await store.SetSecretAsync("conn/pw", "two", TestToken);
+        await store.SetSecretAsync("conn/user", "three", TestToken);
+
+        var directory = _fileSystem.Path.GetDirectoryName(StorePath)!;
+        Assert.DoesNotContain(
+            _fileSystem.Directory.GetFiles(directory),
+            f => f.EndsWith(".tmp", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public async Task SetSecretAsync_PreservesExistingUnixFileMode_OnOverwrite()
+    {
+        Assert.SkipWhen(OperatingSystem.IsWindows(), "Unix file modes only apply on non-Windows platforms.");
+        if (OperatingSystem.IsWindows())
+        {
+            return;
+        }
+
+        var store = CreateStore();
+        await store.SetSecretAsync("conn/pw", "first", TestToken);
+        var restrictedMode = UnixFileMode.UserRead;
+        _fileSystem.File.SetUnixFileMode(StorePath, restrictedMode);
+
+        await store.SetSecretAsync("conn/pw", "second", TestToken);
+
+        Assert.Equal(restrictedMode, _fileSystem.File.GetUnixFileMode(StorePath));
+    }
+
+    [Fact]
+    public async Task SetSecretAsync_UsesRestrictiveUnixFileMode_ForNewFile()
+    {
+        Assert.SkipWhen(OperatingSystem.IsWindows(), "Unix file modes only apply on non-Windows platforms.");
+        if (OperatingSystem.IsWindows())
+        {
+            return;
+        }
+
+        var store = CreateStore();
+
+        await store.SetSecretAsync("conn/pw", "value", TestToken);
+
+        Assert.Equal(
+            UnixFileMode.UserRead | UnixFileMode.UserWrite,
+            _fileSystem.File.GetUnixFileMode(StorePath));
+    }
+
+    [Fact]
+    public async Task SetSecretAsync_WaitsForCrossProcessLock_ThenSucceeds()
+    {
+        var store = CreateStore();
+        await store.SetSecretAsync("conn/pw", "first", TestToken);
+        var externalLock = _fileSystem.File.Open(
+            StorePath + ".lock", FileMode.OpenOrCreate, FileAccess.ReadWrite, FileShare.None);
+
+        var setTask = store.SetSecretAsync("conn/pw", "second", TestToken);
+        await Task.Delay(100, TestToken);
+        Assert.False(setTask.IsCompleted, "the write must block while another process holds the lock");
+
+        externalLock.Dispose();
+        await setTask;
+
+        Assert.Equal("second", await store.GetSecretAsync("conn/pw", TestToken));
+    }
+
+    [Fact]
+    public async Task SetSecretAsync_Throws_WhenCancelledWhileWaitingForCrossProcessLock()
+    {
+        var store = CreateStore();
+        await store.SetSecretAsync("conn/pw", "first", TestToken);
+        using var externalLock = _fileSystem.File.Open(
+            StorePath + ".lock", FileMode.OpenOrCreate, FileAccess.ReadWrite, FileShare.None);
+        using var cts = new CancellationTokenSource(TimeSpan.FromMilliseconds(150));
+
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(
+            async () => await store.SetSecretAsync("conn/pw", "second", cts.Token));
+    }
 
     private FileSecretStore CreateStore(SecretStoreOptions? options = null, ISecretProtector? protector = null)
         => new(

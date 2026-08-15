@@ -230,9 +230,14 @@ Key points:
   host that uses `AddDefaults().AddFile()` without a protector still works via the Credential Manager.
 - **Protector identity is stamped** into the file. Opening a store written by a different protector
   fails fast with an explanatory error rather than producing garbage.
-- **File permissions are the installer's responsibility.** The provider only reads and writes the file
-  contents; it does **not** set ACLs (`0600` on Linux, an NTFS ACL for the reader on Windows). Lock the
-  file down at deployment time so only the service account can read it.
+- **File permissions are the installer's responsibility.** The provider does **not** grant a specific
+  principal access (`0600` on Linux, an NTFS ACL for the reader on Windows) — lock the file down at
+  deployment time so only the service account can read it. Writes **preserve** whatever permissions are
+  already on the file (an update never widens access), and a first write on Linux defaults to owner-only
+  (`0600`) rather than the process umask.
+- **Concurrent writers are serialized**, including across processes (e.g. this host and a separate
+  installer/CLI tool writing to the same file): every read and write takes a sibling `.lock` file before
+  touching the store.
 
 > **Windows alternative (planned).** A DPAPI-backed protector can be added additively for Windows-only
 > file stores without changing the store — see [Roadmap](#roadmap).
