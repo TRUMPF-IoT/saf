@@ -18,6 +18,10 @@ using SAF.Configuration.Secrets.Contracts;
 /// default); the logical names remain in clear, matching the security model that a secret reference is
 /// not itself sensitive. File permissions (0600 on Linux, an NTFS ACL for the configured reader on
 /// Windows) are intentionally the responsibility of the installer/deployment, not of this provider.
+/// Every write happens in place through a single handle on the store file itself - no temporary or
+/// sidecar file is ever created - so the provider also works on deployment targets that only permit
+/// writing an already-existing file. A crash mid-write can therefore leave the store file truncated or
+/// corrupt; that is an accepted trade-off for this constraint.
 /// </summary>
 internal sealed class FileSecretStore : ISecretStoreProvider, IDisposable
 {
@@ -30,10 +34,10 @@ internal sealed class FileSecretStore : ISecretStoreProvider, IDisposable
         PropertyNameCaseInsensitive = true
     };
 
-    // Retry interval while waiting for another process to release the cross-process lock (see
-    // AcquireCrossProcessLockAsync). FileShare.None fails a contended Open immediately rather than
-    // queuing it, so the wait is implemented as a poll loop instead of a blocking OS wait.
-    private static readonly TimeSpan CrossProcessLockRetryDelay = TimeSpan.FromMilliseconds(25);
+    // Retry interval while waiting for another process to release its exclusive hold on the store file.
+    // FileShare.None fails a contended Open immediately rather than queuing it, so the wait is
+    // implemented as a poll loop instead of a blocking OS wait.
+    private static readonly TimeSpan ExclusiveOpenRetryDelay = TimeSpan.FromMilliseconds(25);
 
     private readonly IFileSystem _fileSystem;
     private readonly ISecretProtector? _protector;
@@ -41,9 +45,9 @@ internal sealed class FileSecretStore : ISecretStoreProvider, IDisposable
     private readonly FileSecretStoreOptions _fileOptions;
     private readonly ILogger<FileSecretStore> _logger;
 
-    // Serializes all file access within this process. A cross-process lock (see
-    // AcquireCrossProcessLockAsync) additionally serializes against other processes, e.g. an installer
-    // or CLI tool writing to the same store file concurrently with this one.
+    // Serializes all file access within this process. Opening the store file itself with
+    // FileShare.None (see OpenExclusiveAsync/OpenIfExistsExclusiveAsync) additionally serializes
+    // against other processes, e.g. an installer or CLI tool writing to the same file.
     private readonly SemaphoreSlim _fileGate = new(1, 1);
 
     public FileSecretStore(
@@ -103,12 +107,17 @@ internal sealed class FileSecretStore : ISecretStoreProvider, IDisposable
         ArgumentException.ThrowIfNullOrWhiteSpace(name);
         cancellationToken.ThrowIfCancellationRequested();
 
+        var path = ResolvePath();
         await _fileGate.WaitAsync(cancellationToken).ConfigureAwait(false);
         try
         {
-            await using var crossProcessLock = await AcquireCrossProcessLockAsync(cancellationToken).ConfigureAwait(false);
+            await using var stream = await OpenIfExistsExclusiveAsync(path, FileAccess.Read, cancellationToken).ConfigureAwait(false);
+            if (stream is null)
+            {
+                return null;
+            }
 
-            var document = await ReadDocumentAsync(cancellationToken).ConfigureAwait(false);
+            var document = await ReadDocumentAsync(path, stream, cancellationToken).ConfigureAwait(false);
             return document.Secrets.TryGetValue(BuildTargetName(name), out var encoded)
                 ? Decrypt(encoded)
                 : null;
@@ -126,14 +135,15 @@ internal sealed class FileSecretStore : ISecretStoreProvider, IDisposable
         ArgumentNullException.ThrowIfNull(value);
         cancellationToken.ThrowIfCancellationRequested();
 
+        var path = ResolvePath();
         await _fileGate.WaitAsync(cancellationToken).ConfigureAwait(false);
         try
         {
-            await using var crossProcessLock = await AcquireCrossProcessLockAsync(cancellationToken).ConfigureAwait(false);
-
-            var document = await ReadDocumentAsync(cancellationToken).ConfigureAwait(false);
+            EnsureDirectoryExists(path);
+            await using var stream = await OpenExclusiveAsync(path, cancellationToken).ConfigureAwait(false);
+            var document = await ReadDocumentAsync(path, stream, cancellationToken).ConfigureAwait(false);
             document.Secrets[BuildTargetName(name)] = Encrypt(value);
-            await WriteDocumentAsync(document, cancellationToken).ConfigureAwait(false);
+            await WriteDocumentAsync(stream, document, cancellationToken).ConfigureAwait(false);
         }
         finally
         {
@@ -147,15 +157,20 @@ internal sealed class FileSecretStore : ISecretStoreProvider, IDisposable
         ArgumentException.ThrowIfNullOrWhiteSpace(name);
         cancellationToken.ThrowIfCancellationRequested();
 
+        var path = ResolvePath();
         await _fileGate.WaitAsync(cancellationToken).ConfigureAwait(false);
         try
         {
-            await using var crossProcessLock = await AcquireCrossProcessLockAsync(cancellationToken).ConfigureAwait(false);
+            await using var stream = await OpenIfExistsExclusiveAsync(path, FileAccess.ReadWrite, cancellationToken).ConfigureAwait(false);
+            if (stream is null)
+            {
+                return;
+            }
 
-            var document = await ReadDocumentAsync(cancellationToken).ConfigureAwait(false);
+            var document = await ReadDocumentAsync(path, stream, cancellationToken).ConfigureAwait(false);
             if (document.Secrets.Remove(BuildTargetName(name)))
             {
-                await WriteDocumentAsync(document, cancellationToken).ConfigureAwait(false);
+                await WriteDocumentAsync(stream, document, cancellationToken).ConfigureAwait(false);
             }
         }
         finally
@@ -164,34 +179,72 @@ internal sealed class FileSecretStore : ISecretStoreProvider, IDisposable
         }
     }
 
-    // Serializes access to the store file across processes (e.g. this host and an installer/CLI tool
-    // writing to the same file). FileShare.None fails immediately rather than queuing, so a contended
-    // open is retried until the holder releases it or the caller cancels.
-    private async Task<Stream> AcquireCrossProcessLockAsync(CancellationToken cancellationToken)
+    /// <inheritdoc />
+    public void Dispose() => _fileGate.Dispose();
+
+    private void EnsureDirectoryExists(string path)
     {
-        var path = ResolvePath();
         var directory = _fileSystem.Path.GetDirectoryName(path);
         if (!string.IsNullOrEmpty(directory))
         {
             _fileSystem.Directory.CreateDirectory(directory);
         }
+    }
 
-        var lockPath = path + ".lock";
+    // Opens the store file exclusively across processes, creating it (owner-only on non-Windows) if it
+    // does not yet exist. The exclusive hold on this one file is itself the cross-process lock, and the
+    // write happens in place through the same handle - no second file is ever created.
+    private async Task<Stream> OpenExclusiveAsync(string path, CancellationToken cancellationToken)
+    {
+        var options = new FileStreamOptions
+        {
+            Mode = FileMode.OpenOrCreate,
+            Access = FileAccess.ReadWrite,
+            Share = FileShare.None
+        };
+
+        if (!OperatingSystem.IsWindows())
+        {
+            options.UnixCreateMode = UnixFileMode.UserRead | UnixFileMode.UserWrite;
+        }
+
         while (true)
         {
             try
             {
-                return _fileSystem.File.Open(lockPath, FileMode.OpenOrCreate, FileAccess.ReadWrite, FileShare.None);
+                return _fileSystem.File.Open(path, options);
             }
             catch (IOException)
             {
-                await Task.Delay(CrossProcessLockRetryDelay, cancellationToken).ConfigureAwait(false);
+                await Task.Delay(ExclusiveOpenRetryDelay, cancellationToken).ConfigureAwait(false);
             }
         }
     }
 
-    /// <inheritdoc />
-    public void Dispose() => _fileGate.Dispose();
+    // Same exclusive hold as OpenExclusiveAsync, but never creates the file: reading (or removing from)
+    // a store that was never written must not itself bring the file, or its directory, into existence.
+    private async Task<Stream?> OpenIfExistsExclusiveAsync(string path, FileAccess access, CancellationToken cancellationToken)
+    {
+        while (true)
+        {
+            try
+            {
+                return _fileSystem.File.Open(path, FileMode.Open, access, FileShare.None);
+            }
+            catch (FileNotFoundException)
+            {
+                return null;
+            }
+            catch (DirectoryNotFoundException)
+            {
+                return null;
+            }
+            catch (IOException)
+            {
+                await Task.Delay(ExclusiveOpenRetryDelay, cancellationToken).ConfigureAwait(false);
+            }
+        }
+    }
 
     private string Encrypt(string value)
     {
@@ -220,16 +273,15 @@ internal sealed class FileSecretStore : ISecretStoreProvider, IDisposable
         }
     }
 
-    private async Task<SecretDocument> ReadDocumentAsync(CancellationToken cancellationToken)
+    private async Task<SecretDocument> ReadDocumentAsync(string path, Stream stream, CancellationToken cancellationToken)
     {
-        var path = ResolvePath();
-        if (!_fileSystem.File.Exists(path))
+        if (stream.Length == 0)
         {
             return new SecretDocument { Protector = Protector.Name };
         }
 
-        var json = await _fileSystem.File.ReadAllTextAsync(path, cancellationToken).ConfigureAwait(false);
-        var document = JsonSerializer.Deserialize<SecretDocument>(json, JsonOptions)
+        stream.Position = 0;
+        var document = await JsonSerializer.DeserializeAsync<SecretDocument>(stream, JsonOptions, cancellationToken).ConfigureAwait(false)
             ?? new SecretDocument { Protector = Protector.Name };
 
         if (!string.IsNullOrEmpty(document.Protector)
@@ -243,71 +295,15 @@ internal sealed class FileSecretStore : ISecretStoreProvider, IDisposable
         return document;
     }
 
-    private async Task WriteDocumentAsync(SecretDocument document, CancellationToken cancellationToken)
+    private async Task WriteDocumentAsync(Stream stream, SecretDocument document, CancellationToken cancellationToken)
     {
-        var path = ResolvePath();
-        var directory = _fileSystem.Path.GetDirectoryName(path);
-        if (!string.IsNullOrEmpty(directory))
-        {
-            _fileSystem.Directory.CreateDirectory(directory);
-        }
-
         document.Protector = Protector.Name;
-        var json = JsonSerializer.Serialize(document, JsonOptions);
-
-        // A randomized sibling name: a fixed "<path>.tmp" collides across concurrent writers and is a
-        // predictable target if the directory is writable by more than intended.
-        var tempPath = _fileSystem.Path.Combine(
-            string.IsNullOrEmpty(directory) ? string.Empty : directory,
-            $"{_fileSystem.Path.GetFileName(path)}.{Guid.NewGuid():N}.tmp");
-
-        try
-        {
-            await _fileSystem.File.WriteAllTextAsync(tempPath, json, cancellationToken).ConfigureAwait(false);
-            PreserveExistingPermissions(path, tempPath);
-            ReplaceAtomically(tempPath, path);
-        }
-        catch
-        {
-            if (_fileSystem.File.Exists(tempPath))
-            {
-                _fileSystem.File.Delete(tempPath);
-            }
-
-            throw;
-        }
-    }
-
-    // Move()/rename() keep the SOURCE file's permissions, so a freshly written temp file would silently
-    // widen an existing store file's access on every write. Restrict the temp file first, then adopt the
-    // destination's actual mode if it already exists, preserving whatever the installer configured.
-    private void PreserveExistingPermissions(string path, string tempPath)
-    {
-        if (OperatingSystem.IsWindows())
-        {
-            // The Windows ACL is preserved by ReplaceAtomically itself (File.Replace keeps the
-            // destination's security descriptor; File.Move does not - confirmed empirically).
-            return;
-        }
-
-        _fileSystem.File.SetUnixFileMode(tempPath, UnixFileMode.UserRead | UnixFileMode.UserWrite);
-        if (_fileSystem.File.Exists(path))
-        {
-            _fileSystem.File.SetUnixFileMode(tempPath, _fileSystem.File.GetUnixFileMode(path));
-        }
-    }
-
-    private void ReplaceAtomically(string tempPath, string path)
-    {
-        if (OperatingSystem.IsWindows() && _fileSystem.File.Exists(path))
-        {
-            // File.Replace preserves the destination's ACL; File.Move does not (confirmed empirically
-            // against real NTFS). File.Replace requires the destination to already exist.
-            _fileSystem.File.Replace(tempPath, path, destinationBackupFileName: null);
-            return;
-        }
-
-        _fileSystem.File.Move(tempPath, path, overwrite: true);
+        stream.Position = 0;
+        await JsonSerializer.SerializeAsync(stream, document, JsonOptions, cancellationToken).ConfigureAwait(false);
+        // The new content may be shorter than what was there before (e.g. a removed secret); writing in
+        // place without truncating would leave trailing bytes from the old content after it.
+        stream.SetLength(stream.Position);
+        await stream.FlushAsync(cancellationToken).ConfigureAwait(false);
     }
 
     private string ResolvePath()

@@ -268,31 +268,20 @@ public class FileSecretStoreTests
         Assert.Equal(restrictedMode, _fileSystem.File.GetUnixFileMode(StorePath));
     }
 
-    [Fact]
-    public async Task SetSecretAsync_UsesRestrictiveUnixFileMode_ForNewFile()
-    {
-        Assert.SkipWhen(OperatingSystem.IsWindows(), "Unix file modes only apply on non-Windows platforms.");
-        if (OperatingSystem.IsWindows())
-        {
-            return;
-        }
-
-        var store = CreateStore();
-
-        await store.SetSecretAsync("conn/pw", "value", TestToken);
-
-        Assert.Equal(
-            UnixFileMode.UserRead | UnixFileMode.UserWrite,
-            _fileSystem.File.GetUnixFileMode(StorePath));
-    }
+    // The "restrictive mode for a brand-new file" behavior (FileStreamOptions.UnixCreateMode) is
+    // covered by FileSecretStoreIntegrationTests instead: MockFileSystem does not apply UnixCreateMode
+    // when simulating Linux, which would make this assertion fail here for a reason unrelated to the
+    // production code (confirmed empirically against a real Linux file system).
 
     [Fact]
     public async Task SetSecretAsync_WaitsForCrossProcessLock_ThenSucceeds()
     {
         var store = CreateStore();
         await store.SetSecretAsync("conn/pw", "first", TestToken);
+        // No sidecar lock file exists: the store file itself, opened exclusively, is the lock. This
+        // stands in for a second process (e.g. an installer) holding it open concurrently.
         var externalLock = _fileSystem.File.Open(
-            StorePath + ".lock", FileMode.OpenOrCreate, FileAccess.ReadWrite, FileShare.None);
+            StorePath, FileMode.Open, FileAccess.ReadWrite, FileShare.None);
 
         var setTask = store.SetSecretAsync("conn/pw", "second", TestToken);
         await Task.Delay(100, TestToken);
@@ -310,7 +299,7 @@ public class FileSecretStoreTests
         var store = CreateStore();
         await store.SetSecretAsync("conn/pw", "first", TestToken);
         using var externalLock = _fileSystem.File.Open(
-            StorePath + ".lock", FileMode.OpenOrCreate, FileAccess.ReadWrite, FileShare.None);
+            StorePath, FileMode.Open, FileAccess.ReadWrite, FileShare.None);
         using var cts = new CancellationTokenSource(TimeSpan.FromMilliseconds(150));
 
         await Assert.ThrowsAnyAsync<OperationCanceledException>(

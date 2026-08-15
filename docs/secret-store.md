@@ -232,12 +232,16 @@ Key points:
   fails fast with an explanatory error rather than producing garbage.
 - **File permissions are the installer's responsibility.** The provider does **not** grant a specific
   principal access (`0600` on Linux, an NTFS ACL for the reader on Windows) — lock the file down at
-  deployment time so only the service account can read it. Writes **preserve** whatever permissions are
-  already on the file (an update never widens access), and a first write on Linux defaults to owner-only
-  (`0600`) rather than the process umask.
-- **Concurrent writers are serialized**, including across processes (e.g. this host and a separate
-  installer/CLI tool writing to the same file): every read and write takes a sibling `.lock` file before
-  touching the store.
+  deployment time so only the service account can read it. Every write happens **in place**, through a
+  single handle on the store file itself, so an update never touches (and never widens) the file's
+  existing permissions; a first write on Linux defaults to owner-only (`0600`) rather than the process
+  umask. No temporary or sidecar file is ever created — the store also works on deployment targets that
+  only permit writing an already-existing file. The trade-off: a crash mid-write can leave the store
+  file truncated or corrupt, since there is no atomic replace to fall back to.
+- **Concurrent readers/writers are serialized**, including across processes (e.g. this host and a
+  separate installer/CLI tool touching the same file): every read and write opens the store file itself
+  exclusively for its duration, so a second reader or writer — in this process or another — waits its
+  turn instead of racing.
 
 > **Windows alternative (planned).** A DPAPI-backed protector can be added additively for Windows-only
 > file stores without changing the store — see [Roadmap](#roadmap).
