@@ -482,10 +482,12 @@ pluginSystemBuilder.AddPluginConfigurationSource(source =>
 The callback receives a `PluginConfigurationSourceContext` with everything the built-in plugin settings
 pipeline already resolved: `SettingsFileProvider` (the `IFileProvider` scoped to the resolved settings
 directory — the same instance the default plugin JSON files use), `SettingsFileName` (e.g.
-`pluginsettings.json`), `EnvironmentName`, and `OnLoadException` (the shared handler that ignores a failed
-load and logs a warning instead of crashing host startup or silently wiping values on reload). Building
-sources through `source.SettingsFileProvider` keeps them rooted at the same directory as the default plugin
-JSON regardless of how `PluginSettingsRootPath` resolves — there is no separate path to keep in sync.
+`pluginsettings.json`), `EnvironmentName`, `OnLoadException` (the shared handler that ignores a failed
+load and logs a warning instead of crashing host startup or silently wiping values on reload), and
+`HostServices` — the host's fully-built `IServiceProvider`, safe to resolve any host-registered service
+from (as long as that service does not itself depend on `IPluginSystemHostContext`). Building sources
+through `source.SettingsFileProvider` keeps them rooted at the same directory as the default plugin JSON
+regardless of how `PluginSettingsRootPath` resolves — there is no separate path to keep in sync.
 
 The callback runs exactly once, during `IPluginSystemHostContext` construction; any exception it throws
 propagates into host startup. Additional providers are appended after the default plugin JSON sources.

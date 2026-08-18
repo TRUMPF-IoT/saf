@@ -102,8 +102,7 @@ public class AuthenticodeSignatureReaderTests
         {
             var bytes = File.ReadAllBytes(signedPath!);
 
-            var tamperOffset = bytes.Length / 2;
-            bytes[tamperOffset] ^= 0xFF;
+            bytes[OffsetWithinHashedContent(bytes)] ^= 0xFF;
             File.WriteAllBytes(tamperedPath, bytes);
 
             var result = _reader.ReadSignature(tamperedPath);
@@ -130,7 +129,7 @@ public class AuthenticodeSignatureReaderTests
         try
         {
             var bytes = File.ReadAllBytes(signedPath!);
-            bytes[bytes.Length / 2] ^= 0xFF;
+            bytes[OffsetWithinHashedContent(bytes)] ^= 0xFF;
             File.WriteAllBytes(tamperedPath, bytes);
 
             var reader = AuthenticodeReaderFactory.Create(new ChainOnlyTrustingVerifier());
@@ -199,6 +198,24 @@ public class AuthenticodeSignatureReaderTests
         }
 
         return null;
+    }
+
+    /// <summary>
+    /// A byte offset guaranteed to land before the certificate table, so flipping it always changes
+    /// the Authenticode content hash.
+    /// </summary>
+    /// <remarks>
+    /// <c>bytes.Length / 2</c> is not good enough: the certificate table is appended after the code
+    /// and, for a small signed file (some facade assemblies are a few KB with a ~10 KB signature
+    /// block), the file's midpoint can land inside that table instead - a region the hash
+    /// deliberately excludes - making a tampered file indistinguishable from an intact one.
+    /// </remarks>
+    private static long OffsetWithinHashedContent(byte[] peBytes)
+    {
+        using var stream = new MemoryStream(peBytes, writable: false);
+        using var peReader = new PEReader(stream);
+        var certificateTableStart = peReader.PEHeaders.PEHeader!.CertificateTableDirectory.RelativeVirtualAddress;
+        return certificateTableStart / 2;
     }
 
     private static IEnumerable<string?> CandidateDirectories()

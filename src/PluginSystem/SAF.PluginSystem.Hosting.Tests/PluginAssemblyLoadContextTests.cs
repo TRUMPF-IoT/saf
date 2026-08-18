@@ -9,6 +9,7 @@ using System.Reflection;
 using System.Runtime.Loader;
 using System.IO.Abstractions;
 using Testably.Abstractions;
+using Xunit;
 
 public class PluginAssemblyLoadContextTests
 {

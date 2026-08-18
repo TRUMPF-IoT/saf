@@ -37,7 +37,7 @@ public static class HostApplicationBuilderExtensions
             var logger = sp.GetRequiredService<ILogger<PluginSystemHostContext>>();
             var fileSystem = sp.GetRequiredService<IFileSystem>();
             var configureSources = sp.GetRequiredService<IOptions<PluginConfigurationSourcesOptions>>().Value.ConfigureSources;
-            return new PluginSystemHostContext(logger, environment, hostAppBuilder.Configuration, options.Value, fileSystem, configureSources);
+            return new PluginSystemHostContext(logger, environment, hostAppBuilder.Configuration, options.Value, fileSystem, sp, configureSources);
         });
 
         pluginHostBuilder.Services.AddSingleton<IPublicServiceTypeRegistry, PublicServiceTypeRegistry>();

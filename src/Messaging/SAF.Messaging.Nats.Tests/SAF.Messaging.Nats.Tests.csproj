@@ -28,7 +28,7 @@ SPDX-License-Identifier: MPL-2.0
     </ItemGroup>
 
     <ItemGroup>
-        <ProjectReference Include="..\SAF.Messaging.Nats\SAF.Messaging.Nats.csproj" />
+        <ProjectReference Include="..\SAF.Messaging.NATS\SAF.Messaging.NATS.csproj" />
         <ProjectReference Include="..\..\PluginSystem\SAF.PluginSystem.Hosting.Contracts\SAF.PluginSystem.Hosting.Contracts.csproj" />
     </ItemGroup>
 
