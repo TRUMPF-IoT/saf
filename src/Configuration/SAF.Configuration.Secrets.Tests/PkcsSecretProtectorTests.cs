@@ -11,22 +11,23 @@ using SAF.Configuration.Secrets.Contracts;
 using SAF.Configuration.Secrets.Protection;
 using Xunit;
 
-public class PkcsSecretProtectorTests
+public class PkcsSecretProtectorTests : IDisposable
 {
+    private readonly List<X509Certificate2> _certificates = [];
+
     [Fact]
     public void Name_IsStableProtectorIdentifier()
     {
-        using var certificate = CreateCertificate();
+        var certificate = CreateCertificate();
 
         Assert.Equal("pkcs", new PkcsSecretProtector(certificate).Name);
-        Assert.Equal(PkcsSecretProtector.ProtectorName, new PkcsSecretProtector(certificate).Name);
+        Assert.Equal(PkcsSecretProtector.ProtectorName, new PkcsSecretProtector(CreateCertificate()).Name);
     }
 
     [Fact]
     public void ProtectThenUnprotect_RoundTripsSecret()
     {
-        using var certificate = CreateCertificate();
-        var protector = new PkcsSecretProtector(certificate);
+        var protector = new PkcsSecretProtector(CreateCertificate());
         var plaintext = Encoding.UTF8.GetBytes("s3cr3t-value-äöü");
 
         var protectedData = protector.Protect(plaintext);
@@ -38,8 +39,7 @@ public class PkcsSecretProtectorTests
     [Fact]
     public void Protect_DoesNotLeakPlaintext()
     {
-        using var certificate = CreateCertificate();
-        var protector = new PkcsSecretProtector(certificate);
+        var protector = new PkcsSecretProtector(CreateCertificate());
         var plaintext = Encoding.UTF8.GetBytes("do-not-leak-me");
 
         var protectedData = protector.Protect(plaintext);
@@ -51,8 +51,7 @@ public class PkcsSecretProtectorTests
     [Fact]
     public void Protect_ProducesDifferentCiphertextEachTime()
     {
-        using var certificate = CreateCertificate();
-        var protector = new PkcsSecretProtector(certificate);
+        var protector = new PkcsSecretProtector(CreateCertificate());
         var plaintext = Encoding.UTF8.GetBytes("same-input");
 
         var first = protector.Protect(plaintext);
@@ -65,10 +64,8 @@ public class PkcsSecretProtectorTests
     [Fact]
     public void Unprotect_Fails_WithDifferentCertificate()
     {
-        using var writerCertificate = CreateCertificate();
-        using var otherCertificate = CreateCertificate();
-        var writer = new PkcsSecretProtector(writerCertificate);
-        var reader = new PkcsSecretProtector(otherCertificate);
+        var writer = new PkcsSecretProtector(CreateCertificate());
+        var reader = new PkcsSecretProtector(CreateCertificate());
 
         var protectedData = writer.Protect(Encoding.UTF8.GetBytes("value"));
 
@@ -78,10 +75,55 @@ public class PkcsSecretProtectorTests
     [Fact]
     public void Unprotect_Throws_OnCorruptedPayload()
     {
-        using var certificate = CreateCertificate();
-        var protector = new PkcsSecretProtector(certificate);
+        var protector = new PkcsSecretProtector(CreateCertificate());
 
         Assert.ThrowsAny<CryptographicException>(() => protector.Unprotect([1, 2, 3, 4]));
+    }
+
+    [Fact]
+    public void Unprotect_Throws_WithClearMessage_WhenCertificateHasNoPrivateKey()
+    {
+        var writerCertificate = CreateCertificate();
+        var writer = new PkcsSecretProtector(writerCertificate);
+        var protectedData = writer.Protect(Encoding.UTF8.GetBytes("value"));
+
+        using var publicOnlyCertificate = X509CertificateLoader.LoadCertificate(writerCertificate.Export(X509ContentType.Cert));
+        var reader = new PkcsSecretProtector(publicOnlyCertificate);
+
+        var ex = Assert.Throws<InvalidOperationException>(() => reader.Unprotect(protectedData));
+        Assert.Contains("private key", ex.Message, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public void Protect_Succeeds_WithPublicKeyOnlyCertificate()
+    {
+        var writerCertificate = CreateCertificate();
+        using var publicOnlyCertificate = X509CertificateLoader.LoadCertificate(writerCertificate.Export(X509ContentType.Cert));
+        var protector = new PkcsSecretProtector(publicOnlyCertificate);
+
+        var protectedData = protector.Protect(Encoding.UTF8.GetBytes("value"));
+
+        Assert.NotEmpty(protectedData);
+    }
+
+    [Fact]
+    public void Dispose_DisposesTheCertificate()
+    {
+        var certificate = CreateCertificate();
+        var protector = new PkcsSecretProtector(certificate);
+
+        protector.Dispose();
+
+        Assert.Throws<CryptographicException>(() => certificate.Export(X509ContentType.Cert));
+    }
+
+    [Fact]
+    public void Protect_Throws_AfterDispose()
+    {
+        var protector = new PkcsSecretProtector(CreateCertificate());
+        protector.Dispose();
+
+        Assert.Throws<ObjectDisposedException>(() => protector.Protect(Encoding.UTF8.GetBytes("value")));
     }
 
     [Fact]
@@ -91,8 +133,7 @@ public class PkcsSecretProtectorTests
     [Fact]
     public void Protect_Throws_OnNullPlaintext()
     {
-        using var certificate = CreateCertificate();
-        var protector = new PkcsSecretProtector(certificate);
+        var protector = new PkcsSecretProtector(CreateCertificate());
 
         Assert.Throws<ArgumentNullException>(() => protector.Protect(null!));
     }
@@ -100,13 +141,25 @@ public class PkcsSecretProtectorTests
     [Fact]
     public void Unprotect_Throws_OnNullPayload()
     {
-        using var certificate = CreateCertificate();
-        var protector = new PkcsSecretProtector(certificate);
+        var protector = new PkcsSecretProtector(CreateCertificate());
 
         Assert.Throws<ArgumentNullException>(() => protector.Unprotect(null!));
     }
 
-    private static X509Certificate2 CreateCertificate() => TestCertificates.CreateRsaCertificate();
+    public void Dispose()
+    {
+        foreach (var certificate in _certificates)
+        {
+            TestCertificates.DisposeAndDeleteKey(certificate);
+        }
+    }
+
+    private X509Certificate2 CreateCertificate()
+    {
+        var certificate = TestCertificates.CreateRsaCertificate();
+        _certificates.Add(certificate);
+        return certificate;
+    }
 
     private static bool ContainsSubsequence(byte[] haystack, byte[] needle)
     {

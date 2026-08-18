@@ -177,14 +177,21 @@ public class FileSecretStoreTests
     [Fact]
     public async Task RoundTrips_WithRealPkcsProtector()
     {
-        using var certificate = TestCertificates.CreateRsaCertificate();
-        var store = CreateStore(protector: new Protection.PkcsSecretProtector(certificate));
+        var certificate = TestCertificates.CreateRsaCertificate();
+        try
+        {
+            var store = CreateStore(protector: new Protection.PkcsSecretProtector(certificate));
 
-        await store.SetSecretAsync("conn/pw", "real-cms-value", TestToken);
-        var result = await store.GetSecretAsync("conn/pw", TestToken);
+            await store.SetSecretAsync("conn/pw", "real-cms-value", TestToken);
+            var result = await store.GetSecretAsync("conn/pw", TestToken);
 
-        Assert.Equal("real-cms-value", result);
-        Assert.DoesNotContain("real-cms-value", await _fileSystem.File.ReadAllTextAsync(StorePath, TestToken));
+            Assert.Equal("real-cms-value", result);
+            Assert.DoesNotContain("real-cms-value", await _fileSystem.File.ReadAllTextAsync(StorePath, TestToken));
+        }
+        finally
+        {
+            TestCertificates.DisposeAndDeleteKey(certificate);
+        }
     }
 
     [Fact]

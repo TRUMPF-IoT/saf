@@ -16,7 +16,12 @@ using SAF.Configuration.Secrets.Contracts;
 /// public key (installer role); unprotecting needs its private key (service role). The produced payload
 /// is self-describing CMS, so it can be read back on any platform that .NET supports.
 /// </summary>
-public sealed class PkcsSecretProtector : ISecretProtector
+/// <remarks>
+/// The envelope is encrypted, not authenticated: <see cref="Protect"/> needs only the recipient
+/// certificate's public key, so it assumes the party writing the store is trusted, not adversarial.
+/// See the "Security model" section of docs/secret-store.md.
+/// </remarks>
+public sealed class PkcsSecretProtector : ISecretProtector, IDisposable
 {
     /// <summary>The stable protector name used to tag produced payloads.</summary>
     public const string ProtectorName = "pkcs";
@@ -25,11 +30,13 @@ public sealed class PkcsSecretProtector : ISecretProtector
     private static readonly Oid Aes256Cbc = new("2.16.840.1.101.3.4.1.42");
 
     private readonly X509Certificate2 _certificate;
+    private bool _disposed;
 
     /// <summary>
     /// Creates a protector that envelopes secrets for the given <paramref name="certificate"/>. The
     /// certificate must expose a private key for <see cref="Unprotect"/> to succeed; a public-key-only
-    /// certificate is sufficient for <see cref="Protect"/>.
+    /// certificate is sufficient for <see cref="Protect"/>. This protector takes ownership of
+    /// <paramref name="certificate"/> and disposes it when the protector itself is disposed.
     /// </summary>
     public PkcsSecretProtector(X509Certificate2 certificate)
     {
@@ -43,6 +50,7 @@ public sealed class PkcsSecretProtector : ISecretProtector
     /// <inheritdoc />
     public byte[] Protect(byte[] plaintext)
     {
+        ObjectDisposedException.ThrowIf(_disposed, this);
         ArgumentNullException.ThrowIfNull(plaintext);
 
         var envelope = new EnvelopedCms(new ContentInfo(plaintext), new AlgorithmIdentifier(Aes256Cbc));
@@ -55,11 +63,32 @@ public sealed class PkcsSecretProtector : ISecretProtector
     /// <inheritdoc />
     public byte[] Unprotect(byte[] protectedData)
     {
+        ObjectDisposedException.ThrowIf(_disposed, this);
         ArgumentNullException.ThrowIfNull(protectedData);
+
+        if (!_certificate.HasPrivateKey)
+        {
+            throw new InvalidOperationException(
+                $"The certificate '{_certificate.Subject}' has no private key, so it cannot decrypt " +
+                "secrets on this host. A public-key-only certificate is sufficient for Protect (e.g. on " +
+                "an installer/provisioning host), but Unprotect needs the matching private key.");
+        }
 
         var envelope = new EnvelopedCms();
         envelope.Decode(protectedData);
         envelope.Decrypt(new X509Certificate2Collection(_certificate));
         return envelope.ContentInfo.Content;
+    }
+
+    /// <summary>Disposes the certificate this protector was constructed with.</summary>
+    public void Dispose()
+    {
+        if (_disposed)
+        {
+            return;
+        }
+
+        _disposed = true;
+        _certificate.Dispose();
     }
 }

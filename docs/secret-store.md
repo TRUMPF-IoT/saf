@@ -34,6 +34,13 @@ sufficient privilege can". Understanding that boundary is important:
   `IConfigurationRoot.GetDebugView()` prints it, attributed to the resolving provider. Use the
   `GetDebugView(Func<string, ConfigurationDebugViewContext, string> processValue)` overload to mask
   values before logging or displaying a debug view of configuration that may include resolved secrets.
+- **The writer is trusted.** Provisioning (whoever calls `SetSecretAsync` — an installer, an admin
+  tool) is assumed authorized, not adversarial. In particular, `PkcsSecretProtector`'s PKCS#7/CMS
+  envelope encrypts each value (AES-256-CBC content key wrapped with RSA-OAEP) but does not
+  authenticate it: `Protect` only needs the recipient certificate's *public* key, so anyone who can
+  write the store file could swap, replay, or forge entries without needing the private key. This is
+  an accepted trade-off given the trusted-writer assumption, not an oversight — if your deployment
+  cannot guarantee that, do not rely on this store's write path as a tamper-resistant boundary.
 
 The right operational posture is to run the process under a least-privileged identity and let that
 identity own the secrets.
@@ -225,14 +232,39 @@ ps.AddSecretStore(
     configureProviders: providers => providers.AddFile(o => o.Path = "/var/lib/myapp/secrets.json"));
 ```
 
+`certificate` needs its private key on the service host (`Unprotect` requires it) but only its public
+key on a provisioning/installer host (`Protect` works either way). How you obtain it matters:
+
+- **Prefer an already-installed certificate**, looked up via `X509Store` +
+  `X509Certificate2Collection.Find(X509FindType.FindByThumbprint, ...)` — the OS owns the key material
+  and its lifecycle, so there is nothing for this library to leak or clean up.
+- **If you must load a PFX directly**, avoid `X509KeyStorageFlags.EphemeralKeySet`: on Windows, CMS
+  decryption needs a CNG key handle, which an ephemeral key does not provide. The alternative —
+  `X509CertificateLoader.LoadPkcs12(pfx, password, X509KeyStorageFlags.Exportable)` without
+  `EphemeralKeySet` — persists the private key into the CNG key store
+  (`%APPDATA%\Microsoft\Crypto\Keys` under the running identity's profile) as a side effect of loading,
+  accumulating one key file per load. Combine `MachineKeySet` with `PersistKeySet` and lock down the
+  resulting key file's ACL to the service account only, or accept the per-load key accumulation only in
+  short-lived provisioning tools that run once.
+- **`PkcsSecretProtector` takes ownership of `certificate`** — it implements `IDisposable` and disposes
+  the certificate (releasing its private-key handle) when disposed. Registering it via
+  `AddSingleton<ISecretProtector>` as shown is enough: the DI container disposes it with the rest of the
+  host. Do not also dispose `certificate` yourself once it is handed to the protector.
+
 Key points:
 
 - **Unavailable without a protector.** If no `ISecretProtector` is registered, the file store reports
   `IsAvailable = false` (and logs a warning explaining how to register one). `"auto"` then skips it;
   forcing it by name yields a clear *"not available"* error. It never fails to construct — so a Windows
   host that uses `AddDefaults().AddFile()` without a protector still works via the Credential Manager.
+- **A public-key-only certificate fails clearly on `Unprotect`.** A certificate without its private key
+  is enough to `Protect` (e.g. from a provisioning host that should only ever write, never read), but
+  calling `Unprotect` with it throws `InvalidOperationException` naming the problem, instead of an
+  opaque `CryptographicException` from deep inside CMS decryption.
 - **Protector identity is stamped** into the file. Opening a store written by a different protector
-  fails fast with an explanatory error rather than producing garbage.
+  fails fast with an explanatory error rather than producing garbage. This guards against
+  misconfiguration (wrong protector wired up), not against tampering — per the trusted-writer
+  assumption above, the stamp itself is unauthenticated and a missing stamp is not rejected.
 - **File permissions are the installer's responsibility.** The provider does **not** grant a specific
   principal access (`0600` on Linux, an NTFS ACL for the reader on Windows) — lock the file down at
   deployment time so only the service account can read it. Every write happens **in place**, through a
