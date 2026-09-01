@@ -102,6 +102,34 @@ public class CompositeSecretStoreTests
     }
 
     [Fact]
+    public async Task FailedSelection_IsNotCached_SoAProviderThatBecomesAvailableIsUsed()
+    {
+        var provider = MakeProvider("vault", available: false);
+        provider.IsAvailable.Returns(false, true);
+        var store = CreateComposite(new SecretStoreOptions(), provider);
+
+        await Assert.ThrowsAsync<InvalidOperationException>(async () => await store.GetSecretAsync("k", TestToken));
+        await store.GetSecretAsync("k", TestToken);
+
+        await provider.Received(1).GetSecretAsync("k", Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task Miss_DoesNotFallBackToTheNextProvider()
+    {
+        var first = MakeProvider("vault", available: true);
+        first.GetSecretAsync("k", Arg.Any<CancellationToken>()).Returns(Task.FromResult<string?>(null));
+        var second = MakeProvider("file", available: true);
+        second.GetSecretAsync("k", Arg.Any<CancellationToken>()).Returns(Task.FromResult<string?>("stale"));
+        var store = CreateComposite(new SecretStoreOptions(), first, second);
+
+        var value = await store.GetSecretAsync("k", TestToken);
+
+        Assert.Null(value);
+        await second.DidNotReceive().GetSecretAsync(Arg.Any<string>(), Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
     public void Constructor_Throws_OnNullDependencies()
     {
         Assert.Throws<ArgumentNullException>(() => new CompositeSecretStore(

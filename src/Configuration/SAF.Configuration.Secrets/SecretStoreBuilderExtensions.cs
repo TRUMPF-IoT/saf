@@ -10,7 +10,8 @@ using SAF.Configuration.Secrets.Contracts;
 
 /// <summary>
 /// Fluent provider registration for the secret store. Each call appends a provider; the order of the
-/// calls is the priority order used by <see cref="SecretStoreOptions.AutoProviderName"/> selection.
+/// calls is the priority order used by <see cref="SecretStoreOptions.AutoProviderName"/> selection,
+/// which picks the first available provider and keeps it. It is not a per-lookup fallback chain.
 /// </summary>
 public static class SecretStoreBuilderExtensions
 {

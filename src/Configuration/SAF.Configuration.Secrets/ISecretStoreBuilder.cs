@@ -11,6 +11,10 @@ using Microsoft.Extensions.DependencyInjection;
 /// priority order: with <see cref="SecretStoreOptions.AutoProviderName"/> the first available
 /// provider (in the order they were added here) is selected.
 /// </summary>
+/// <remarks>
+/// The order decides which provider is selected, not a lookup chain: the selected provider stays
+/// selected and answers every call. A secret it does not hold is not looked for in the next one.
+/// </remarks>
 public interface ISecretStoreBuilder
 {
     /// <summary>The underlying service collection the providers are registered in.</summary>

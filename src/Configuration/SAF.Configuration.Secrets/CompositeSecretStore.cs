@@ -10,10 +10,16 @@ using SAF.Configuration.Secrets.Contracts;
 
 /// <summary>
 /// The consumer-facing <see cref="ISecretStore"/> that delegates to one selected
-/// <see cref="ISecretStoreProvider"/>. The active provider is chosen once (and cached) from the
-/// registered providers: by <see cref="SecretStoreOptions.ProviderName"/> when set explicitly, or the
-/// first available provider when set to <see cref="SecretStoreOptions.AutoProviderName"/>.
+/// <see cref="ISecretStoreProvider"/>. The active provider is chosen once from the registered
+/// providers: by <see cref="SecretStoreOptions.ProviderName"/> when set explicitly, or the first
+/// available provider when set to <see cref="SecretStoreOptions.AutoProviderName"/>.
 /// </summary>
+/// <remarks>
+/// Registered providers are alternatives, not a chain. The selected one answers every call and a name
+/// it does not hold is simply absent; there is no per-lookup fallback to the next provider, so reads
+/// and writes always address the same backend and the answering backend is never ambiguous. Only a
+/// failed selection is retried.
+/// </remarks>
 internal sealed class CompositeSecretStore : ISecretStore
 {
     private readonly IReadOnlyList<ISecretStoreProvider> _providers;
@@ -33,7 +39,9 @@ internal sealed class CompositeSecretStore : ISecretStore
         _providers = [.. providers];
         _options = options.Value;
         _logger = logger;
-        _activeProvider = new Lazy<ISecretStoreProvider>(SelectProvider);
+        // PublicationOnly: the default mode caches the exception too, latching a failed selection for
+        // the process lifetime, so a provider whose availability is a runtime fact could never recover.
+        _activeProvider = new Lazy<ISecretStoreProvider>(SelectProvider, LazyThreadSafetyMode.PublicationOnly);
     }
 
     /// <inheritdoc />

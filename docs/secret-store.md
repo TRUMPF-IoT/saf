@@ -167,6 +167,16 @@ Two independent axes control which provider is used:
    - `"auto"` (default) picks the **first available** provider in registration order.
    - a specific name (e.g. `"windows-credential-manager"`) forces that provider.
 
+> **One provider answers, and it is not a fallback chain.** Selection happens once; the chosen provider
+> serves every read *and* every write for the process lifetime. A name it does not hold is absent —
+> the next registered provider is never consulted for it. That keeps provisioning and resolution on the
+> same backend, and keeps "which store answered?" a question with one answer. Registration order
+> therefore decides *which* provider is used here, not what is tried after a miss.
+>
+> Only a *failed selection* is retried: if no provider was available on the first attempt, the next call
+> selects again, so a provider whose availability is a runtime fact (a remote vault) can recover without
+> a restart.
+
 ### Default registration
 
 Omitting the provider callback registers all built-in providers for the platform in a documented
@@ -201,8 +211,8 @@ Add your own backend (for example a remote key vault) without modifying the fram
 
 ```csharp
 ps.AddSecretStore(null, providers => providers
-    .AddProvider<MyKeyVaultProvider>()   // 1st priority
-    .AddWindowsCredentialManager());     // fallback
+    .AddProvider<MyKeyVaultProvider>()   // used when available
+    .AddWindowsCredentialManager());     // used only if the vault provider is unavailable
 ```
 
 ## The file store and its protector
