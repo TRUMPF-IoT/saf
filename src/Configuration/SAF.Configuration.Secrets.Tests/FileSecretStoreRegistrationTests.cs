@@ -51,16 +51,11 @@ public class FileSecretStoreRegistrationTests
     {
         var services = new ServiceCollection();
 
-        services.AddFileSecretStore(o =>
-        {
-            o.Path = "/x/secrets.json";
-            o.ReaderPrincipal = "NT SERVICE\\QDS-2";
-        });
+        services.AddFileSecretStore(o => o.Path = "/x/secrets.json");
 
         using var sp = services.BuildServiceProvider();
         var options = sp.GetRequiredService<IOptions<FileSecretStoreOptions>>().Value;
         Assert.Equal("/x/secrets.json", options.Path);
-        Assert.Equal("NT SERVICE\\QDS-2", options.ReaderPrincipal);
     }
 
     [Fact]

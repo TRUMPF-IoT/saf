@@ -16,7 +16,6 @@ public class SecretStoreOptionsTests
 
         Assert.Equal("auto", options.ProviderName);
         Assert.Equal(SecretStoreOptions.AutoProviderName, options.ProviderName);
-        Assert.Equal(SecretScope.ServiceAccount, options.Scope);
         Assert.Equal("secret://", options.ReferencePrefix);
         Assert.Equal("saf", options.Namespace);
         Assert.True(options.ThrowOnUnresolvedReference);
@@ -30,6 +29,5 @@ public class SecretStoreOptionsTests
         var options = new FileSecretStoreOptions();
 
         Assert.Null(options.Path);
-        Assert.Null(options.ReaderPrincipal);
     }
 }

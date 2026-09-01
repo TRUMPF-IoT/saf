@@ -4,7 +4,6 @@
 
 namespace SAF.Configuration.Secrets.Tests;
 
-using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using NSubstitute;
 using SAF.Configuration.Secrets.Contracts;
@@ -95,18 +94,6 @@ public class WindowsCredentialManagerSecretStoreTests
     }
 
     [Fact]
-    public async Task SetSecretAsync_StillWrites_WhenScopeIsMachine()
-    {
-        // Machine scope is not achievable via Credential Manager; the store logs a warning but still
-        // persists the secret into the running identity's vault.
-        var store = CreateStore(new SecretStoreOptions { Scope = SecretScope.Machine });
-
-        await store.SetSecretAsync("conn/pw", "value", TestToken);
-
-        _nativeApi.Received(1).WriteGenericCredential("saf/conn/pw", "value");
-    }
-
-    [Fact]
     public void Name_IsStableProviderIdentifier()
     {
         Assert.Equal("windows-credential-manager", CreateStore().Name);
@@ -191,17 +178,11 @@ public class WindowsCredentialManagerSecretStoreTests
     [Fact]
     public void Constructor_Throws_OnNullDependencies()
     {
+        Assert.Throws<ArgumentNullException>(() => new WindowsCredentialManagerSecretStore(null!, _nativeApi));
         Assert.Throws<ArgumentNullException>(() => new WindowsCredentialManagerSecretStore(
-            null!, _nativeApi, NullLogger<WindowsCredentialManagerSecretStore>.Instance));
-        Assert.Throws<ArgumentNullException>(() => new WindowsCredentialManagerSecretStore(
-            Options.Create(new SecretStoreOptions()), null!, NullLogger<WindowsCredentialManagerSecretStore>.Instance));
-        Assert.Throws<ArgumentNullException>(() => new WindowsCredentialManagerSecretStore(
-            Options.Create(new SecretStoreOptions()), _nativeApi, null!));
+            Options.Create(new SecretStoreOptions()), null!));
     }
 
     private WindowsCredentialManagerSecretStore CreateStore(SecretStoreOptions? options = null)
-        => new(
-            Options.Create(options ?? new SecretStoreOptions()),
-            _nativeApi,
-            NullLogger<WindowsCredentialManagerSecretStore>.Instance);
+        => new(Options.Create(options ?? new SecretStoreOptions()), _nativeApi);
 }

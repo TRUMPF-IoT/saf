@@ -21,11 +21,6 @@ public sealed class SecretStoreOptions
     public string ProviderName { get; set; } = AutoProviderName;
 
     /// <summary>
-    /// The isolation scope of stored secrets. Defaults to <see cref="SecretScope.ServiceAccount"/>.
-    /// </summary>
-    public SecretScope Scope { get; set; } = SecretScope.ServiceAccount;
-
-    /// <summary>
     /// The prefix that marks a configuration value as a secret reference (e.g. <c>"secret://name"</c>).
     /// Values without this prefix are passed through unchanged by the resolving configuration provider.
     /// </summary>

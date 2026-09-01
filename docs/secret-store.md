@@ -49,7 +49,7 @@ identity own the secrets.
 
 | Package | Purpose |
 |---|---|
-| `SAF.Configuration.Secrets.Contracts` | Interfaces and types: `ISecretStore`, `ISecretReader`, `ISecretWriter`, `ISecretStoreProvider`, `ISecretProtector`, `SecretStoreOptions`, `FileSecretStoreOptions`, `SecretScope`, `SecretReference` |
+| `SAF.Configuration.Secrets.Contracts` | Interfaces and types: `ISecretStore`, `ISecretReader`, `ISecretWriter`, `ISecretStoreProvider`, `ISecretProtector`, `SecretStoreOptions`, `FileSecretStoreOptions`, `SecretReference` |
 | `SAF.Configuration.Secrets` | Provider implementations (Windows Credential Manager, file store), the default `PkcsSecretProtector`, and provider selection |
 | `SAF.Configuration.Secrets.Extensions` | Plugin-system host-builder integration (`AddSecretStore`, `AddSecretConfigurationResolution`) |
 
@@ -266,13 +266,24 @@ Key points:
   misconfiguration (wrong protector wired up), not against tampering — per the trusted-writer
   assumption above, the stamp itself is unauthenticated and a missing stamp is not rejected.
 - **File permissions are the installer's responsibility.** The provider does **not** grant a specific
-  principal access (`0600` on Linux, an NTFS ACL for the reader on Windows) — lock the file down at
-  deployment time so only the service account can read it. Every write happens **in place**, through a
-  single handle on the store file itself, so an update never touches (and never widens) the file's
-  existing permissions; a first write on Linux defaults to owner-only (`0600`) rather than the process
-  umask. No temporary or sidecar file is ever created — the store also works on deployment targets that
-  only permit writing an already-existing file. The trade-off: a crash mid-write can leave the store
-  file truncated or corrupt, since there is no atomic replace to fall back to.
+  principal access — lock the file down at deployment time so only the identity the service runs as can
+  read it. Concretely, for a store at the default location and a service running as `NT SERVICE\MyApp`
+  (Windows) or `myapp` (Linux):
+
+  ```powershell
+  icacls "$env:ProgramData\myapp\secrets.json" /inheritance:r /grant "NT SERVICE\MyApp:(R)" /grant "BUILTIN\Administrators:(F)"
+  ```
+
+  ```bash
+  chown myapp:myapp /var/lib/myapp/secrets.json && chmod 600 /var/lib/myapp/secrets.json
+  ```
+
+  Every write happens **in place**, through a single handle on the store file itself, so an update never
+  touches (and never widens) the file's existing permissions; a first write on Linux defaults to
+  owner-only (`0600`) rather than the process umask. No temporary or sidecar file is ever created — the
+  store also works on deployment targets that only permit writing an already-existing file. The
+  trade-off: a crash mid-write can leave the store file truncated or corrupt, since there is no atomic
+  replace to fall back to.
 - **Concurrent readers/writers are serialized**, including across processes (e.g. this host and a
   separate installer/CLI tool touching the same file): every read and write opens the store file itself
   exclusively for its duration, so a second reader or writer — in this process or another — waits its
@@ -343,24 +354,11 @@ Then reference secrets in the plugin configuration with the `secret://` prefix:
 | Option | Default | Meaning |
 |---|---|---|
 | `ProviderName` | `"auto"` | Which provider is active. `"auto"` = first available in registration order; or a provider name to force it. |
-| `Scope` | `ServiceAccount` | Isolation scope (see below). |
 | `Namespace` | `"saf"` | Prepended to every secret name to form the store key, so different products/hosts do not collide. |
 | `ReferencePrefix` | `"secret://"` | Marks a configuration value as a secret reference (transparent resolution). |
 | `AllowEnvironmentOverride` | `true` | When resolving a reference, check a derived environment variable before the store. |
 | `EnvironmentVariablePrefix` | `"SECRET"` | Prefix of that environment variable. |
 | `ThrowOnUnresolvedReference` | `true` | Throw when a `secret://` reference cannot be resolved, instead of passing it through as `null`. |
-
-### Scope
-
-`Scope` is the **isolation axis** — who may read the secret — not the identity itself. The running
-identity is arbitrary (`LocalSystem`, `NetworkService`, a virtual `NT SERVICE\*` account, a gMSA, or a
-local/domain user).
-
-- `ServiceAccount` (default) — bound to a single principal. For the Windows Credential Manager this is
-  inherent: the secret lives in the running identity's vault.
-- `Machine` — any local account may read. The Windows Credential Manager has no machine-wide vault, so
-  it logs a warning and still stores per-principal; broader readership for the file provider is a matter
-  of the file's deployed permissions (see [The file store and its protector](#the-file-store-and-its-protector)).
 
 ## Secret names
 

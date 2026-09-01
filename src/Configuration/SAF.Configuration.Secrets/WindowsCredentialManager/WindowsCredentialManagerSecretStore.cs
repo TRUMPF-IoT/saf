@@ -5,16 +5,14 @@
 namespace SAF.Configuration.Secrets.WindowsCredentialManager;
 
 using System.Text;
-using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using SAF.Configuration.Secrets.Contracts;
 
 /// <summary>
 /// An <see cref="ISecretStoreProvider"/> backed by the Windows Credential Manager. Secrets are stored
-/// as generic credentials in the vault of the running identity, which yields per-principal
-/// (<see cref="SecretScope.ServiceAccount"/>) isolation. The Credential Manager has no machine-wide
-/// vault, so <see cref="SecretScope.Machine"/> is not achievable here; use the file-based provider for
-/// installer-writable, service-readable secrets.
+/// as generic credentials in the vault of the running identity, so only that principal can read them.
+/// The Credential Manager has no machine-wide vault; use the file-based provider for secrets that must
+/// be installer-writable and service-readable across principals.
 /// </summary>
 internal sealed class WindowsCredentialManagerSecretStore : ISecretStoreProvider
 {
@@ -28,20 +26,16 @@ internal sealed class WindowsCredentialManagerSecretStore : ISecretStoreProvider
 
     private readonly INativeCredentialApi _nativeApi;
     private readonly SecretStoreOptions _options;
-    private readonly ILogger<WindowsCredentialManagerSecretStore> _logger;
 
     public WindowsCredentialManagerSecretStore(
         IOptions<SecretStoreOptions> options,
-        INativeCredentialApi nativeApi,
-        ILogger<WindowsCredentialManagerSecretStore> logger)
+        INativeCredentialApi nativeApi)
     {
         ArgumentNullException.ThrowIfNull(options);
         ArgumentNullException.ThrowIfNull(nativeApi);
-        ArgumentNullException.ThrowIfNull(logger);
 
         _options = options.Value;
         _nativeApi = nativeApi;
-        _logger = logger;
     }
 
     /// <inheritdoc />
@@ -88,14 +82,6 @@ internal sealed class WindowsCredentialManagerSecretStore : ISecretStoreProvider
                 $"(CRED_MAX_CREDENTIAL_BLOB_SIZE, ~{CredMaxCredentialBlobSize / 2} characters). Store larger " +
                 "values in the file-based provider instead.",
                 nameof(value));
-        }
-
-        if (_options.Scope == SecretScope.Machine)
-        {
-            _logger.LogWarning(
-                "Secret scope '{Scope}' was requested but the Windows Credential Manager only provides " +
-                "per-principal isolation; the secret '{Name}' is stored in the running identity's vault.",
-                _options.Scope, name);
         }
 
         _nativeApi.WriteGenericCredential(target, value);
