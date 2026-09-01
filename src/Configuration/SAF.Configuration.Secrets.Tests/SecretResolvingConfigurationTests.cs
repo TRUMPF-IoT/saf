@@ -4,14 +4,20 @@
 
 namespace SAF.Configuration.Secrets.Tests;
 
+using System.IO.Abstractions;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using SAF.Configuration.Secrets.Contracts;
+using Testably.Abstractions.Testing;
 using Xunit;
 
 public class SecretResolvingConfigurationTests
 {
+    private const string StorePath = "/store/secrets.json";
+
+    private static CancellationToken TestToken => TestContext.Current.CancellationToken;
+
     [Fact]
     public void ResolvesReferences_AndLeavesOtherValuesUntouched()
     {
@@ -175,6 +181,63 @@ public class SecretResolvingConfigurationTests
             Environment.SetEnvironmentVariable(envVar, null);
         }
     }
+
+    [Fact]
+    public async Task Reference_CarriesTheLogicalNameOnly_AndTheStorePrependsTheNamespace()
+    {
+        // Pins the namespace convention end-to-end through a real store. The fake providers in this
+        // file ignore Namespace entirely, so they cannot tell the two candidate designs apart — which
+        // is how the docs came to show a reference that repeats the namespace.
+        var fileSystem = new MockFileSystem();
+        await using var hostServices = BuildFileStoreHost(fileSystem);
+
+        await hostServices.GetRequiredService<ISecretStore>()
+            .SetSecretAsync("opcua/conn-1/password", "s3cret", TestToken);
+
+        var config = new ConfigurationBuilder()
+            .AddInMemoryCollection(new Dictionary<string, string?>
+            {
+                ["Opc:Password"] = "secret://opcua/conn-1/password"
+            })
+            .AddResolvedSecrets(hostServices)
+            .Build();
+
+        Assert.Equal("s3cret", config["Opc:Password"]);
+        Assert.Contains(
+            "myapp/opcua/conn-1/password",
+            await fileSystem.File.ReadAllTextAsync(StorePath, TestToken),
+            StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task Reference_ThatRepeatsTheNamespace_DoesNotResolve()
+    {
+        var fileSystem = new MockFileSystem();
+        await using var hostServices = BuildFileStoreHost(fileSystem);
+
+        await hostServices.GetRequiredService<ISecretStore>()
+            .SetSecretAsync("opcua/conn-1/password", "s3cret", TestToken);
+
+        var ex = Assert.Throws<InvalidOperationException>(() => new ConfigurationBuilder()
+            .AddInMemoryCollection(new Dictionary<string, string?>
+            {
+                ["Opc:Password"] = "secret://myapp/opcua/conn-1/password"
+            })
+            .AddResolvedSecrets(hostServices)
+            .Build());
+
+        Assert.Contains("secret://myapp/opcua/conn-1/password", ex.Message, StringComparison.Ordinal);
+    }
+
+    private static ServiceProvider BuildFileStoreHost(IFileSystem fileSystem)
+        => new ServiceCollection()
+            .AddLogging()
+            .AddSingleton(fileSystem)
+            .AddSingleton<ISecretProtector>(new ReversingSecretProtector())
+            .AddSecretStore(o => o.Namespace = "myapp")
+            .AddFile(o => o.Path = StorePath)
+            .Services
+            .BuildServiceProvider();
 
     private sealed class HostProvider : ISecretStoreProvider
     {

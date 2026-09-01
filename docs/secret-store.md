@@ -299,13 +299,19 @@ Then reference secrets in the plugin configuration with the `secret://` prefix:
 {
   "OpcUaConnections": [
     {
-      "User": "secret://myapp/opcua/conn-1/user",
-      "Password": "secret://myapp/opcua/conn-1/password",
+      "User": "secret://opcua/conn-1/user",
+      "Password": "secret://opcua/conn-1/password",
       "Host": "opc.tcp://plc-1:4840"
     }
   ]
 }
 ```
+
+> **A reference does not repeat the namespace.** It carries the *logical* name only; the store prepends
+> the configured `Namespace` to form the physical key (see [Secret names](#secret-names)). With
+> `o.Namespace = "myapp"`, `secret://opcua/conn-1/password` is looked up as
+> `myapp/opcua/conn-1/password`. Writing `secret://myapp/opcua/conn-1/password` instead would look up
+> `myapp/myapp/opcua/conn-1/password` and fail to resolve.
 
 - Values **with** the prefix are replaced by the resolved secret; values **without** it (e.g. `Host`)
   pass through unchanged.
@@ -315,7 +321,9 @@ Then reference secrets in the plugin configuration with the `secret://` prefix:
 - An **environment variable** derived from the reference name overrides the store, which lets
   CI/containers inject secrets without an OS store. The name is `EnvironmentVariablePrefix` plus the
   reference name with `/` → `__` and other non-alphanumeric characters → `_`; e.g.
-  `secret://myapp/opcua/conn-1/password` → `SECRET__myapp__opcua__conn_1__password`.
+  `secret://opcua/conn-1/password` → `SECRET__opcua__conn_1__password`. The variable name is derived
+  from the reference name **before** the namespace is prepended, so it contains no namespace — hosts
+  sharing an environment but using different namespaces see the same variable.
 - Provider selection/registration is the same as `AddSecretStore` (default = platform providers, or
   pass `configureProviders` to choose explicitly). `AddSecretConfigurationResolution` and
   `AddSecretStore` compose safely, so transparent resolution and direct `ISecretStore` injection can be
