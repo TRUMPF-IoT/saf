@@ -19,7 +19,7 @@ public class SecretStoreOptionsTests
         Assert.Equal("secret://", options.ReferencePrefix);
         Assert.Equal("saf", options.Namespace);
         Assert.True(options.ThrowOnUnresolvedReference);
-        Assert.True(options.AllowEnvironmentOverride);
+        Assert.False(options.AllowEnvironmentOverride);
         Assert.Equal("SECRET", options.EnvironmentVariablePrefix);
     }
 

@@ -95,15 +95,13 @@ public class SecretResolvingConfigurationTests
     }
 
     [Fact]
-    public void EnvironmentVariable_OverridesTheStore()
+    public void EnvironmentVariable_OverridesTheStore_WhenOverrideIsEnabled()
     {
-        const string envVar = "SECRET__app__db__pw";
+        const string envVar = "SECRET__ns__app__db__pw";
         Environment.SetEnvironmentVariable(envVar, "env-pw");
         try
         {
-            var config = Build(
-                new Dictionary<string, string?> { ["Db:Password"] = "secret://app/db/pw" },
-                providers => providers.AddProvider<FakeReaderProvider>());
+            var config = BuildWithEnvironmentOverride();
 
             Assert.Equal("env-pw", config["Db:Password"]);
         }
@@ -111,6 +109,64 @@ public class SecretResolvingConfigurationTests
         {
             Environment.SetEnvironmentVariable(envVar, null);
         }
+    }
+
+    [Fact]
+    public void EnvironmentVariable_IsIgnored_ByDefault()
+    {
+        // AllowEnvironmentOverride defaults to false: enabling it widens the trust boundary to
+        // everyone who can set this process's environment, so it must be opted into deliberately.
+        const string envVar = "SECRET__ns__app__db__pw";
+        Environment.SetEnvironmentVariable(envVar, "env-pw");
+        try
+        {
+            var config = new ConfigurationBuilder()
+                .AddInMemoryCollection(new Dictionary<string, string?> { ["Db:Password"] = "secret://app/db/pw" })
+                .AddResolvedSecrets(o => o.Namespace = "ns", providers => providers.AddProvider<FakeReaderProvider>())
+                .Build();
+
+            Assert.Equal("resolved-pw", config["Db:Password"]);
+        }
+        finally
+        {
+            Environment.SetEnvironmentVariable(envVar, null);
+        }
+    }
+
+    [Fact]
+    public void EnvironmentVariableName_IncludesTheNamespace_SoHostsDoNotCollide()
+    {
+        // The variable is derived from the physical store key, not the bare reference name, so a
+        // second host sharing this environment under a different namespace cannot override our secret.
+        const string otherHostVar = "SECRET__other__app__db__pw";
+        Environment.SetEnvironmentVariable(otherHostVar, "other-hosts-pw");
+        try
+        {
+            var config = BuildWithEnvironmentOverride();
+
+            Assert.Equal("resolved-pw", config["Db:Password"]);
+        }
+        finally
+        {
+            Environment.SetEnvironmentVariable(otherHostVar, null);
+        }
+    }
+
+    [Fact]
+    public void UnusableEnvironmentVariablePrefix_Throws_NamingTheOption()
+    {
+        var ex = Assert.Throws<InvalidOperationException>(() => new ConfigurationBuilder()
+            .AddInMemoryCollection(new Dictionary<string, string?> { ["Db:Password"] = "secret://app/db/pw" })
+            .AddResolvedSecrets(
+                o =>
+                {
+                    o.AllowEnvironmentOverride = true;
+                    o.EnvironmentVariablePrefix = "not a valid prefix";
+                },
+                providers => providers.AddProvider<FakeReaderProvider>())
+            .Build());
+
+        Assert.Contains(nameof(SecretStoreOptions.EnvironmentVariablePrefix), ex.Message, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -160,13 +216,15 @@ public class SecretResolvingConfigurationTests
         // is called here with no configure callback of its own.
         var hostServices = new ServiceCollection()
             .AddLogging()
-            .AddSecretStore(o => o.AllowEnvironmentOverride = false)
+            .AddSecretStore(o => o.AllowEnvironmentOverride = true)
             .AddProvider<HostProvider>()
             .Services
             .BuildServiceProvider();
 
-        const string envVar = "SECRET__app__db__pw";
-        Environment.SetEnvironmentVariable(envVar, "should-be-ignored");
+        // Asserted through a non-default option value: AllowEnvironmentOverride is false by default, so
+        // the override only wins if the option really travelled from the service collection to the resolver.
+        const string envVar = "SECRET__saf__app__db__pw";
+        Environment.SetEnvironmentVariable(envVar, "from-environment");
         try
         {
             var config = new ConfigurationBuilder()
@@ -174,7 +232,7 @@ public class SecretResolvingConfigurationTests
                 .AddResolvedSecrets(hostServices)
                 .Build();
 
-            Assert.Equal("host:app/db/pw", config["Db:Password"]);
+            Assert.Equal("from-environment", config["Db:Password"]);
         }
         finally
         {
@@ -254,6 +312,18 @@ public class SecretResolvingConfigurationTests
         public Task RemoveSecretAsync(string name, CancellationToken cancellationToken = default)
             => Task.CompletedTask;
     }
+
+    private static IConfigurationRoot BuildWithEnvironmentOverride()
+        => new ConfigurationBuilder()
+            .AddInMemoryCollection(new Dictionary<string, string?> { ["Db:Password"] = "secret://app/db/pw" })
+            .AddResolvedSecrets(
+                o =>
+                {
+                    o.Namespace = "ns";
+                    o.AllowEnvironmentOverride = true;
+                },
+                providers => providers.AddProvider<FakeReaderProvider>())
+            .Build();
 
     private static IConfigurationRoot Build(
         Dictionary<string, string?> values,

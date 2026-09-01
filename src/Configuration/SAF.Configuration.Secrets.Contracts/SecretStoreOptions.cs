@@ -41,16 +41,28 @@ public sealed class SecretStoreOptions
     public bool ThrowOnUnresolvedReference { get; set; } = true;
 
     /// <summary>
-    /// When <see langword="true"/> (the default), secret resolution first checks an environment
-    /// variable derived from the reference name (see <see cref="EnvironmentVariablePrefix"/>) before
-    /// querying the store. Enables provisioning in CI/containers without an OS store.
+    /// When <see langword="true"/>, secret resolution first checks an environment variable derived from
+    /// the store key (see <see cref="EnvironmentVariablePrefix"/>) before querying the store, which
+    /// allows provisioning in CI/containers without an OS store.
     /// </summary>
-    public bool AllowEnvironmentOverride { get; set; } = true;
+    /// <remarks>
+    /// Defaults to <see langword="false"/>: enabling it makes the process environment a trust boundary
+    /// for every secret, because anyone able to set that environment can substitute any value without
+    /// touching the store at all. Turn it on deliberately, for CI and development.
+    /// </remarks>
+    public bool AllowEnvironmentOverride { get; set; }
 
     /// <summary>
-    /// Prefix of the environment variable checked for a secret override. The reference name is appended
-    /// with non-alphanumeric characters replaced by <c>__</c>, e.g. reference <c>myproduct/conn-1/password</c>
-    /// maps to <c>SECRET__myproduct__conn_1__password</c>.
+    /// Prefix of the environment variable checked when <see cref="AllowEnvironmentOverride"/> is enabled.
+    /// The lower-cased store key is appended — <see cref="Namespace"/> included — with <c>/</c> replaced
+    /// by <c>__</c> and every other non-alphanumeric character by <c>_</c>; e.g.
+    /// <c>secret://conn-1/password</c> under namespace <c>myproduct</c> maps to
+    /// <c>SECRET__myproduct__conn_1__password</c>.
     /// </summary>
+    /// <remarks>
+    /// That derivation is deliberately readable rather than injective, so two names differing only in
+    /// their non-alphanumeric characters share one variable (<c>a/b</c> collides with <c>a--b</c>,
+    /// <c>a-b</c> with <c>a.b</c>). See "Environment overrides" in docs/secret-store.md.
+    /// </remarks>
     public string EnvironmentVariablePrefix { get; set; } = "SECRET";
 }

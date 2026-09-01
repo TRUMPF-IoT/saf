@@ -34,6 +34,11 @@ sufficient privilege can". Understanding that boundary is important:
   `IConfigurationRoot.GetDebugView()` prints it, attributed to the resolving provider. Use the
   `GetDebugView(Func<string, ConfigurationDebugViewContext, string> processValue)` overload to mask
   values before logging or displaying a debug view of configuration that may include resolved secrets.
+- **The environment is a trust boundary only if you make it one.** With `AllowEnvironmentOverride`
+  enabled, anyone able to set this process's environment — a systemd drop-in, a container `-e` flag, a
+  sibling process that can spawn the service — can substitute **any** secret without touching the
+  keystore or the encrypted file. That is why it defaults to `false`; see
+  [Environment overrides](#environment-overrides).
 - **The writer is trusted.** Provisioning (whoever calls `SetSecretAsync` — an installer, an admin
   tool) is assumed authorized, not adversarial. In particular, `PkcsSecretProtector`'s PKCS#7/CMS
   envelope encrypts each value (AES-256-CBC content key wrapped with RSA-OAEP) but does not
@@ -329,12 +334,9 @@ Then reference secrets in the plugin configuration with the `secret://` prefix:
 - A reference that **no provider can resolve throws by default** (`ThrowOnUnresolvedReference`), naming
   the reference and the configured provider, instead of silently becoming `null` and shadowing the
   original value. Set it to `false` for test/dev scenarios without a populated store.
-- An **environment variable** derived from the reference name overrides the store, which lets
-  CI/containers inject secrets without an OS store. The name is `EnvironmentVariablePrefix` plus the
-  reference name with `/` → `__` and other non-alphanumeric characters → `_`; e.g.
-  `secret://opcua/conn-1/password` → `SECRET__opcua__conn_1__password`. The variable name is derived
-  from the reference name **before** the namespace is prepended, so it contains no namespace — hosts
-  sharing an environment but using different namespaces see the same variable.
+- An **environment variable** can override the store, so CI/containers can inject secrets without an
+  OS store. This is **off by default** — see [Environment overrides](#environment-overrides), which
+  also covers why it is off and the one naming pitfall to know about before turning it on.
 - Provider selection/registration is the same as `AddSecretStore` (default = platform providers, or
   pass `configureProviders` to choose explicitly). `AddSecretConfigurationResolution` and
   `AddSecretStore` compose safely, so transparent resolution and direct `ISecretStore` injection can be
@@ -356,7 +358,7 @@ Then reference secrets in the plugin configuration with the `secret://` prefix:
 | `ProviderName` | `"auto"` | Which provider is active. `"auto"` = first available in registration order; or a provider name to force it. |
 | `Namespace` | `"saf"` | Prepended to every secret name to form the store key, so different products/hosts do not collide. |
 | `ReferencePrefix` | `"secret://"` | Marks a configuration value as a secret reference (transparent resolution). |
-| `AllowEnvironmentOverride` | `true` | When resolving a reference, check a derived environment variable before the store. |
+| `AllowEnvironmentOverride` | `false` | When resolving a reference, check a derived environment variable before the store. See [Environment overrides](#environment-overrides). |
 | `EnvironmentVariablePrefix` | `"SECRET"` | Prefix of that environment variable. |
 | `ThrowOnUnresolvedReference` | `true` | Throw when a `secret://` reference cannot be resolved, instead of passing it through as `null`. |
 
@@ -370,6 +372,46 @@ The physical store key is **case-insensitive** — `Namespace` and the name are 
 use, the same way on every provider. This matches the Windows Credential Manager, which treats target
 names case-insensitively regardless of what is written; without normalizing, the same logical secret
 could resolve differently depending on which backend is active.
+
+## Environment overrides
+
+Setting `AllowEnvironmentOverride = true` makes resolution check an environment variable *before* the
+store, so CI and development can supply secrets on a host with no OS keystore and no provisioned file:
+
+```csharp
+ps.AddSecretConfigurationResolution(o =>
+{
+    o.Namespace = "myapp";
+    o.AllowEnvironmentOverride = true; // opt in — off by default
+});
+```
+
+The variable name is `EnvironmentVariablePrefix`, then `__`, then the **physical store key** (so the
+`Namespace` is included, exactly as in [Secret names](#secret-names)), with `/` → `__` and every other
+non-alphanumeric character → `_`. The key is lower-cased first, so the derived name is too:
+
+| `Namespace` | reference | variable |
+|---|---|---|
+| `myapp` | `secret://opcua/conn-1/password` | `SECRET__myapp__opcua__conn_1__password` |
+| `other` | `secret://opcua/conn-1/password` | `SECRET__other__opcua__conn_1__password` |
+
+Because the namespace is part of the name, two hosts sharing one environment but using different
+namespaces do **not** share an override variable. On Linux, where environment lookup is
+case-sensitive, note the lower-casing: `secret://Db/Password` reads `SECRET__myapp__db__password`.
+
+> **The derivation is readable, not injective.** `/` becomes `__` while every other non-alphanumeric
+> character becomes a single `_`, so two names can map onto one variable: under namespace `myapp`,
+> both `a/b` and `a--b` yield `SECRET__myapp__a__b`, and both `a-b` and `a.b` yield
+> `SECRET__myapp__a_b`. Setting that variable overrides *every* name mapping to it. Readable names
+> were preferred over injective ones because an operator types these by hand; the risk only becomes
+> real if two of your secret names differ solely in their non-alphanumeric characters, so avoid that
+> pairing, or leave overrides off.
+
+Because the override is checked *before* the store, it wins over a correctly provisioned keystore
+entry unconditionally, and the value it supplies never passes through the store's at-rest protection.
+That is what makes enabling it a widening of the trust boundary to everyone who can set the process
+environment, and why it is off by default. When an override is applied the resolver logs it at
+`Debug` with the reference and the variable name (never the value).
 
 ## Provisioning secrets
 

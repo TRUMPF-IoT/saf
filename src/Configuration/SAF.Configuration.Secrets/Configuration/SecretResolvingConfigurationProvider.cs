@@ -16,8 +16,9 @@ using SAF.Configuration.Secrets.Contracts;
 /// <summary>
 /// A configuration provider that replaces secret references (values starting with
 /// <see cref="SecretStoreOptions.ReferencePrefix"/>) in the underlying configuration with the resolved
-/// secret. Values that are not references are left untouched. An environment variable derived from the
-/// reference name takes precedence over the store (for provisioning in CI/containers).
+/// secret. Values that are not references are left untouched. When
+/// <see cref="SecretStoreOptions.AllowEnvironmentOverride"/> is enabled, an environment variable derived
+/// from the store key takes precedence over the store (for provisioning in CI/containers).
 /// </summary>
 /// <remarks>
 /// When a host <see cref="IServiceProvider"/> is available (the SAF plugin-system integration, via
@@ -115,9 +116,14 @@ internal sealed class SecretResolvingConfigurationProvider : ConfigurationProvid
     {
         if (_options.AllowEnvironmentOverride)
         {
-            var overrideValue = Environment.GetEnvironmentVariable(BuildEnvironmentVariableName(reference.Name));
+            var variableName = BuildEnvironmentVariableName(reference.Name);
+            var overrideValue = Environment.GetEnvironmentVariable(variableName);
             if (overrideValue is not null)
             {
+                _logger.LogDebug(
+                    "Secret reference '{Reference}' resolved from environment variable '{Variable}' instead of the store.",
+                    reference,
+                    variableName);
                 return overrideValue;
             }
         }
@@ -157,8 +163,19 @@ internal sealed class SecretResolvingConfigurationProvider : ConfigurationProvid
 
     private string BuildEnvironmentVariableName(string name)
     {
-        var builder = new StringBuilder(_options.EnvironmentVariablePrefix).Append("__");
-        foreach (var character in name)
+        var prefix = _options.EnvironmentVariablePrefix;
+        if (string.IsNullOrWhiteSpace(prefix) || !prefix.All(c => char.IsLetterOrDigit(c) || c == '_'))
+        {
+            throw new InvalidOperationException(
+                $"'{prefix}' cannot be used as {nameof(SecretStoreOptions.EnvironmentVariablePrefix)}: it " +
+                "must be non-empty and contain only letters, digits and underscores, otherwise the derived " +
+                "variable name can never be set.");
+        }
+
+        // Derived from the namespaced store key, not the bare reference name, so two hosts sharing an
+        // environment but using different namespaces do not share one override variable.
+        var builder = new StringBuilder(prefix).Append("__");
+        foreach (var character in SecretTargetName.Build(_options.Namespace, name))
         {
             if (char.IsLetterOrDigit(character))
             {
