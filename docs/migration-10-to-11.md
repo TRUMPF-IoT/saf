@@ -355,6 +355,47 @@ Switching the requirement off is only meaningful together with `AllowedSignerThu
 
 `DigitalSignaturePluginAssemblyValidator` is constructed by `AddDigitalSignaturePluginAssemblyValidator` only; it has no public constructor, and registering it as a plain service type (`AddPluginAssemblyValidator<DigitalSignaturePluginAssemblyValidator>()`) fails when the service provider resolves it.
 
+### `PluginSystemHostContext` and `PluginConfigurationSourceContext` take the host `IServiceProvider`
+
+`IServiceProvider hostServices` was added to the `PluginSystemHostContext` constructor **before** the
+optional trailing `configurePluginConfigurationSources` parameter, so no earlier call compiles unchanged —
+including the 5-argument form that omitted the optional one — and a caller compiled against an earlier 11.0
+pre-release fails at runtime with `MissingMethodException`:
+
+```csharp
+// Before
+new PluginSystemHostContext(logger, environment, hostConfiguration, options, fileSystem, configureSources);
+
+// After
+new PluginSystemHostContext(logger, environment, hostConfiguration, options, fileSystem, hostServices, configureSources);
+```
+
+`AddSafHost()` constructs the context itself and supplies the provider, so a host that uses the normal
+bootstrap needs no change. This affects code that constructs the context directly — in practice, tests.
+
+`PluginConfigurationSourceContext` gained a matching `required IServiceProvider HostServices { get; init; }`,
+which breaks object-initializer construction — a test double that invokes a source callback outside a host,
+for example:
+
+```csharp
+var sourceContext = new PluginConfigurationSourceContext
+{
+    Builder = configurationBuilder,
+    SettingsFileProvider = null,
+    EnvironmentName = "Test",
+    SettingsFileName = null,
+    OnLoadException = _ => { },
+    HostServices = hostServices,    // new, and required
+};
+```
+
+Both breaks are intentional. A configuration source that resolves values against host services —
+[transparent secret resolution](./secret-store.md#transparent-configuration-resolution) is the case that
+prompted it — has no other way to reach them: the callback runs during `IPluginSystemHostContext`
+construction, before any plugin container exists. Making it required rather than optional is what turns a
+stale call into a compile error; an optional parameter would have compiled unchanged and handed the
+callback a null provider.
+
 ---
 
 ## Quick Migration Checklist
@@ -370,3 +411,4 @@ Switching the requirement off is only meaningful together with `AllowedSignerThu
 - [ ] Move plugin configuration into the shared plugin settings file (or host `appsettings.json`) under a per-plugin section
 - [ ] Deploy messaging/storage as plug-ins (add their DLLs to `IncludePatterns`) instead of calling `Add*Infrastructure()` on the host
 - [ ] Reference `SAF.PluginSystem.Hosting.Extensions` explicitly if you use plugin assembly validation, and check the `RequireValidDigitalSignature = true` default against the signatures your plug-ins actually carry
+- [ ] Pass the host `IServiceProvider` if you construct `PluginSystemHostContext` or `PluginConfigurationSourceContext` yourself (`AddSafHost()` already does)
