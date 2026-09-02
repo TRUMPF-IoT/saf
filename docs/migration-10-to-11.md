@@ -338,6 +338,15 @@ new PluginAssemblyFolderContainer(loggerFactory, manifestLoader, options, fileSy
 
 This is an intentional break. It is a compile error rather than a silent behaviour change, which is the point: a container built with a stale call would otherwise load plug-ins with validators that were configured but never consulted.
 
+### NATS messaging keeps blocking backpressure
+
+`SAF.Messaging.Nats` now builds on **NATS.Net 3.x**, which stopped forcing
+`SubPendingChannelFullMode = BoundedChannelFullMode.Wait` inside the `NatsClient` constructor; the
+`NatsOpts` default is `DropNewest`. SAF sets `Wait` explicitly, so a subscription whose `IMessageHandler`
+is slower than the publish rate still applies backpressure to the reader instead of silently discarding
+messages — the 10.x behaviour. No action is required; the note is here because the underlying default
+inverted, so a host that builds its own `NatsOpts` has to set the mode itself.
+
 ### Digital-signature validation is secure by default
 
 `DigitalSignaturePluginAssemblyValidatorOptions.RequireValidDigitalSignature` defaults to `true`, so registering the validator without configuration demands a signature that is intact, covers the file and chains to a trusted root. Check that against the signatures your plug-ins actually carry before enabling the validator: unsigned plug-ins, and plug-ins whose signer chains to a root the host does not trust, are skipped with a warning.

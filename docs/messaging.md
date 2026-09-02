@@ -104,6 +104,11 @@ Backed by [NATS.Net](https://nats.io). High-performance, cloud-native messaging.
 }
 ```
 
+A subscription buffers incoming messages in a bounded channel. SAF configures that channel to **wait**
+when it is full (`SubPendingChannelFullMode = BoundedChannelFullMode.Wait`), so a handler that is slower
+than the publish rate applies backpressure to the reader rather than having messages dropped
+silently — NATS.Net's own default is to drop the newest message instead.
+
 ### C-DEngine
 
 Backed by [C-DEngine](https://github.com/TRUMPF-IoT/C-DEngine), a mesh-network framework for industrial IoT.
