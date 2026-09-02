@@ -27,7 +27,7 @@ public class SecretResolvingConfigurationTests
         var config = Build(
             new Dictionary<string, string?>
             {
-                ["Db:Password"] = "secret://app/db/pw",
+                ["Db:Password"] = "secret://db/pw",
                 ["Db:Host"] = "localhost"
             },
             providers => providers.AddProvider<FakeReaderProvider>());
@@ -67,7 +67,7 @@ public class SecretResolvingConfigurationTests
     public void InitialLoad_PropagatesProviderException()
     {
         Assert.Throws<InvalidOperationException>(() => Build(
-            new Dictionary<string, string?> { ["Db:Password"] = "secret://app/db/pw" },
+            new Dictionary<string, string?> { ["Db:Password"] = "secret://db/pw" },
             providers => providers.AddProvider<AlwaysThrowingProvider>()));
     }
 
@@ -98,9 +98,37 @@ public class SecretResolvingConfigurationTests
     }
 
     [Fact]
+    public void Reload_RebuildsTheReader_AfterItsFactoryFailedOnce()
+    {
+        var reloadableSource = new ReloadableSource(new Dictionary<string, string?> { ["Db:Name"] = "plain" });
+        var hostServices = new FlakyServiceProvider(new ServiceCollection()
+            .AddLogging()
+            .AddSecretStore(o => o.Namespace = "app")
+            .AddProvider<HostProvider>()
+            .Services
+            .BuildServiceProvider());
+
+        var config = new ConfigurationBuilder()
+            .Add(reloadableSource)
+            .AddResolvedSecrets(hostServices)
+            .Build();
+
+        Assert.Equal(0, hostServices.StoreRequests);
+
+        // The reference appears only now, so the reader factory runs - and fails - on this reload.
+        reloadableSource.Provider!.SetValues(new Dictionary<string, string?> { ["Db:Password"] = "secret://db/pw" });
+        Assert.Null(config["Db:Password"]);
+
+        reloadableSource.Provider!.TriggerReload();
+
+        Assert.Equal("host:app/db/pw", config["Db:Password"]);
+        Assert.Equal(2, hostServices.StoreRequests);
+    }
+
+    [Fact]
     public void EnvironmentVariable_OverridesTheStore_WhenOverrideIsEnabled()
     {
-        const string envVar = "SECRET__ns__app__db__pw";
+        const string envVar = "SECRET__ns__db__pw";
         Environment.SetEnvironmentVariable(envVar, "env-pw");
         try
         {
@@ -119,12 +147,12 @@ public class SecretResolvingConfigurationTests
     {
         // AllowEnvironmentOverride defaults to false: enabling it widens the trust boundary to
         // everyone who can set this process's environment, so it must be opted into deliberately.
-        const string envVar = "SECRET__ns__app__db__pw";
+        const string envVar = "SECRET__ns__db__pw";
         Environment.SetEnvironmentVariable(envVar, "env-pw");
         try
         {
             var config = new ConfigurationBuilder()
-                .AddInMemoryCollection(new Dictionary<string, string?> { ["Db:Password"] = "secret://app/db/pw" })
+                .AddInMemoryCollection(new Dictionary<string, string?> { ["Db:Password"] = "secret://db/pw" })
                 .AddResolvedSecrets(o => o.Namespace = "ns", providers => providers.AddProvider<FakeReaderProvider>())
                 .Build();
 
@@ -141,7 +169,7 @@ public class SecretResolvingConfigurationTests
     {
         // The variable is derived from the physical store key, not the bare reference name, so a
         // second host sharing this environment under a different namespace cannot override our secret.
-        const string otherHostVar = "SECRET__other__app__db__pw";
+        const string otherHostVar = "SECRET__other__db__pw";
         Environment.SetEnvironmentVariable(otherHostVar, "other-hosts-pw");
         try
         {
@@ -159,7 +187,7 @@ public class SecretResolvingConfigurationTests
     public void UnusableEnvironmentVariablePrefix_Throws_NamingTheOption()
     {
         var ex = Assert.Throws<InvalidOperationException>(() => new ConfigurationBuilder()
-            .AddInMemoryCollection(new Dictionary<string, string?> { ["Db:Password"] = "secret://app/db/pw" })
+            .AddInMemoryCollection(new Dictionary<string, string?> { ["Db:Password"] = "secret://db/pw" })
             .AddResolvedSecrets(
                 o =>
                 {
@@ -204,11 +232,11 @@ public class SecretResolvingConfigurationTests
             .BuildServiceProvider();
 
         var config = new ConfigurationBuilder()
-            .AddInMemoryCollection(new Dictionary<string, string?> { ["Db:Password"] = "secret://app/db/pw" })
+            .AddInMemoryCollection(new Dictionary<string, string?> { ["Db:Password"] = "secret://db/pw" })
             .AddResolvedSecrets(hostServices)
             .Build();
 
-        Assert.Equal("host:app/db/pw", config["Db:Password"]);
+        Assert.Equal("host:saf/db/pw", config["Db:Password"]);
     }
 
     [Fact]
@@ -226,12 +254,12 @@ public class SecretResolvingConfigurationTests
 
         // Asserted through a non-default option value: AllowEnvironmentOverride is false by default, so
         // the override only wins if the option really travelled from the service collection to the resolver.
-        const string envVar = "SECRET__saf__app__db__pw";
+        const string envVar = "SECRET__saf__db__pw";
         Environment.SetEnvironmentVariable(envVar, "from-environment");
         try
         {
             var config = new ConfigurationBuilder()
-                .AddInMemoryCollection(new Dictionary<string, string?> { ["Db:Password"] = "secret://app/db/pw" })
+                .AddInMemoryCollection(new Dictionary<string, string?> { ["Db:Password"] = "secret://db/pw" })
                 .AddResolvedSecrets(hostServices)
                 .Build();
 
@@ -308,7 +336,7 @@ public class SecretResolvingConfigurationTests
         var ex = Assert.Throws<InvalidOperationException>(() => new ConfigurationBuilder()
             .AddInMemoryCollection(new Dictionary<string, string?> { ["Db:Host"] = "localhost" })
             .AddResolvedSecrets(o => o.Namespace = "app", providers => providers.AddProvider<FakeReaderProvider>())
-            .AddInMemoryCollection(new Dictionary<string, string?> { ["Db:Password"] = "secret://app/db/pw" })
+            .AddInMemoryCollection(new Dictionary<string, string?> { ["Db:Password"] = "secret://db/pw" })
             .Build());
 
         Assert.Contains("Db:Password", ex.Message, StringComparison.Ordinal);
@@ -320,7 +348,7 @@ public class SecretResolvingConfigurationTests
         // The sources are read at Build() time, so the resolver sees the final composed value: the later
         // plain override wins and nothing is resolved for that key.
         var config = new ConfigurationBuilder()
-            .AddInMemoryCollection(new Dictionary<string, string?> { ["Db:Password"] = "secret://app/db/pw" })
+            .AddInMemoryCollection(new Dictionary<string, string?> { ["Db:Password"] = "secret://db/pw" })
             .AddResolvedSecrets(o => o.Namespace = "app", providers => providers.AddProvider<FakeReaderProvider>())
             .AddInMemoryCollection(new Dictionary<string, string?> { ["Db:Password"] = "plain" })
             .Build();
@@ -332,7 +360,7 @@ public class SecretResolvingConfigurationTests
     public void TwoResolvingSources_DoNotBuildEachOther()
     {
         var config = new ConfigurationBuilder()
-            .AddInMemoryCollection(new Dictionary<string, string?> { ["Db:Password"] = "secret://app/db/pw" })
+            .AddInMemoryCollection(new Dictionary<string, string?> { ["Db:Password"] = "secret://db/pw" })
             .AddResolvedSecrets(o => o.Namespace = "app", providers => providers.AddProvider<FakeReaderProvider>())
             .AddResolvedSecrets(o => o.Namespace = "app", providers => providers.AddProvider<FakeReaderProvider>())
             .Build();
@@ -376,8 +404,8 @@ public class SecretResolvingConfigurationTests
         var config = new ConfigurationBuilder()
             .AddInMemoryCollection(new Dictionary<string, string?>
             {
-                ["Db:Password"] = "secret://app/db/pw",
-                ["Cache:Password"] = "secret://app/db/pw"
+                ["Db:Password"] = "secret://db/pw",
+                ["Cache:Password"] = "secret://db/pw"
             })
             .AddResolvedSecrets(hostServices)
             .Build();
@@ -402,7 +430,7 @@ public class SecretResolvingConfigurationTests
             .BuildServiceProvider();
 
         var ex = Assert.Throws<TimeoutException>(() => new ConfigurationBuilder()
-            .AddInMemoryCollection(new Dictionary<string, string?> { ["Db:Password"] = "secret://app/db/pw" })
+            .AddInMemoryCollection(new Dictionary<string, string?> { ["Db:Password"] = "secret://db/pw" })
             .AddResolvedSecrets(hostServices)
             .Build());
 
@@ -428,7 +456,7 @@ public class SecretResolvingConfigurationTests
 
         var elapsed = Stopwatch.StartNew();
         var ex = Assert.Throws<TimeoutException>(() => new ConfigurationBuilder()
-            .AddInMemoryCollection(new Dictionary<string, string?> { ["Db:Password"] = "secret://app/db/pw" })
+            .AddInMemoryCollection(new Dictionary<string, string?> { ["Db:Password"] = "secret://db/pw" })
             .AddResolvedSecrets(hostServices)
             .Build());
         elapsed.Stop();
@@ -442,7 +470,7 @@ public class SecretResolvingConfigurationTests
     public void NonPositiveResolveTimeout_Throws_NamingTheOption()
     {
         var ex = Assert.Throws<InvalidOperationException>(() => new ConfigurationBuilder()
-            .AddInMemoryCollection(new Dictionary<string, string?> { ["Db:Password"] = "secret://app/db/pw" })
+            .AddInMemoryCollection(new Dictionary<string, string?> { ["Db:Password"] = "secret://db/pw" })
             .AddResolvedSecrets(
                 o =>
                 {
@@ -459,7 +487,7 @@ public class SecretResolvingConfigurationTests
     public void InfiniteResolveTimeout_IsAccepted()
     {
         var config = new ConfigurationBuilder()
-            .AddInMemoryCollection(new Dictionary<string, string?> { ["Db:Password"] = "secret://app/db/pw" })
+            .AddInMemoryCollection(new Dictionary<string, string?> { ["Db:Password"] = "secret://db/pw" })
             .AddResolvedSecrets(
                 o =>
                 {
@@ -480,7 +508,7 @@ public class SecretResolvingConfigurationTests
         // literal secret:// token as its credential, silently and with no shadowing error.
         using var manager = new ConfigurationManager();
         ((IConfigurationBuilder)manager).AddInMemoryCollection(
-            new Dictionary<string, string?> { ["Db:Password"] = "secret://app/db/pw" });
+            new Dictionary<string, string?> { ["Db:Password"] = "secret://db/pw" });
 
         var ex = Assert.Throws<NotSupportedException>(() => ((IConfigurationBuilder)manager).AddResolvedSecrets(
             o => o.Namespace = "app",
@@ -510,7 +538,7 @@ public class SecretResolvingConfigurationTests
         // built root into the eager one.
         using var manager = new ConfigurationManager();
         var resolved = new ConfigurationBuilder()
-            .AddInMemoryCollection(new Dictionary<string, string?> { ["Db:Password"] = "secret://app/db/pw" })
+            .AddInMemoryCollection(new Dictionary<string, string?> { ["Db:Password"] = "secret://db/pw" })
             .AddResolvedSecrets(
                 o => o.Namespace = "app",
                 providers => providers.AddProvider<FakeReaderProvider>())
@@ -524,7 +552,7 @@ public class SecretResolvingConfigurationTests
     {
         var countingSource = new CountingSource(new Dictionary<string, string?>
         {
-            ["Db:Password"] = "secret://app/db/pw",
+            ["Db:Password"] = "secret://db/pw",
             ["Db:Host"] = "localhost"
         });
 
@@ -554,7 +582,7 @@ public class SecretResolvingConfigurationTests
             {
                 ["Feature:Suffix"] = string.Empty,
                 ["Feature:Name"] = "x",
-                ["Db:Password"] = "secret://app/db/pw"
+                ["Db:Password"] = "secret://db/pw"
             })
             .Build();
 
@@ -631,7 +659,7 @@ public class SecretResolvingConfigurationTests
 
         reloadableSource.Provider!.SetValues(new Dictionary<string, string?>
         {
-            ["Db:Password"] = "secret://app/db/pw"
+            ["Db:Password"] = "secret://db/pw"
         });
 
         // The consumer must never observe the literal token: the inner root's own reload token is muted so
@@ -645,7 +673,7 @@ public class SecretResolvingConfigurationTests
     {
         var reloadableSource = new ReloadableSource(new Dictionary<string, string?>(StringComparer.OrdinalIgnoreCase)
         {
-            ["Db:Password"] = "secret://app/db/pw",
+            ["Db:Password"] = "secret://db/pw",
             ["Db:Host"] = "localhost"
         });
         var innerRoot = new ConfigurationBuilder().Add(reloadableSource).Build();
@@ -659,7 +687,7 @@ public class SecretResolvingConfigurationTests
 
         reloadableSource.Provider!.SetValues(new Dictionary<string, string?>
         {
-            ["Db:Password"] = "secret://app/db/pw",
+            ["Db:Password"] = "secret://db/pw",
             ["Db:Host"] = "elsewhere"
         });
 
@@ -710,7 +738,7 @@ public class SecretResolvingConfigurationTests
 
     private static IConfigurationRoot BuildWithEnvironmentOverride()
         => new ConfigurationBuilder()
-            .AddInMemoryCollection(new Dictionary<string, string?> { ["Db:Password"] = "secret://app/db/pw" })
+            .AddInMemoryCollection(new Dictionary<string, string?> { ["Db:Password"] = "secret://db/pw" })
             .AddResolvedSecrets(
                 o =>
                 {
@@ -734,8 +762,9 @@ public class SecretResolvingConfigurationTests
 
         public bool IsAvailable => true;
 
+        // Matched on the logical tail: the composite prepends whichever namespace the test configured.
         public Task<string?> GetSecretAsync(string name, CancellationToken cancellationToken = default)
-            => Task.FromResult<string?>(name == "app/db/pw" ? "resolved-pw" : null);
+            => Task.FromResult<string?>(name.EndsWith("db/pw", StringComparison.Ordinal) ? "resolved-pw" : null);
 
         public Task SetSecretAsync(string name, string value, CancellationToken cancellationToken = default)
             => Task.CompletedTask;
@@ -801,7 +830,7 @@ public class SecretResolvingConfigurationTests
     private sealed class ReloadableProvider(Dictionary<string, string?>? initialValues) : ConfigurationProvider
     {
         private Dictionary<string, string?> _values = initialValues
-            ?? new Dictionary<string, string?>(StringComparer.OrdinalIgnoreCase) { ["Db:Password"] = "secret://app/db/pw" };
+            ?? new Dictionary<string, string?>(StringComparer.OrdinalIgnoreCase) { ["Db:Password"] = "secret://db/pw" };
 
         public override void Load() => Data = new Dictionary<string, string?>(_values, StringComparer.OrdinalIgnoreCase);
 
@@ -812,6 +841,25 @@ public class SecretResolvingConfigurationTests
             _values = values;
             Load();
             OnReload();
+        }
+    }
+
+    // Fails the first ISecretStore request only: the reader factory has to run again on the next
+    // reload instead of replaying a cached exception.
+    private sealed class FlakyServiceProvider(IServiceProvider inner) : IServiceProvider
+    {
+        public int StoreRequests { get; private set; }
+
+        public object? GetService(Type serviceType)
+        {
+            if (serviceType != typeof(ISecretStore))
+            {
+                return inner.GetService(serviceType);
+            }
+
+            return ++StoreRequests == 1
+                ? throw new InvalidOperationException("the secret store is not ready yet")
+                : inner.GetService(serviceType);
         }
     }
 
@@ -850,7 +898,7 @@ public class SecretResolvingConfigurationTests
         public Task<string?> GetSecretAsync(string name, CancellationToken cancellationToken = default)
         {
             CallCount++;
-            return Task.FromResult<string?>(name == "app/db/pw" ? "resolved-pw" : null);
+            return Task.FromResult<string?>(name.EndsWith("db/pw", StringComparison.Ordinal) ? "resolved-pw" : null);
         }
 
         public Task SetSecretAsync(string name, string value, CancellationToken cancellationToken = default)

@@ -5,7 +5,6 @@
 namespace SAF.Configuration.Secrets.WindowsCredentialManager;
 
 using System.Text;
-using Microsoft.Extensions.Options;
 using SAF.Configuration.Secrets.Contracts;
 
 /// <summary>
@@ -25,16 +24,11 @@ internal sealed class WindowsCredentialManagerSecretStore : ISecretStoreProvider
     private const int CredMaxUsernameLength = 513; // CRED_MAX_USERNAME_LENGTH, chars
 
     private readonly INativeCredentialApi _nativeApi;
-    private readonly SecretStoreOptions _options;
 
-    public WindowsCredentialManagerSecretStore(
-        IOptions<SecretStoreOptions> options,
-        INativeCredentialApi nativeApi)
+    public WindowsCredentialManagerSecretStore(INativeCredentialApi nativeApi)
     {
-        ArgumentNullException.ThrowIfNull(options);
         ArgumentNullException.ThrowIfNull(nativeApi);
 
-        _options = options.Value;
         _nativeApi = nativeApi;
     }
 
@@ -50,8 +44,7 @@ internal sealed class WindowsCredentialManagerSecretStore : ISecretStoreProvider
         ArgumentException.ThrowIfNullOrWhiteSpace(name);
         cancellationToken.ThrowIfCancellationRequested();
 
-        var target = BuildTargetName(name);
-        var found = _nativeApi.TryReadGenericCredential(target, out var secret);
+        var found = _nativeApi.TryReadGenericCredential(name, out var secret);
         return Task.FromResult(found ? secret : null);
     }
 
@@ -62,11 +55,10 @@ internal sealed class WindowsCredentialManagerSecretStore : ISecretStoreProvider
         ArgumentNullException.ThrowIfNull(value);
         cancellationToken.ThrowIfCancellationRequested();
 
-        var target = BuildTargetName(name);
-        if (target.Length > CredMaxUsernameLength)
+        if (name.Length > CredMaxUsernameLength)
         {
             throw new ArgumentException(
-                $"The secret target name '{target}' is {target.Length} characters long, which exceeds " +
+                $"The secret target name '{name}' is {name.Length} characters long, which exceeds " +
                 $"the Windows Credential Manager limit of {CredMaxUsernameLength} characters " +
                 "(CRED_MAX_USERNAME_LENGTH — the target name is also stored as the credential's user name). " +
                 "Use a shorter name or namespace.",
@@ -84,7 +76,7 @@ internal sealed class WindowsCredentialManagerSecretStore : ISecretStoreProvider
                 nameof(value));
         }
 
-        _nativeApi.WriteGenericCredential(target, value);
+        _nativeApi.WriteGenericCredential(name, value);
         return Task.CompletedTask;
     }
 
@@ -94,9 +86,7 @@ internal sealed class WindowsCredentialManagerSecretStore : ISecretStoreProvider
         ArgumentException.ThrowIfNullOrWhiteSpace(name);
         cancellationToken.ThrowIfCancellationRequested();
 
-        _nativeApi.DeleteGenericCredential(BuildTargetName(name));
+        _nativeApi.DeleteGenericCredential(name);
         return Task.CompletedTask;
     }
-
-    private string BuildTargetName(string name) => SecretTargetName.Build(_options.Namespace, name);
 }

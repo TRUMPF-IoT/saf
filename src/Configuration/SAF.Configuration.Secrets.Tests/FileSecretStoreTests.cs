@@ -107,15 +107,17 @@ public class FileSecretStoreTests
     }
 
     [Fact]
-    public async Task StoredFile_DoesNotContainPlaintext_AndUsesNamespacedKey()
+    public async Task StoredFile_DoesNotContainPlaintext_AndKeysByTheTargetNameItWasGiven()
     {
         var store = CreateStore();
 
-        await store.SetSecretAsync("conn/pw", "top-secret-value", TestToken);
+        await store.SetSecretAsync("saf/conn/pw", "top-secret-value", TestToken);
 
         var content = await _fileSystem.File.ReadAllTextAsync(StorePath, TestToken);
         Assert.DoesNotContain("top-secret-value", content);
         Assert.Contains("saf/conn/pw", content);
+        // The composite store namespaced the name already; applying it again would key "saf/saf/conn/pw".
+        Assert.DoesNotContain("saf/saf/conn/pw", content);
         Assert.Contains("\"fake\"", content); // stamped protector name
     }
 
@@ -141,26 +143,13 @@ public class FileSecretStoreTests
     }
 
     [Fact]
-    public async Task Operations_UseRawName_WhenNamespaceIsEmpty()
+    public async Task GetSecretAsync_IsCaseInsensitive_ForTheTargetName()
     {
-        var store = CreateStore(new SecretStoreOptions { Namespace = string.Empty });
+        var store = CreateStore();
+        await store.SetSecretAsync("MyApp/Conn/PW", "value", TestToken);
 
-        await store.SetSecretAsync("conn/pw", "value", TestToken);
-
-        var content = await _fileSystem.File.ReadAllTextAsync(StorePath, TestToken);
-        Assert.Contains("\"conn/pw\"", content);
-        Assert.DoesNotContain("saf/conn/pw", content);
-    }
-
-    [Fact]
-    public async Task GetSecretAsync_IsCaseInsensitive_ForNamespaceAndName()
-    {
-        var store = CreateStore(new SecretStoreOptions { Namespace = "MyApp" });
-        await store.SetSecretAsync("Conn/PW", "value", TestToken);
-
-        var otherCasing = CreateStore(new SecretStoreOptions { Namespace = "myapp" });
-
-        Assert.Equal("value", await otherCasing.GetSecretAsync("conn/pw", TestToken));
+        // A second instance has to re-read the file, so this also pins the comparer surviving the parse.
+        Assert.Equal("value", await CreateStore().GetSecretAsync("myapp/conn/pw", TestToken));
     }
 
     [Fact]
@@ -351,11 +340,11 @@ public class FileSecretStoreTests
         var store = CreateStore();
         await store.SetSecretAsync("conn/a", "aaaa", TestToken);
         await store.SetSecretAsync("conn/b", "bbbb", TestToken);
+        var stamp = SettleWriteStamp();
         Assert.Equal("aaaa", await store.GetSecretAsync("conn/a", TestToken));
 
-        // Swap the two ciphertexts behind the store's back, then put the write stamp back: same length,
+        // Swap the two ciphertexts behind the store's back, then put the settled stamp back: same length,
         // same timestamp, so nothing signals a change and the parsed document must still be used.
-        var stamp = _fileSystem.FileInfo.New(StorePath).LastWriteTimeUtc;
         var text = await _fileSystem.File.ReadAllTextAsync(StorePath, TestToken);
         await _fileSystem.File.WriteAllTextAsync(
             StorePath,
@@ -364,6 +353,28 @@ public class FileSecretStoreTests
         _fileSystem.File.SetLastWriteTimeUtc(StorePath, stamp);
 
         Assert.Equal("aaaa", await store.GetSecretAsync("conn/a", TestToken));
+    }
+
+    [Fact]
+    public async Task GetSecretAsync_SeesARotation_ThatLeftTheWriteStampUnchanged()
+    {
+        // A fixed-size key wrap around AES-CBC envelopes an equal-length value to an equal-length
+        // ciphertext, so rotating to a same-length password changes Length not at all and - within one
+        // timestamp bucket, 2 s on FAT/exFAT and ~16 ms on NTFS - LastWriteTimeUtc neither. A stamp taken
+        // that soon after a write therefore cannot be used to prove the cached document is still current.
+        var reader = CreateStore();
+        var writer = CreateStore();
+        await writer.SetSecretAsync("conn/pw", "first-pw", TestToken);
+        var stamp = _fileSystem.FileInfo.New(StorePath).LastWriteTimeUtc;
+        var length = _fileSystem.FileInfo.New(StorePath).Length;
+        Assert.Equal("first-pw", await reader.GetSecretAsync("conn/pw", TestToken));
+
+        await writer.SetSecretAsync("conn/pw", "later-pw", TestToken);
+        _fileSystem.File.SetLastWriteTimeUtc(StorePath, stamp);
+        // The premise: neither half of the stamp can distinguish the two documents.
+        Assert.Equal(length, _fileSystem.FileInfo.New(StorePath).Length);
+
+        Assert.Equal("later-pw", await reader.GetSecretAsync("conn/pw", TestToken));
     }
 
     [Fact]
@@ -421,20 +432,20 @@ public class FileSecretStoreTests
         // The documented promise: "The physical store key is case-insensitive". Only a hand-edited or
         // externally provisioned file exercises it - the store itself always writes lower-invariant keys.
         await WriteStoreFileAsync(Provisioned("MyApp/Db/Password", "s3cret"));
-        var store = CreateStore(new SecretStoreOptions { Namespace = "MyApp" });
+        var store = CreateStore();
 
-        Assert.Equal("s3cret", await store.GetSecretAsync("Db/Password", TestToken));
+        Assert.Equal("s3cret", await store.GetSecretAsync("myapp/db/password", TestToken));
     }
 
     [Fact]
     public async Task SetSecretAsync_OverwritesAHandProvisionedSecret_RatherThanDuplicatingIt()
     {
         await WriteStoreFileAsync(Provisioned("MyApp/Db/Password", "s3cret"));
-        var store = CreateStore(new SecretStoreOptions { Namespace = "MyApp" });
+        var store = CreateStore();
 
-        await store.SetSecretAsync("Db/Password", "rotated", TestToken);
+        await store.SetSecretAsync("myapp/db/password", "rotated", TestToken);
 
-        Assert.Equal("rotated", await store.GetSecretAsync("Db/Password", TestToken));
+        Assert.Equal("rotated", await store.GetSecretAsync("myapp/db/password", TestToken));
         Assert.DoesNotContain(Encode("s3cret"), await _fileSystem.File.ReadAllTextAsync(StorePath, TestToken));
     }
 
@@ -472,7 +483,7 @@ public class FileSecretStoreTests
         var store = CreateStore();
 
         var ex = await Assert.ThrowsAsync<InvalidOperationException>(
-            async () => await store.GetSecretAsync("conn/pw", TestToken));
+            async () => await store.GetSecretAsync("saf/conn/pw", TestToken));
 
         Assert.Contains("saf/conn/pw", ex.Message);
         Assert.Contains(StorePath, ex.Message);
@@ -605,6 +616,15 @@ public class FileSecretStoreTests
     // The shape FileSecretStore expects on disk, as an installer or an admin would hand-write it.
     private static string Provisioned(string key, string value)
         => $"{{\"Protector\":\"fake\",\"Secrets\":{{\"{key}\":\"{Encode(value)}\"}}}}";
+
+    // Backdates the store file past the settle window, so its write stamp identifies the content and may
+    // be cached against. Without this, every read re-reads - which is what makes a same-bucket write safe.
+    private DateTime SettleWriteStamp()
+    {
+        var settled = DateTime.UtcNow - TimeSpan.FromSeconds(5);
+        _fileSystem.File.SetLastWriteTimeUtc(StorePath, settled);
+        return settled;
+    }
 
     private Task WriteStoreFileAsync(string json)
     {

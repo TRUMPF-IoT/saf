@@ -17,8 +17,9 @@ using SAF.Configuration.Secrets.Contracts;
 /// A cross-platform <see cref="ISecretStoreProvider"/> that persists secrets to a single JSON file.
 /// Each value is encrypted at rest through an injected <see cref="ISecretProtector"/> (PKCS#7/CMS by
 /// default); the logical names remain in clear, matching the security model that a secret reference is
-/// not itself sensitive. File permissions (0600 on Linux, an NTFS ACL for the configured reader on
-/// Windows) are intentionally the responsibility of the installer/deployment, not of this provider.
+/// not itself sensitive. File permissions are the installer's responsibility, not this provider's: a
+/// first write creates the file owner-only (0600) on non-Windows, while on Windows it simply inherits
+/// the ACL of its directory, which the installer is expected to create and restrict.
 /// Every write happens in place through a single handle on the store file itself - no temporary or
 /// sidecar file is ever created - so the provider also works on deployment targets that only permit
 /// writing an already-existing file. The document is serialized to memory and written in one call, so a
@@ -35,6 +36,11 @@ internal sealed class FileSecretStore : ISecretStoreProvider, IDisposable
         WriteIndented = true,
         PropertyNameCaseInsensitive = true
     };
+
+    // Timestamp granularity of the coarsest filesystem this can be deployed on: 2 s on FAT/exFAT, 1 s on
+    // ext3, ~16 ms on NTFS. Two writes within one bucket share a LastWriteTimeUtc, and an equal-length
+    // rotation leaves Length unchanged too, so a stamp taken that soon after a write proves nothing.
+    private static readonly TimeSpan WriteStampSettleWindow = TimeSpan.FromSeconds(2);
 
     // Retry interval while waiting for another process to release its exclusive hold on the store file.
     // FileShare.None fails a contended Open immediately rather than queuing it, so the wait is
@@ -120,9 +126,8 @@ internal sealed class FileSecretStore : ISecretStoreProvider, IDisposable
         try
         {
             var document = await ReadCachedDocumentAsync(path, cancellationToken).ConfigureAwait(false);
-            var targetName = BuildTargetName(name);
-            return document is not null && document.Secrets.TryGetValue(targetName, out var encoded)
-                ? Decrypt(path, targetName, encoded)
+            return document is not null && document.Secrets.TryGetValue(name, out var encoded)
+                ? Decrypt(path, name, encoded)
                 : null;
         }
         finally
@@ -145,7 +150,7 @@ internal sealed class FileSecretStore : ISecretStoreProvider, IDisposable
             EnsureDirectoryExists(path);
             await using var stream = await OpenExclusiveAsync(path, cancellationToken).ConfigureAwait(false);
             var document = await ReadDocumentAsync(path, stream, cancellationToken).ConfigureAwait(false);
-            document.Secrets[BuildTargetName(name)] = Encrypt(value);
+            document.Secrets[name] = Encrypt(value);
             await WriteDocumentAsync(stream, document, cancellationToken).ConfigureAwait(false);
             _cachedDocument = null;
         }
@@ -172,7 +177,7 @@ internal sealed class FileSecretStore : ISecretStoreProvider, IDisposable
             }
 
             var document = await ReadDocumentAsync(path, stream, cancellationToken).ConfigureAwait(false);
-            if (document.Secrets.Remove(BuildTargetName(name)))
+            if (document.Secrets.Remove(name))
             {
                 await WriteDocumentAsync(stream, document, cancellationToken).ConfigureAwait(false);
                 _cachedDocument = null;
@@ -355,9 +360,12 @@ internal sealed class FileSecretStore : ISecretStoreProvider, IDisposable
         var document = await ReadDocumentAsync(path, stream, cancellationToken).ConfigureAwait(false);
 
         // Stamped from after the read, not from before it: a write that landed in between must invalidate
-        // this entry rather than be masked by it.
+        // this entry rather than be masked by it. An unsettled stamp is not cached at all - the next
+        // lookup re-reads, which is the only way to notice a second write in the same bucket.
         var stampAfterRead = GetWriteStamp(path);
-        _cachedDocument = stampAfterRead is null ? null : new CachedDocument(document, stampAfterRead.Value);
+        _cachedDocument = stampAfterRead is not null && HasSettled(stampAfterRead.Value)
+            ? new CachedDocument(document, stampAfterRead.Value)
+            : null;
         return document;
     }
 
@@ -366,6 +374,12 @@ internal sealed class FileSecretStore : ISecretStoreProvider, IDisposable
         var info = _fileSystem.FileInfo.New(path);
         return info.Exists ? (info.LastWriteTimeUtc, info.Length) : null;
     }
+
+    // A stamp identifies the content only once no further write can share it, which is the case as soon
+    // as its write time lies further in the past than the filesystem's timestamp granularity. Until then
+    // an equal stamp is not evidence of equal content: a rotation to a same-length value would be invisible.
+    private static bool HasSettled((DateTime LastWriteTimeUtc, long Length) stamp)
+        => DateTime.UtcNow - stamp.LastWriteTimeUtc > WriteStampSettleWindow;
 
     private sealed record CachedDocument(SecretDocument Document, (DateTime LastWriteTimeUtc, long Length) Stamp);
 
@@ -443,9 +457,7 @@ internal sealed class FileSecretStore : ISecretStoreProvider, IDisposable
         return _fileSystem.Path.Combine(dataDirectory, "secrets.json");
     }
 
-    private string BuildTargetName(string name) => SecretTargetName.Build(_options.Namespace, name);
-
-    /// <summary>The on-disk shape of the secret store file: encrypted values keyed by namespaced name.</summary>
+    /// <summary>The on-disk shape of the secret store file: encrypted values keyed by target name.</summary>
     private sealed class SecretDocument
     {
         /// <summary>The name of the protector that enveloped the values, stamped for read-time validation.</summary>

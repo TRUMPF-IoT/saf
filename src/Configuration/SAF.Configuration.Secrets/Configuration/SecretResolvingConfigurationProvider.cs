@@ -32,6 +32,8 @@ internal sealed class SecretResolvingConfigurationProvider : ConfigurationProvid
     private readonly IReadOnlyList<IConfigurationProvider> _shadowingProviders;
     private readonly bool _isChainedRoot;
     private readonly SecretStoreOptions _options;
+    // PublicationOnly: the default mode caches a factory exception, latching a transient failure - a
+    // custom provider's constructor, a shutdown race - for the process lifetime.
     private readonly Lazy<ISecretReader> _reader;
     private readonly ILogger _logger;
     private readonly IDisposable? _innerReloadRegistration;
@@ -63,7 +65,8 @@ internal sealed class SecretResolvingConfigurationProvider : ConfigurationProvid
         if (hostServices is not null)
         {
             _options = hostServices.GetRequiredService<IOptions<SecretStoreOptions>>().Value;
-            _reader = new Lazy<ISecretReader>(() => hostServices.GetRequiredService<ISecretStore>());
+            _reader = new Lazy<ISecretReader>(
+                () => hostServices.GetRequiredService<ISecretStore>(), LazyThreadSafetyMode.PublicationOnly);
             _logger = hostServices.GetRequiredService<ILogger<SecretResolvingConfigurationProvider>>();
         }
         else
@@ -72,7 +75,8 @@ internal sealed class SecretResolvingConfigurationProvider : ConfigurationProvid
             // options are needed even before a reader is built, so derive them directly from the callback.
             _options = new SecretStoreOptions();
             configure?.Invoke(_options);
-            _reader = new Lazy<ISecretReader>(() => BuildStandaloneReader(configure, configureProviders));
+            _reader = new Lazy<ISecretReader>(
+                () => BuildStandaloneReader(configure, configureProviders), LazyThreadSafetyMode.PublicationOnly);
             // No host ILoggerFactory to attach to either; the standalone overload never logged anything before.
             _logger = NullLogger<SecretResolvingConfigurationProvider>.Instance;
         }
@@ -302,8 +306,17 @@ internal sealed class SecretResolvingConfigurationProvider : ConfigurationProvid
             configureProviders(storeBuilder);
         }
 
-        _standaloneServices = services.BuildServiceProvider();
-        return _standaloneServices.GetRequiredService<ISecretStore>();
+        var built = services.BuildServiceProvider();
+
+        // PublicationOnly lets several callers run this factory but keeps one value, and it disposes
+        // none of them: without this, every loser's container would leak.
+        var kept = Interlocked.CompareExchange(ref _standaloneServices, built, null) ?? built;
+        if (!ReferenceEquals(kept, built))
+        {
+            built.Dispose();
+        }
+
+        return kept.GetRequiredService<ISecretStore>();
     }
 
     private string BuildEnvironmentVariableName(string name)

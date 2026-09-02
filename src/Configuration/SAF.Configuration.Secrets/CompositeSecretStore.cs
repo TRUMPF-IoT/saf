@@ -19,6 +19,11 @@ using SAF.Configuration.Secrets.Contracts;
 /// it does not hold is simply absent; there is no per-lookup fallback to the next provider, so reads
 /// and writes always address the same backend and the answering backend is never ambiguous. Only a
 /// failed selection is retried.
+/// <para>
+/// This is also where the logical name becomes the physical one: <see cref="SecretTargetName"/> is
+/// applied here, once, so every provider - in-box or custom - is handed the same namespaced, lower-cased
+/// key and none of them can lose the convention by not knowing about it.
+/// </para>
 /// </remarks>
 internal sealed class CompositeSecretStore : ISecretStore
 {
@@ -46,15 +51,33 @@ internal sealed class CompositeSecretStore : ISecretStore
 
     /// <inheritdoc />
     public Task<string?> GetSecretAsync(string name, CancellationToken cancellationToken = default)
-        => _activeProvider.Value.GetSecretAsync(name, cancellationToken);
+    {
+        var target = BuildTargetName(name);
+        return _activeProvider.Value.GetSecretAsync(target, cancellationToken);
+    }
 
     /// <inheritdoc />
     public Task SetSecretAsync(string name, string value, CancellationToken cancellationToken = default)
-        => _activeProvider.Value.SetSecretAsync(name, value, cancellationToken);
+    {
+        var target = BuildTargetName(name);
+        return _activeProvider.Value.SetSecretAsync(target, value, cancellationToken);
+    }
 
     /// <inheritdoc />
     public Task RemoveSecretAsync(string name, CancellationToken cancellationToken = default)
-        => _activeProvider.Value.RemoveSecretAsync(name, cancellationToken);
+    {
+        var target = BuildTargetName(name);
+        return _activeProvider.Value.RemoveSecretAsync(target, cancellationToken);
+    }
+
+    // Built before the provider is selected, so an invalid name is reported as such instead of as
+    // whatever selection happens to fail first. A whitespace name would otherwise reach the provider as
+    // a well-formed "<namespace>/ " key and pass its own guard.
+    private string BuildTargetName(string name)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(name);
+        return SecretTargetName.Build(_options.Namespace, name);
+    }
 
     private ISecretStoreProvider SelectProvider()
     {

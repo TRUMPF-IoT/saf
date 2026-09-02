@@ -23,7 +23,7 @@ public class CompositeSecretStoreTests
 
         await store.GetSecretAsync("k", TestToken);
 
-        await available.Received(1).GetSecretAsync("k", Arg.Any<CancellationToken>());
+        await available.Received(1).GetSecretAsync("saf/k", Arg.Any<CancellationToken>());
         await unavailable.DidNotReceive().GetSecretAsync(Arg.Any<string>(), Arg.Any<CancellationToken>());
     }
 
@@ -52,7 +52,7 @@ public class CompositeSecretStoreTests
 
         await store.GetSecretAsync("k", TestToken);
 
-        await file.Received(1).GetSecretAsync("k", Arg.Any<CancellationToken>());
+        await file.Received(1).GetSecretAsync("saf/k", Arg.Any<CancellationToken>());
         await other.DidNotReceive().GetSecretAsync(Arg.Any<string>(), Arg.Any<CancellationToken>());
     }
 
@@ -76,7 +76,7 @@ public class CompositeSecretStoreTests
     public async Task DelegatesReadWriteDelete_ToSelectedProvider()
     {
         var provider = MakeProvider("file", available: true);
-        provider.GetSecretAsync("k", Arg.Any<CancellationToken>()).Returns(Task.FromResult<string?>("v"));
+        provider.GetSecretAsync("saf/k", Arg.Any<CancellationToken>()).Returns(Task.FromResult<string?>("v"));
         var store = CreateComposite(new SecretStoreOptions { ProviderName = "file" }, provider);
 
         var read = await store.GetSecretAsync("k", TestToken);
@@ -84,8 +84,8 @@ public class CompositeSecretStoreTests
         await store.RemoveSecretAsync("k", TestToken);
 
         Assert.Equal("v", read);
-        await provider.Received(1).SetSecretAsync("k", "v", Arg.Any<CancellationToken>());
-        await provider.Received(1).RemoveSecretAsync("k", Arg.Any<CancellationToken>());
+        await provider.Received(1).SetSecretAsync("saf/k", "v", Arg.Any<CancellationToken>());
+        await provider.Received(1).RemoveSecretAsync("saf/k", Arg.Any<CancellationToken>());
     }
 
     [Fact]
@@ -111,22 +111,58 @@ public class CompositeSecretStoreTests
         await Assert.ThrowsAsync<InvalidOperationException>(async () => await store.GetSecretAsync("k", TestToken));
         await store.GetSecretAsync("k", TestToken);
 
-        await provider.Received(1).GetSecretAsync("k", Arg.Any<CancellationToken>());
+        await provider.Received(1).GetSecretAsync("saf/k", Arg.Any<CancellationToken>());
     }
 
     [Fact]
     public async Task Miss_DoesNotFallBackToTheNextProvider()
     {
         var first = MakeProvider("vault", available: true);
-        first.GetSecretAsync("k", Arg.Any<CancellationToken>()).Returns(Task.FromResult<string?>(null));
+        first.GetSecretAsync("saf/k", Arg.Any<CancellationToken>()).Returns(Task.FromResult<string?>(null));
         var second = MakeProvider("file", available: true);
-        second.GetSecretAsync("k", Arg.Any<CancellationToken>()).Returns(Task.FromResult<string?>("stale"));
+        second.GetSecretAsync("saf/k", Arg.Any<CancellationToken>()).Returns(Task.FromResult<string?>("stale"));
         var store = CreateComposite(new SecretStoreOptions(), first, second);
 
         var value = await store.GetSecretAsync("k", TestToken);
 
         Assert.Null(value);
         await second.DidNotReceive().GetSecretAsync(Arg.Any<string>(), Arg.Any<CancellationToken>());
+    }
+
+    [Theory]
+    [InlineData("saf", "Conn/PW", "saf/conn/pw")]
+    [InlineData("MyApp", "conn/pw", "myapp/conn/pw")]
+    [InlineData("", "Conn/PW", "conn/pw")]
+    public async Task TargetName_IsBuiltHere_SoEveryProviderSeesTheSameKey(string ns, string name, string expected)
+    {
+        var provider = MakeProvider("custom", available: true);
+        var store = CreateComposite(new SecretStoreOptions { Namespace = ns }, provider);
+
+        await store.GetSecretAsync(name, TestToken);
+        await store.SetSecretAsync(name, "v", TestToken);
+        await store.RemoveSecretAsync(name, TestToken);
+
+        await provider.Received(1).GetSecretAsync(expected, Arg.Any<CancellationToken>());
+        await provider.Received(1).SetSecretAsync(expected, "v", Arg.Any<CancellationToken>());
+        await provider.Received(1).RemoveSecretAsync(expected, Arg.Any<CancellationToken>());
+    }
+
+    [Theory]
+    [InlineData(null)]
+    [InlineData("")]
+    [InlineData("   ")]
+    public async Task Operations_Throw_OnInvalidName_BeforeSelectingAProvider(string? name)
+    {
+        var provider = MakeProvider("file", available: true);
+        var store = CreateComposite(new SecretStoreOptions { ProviderName = "missing" }, provider);
+
+        await Assert.ThrowsAnyAsync<ArgumentException>(async () => await store.GetSecretAsync(name!, TestToken));
+        await Assert.ThrowsAnyAsync<ArgumentException>(async () => await store.SetSecretAsync(name!, "v", TestToken));
+        await Assert.ThrowsAnyAsync<ArgumentException>(async () => await store.RemoveSecretAsync(name!, TestToken));
+
+        await provider.DidNotReceive().GetSecretAsync(Arg.Any<string>(), Arg.Any<CancellationToken>());
+        await provider.DidNotReceive().SetSecretAsync(Arg.Any<string>(), Arg.Any<string>(), Arg.Any<CancellationToken>());
+        await provider.DidNotReceive().RemoveSecretAsync(Arg.Any<string>(), Arg.Any<CancellationToken>());
     }
 
     [Fact]

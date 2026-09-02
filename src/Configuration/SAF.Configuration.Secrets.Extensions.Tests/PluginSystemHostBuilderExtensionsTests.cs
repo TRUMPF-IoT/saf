@@ -113,7 +113,7 @@ public class PluginSystemHostBuilderExtensionsTests
         using var host = builder.Build();
         var context = host.Services.GetRequiredService<IPluginSystemHostContext>();
 
-        Assert.Equal("resolved:db/pw", context.PluginConfiguration["MyPlugin:Password"]);
+        Assert.Equal("resolved:saf/db/pw", context.PluginConfiguration["MyPlugin:Password"]);
     }
 
     [Fact]
@@ -136,7 +136,7 @@ public class PluginSystemHostBuilderExtensionsTests
         using var host = builder.Build();
         var context = host.Services.GetRequiredService<IPluginSystemHostContext>();
 
-        Assert.Equal("resolved:db/pw", context.PluginConfiguration["MyPlugin:Password"]);
+        Assert.Equal("resolved:saf/db/pw", context.PluginConfiguration["MyPlugin:Password"]);
     }
 
     [Fact]
@@ -155,7 +155,7 @@ public class PluginSystemHostBuilderExtensionsTests
         using var host = builder.Build();
         var context = host.Services.GetRequiredService<IPluginSystemHostContext>();
 
-        Assert.Equal("resolved:db/pw", context.PluginConfiguration["MyPlugin:Password"]);
+        Assert.Equal("resolved:saf/db/pw", context.PluginConfiguration["MyPlugin:Password"]);
         Assert.Equal(1, countingSource.BuildCount);
     }
 

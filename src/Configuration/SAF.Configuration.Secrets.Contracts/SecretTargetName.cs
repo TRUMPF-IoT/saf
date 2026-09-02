@@ -6,8 +6,9 @@ namespace SAF.Configuration.Secrets.Contracts;
 
 /// <summary>
 /// Builds the physical key an <see cref="ISecretStoreProvider"/> uses to store and look up a secret,
-/// combining the configured namespace with the logical secret name. Shared by every provider so the
-/// namespace convention has a single owner.
+/// combining the configured namespace with the logical secret name. Applied once by the composite
+/// <see cref="ISecretStore"/> before it delegates, so the namespace convention has a single owner and
+/// holds for every provider, including custom ones.
 /// </summary>
 public static class SecretTargetName
 {

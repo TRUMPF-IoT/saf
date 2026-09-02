@@ -175,7 +175,9 @@ Two independent axes control which provider is used:
 >
 > Only a *failed selection* is retried: if no provider was available on the first attempt, the next call
 > selects again, so a provider whose availability is a runtime fact (a remote vault) can recover without
-> a restart.
+> a restart. Configuration resolution treats obtaining the store the same way: when that fails during a
+> reload, the previously resolved values are kept and the next reload tries again, instead of latching
+> the failure for the process lifetime.
 
 ### Default registration
 
@@ -214,6 +216,13 @@ ps.AddSecretStore(null, providers => providers
     .AddProvider<MyKeyVaultProvider>()   // used when available
     .AddWindowsCredentialManager());     // used only if the vault provider is unavailable
 ```
+
+A provider receives the **physical target name** — `Namespace` already prepended, the whole key
+lower-cased — not the logical name the reference carried. The convention is applied once, by the
+composite store, before it delegates: a custom provider inherits it without knowing about it, and must
+store the name it is given rather than applying `Namespace` a second time. For the same reason, resolve
+and call `ISecretStore`; an `ISecretStoreProvider` resolved directly would be handed logical names it is
+not meant to interpret.
 
 ## The file store and its protector
 
@@ -280,18 +289,33 @@ Key points:
   fails fast with an explanatory error rather than producing garbage. This guards against
   misconfiguration (wrong protector wired up), not against tampering — per the trusted-writer
   assumption above, the stamp itself is unauthenticated and a missing stamp is not rejected.
-- **File permissions are the installer's responsibility.** The provider does **not** grant a specific
-  principal access — lock the file down at deployment time so only the identity the service runs as can
-  read it. Concretely, for a store at the default location and a service running as `NT SERVICE\MyApp`
+- **File permissions are the installer's responsibility — including the directory.** The provider
+  neither grants nor restricts any principal's access: it writes where it is pointed, accepting whatever
+  ACL that location already carries. Restricting the store is therefore a **required install step**, and
+  it has to cover the *directory*, before the service first runs. The default Windows location makes that
+  concrete: `C:\ProgramData` grants `BUILTIN\Users` read (inherited by everything below it) plus
+  add-file/add-subdirectory, so a store directory left to be created by the first write is
+  **readable by every local user** — and any local user can **pre-create** `%ProgramData%\<namespace>\`
+  beforehand, own it as `CREATOR OWNER` with full control, and grant themselves what they like; the
+  provider takes the directory as it finds it. Create it in the installer instead, break inheritance, and
+  grant only the service identity and administrators. For a service running as `NT SERVICE\MyApp`
   (Windows) or `myapp` (Linux):
 
   ```powershell
-  icacls "$env:ProgramData\myapp\secrets.json" /inheritance:r /grant "NT SERVICE\MyApp:(R)" /grant "BUILTIN\Administrators:(F)"
+  $store = "$env:ProgramData\myapp"
+  New-Item -ItemType Directory -Force -Path $store | Out-Null
+  # (RX) is enough when the installer provisions the secrets; use (M) if the service writes them itself.
+  icacls $store /inheritance:r /grant "NT SERVICE\MyApp:(OI)(CI)(RX)" /grant "BUILTIN\Administrators:(OI)(CI)(F)"
   ```
 
   ```bash
-  chown myapp:myapp /var/lib/myapp/secrets.json && chmod 600 /var/lib/myapp/secrets.json
+  install -d -o myapp -g myapp -m 700 /var/lib/myapp
   ```
+
+  The store file inherits that ACL when the provider creates it, so no separate `icacls` on
+  `secrets.json` is needed; on Linux a first write additionally sets the file itself to `0600`. Audit the
+  directory, not only the file: a locked-down file in a directory somebody else can write to is not
+  protected.
 
   Every write happens **in place**, through a single handle on the store file itself, so an update never
   touches (and never widens) the file's existing permissions; a first write on Linux defaults to
@@ -321,6 +345,13 @@ Key points:
   drops its cache whenever it writes, and a change made by another process is picked up through the
   write stamp. Only the encrypted document is cached — never a decrypted value, which is still
   unwrapped per lookup.
+
+  A write stamp is trusted only once it is **older than the coarsest filesystem timestamp granularity**
+  (2 s; ~16 ms on NTFS, 1 s on ext3, 2 s on FAT/exFAT). Inside that window a second write can land in the
+  same timestamp bucket, and rotating a credential to a same-length value leaves the size unchanged as
+  well — so the stamp would compare equal to a document that is already stale. Reads within ~2 s of a
+  write therefore re-read the file instead of caching it, and only after that does the stamp become
+  evidence that the cached document is current.
 
 > **Windows alternative (planned).** A DPAPI-backed protector can be added additively for Windows-only
 > file stores without changing the store — see [Roadmap](#roadmap).
@@ -443,7 +474,7 @@ prepended to form the physical store key (e.g. `myapp/opcua/connection-1/passwor
 secret and may be committed to configuration and source control.
 
 The physical store key is **case-insensitive** — `Namespace` and the name are both lower-cased before
-use, the same way on every provider. This matches the Windows Credential Manager, which treats target
+use, once, for every provider alike. This matches the Windows Credential Manager, which treats target
 names case-insensitively regardless of what is written; without normalizing, the same logical secret
 could resolve differently depending on which backend is active.
 

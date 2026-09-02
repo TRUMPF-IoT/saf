@@ -4,14 +4,16 @@
 
 namespace SAF.Configuration.Secrets.Tests;
 
-using Microsoft.Extensions.Options;
 using NSubstitute;
-using SAF.Configuration.Secrets.Contracts;
 using SAF.Configuration.Secrets.WindowsCredentialManager;
 using Xunit;
 
 public class WindowsCredentialManagerSecretStoreTests
 {
+    // The composite store hands a provider the finished target name, so these tests pass one in
+    // directly - a provider that namespaced again would turn it into "saf/saf/conn/pw".
+    private const string TargetName = "saf/conn/pw";
+
     private readonly INativeCredentialApi _nativeApi = Substitute.For<INativeCredentialApi>();
 
     private static CancellationToken TestToken => TestContext.Current.CancellationToken;
@@ -20,11 +22,11 @@ public class WindowsCredentialManagerSecretStoreTests
     public async Task GetSecretAsync_ReturnsValue_WhenCredentialExists()
     {
         _nativeApi
-            .TryReadGenericCredential("saf/conn/pw", out Arg.Any<string?>())
+            .TryReadGenericCredential(TargetName, out Arg.Any<string?>())
             .Returns(call => { call[1] = "s3cr3t"; return true; });
         var store = CreateStore();
 
-        var result = await store.GetSecretAsync("conn/pw", TestToken);
+        var result = await store.GetSecretAsync(TargetName, TestToken);
 
         Assert.Equal("s3cr3t", result);
     }
@@ -37,29 +39,29 @@ public class WindowsCredentialManagerSecretStoreTests
             .Returns(false);
         var store = CreateStore();
 
-        var result = await store.GetSecretAsync("conn/pw", TestToken);
+        var result = await store.GetSecretAsync(TargetName, TestToken);
 
         Assert.Null(result);
     }
 
     [Fact]
-    public async Task SetSecretAsync_WritesNamespacedCredential()
+    public async Task SetSecretAsync_WritesTheTargetNameVerbatim()
     {
         var store = CreateStore();
 
-        await store.SetSecretAsync("conn/pw", "value", TestToken);
+        await store.SetSecretAsync(TargetName, "value", TestToken);
 
-        _nativeApi.Received(1).WriteGenericCredential("saf/conn/pw", "value");
+        _nativeApi.Received(1).WriteGenericCredential(TargetName, "value");
     }
 
     [Fact]
-    public async Task RemoveSecretAsync_DeletesNamespacedCredential()
+    public async Task RemoveSecretAsync_DeletesTheTargetNameVerbatim()
     {
         var store = CreateStore();
 
-        await store.RemoveSecretAsync("conn/pw", TestToken);
+        await store.RemoveSecretAsync(TargetName, TestToken);
 
-        _nativeApi.Received(1).DeleteGenericCredential("saf/conn/pw");
+        _nativeApi.Received(1).DeleteGenericCredential(TargetName);
     }
 
     [Fact]
@@ -68,29 +70,9 @@ public class WindowsCredentialManagerSecretStoreTests
         _nativeApi.DeleteGenericCredential(Arg.Any<string>()).Returns(false);
         var store = CreateStore();
 
-        await store.RemoveSecretAsync("conn/pw", TestToken);
+        await store.RemoveSecretAsync(TargetName, TestToken);
 
-        _nativeApi.Received(1).DeleteGenericCredential("saf/conn/pw");
-    }
-
-    [Fact]
-    public async Task Operations_UseRawName_WhenNamespaceIsEmpty()
-    {
-        var store = CreateStore(new SecretStoreOptions { Namespace = string.Empty });
-
-        await store.SetSecretAsync("conn/pw", "value", TestToken);
-
-        _nativeApi.Received(1).WriteGenericCredential("conn/pw", "value");
-    }
-
-    [Fact]
-    public async Task Operations_UseCustomNamespace()
-    {
-        var store = CreateStore(new SecretStoreOptions { Namespace = "myproduct" });
-
-        await store.SetSecretAsync("conn/pw", "value", TestToken);
-
-        _nativeApi.Received(1).WriteGenericCredential("myproduct/conn/pw", "value");
+        _nativeApi.Received(1).DeleteGenericCredential(TargetName);
     }
 
     [Fact]
@@ -98,6 +80,12 @@ public class WindowsCredentialManagerSecretStoreTests
     {
         Assert.Equal("windows-credential-manager", CreateStore().Name);
         Assert.Equal(WindowsCredentialManagerSecretStore.ProviderName, CreateStore().Name);
+    }
+
+    [Fact]
+    public void IsAvailable_OnlyOnWindows()
+    {
+        Assert.Equal(OperatingSystem.IsWindows(), CreateStore().IsAvailable);
     }
 
     [Theory]
@@ -117,7 +105,7 @@ public class WindowsCredentialManagerSecretStoreTests
         var store = CreateStore();
 
         await Assert.ThrowsAsync<ArgumentNullException>(
-            async () => await store.SetSecretAsync("conn/pw", null!, TestToken));
+            async () => await store.SetSecretAsync(TargetName, null!, TestToken));
     }
 
     [Fact]
@@ -127,7 +115,7 @@ public class WindowsCredentialManagerSecretStoreTests
         var tooLong = new string('a', 1281); // 2562 bytes UTF-16, over the 2560-byte CRED_MAX_CREDENTIAL_BLOB_SIZE
 
         await Assert.ThrowsAsync<ArgumentException>(
-            async () => await store.SetSecretAsync("conn/pw", tooLong, TestToken));
+            async () => await store.SetSecretAsync(TargetName, tooLong, TestToken));
         _nativeApi.DidNotReceive().WriteGenericCredential(Arg.Any<string>(), Arg.Any<string>());
     }
 
@@ -137,15 +125,15 @@ public class WindowsCredentialManagerSecretStoreTests
         var store = CreateStore();
         var atLimit = new string('a', 1280); // exactly 2560 bytes UTF-16
 
-        await store.SetSecretAsync("conn/pw", atLimit, TestToken);
+        await store.SetSecretAsync(TargetName, atLimit, TestToken);
 
-        _nativeApi.Received(1).WriteGenericCredential("saf/conn/pw", atLimit);
+        _nativeApi.Received(1).WriteGenericCredential(TargetName, atLimit);
     }
 
     [Fact]
     public async Task SetSecretAsync_Throws_WhenTargetNameExceedsUsernameLimit()
     {
-        var store = CreateStore(new SecretStoreOptions { Namespace = string.Empty });
+        var store = CreateStore();
         var tooLong = new string('a', 514); // over the 513-char CRED_MAX_USERNAME_LENGTH
 
         await Assert.ThrowsAsync<ArgumentException>(
@@ -156,7 +144,7 @@ public class WindowsCredentialManagerSecretStoreTests
     [Fact]
     public async Task SetSecretAsync_Writes_WhenTargetNameIsAtUsernameLimit()
     {
-        var store = CreateStore(new SecretStoreOptions { Namespace = string.Empty });
+        var store = CreateStore();
         var atLimit = new string('a', 513); // exactly CRED_MAX_USERNAME_LENGTH
 
         await store.SetSecretAsync(atLimit, "value", TestToken);
@@ -172,17 +160,14 @@ public class WindowsCredentialManagerSecretStoreTests
         await cts.CancelAsync();
 
         await Assert.ThrowsAnyAsync<OperationCanceledException>(
-            async () => await store.GetSecretAsync("conn/pw", cts.Token));
+            async () => await store.GetSecretAsync(TargetName, cts.Token));
     }
 
     [Fact]
-    public void Constructor_Throws_OnNullDependencies()
+    public void Constructor_Throws_OnNullDependency()
     {
-        Assert.Throws<ArgumentNullException>(() => new WindowsCredentialManagerSecretStore(null!, _nativeApi));
-        Assert.Throws<ArgumentNullException>(() => new WindowsCredentialManagerSecretStore(
-            Options.Create(new SecretStoreOptions()), null!));
+        Assert.Throws<ArgumentNullException>(() => new WindowsCredentialManagerSecretStore(null!));
     }
 
-    private WindowsCredentialManagerSecretStore CreateStore(SecretStoreOptions? options = null)
-        => new(Options.Create(options ?? new SecretStoreOptions()), _nativeApi);
+    private WindowsCredentialManagerSecretStore CreateStore() => new(_nativeApi);
 }
