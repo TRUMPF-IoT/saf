@@ -304,6 +304,13 @@ Key points:
   exclusively for its duration, so a second reader or writer — in this process or another — waits its
   turn instead of racing.
 
+- **The parsed file is cached between reads**, and revalidated against the file's last-write time and
+  size on every lookup. Resolving configuration asks for each reference in turn, so re-reading and
+  re-parsing the whole file per lookup made startup quadratic in the number of references. The store
+  drops its cache whenever it writes, and a change made by another process is picked up through the
+  write stamp. Only the encrypted document is cached — never a decrypted value, which is still
+  unwrapped per lookup.
+
 > **Windows alternative (planned).** A DPAPI-backed protector can be added additively for Windows-only
 > file stores without changing the store — see [Roadmap](#roadmap).
 
@@ -352,6 +359,20 @@ Then reference secrets in the plugin configuration with the `secret://` prefix:
   `AddSecretStore` compose safely, so transparent resolution and direct `ISecretStore` injection can be
   used together.
 
+> **Registration order does not matter, and a reference is never handed out unresolved.** Every plugin
+> configuration source is resolved, whether its `AddPluginConfigurationSource` callback ran before or
+> after `AddSecretConfigurationResolution`. Resolution reads the *composed* plugin configuration once
+> every source has been built, and the resolved values are layered on top of it — so a settings file
+> registered by a later callback is resolved like any other, and each file is still parsed and watched
+> exactly once.
+>
+> The standalone `IConfigurationBuilder.AddResolvedSecrets(...)` has no such control over when the root
+> is built. It resolves against the builder's sources as they stand at `Build()` time, which costs a
+> second materialization of those sources, and it cannot override a source added *after* it — those
+> providers answer first. A reference coming from such a source therefore **throws at startup**, naming
+> the configuration keys, rather than passing the literal `secret://…` token to the consumer as its
+> credential. Call `AddResolvedSecrets` last to avoid it.
+
 > **How resolution reaches the host container.** Plugin configuration is built inside the same factory
 > that constructs `IPluginSystemHostContext`, which the plugin system only ever invokes once the host's
 > `IServiceProvider` is fully built (see [Plugin System: Plugin
@@ -371,6 +392,7 @@ Then reference secrets in the plugin configuration with the `secret://` prefix:
 | `AllowEnvironmentOverride` | `false` | When resolving a reference, check a derived environment variable before the store. See [Environment overrides](#environment-overrides). |
 | `EnvironmentVariablePrefix` | `"SECRET"` | Prefix of that environment variable. |
 | `ThrowOnUnresolvedReference` | `true` | Throw when a `secret://` reference cannot be resolved, instead of passing it through as `null`. |
+| `ResolveTimeout` | `30s` | Upper bound on resolving all references of one configuration load. Configuration loads synchronously, so without it an unreachable store hangs startup with no diagnostic. `Timeout.InfiniteTimeSpan` waits forever. |
 
 ## Secret names
 

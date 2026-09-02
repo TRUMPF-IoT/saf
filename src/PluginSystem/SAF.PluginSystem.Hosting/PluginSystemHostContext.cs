@@ -82,7 +82,22 @@ public sealed class PluginSystemHostContext : IPluginSystemHostContext, IDisposa
             };
 
             AddCustomPluginConfigurationSources(builder, sourceContext, configurePluginConfigurationSources, onLoadException);
-            return (builder.Build(), settingsFileProvider, customSourcesDefaultFileProvider);
+
+            var configurationRoot = builder.Build();
+            try
+            {
+                // Applied after every source is built, so a decorator can read the composed configuration.
+                configurationRoot = sourceContext.ApplyConfigurationRootDecorators(configurationRoot);
+            }
+            catch
+            {
+                // A decorator that fails has not taken ownership, so the undecorated root - and the
+                // providers it built - would otherwise leak.
+                (configurationRoot as IDisposable)?.Dispose();
+                throw;
+            }
+
+            return (configurationRoot, settingsFileProvider, customSourcesDefaultFileProvider);
         }
         catch
         {

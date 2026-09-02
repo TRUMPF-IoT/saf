@@ -6,6 +6,7 @@ namespace SAF.Configuration.Secrets.Extensions;
 
 using Microsoft.Extensions.DependencyInjection;
 using SAF.Configuration.Secrets;
+using SAF.Configuration.Secrets.Configuration;
 using SAF.Configuration.Secrets.Contracts;
 using SAF.PluginSystem.Hosting;
 using SAF.PluginSystem.Hosting.Contracts;
@@ -84,8 +85,12 @@ public static class PluginSystemHostBuilderExtensions
             configureProviders(storeBuilder);
         }
 
+        // Decorating the root, rather than adding a source, is what lets the resolver read the composed
+        // plugin configuration: every source is built by then, whichever callback added it, and the built
+        // root is chained instead of rebuilt - so each settings file is parsed and watched once.
         hostBuilder.AddPluginConfigurationSource(
-            source => source.Builder.AddResolvedSecrets(source.HostServices, configure, configureProviders));
+            source => source.DecorateConfigurationRoot(
+                root => root.ResolveSecrets(source.HostServices, configure, configureProviders)));
         return hostBuilder;
     }
 }

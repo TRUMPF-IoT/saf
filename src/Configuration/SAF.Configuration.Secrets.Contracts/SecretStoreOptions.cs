@@ -41,6 +41,13 @@ public sealed class SecretStoreOptions
     public bool ThrowOnUnresolvedReference { get; set; } = true;
 
     /// <summary>
+    /// Upper bound on resolving all secret references of one configuration load. Configuration providers
+    /// load synchronously, so a store that never answers would otherwise hang host startup with no
+    /// diagnostic at all. Defaults to 30 seconds; <see cref="Timeout.InfiniteTimeSpan"/> waits forever.
+    /// </summary>
+    public TimeSpan ResolveTimeout { get; set; } = TimeSpan.FromSeconds(30);
+
+    /// <summary>
     /// When <see langword="true"/>, secret resolution first checks an environment variable derived from
     /// the store key (see <see cref="EnvironmentVariablePrefix"/>) before querying the store, which
     /// allows provisioning in CI/containers without an OS store.

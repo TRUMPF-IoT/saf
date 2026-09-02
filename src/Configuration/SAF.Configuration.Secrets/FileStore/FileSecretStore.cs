@@ -50,6 +50,12 @@ internal sealed class FileSecretStore : ISecretStoreProvider, IDisposable
     // against other processes, e.g. an installer or CLI tool writing to the same file.
     private readonly SemaphoreSlim _fileGate = new(1, 1);
 
+    // The parsed store file, kept between reads and revalidated against the file's write stamp. Only the
+    // encrypted document is cached, never a decrypted value: resolving one configuration asks for every
+    // reference in turn, and re-reading and re-parsing the whole file per lookup made that quadratic.
+    // Guarded by _fileGate.
+    private CachedDocument? _cachedDocument;
+
     public FileSecretStore(
         IFileSystem fileSystem,
         IOptions<SecretStoreOptions> options,
@@ -111,14 +117,8 @@ internal sealed class FileSecretStore : ISecretStoreProvider, IDisposable
         await _fileGate.WaitAsync(cancellationToken).ConfigureAwait(false);
         try
         {
-            await using var stream = await OpenIfExistsExclusiveAsync(path, FileAccess.Read, cancellationToken).ConfigureAwait(false);
-            if (stream is null)
-            {
-                return null;
-            }
-
-            var document = await ReadDocumentAsync(path, stream, cancellationToken).ConfigureAwait(false);
-            return document.Secrets.TryGetValue(BuildTargetName(name), out var encoded)
+            var document = await ReadCachedDocumentAsync(path, cancellationToken).ConfigureAwait(false);
+            return document is not null && document.Secrets.TryGetValue(BuildTargetName(name), out var encoded)
                 ? Decrypt(encoded)
                 : null;
         }
@@ -144,6 +144,7 @@ internal sealed class FileSecretStore : ISecretStoreProvider, IDisposable
             var document = await ReadDocumentAsync(path, stream, cancellationToken).ConfigureAwait(false);
             document.Secrets[BuildTargetName(name)] = Encrypt(value);
             await WriteDocumentAsync(stream, document, cancellationToken).ConfigureAwait(false);
+            _cachedDocument = null;
         }
         finally
         {
@@ -171,6 +172,7 @@ internal sealed class FileSecretStore : ISecretStoreProvider, IDisposable
             if (document.Secrets.Remove(BuildTargetName(name)))
             {
                 await WriteDocumentAsync(stream, document, cancellationToken).ConfigureAwait(false);
+                _cachedDocument = null;
             }
         }
         finally
@@ -272,6 +274,47 @@ internal sealed class FileSecretStore : ISecretStoreProvider, IDisposable
             Array.Clear(plaintext);
         }
     }
+
+    // Returns the parsed store file, re-reading it only when its write stamp no longer matches the cached
+    // one. A stamp mismatch is the only way another process's write is noticed; this process invalidates
+    // the cache itself whenever it writes.
+    private async Task<SecretDocument?> ReadCachedDocumentAsync(string path, CancellationToken cancellationToken)
+    {
+        var stamp = GetWriteStamp(path);
+        if (stamp is null)
+        {
+            _cachedDocument = null;
+            return null;
+        }
+
+        if (_cachedDocument is { } cached && cached.Stamp == stamp.Value)
+        {
+            return cached.Document;
+        }
+
+        await using var stream = await OpenIfExistsExclusiveAsync(path, FileAccess.Read, cancellationToken).ConfigureAwait(false);
+        if (stream is null)
+        {
+            _cachedDocument = null;
+            return null;
+        }
+
+        var document = await ReadDocumentAsync(path, stream, cancellationToken).ConfigureAwait(false);
+
+        // Stamped from after the read, not from before it: a write that landed in between must invalidate
+        // this entry rather than be masked by it.
+        var stampAfterRead = GetWriteStamp(path);
+        _cachedDocument = stampAfterRead is null ? null : new CachedDocument(document, stampAfterRead.Value);
+        return document;
+    }
+
+    private (DateTime LastWriteTimeUtc, long Length)? GetWriteStamp(string path)
+    {
+        var info = _fileSystem.FileInfo.New(path);
+        return info.Exists ? (info.LastWriteTimeUtc, info.Length) : null;
+    }
+
+    private sealed record CachedDocument(SecretDocument Document, (DateTime LastWriteTimeUtc, long Length) Stamp);
 
     private async Task<SecretDocument> ReadDocumentAsync(string path, Stream stream, CancellationToken cancellationToken)
     {

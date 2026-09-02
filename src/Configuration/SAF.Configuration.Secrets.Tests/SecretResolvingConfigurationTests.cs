@@ -8,6 +8,8 @@ using System.IO.Abstractions;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Primitives;
+using SAF.Configuration.Secrets.Configuration;
 using SAF.Configuration.Secrets.Contracts;
 using Testably.Abstractions.Testing;
 using Xunit;
@@ -297,6 +299,250 @@ public class SecretResolvingConfigurationTests
             .Services
             .BuildServiceProvider();
 
+    [Fact]
+    public void ReferenceFromASourceAddedAfterTheCall_Throws_InsteadOfHandingOutTheLiteralToken()
+    {
+        // The later source answers TryGet first, so its unresolved reference would reach the consumer as
+        // the credential. Failing loudly is the point: a silent secret:// string is fail-open.
+        var ex = Assert.Throws<InvalidOperationException>(() => new ConfigurationBuilder()
+            .AddInMemoryCollection(new Dictionary<string, string?> { ["Db:Host"] = "localhost" })
+            .AddResolvedSecrets(o => o.Namespace = "app", providers => providers.AddProvider<FakeReaderProvider>())
+            .AddInMemoryCollection(new Dictionary<string, string?> { ["Db:Password"] = "secret://app/db/pw" })
+            .Build());
+
+        Assert.Contains("Db:Password", ex.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void PlainValueFromASourceAddedAfterTheCall_OverridesAnEarlierReference()
+    {
+        // The sources are read at Build() time, so the resolver sees the final composed value: the later
+        // plain override wins and nothing is resolved for that key.
+        var config = new ConfigurationBuilder()
+            .AddInMemoryCollection(new Dictionary<string, string?> { ["Db:Password"] = "secret://app/db/pw" })
+            .AddResolvedSecrets(o => o.Namespace = "app", providers => providers.AddProvider<FakeReaderProvider>())
+            .AddInMemoryCollection(new Dictionary<string, string?> { ["Db:Password"] = "plain" })
+            .Build();
+
+        Assert.Equal("plain", config["Db:Password"]);
+    }
+
+    [Fact]
+    public void TwoResolvingSources_DoNotBuildEachOther()
+    {
+        var config = new ConfigurationBuilder()
+            .AddInMemoryCollection(new Dictionary<string, string?> { ["Db:Password"] = "secret://app/db/pw" })
+            .AddResolvedSecrets(o => o.Namespace = "app", providers => providers.AddProvider<FakeReaderProvider>())
+            .AddResolvedSecrets(o => o.Namespace = "app", providers => providers.AddProvider<FakeReaderProvider>())
+            .Build();
+
+        Assert.Equal("resolved-pw", config["Db:Password"]);
+    }
+
+    [Fact]
+    public void InnerBuilder_InheritsTheBuilderProperties()
+    {
+        // The properties carry the builder's default file provider. Without them a source built by the
+        // resolver before the outer builder reaches it falls back to FileConfigurationSource
+        // .EnsureDefaults(), creating an undisposed PhysicalFileProvider over the base directory - a
+        // recursive file watcher nothing owns.
+        var marker = new object();
+        var laterSource = new PropertyCapturingSource();
+        var builder = new ConfigurationBuilder();
+        builder.Properties["test-marker"] = marker;
+
+        builder
+            .AddInMemoryCollection(new Dictionary<string, string?> { ["Db:Host"] = "localhost" })
+            .AddResolvedSecrets(o => o.Namespace = "app", providers => providers.AddProvider<FakeReaderProvider>())
+            .Add(laterSource)
+            .Build();
+
+        // The resolver builds it first, so the first capture is the one that proves the properties came along.
+        Assert.Same(marker, laterSource.CapturedProperties[0]);
+    }
+
+    [Fact]
+    public void SameReference_FromSeveralKeys_IsResolvedOnce()
+    {
+        var provider = new CountingProvider();
+        var hostServices = new ServiceCollection()
+            .AddLogging()
+            .AddSecretStore(o => o.Namespace = "app")
+            .Services
+            .AddSingleton<ISecretStoreProvider>(provider)
+            .BuildServiceProvider();
+
+        var config = new ConfigurationBuilder()
+            .AddInMemoryCollection(new Dictionary<string, string?>
+            {
+                ["Db:Password"] = "secret://app/db/pw",
+                ["Cache:Password"] = "secret://app/db/pw"
+            })
+            .AddResolvedSecrets(hostServices)
+            .Build();
+
+        Assert.Equal("resolved-pw", config["Db:Password"]);
+        Assert.Equal("resolved-pw", config["Cache:Password"]);
+        Assert.Equal(1, provider.CallCount);
+    }
+
+    [Fact]
+    public void Resolve_TimesOut_WhenTheStoreNeverAnswers()
+    {
+        var hostServices = new ServiceCollection()
+            .AddLogging()
+            .AddSecretStore(o =>
+            {
+                o.Namespace = "app";
+                o.ResolveTimeout = TimeSpan.FromMilliseconds(50);
+            })
+            .AddProvider<NeverAnsweringProvider>()
+            .Services
+            .BuildServiceProvider();
+
+        var ex = Assert.Throws<TimeoutException>(() => new ConfigurationBuilder()
+            .AddInMemoryCollection(new Dictionary<string, string?> { ["Db:Password"] = "secret://app/db/pw" })
+            .AddResolvedSecrets(hostServices)
+            .Build());
+
+        Assert.Contains(nameof(SecretStoreOptions.ResolveTimeout), ex.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void NonPositiveResolveTimeout_Throws_NamingTheOption()
+    {
+        var ex = Assert.Throws<InvalidOperationException>(() => new ConfigurationBuilder()
+            .AddInMemoryCollection(new Dictionary<string, string?> { ["Db:Password"] = "secret://app/db/pw" })
+            .AddResolvedSecrets(
+                o =>
+                {
+                    o.Namespace = "app";
+                    o.ResolveTimeout = TimeSpan.Zero;
+                },
+                providers => providers.AddProvider<FakeReaderProvider>())
+            .Build());
+
+        Assert.Contains(nameof(SecretStoreOptions.ResolveTimeout), ex.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void InfiniteResolveTimeout_IsAccepted()
+    {
+        var config = new ConfigurationBuilder()
+            .AddInMemoryCollection(new Dictionary<string, string?> { ["Db:Password"] = "secret://app/db/pw" })
+            .AddResolvedSecrets(
+                o =>
+                {
+                    o.Namespace = "app";
+                    o.ResolveTimeout = Timeout.InfiniteTimeSpan;
+                },
+                providers => providers.AddProvider<FakeReaderProvider>())
+            .Build();
+
+        Assert.Equal("resolved-pw", config["Db:Password"]);
+    }
+    [Fact]
+    public void ChainedRoot_ResolvesReferences_WithoutRebuildingTheSources()
+    {
+        var countingSource = new CountingSource(new Dictionary<string, string?>
+        {
+            ["Db:Password"] = "secret://app/db/pw",
+            ["Db:Host"] = "localhost"
+        });
+
+        var innerRoot = new ConfigurationBuilder().Add(countingSource).Build();
+        var config = innerRoot.ResolveSecrets(
+            hostServices: null,
+            o => o.Namespace = "app",
+            providers => providers.AddProvider<FakeReaderProvider>());
+
+        Assert.Equal("resolved-pw", config["Db:Password"]);
+        Assert.Equal("localhost", config["Db:Host"]);
+
+        // The already built root is chained, so each source is built - and each file therefore parsed and
+        // watched - once, instead of once for the host and once more for the resolver.
+        Assert.Equal(1, countingSource.BuildCount);
+    }
+
+    [Fact]
+    public void ChainedRoot_ResolvesAReferenceThatOnlyAppearsOnReload()
+    {
+        var reloadableSource = new ReloadableSource(new Dictionary<string, string?>(StringComparer.OrdinalIgnoreCase)
+        {
+            ["Db:Host"] = "localhost"
+        });
+        var innerRoot = new ConfigurationBuilder().Add(reloadableSource).Build();
+        var config = innerRoot.ResolveSecrets(
+            hostServices: null,
+            o => o.Namespace = "app",
+            providers => providers.AddProvider<FakeReaderProvider>());
+
+        var seenOnNotification = new List<string?>();
+        ChangeToken.OnChange(config.GetReloadToken, () => seenOnNotification.Add(config["Db:Password"]));
+
+        reloadableSource.Provider!.SetValues(new Dictionary<string, string?>
+        {
+            ["Db:Password"] = "secret://app/db/pw"
+        });
+
+        // The consumer must never observe the literal token: the inner root's own reload token is muted so
+        // that this single notification is raised by the resolver, after it has re-resolved.
+        Assert.Equal(["resolved-pw"], seenOnNotification);
+        Assert.Equal("resolved-pw", config["Db:Password"]);
+    }
+
+    [Fact]
+    public void ChainedRoot_ReportsAPlainValueChange_EvenWhenNoSecretChanged()
+    {
+        var reloadableSource = new ReloadableSource(new Dictionary<string, string?>(StringComparer.OrdinalIgnoreCase)
+        {
+            ["Db:Password"] = "secret://app/db/pw",
+            ["Db:Host"] = "localhost"
+        });
+        var innerRoot = new ConfigurationBuilder().Add(reloadableSource).Build();
+        var config = innerRoot.ResolveSecrets(
+            hostServices: null,
+            o => o.Namespace = "app",
+            providers => providers.AddProvider<FakeReaderProvider>());
+
+        var notifications = 0;
+        ChangeToken.OnChange(config.GetReloadToken, () => notifications++);
+
+        reloadableSource.Provider!.SetValues(new Dictionary<string, string?>
+        {
+            ["Db:Password"] = "secret://app/db/pw",
+            ["Db:Host"] = "elsewhere"
+        });
+
+        Assert.Equal(1, notifications);
+        Assert.Equal("elsewhere", config["Db:Host"]);
+    }
+
+    [Fact]
+    public void ChainedRoot_Dispose_DisposesTheInnerRootExactlyOnce()
+    {
+        var innerSource = new DisposalTrackingSource();
+        var innerRoot = new ConfigurationBuilder().Add(innerSource).Build();
+
+        var config = innerRoot.ResolveSecrets(
+            hostServices: null,
+            o =>
+            {
+                o.Namespace = "app";
+                o.ThrowOnUnresolvedReference = false;
+            },
+            providers => providers.AddProvider<FakeReaderProvider>());
+
+        ((IDisposable)config).Dispose();
+
+        Assert.Equal(1, innerSource.Provider!.DisposeCount);
+    }
+
+    [Fact]
+    public void ResolveSecrets_Throws_OnNullRoot()
+        => Assert.Throws<ArgumentNullException>(
+            () => SecretConfigurationRootExtensions.ResolveSecrets(null!, hostServices: null));
+
     private sealed class HostProvider : ISecretStoreProvider
     {
         public string Name => "host";
@@ -392,25 +638,32 @@ public class SecretResolvingConfigurationTests
 
     // A configuration source whose reload token can be fired on demand, so a test can trigger the
     // resolving provider's private Reload() without waiting on a real file watcher.
-    private sealed class ReloadableSource : IConfigurationSource
+    private sealed class ReloadableSource(Dictionary<string, string?>? initialValues = null) : IConfigurationSource
     {
         public ReloadableProvider? Provider { get; private set; }
 
         public IConfigurationProvider Build(IConfigurationBuilder builder)
         {
-            Provider = new ReloadableProvider();
+            Provider = new ReloadableProvider(initialValues);
             return Provider;
         }
     }
 
-    private sealed class ReloadableProvider : ConfigurationProvider
+    private sealed class ReloadableProvider(Dictionary<string, string?>? initialValues) : ConfigurationProvider
     {
-        public override void Load() => Data = new Dictionary<string, string?>(StringComparer.OrdinalIgnoreCase)
-        {
-            ["Db:Password"] = "secret://app/db/pw"
-        };
+        private Dictionary<string, string?> _values = initialValues
+            ?? new Dictionary<string, string?>(StringComparer.OrdinalIgnoreCase) { ["Db:Password"] = "secret://app/db/pw" };
+
+        public override void Load() => Data = new Dictionary<string, string?>(_values, StringComparer.OrdinalIgnoreCase);
 
         public void TriggerReload() => OnReload();
+
+        public void SetValues(Dictionary<string, string?> values)
+        {
+            _values = values;
+            Load();
+            OnReload();
+        }
     }
 
     private sealed class CapturingLogger<T> : ILogger<T>
@@ -433,5 +686,97 @@ public class SecretResolvingConfigurationTests
             {
             }
         }
+    }
+
+    // Counts how often the same secret is fetched, so a reference used by several configuration keys can
+    // be shown to cost one store round-trip and not one per key.
+    private sealed class CountingProvider : ISecretStoreProvider
+    {
+        public int CallCount { get; private set; }
+
+        public string Name => "counting";
+
+        public bool IsAvailable => true;
+
+        public Task<string?> GetSecretAsync(string name, CancellationToken cancellationToken = default)
+        {
+            CallCount++;
+            return Task.FromResult<string?>(name == "app/db/pw" ? "resolved-pw" : null);
+        }
+
+        public Task SetSecretAsync(string name, string value, CancellationToken cancellationToken = default)
+            => Task.CompletedTask;
+
+        public Task RemoveSecretAsync(string name, CancellationToken cancellationToken = default)
+            => Task.CompletedTask;
+    }
+
+    private sealed class NeverAnsweringProvider : ISecretStoreProvider
+    {
+        public string Name => "never-answering";
+
+        public bool IsAvailable => true;
+
+        public async Task<string?> GetSecretAsync(string name, CancellationToken cancellationToken = default)
+        {
+            await Task.Delay(Timeout.Infinite, cancellationToken).ConfigureAwait(false);
+            return null;
+        }
+
+        public Task SetSecretAsync(string name, string value, CancellationToken cancellationToken = default)
+            => Task.CompletedTask;
+
+        public Task RemoveSecretAsync(string name, CancellationToken cancellationToken = default)
+            => Task.CompletedTask;
+    }
+
+    // Records the builder properties it was handed, once per Build call, so a test can tell which builder
+    // built it first.
+    private sealed class PropertyCapturingSource : IConfigurationSource
+    {
+        public List<object?> CapturedProperties { get; } = [];
+
+        public IConfigurationProvider Build(IConfigurationBuilder builder)
+        {
+            builder.Properties.TryGetValue("test-marker", out var marker);
+            CapturedProperties.Add(marker);
+            return new EmptyProvider();
+        }
+    }
+
+    private sealed class CountingSource(Dictionary<string, string?> values) : IConfigurationSource
+    {
+        public int BuildCount { get; private set; }
+
+        public IConfigurationProvider Build(IConfigurationBuilder builder)
+        {
+            BuildCount++;
+            return new StaticProvider(values);
+        }
+    }
+
+    private sealed class DisposalTrackingSource : IConfigurationSource
+    {
+        public DisposalTrackingProvider? Provider { get; private set; }
+
+        public IConfigurationProvider Build(IConfigurationBuilder builder)
+        {
+            Provider = new DisposalTrackingProvider();
+            return Provider;
+        }
+    }
+
+    private sealed class DisposalTrackingProvider : ConfigurationProvider, IDisposable
+    {
+        public int DisposeCount { get; private set; }
+
+        public void Dispose() => DisposeCount++;
+    }
+
+    private sealed class EmptyProvider : ConfigurationProvider;
+
+    private sealed class StaticProvider(Dictionary<string, string?> values) : ConfigurationProvider
+    {
+        public override void Load() => Data = new Dictionary<string, string?>(values, StringComparer.OrdinalIgnoreCase);
     }
 }

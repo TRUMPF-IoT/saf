@@ -45,6 +45,41 @@ public sealed class PluginConfigurationSourceContext
     /// </summary>
     public required Action<FileLoadExceptionContext> OnLoadException { get; init; }
 
+    private readonly List<Func<IConfigurationRoot, IConfigurationRoot>> _configurationRootDecorators = [];
+
+    /// <summary>
+    /// Registers a decorator that is applied to the plugin configuration root after every source has
+    /// been added and built. Use it for a provider that has to read the <em>composed</em> configuration,
+    /// such as one that resolves or overlays values: such a provider cannot work as a peer source,
+    /// because the composition it needs does not exist until all sources are built.
+    /// </summary>
+    /// <param name="decorator">
+    /// Receives the root built from all sources and returns the root the host will use. Returning a new
+    /// root transfers ownership of the one passed in, so the returned root must dispose it.
+    /// </param>
+    /// <remarks>
+    /// Decorators are applied in registration order, each wrapping the result of the previous one.
+    /// </remarks>
+    public void DecorateConfigurationRoot(Func<IConfigurationRoot, IConfigurationRoot> decorator)
+    {
+        ArgumentNullException.ThrowIfNull(decorator);
+
+        _configurationRootDecorators.Add(decorator);
+    }
+
+    internal IConfigurationRoot ApplyConfigurationRootDecorators(IConfigurationRoot root)
+    {
+        foreach (var decorator in _configurationRootDecorators)
+        {
+            root = decorator(root)
+                ?? throw new InvalidOperationException(
+                    $"A {nameof(DecorateConfigurationRoot)} callback returned null. It must return the "
+                    + "configuration root the host should use.");
+        }
+
+        return root;
+    }
+
     /// <summary>
     /// The host's <see cref="IServiceProvider"/>. It is fully built by the time this context is created,
     /// so any host-registered service can be resolved from it here — as long as that service does not

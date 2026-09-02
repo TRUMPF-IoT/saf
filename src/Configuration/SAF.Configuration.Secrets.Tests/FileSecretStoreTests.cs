@@ -340,6 +340,86 @@ public class FileSecretStoreTests
             async () => await store.SetSecretAsync("conn/pw", "second", cts.Token));
     }
 
+    [Fact]
+    public async Task GetSecretAsync_ServesTheParsedDocument_WhileTheStoreFileIsUnchanged()
+    {
+        // Resolving one configuration asks for every reference in turn; re-reading and re-parsing the whole
+        // file per lookup made that quadratic in the number of references.
+        var store = CreateStore();
+        await store.SetSecretAsync("conn/a", "aaaa", TestToken);
+        await store.SetSecretAsync("conn/b", "bbbb", TestToken);
+        Assert.Equal("aaaa", await store.GetSecretAsync("conn/a", TestToken));
+
+        // Swap the two ciphertexts behind the store's back, then put the write stamp back: same length,
+        // same timestamp, so nothing signals a change and the parsed document must still be used.
+        var stamp = _fileSystem.FileInfo.New(StorePath).LastWriteTimeUtc;
+        var text = await _fileSystem.File.ReadAllTextAsync(StorePath, TestToken);
+        await _fileSystem.File.WriteAllTextAsync(
+            StorePath,
+            text.Replace(Encode("aaaa"), "@@").Replace(Encode("bbbb"), Encode("aaaa")).Replace("@@", Encode("bbbb")),
+            TestToken);
+        _fileSystem.File.SetLastWriteTimeUtc(StorePath, stamp);
+
+        Assert.Equal("aaaa", await store.GetSecretAsync("conn/a", TestToken));
+    }
+
+    [Fact]
+    public async Task GetSecretAsync_ReReadsTheStoreFile_AfterAnotherInstanceWroteIt()
+    {
+        var reader = CreateStore();
+        var writer = CreateStore();
+        await writer.SetSecretAsync("conn/pw", "first", TestToken);
+        Assert.Equal("first", await reader.GetSecretAsync("conn/pw", TestToken));
+
+        await writer.SetSecretAsync("conn/pw", "a-much-longer-second-value", TestToken);
+
+        Assert.Equal("a-much-longer-second-value", await reader.GetSecretAsync("conn/pw", TestToken));
+    }
+
+    [Fact]
+    public async Task SetSecretAsync_InvalidatesTheParsedDocument()
+    {
+        var store = CreateStore();
+        await store.SetSecretAsync("conn/pw", "first", TestToken);
+        Assert.Equal("first", await store.GetSecretAsync("conn/pw", TestToken));
+
+        await store.SetSecretAsync("conn/pw", "second", TestToken);
+
+        Assert.Equal("second", await store.GetSecretAsync("conn/pw", TestToken));
+    }
+
+    [Fact]
+    public async Task RemoveSecretAsync_InvalidatesTheParsedDocument()
+    {
+        var store = CreateStore();
+        await store.SetSecretAsync("conn/pw", "value", TestToken);
+        Assert.Equal("value", await store.GetSecretAsync("conn/pw", TestToken));
+
+        await store.RemoveSecretAsync("conn/pw", TestToken);
+
+        Assert.Null(await store.GetSecretAsync("conn/pw", TestToken));
+    }
+
+    [Fact]
+    public async Task GetSecretAsync_ReturnsNull_AfterTheStoreFileIsDeleted()
+    {
+        var store = CreateStore();
+        await store.SetSecretAsync("conn/pw", "value", TestToken);
+        Assert.Equal("value", await store.GetSecretAsync("conn/pw", TestToken));
+
+        _fileSystem.File.Delete(StorePath);
+
+        Assert.Null(await store.GetSecretAsync("conn/pw", TestToken));
+    }
+
+    // Mirrors FileSecretStore's on-disk encoding for the ReversingSecretProtector used in these tests.
+    private static string Encode(string value)
+    {
+        var bytes = Encoding.UTF8.GetBytes(value);
+        Array.Reverse(bytes);
+        return Convert.ToBase64String(bytes);
+    }
+
     private FileSecretStore CreateStore(SecretStoreOptions? options = null, ISecretProtector? protector = null)
         => new(
             _fileSystem,

@@ -116,6 +116,68 @@ public class PluginSystemHostBuilderExtensionsTests
         Assert.Equal("resolved:db/pw", context.PluginConfiguration["MyPlugin:Password"]);
     }
 
+    [Fact]
+    public void AddSecretConfigurationResolution_ResolvesASourceRegisteredAfterIt()
+    {
+        // Regression test for N4: the callback registration order used to decide whether a plugin received
+        // its credential or the literal secret:// token, because the sources to resolve were captured when
+        // resolution was registered instead of after every callback had run.
+        var builder = Host.CreateApplicationBuilder();
+        var pluginSystemBuilder = builder.AddPluginSystem(_ => { });
+
+        pluginSystemBuilder.AddSecretConfigurationResolution(
+            configureProviders: providers => providers.AddProvider<FakeSecretProvider>());
+        pluginSystemBuilder.AddPluginConfigurationSource(source =>
+            source.Builder.AddInMemoryCollection(new Dictionary<string, string?>
+            {
+                ["MyPlugin:Password"] = "secret://db/pw",
+            }));
+
+        using var host = builder.Build();
+        var context = host.Services.GetRequiredService<IPluginSystemHostContext>();
+
+        Assert.Equal("resolved:db/pw", context.PluginConfiguration["MyPlugin:Password"]);
+    }
+
+    [Fact]
+    public void AddSecretConfigurationResolution_BuildsEachConfigurationSourceOnce()
+    {
+        // The resolver chains the root the host already built instead of rebuilding the sources, so each
+        // settings file is parsed once and watched by one file watcher, not two.
+        var countingSource = new CountingSource();
+        var builder = Host.CreateApplicationBuilder();
+        var pluginSystemBuilder = builder.AddPluginSystem(_ => { });
+
+        pluginSystemBuilder.AddPluginConfigurationSource(source => source.Builder.Add(countingSource));
+        pluginSystemBuilder.AddSecretConfigurationResolution(
+            configureProviders: providers => providers.AddProvider<FakeSecretProvider>());
+
+        using var host = builder.Build();
+        var context = host.Services.GetRequiredService<IPluginSystemHostContext>();
+
+        Assert.Equal("resolved:db/pw", context.PluginConfiguration["MyPlugin:Password"]);
+        Assert.Equal(1, countingSource.BuildCount);
+    }
+
+    private sealed class CountingSource : IConfigurationSource
+    {
+        public int BuildCount { get; private set; }
+
+        public IConfigurationProvider Build(IConfigurationBuilder builder)
+        {
+            BuildCount++;
+            return new CountingProvider();
+        }
+
+        private sealed class CountingProvider : ConfigurationProvider
+        {
+            public override void Load() => Data = new Dictionary<string, string?>(StringComparer.OrdinalIgnoreCase)
+            {
+                ["MyPlugin:Password"] = "secret://db/pw"
+            };
+        }
+    }
+
     private sealed class FakeSecretProvider : ISecretStoreProvider
     {
         public string Name => "fake";

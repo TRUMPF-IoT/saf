@@ -595,4 +595,109 @@ public class PluginSystemHostContextTests
             fileSystem.Path.GetFullPath(AppContext.BaseDirectory),
             fileSystem.Path.GetFullPath(physicalProvider.Root));
     }
+
+    [Fact]
+    public void BuildPluginConfiguration_ShouldApplyConfigurationRootDecoratorsInRegistrationOrder()
+    {
+        // Arrange
+        var applied = new List<string>();
+        var configureSources = new List<Action<PluginConfigurationSourceContext>>
+        {
+            sourceContext =>
+            {
+                sourceContext.Builder.AddInMemoryCollection(new Dictionary<string, string?> { ["Key"] = "Value" });
+                sourceContext.DecorateConfigurationRoot(root =>
+                {
+                    applied.Add("first");
+                    return root;
+                });
+            },
+            sourceContext => sourceContext.DecorateConfigurationRoot(root =>
+            {
+                applied.Add("second");
+                return new ConfigurationBuilder()
+                    .AddConfiguration(root, shouldDisposeConfiguration: true)
+                    .AddInMemoryCollection(new Dictionary<string, string?> { ["Key"] = "Decorated" })
+                    .Build();
+            }),
+        };
+
+        // Act
+        var context = CreateContextWithCustomSources(configureSources);
+
+        // Assert
+        Assert.Equal(["first", "second"], applied);
+        Assert.Equal("Decorated", context.PluginConfiguration["Key"]);
+    }
+
+    [Fact]
+    public void BuildPluginConfiguration_ShouldThrow_WhenAConfigurationRootDecoratorReturnsNull()
+    {
+        // Arrange
+        var configureSources = new List<Action<PluginConfigurationSourceContext>>
+        {
+            sourceContext => sourceContext.DecorateConfigurationRoot(_ => null!),
+        };
+
+        // Act + Assert
+        Assert.Throws<InvalidOperationException>(() => CreateContextWithCustomSources(configureSources));
+    }
+
+    [Fact]
+    public void BuildPluginConfiguration_ShouldDisposeTheUndecoratedRoot_WhenADecoratorThrows()
+    {
+        // Arrange - a decorator that throws has not taken ownership, so the root built from the sources
+        // (and the providers it owns) has to be disposed before the failure escapes.
+        var provider = new DisposalTrackingProvider();
+        var configureSources = new List<Action<PluginConfigurationSourceContext>>
+        {
+            sourceContext =>
+            {
+                sourceContext.Builder.Add(new DisposalTrackingSource(provider));
+                sourceContext.DecorateConfigurationRoot(_ => throw new InvalidTimeZoneException("decorator failed"));
+            },
+        };
+
+        // Act + Assert
+        Assert.Throws<InvalidTimeZoneException>(() => CreateContextWithCustomSources(configureSources));
+        Assert.Equal(1, provider.DisposeCount);
+    }
+
+    [Fact]
+    public void DecorateConfigurationRoot_ShouldThrow_OnNullDecorator()
+    {
+        PluginConfigurationSourceContext? capturedContext = null;
+        var configureSources = new List<Action<PluginConfigurationSourceContext>>
+        {
+            sourceContext => capturedContext = sourceContext,
+        };
+
+        CreateContextWithCustomSources(configureSources);
+
+        Assert.Throws<ArgumentNullException>(() => capturedContext!.DecorateConfigurationRoot(null!));
+    }
+
+    private static PluginSystemHostContext CreateContextWithCustomSources(
+        List<Action<PluginConfigurationSourceContext>> configureSources)
+        => new(
+            Substitute.For<ILogger<PluginSystemHostContext>>(),
+            Substitute.For<IPluginSystemHostEnvironment>(),
+            Substitute.For<IConfigurationManager>(),
+            new PluginSystemOptions { PluginSettingsFilePath = string.Empty },
+            new RealFileSystem(),
+            Substitute.For<IServiceProvider>(),
+            configureSources);
+
+    private sealed class DisposalTrackingSource(DisposalTrackingProvider provider) : IConfigurationSource
+    {
+        public IConfigurationProvider Build(IConfigurationBuilder builder) => provider;
+    }
+
+    private sealed class DisposalTrackingProvider : ConfigurationProvider, IDisposable
+    {
+        public int DisposeCount { get; private set; }
+
+        public void Dispose() => DisposeCount++;
+    }
+
 }
