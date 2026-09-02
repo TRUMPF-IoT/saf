@@ -8,6 +8,7 @@ using System.IO;
 using System.IO.Abstractions;
 using System.Text;
 using System.Text.Json;
+using System.Text.Json.Serialization;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using SAF.Configuration.Secrets.Contracts;
@@ -20,8 +21,9 @@ using SAF.Configuration.Secrets.Contracts;
 /// Windows) are intentionally the responsibility of the installer/deployment, not of this provider.
 /// Every write happens in place through a single handle on the store file itself - no temporary or
 /// sidecar file is ever created - so the provider also works on deployment targets that only permit
-/// writing an already-existing file. A crash mid-write can therefore leave the store file truncated or
-/// corrupt; that is an accepted trade-off for this constraint.
+/// writing an already-existing file. The document is serialized to memory and written in one call, so a
+/// serialization failure or a cancellation leaves the previous content intact; a process crash or a full
+/// disk during that single write can still truncate the file, an accepted trade-off for this constraint.
 /// </summary>
 internal sealed class FileSecretStore : ISecretStoreProvider, IDisposable
 {
@@ -118,8 +120,9 @@ internal sealed class FileSecretStore : ISecretStoreProvider, IDisposable
         try
         {
             var document = await ReadCachedDocumentAsync(path, cancellationToken).ConfigureAwait(false);
-            return document is not null && document.Secrets.TryGetValue(BuildTargetName(name), out var encoded)
-                ? Decrypt(encoded)
+            var targetName = BuildTargetName(name);
+            return document is not null && document.Secrets.TryGetValue(targetName, out var encoded)
+                ? Decrypt(path, targetName, encoded)
                 : null;
         }
         finally
@@ -162,7 +165,7 @@ internal sealed class FileSecretStore : ISecretStoreProvider, IDisposable
         await _fileGate.WaitAsync(cancellationToken).ConfigureAwait(false);
         try
         {
-            await using var stream = await OpenIfExistsExclusiveAsync(path, FileAccess.ReadWrite, cancellationToken).ConfigureAwait(false);
+            await using var stream = await OpenIfExistsExclusiveAsync(path, cancellationToken).ConfigureAwait(false);
             if (stream is null)
             {
                 return;
@@ -210,43 +213,81 @@ internal sealed class FileSecretStore : ISecretStoreProvider, IDisposable
             options.UnixCreateMode = UnixFileMode.UserRead | UnixFileMode.UserWrite;
         }
 
+        // Never null: nullIfMissing is false, so a missing file is created rather than reported.
+        return (await OpenAsync(path, () => _fileSystem.File.Open(path, options), nullIfMissing: false, cancellationToken)
+            .ConfigureAwait(false))!;
+    }
+
+    // Same exclusive hold as OpenExclusiveAsync, but never creates the file: removing from a store that
+    // was never written must not itself bring the file, or its directory, into existence.
+    private Task<Stream?> OpenIfExistsExclusiveAsync(string path, CancellationToken cancellationToken)
+        => OpenAsync(path, () => _fileSystem.File.Open(path, FileMode.Open, FileAccess.ReadWrite, FileShare.None), nullIfMissing: true, cancellationToken);
+
+    // The read path shares with other readers: two hosts pointed at the same store file must be able to
+    // resolve their configuration concurrently instead of contending at startup. A writer still holds
+    // FileShare.None and so excludes readers for the duration of its in-place write.
+    private Task<Stream?> OpenIfExistsForReadAsync(string path, CancellationToken cancellationToken)
+        => OpenAsync(path, () => _fileSystem.File.Open(path, FileMode.Open, FileAccess.Read, FileShare.Read), nullIfMissing: true, cancellationToken);
+
+    // Retries a sharing conflict only, and only until LockTimeout elapses. Retrying every IOException
+    // forever turned a bad path or a foreign reader into an unkillable spin that also held _fileGate.
+    private async Task<Stream?> OpenAsync(
+        string path,
+        Func<Stream> open,
+        bool nullIfMissing,
+        CancellationToken cancellationToken)
+    {
+        var timeout = _fileOptions.LockTimeout;
+        var deadline = timeout == Timeout.InfiniteTimeSpan ? (long?)null : Environment.TickCount64 + (long)timeout.TotalMilliseconds;
+        var waiting = false;
+
         while (true)
         {
+            cancellationToken.ThrowIfCancellationRequested();
             try
             {
-                return _fileSystem.File.Open(path, options);
+                return open();
             }
-            catch (IOException)
+            catch (FileNotFoundException) when (nullIfMissing)
             {
+                return null;
+            }
+            catch (DirectoryNotFoundException) when (nullIfMissing)
+            {
+                return null;
+            }
+            catch (UnauthorizedAccessException e)
+            {
+                throw new InvalidOperationException(
+                    $"Access to the secret store file '{path}' was denied. The runtime account needs read " +
+                    "(and, for writes, write) access to it; granting that is the installer's responsibility.", e);
+            }
+            catch (IOException e) when (IsSharingConflict(e))
+            {
+                if (deadline is not null && Environment.TickCount64 >= deadline)
+                {
+                    throw new TimeoutException(
+                        $"The secret store file '{path}' stayed locked by another process for longer than " +
+                        $"{timeout} ({nameof(FileSecretStoreOptions)}.{nameof(FileSecretStoreOptions.LockTimeout)}).", e);
+                }
+
+                if (!waiting)
+                {
+                    waiting = true;
+                    _logger.LogInformation(
+                        "Waiting for another process to release the secret store file {Path} (up to {Timeout}).",
+                        path, timeout);
+                }
+
                 await Task.Delay(ExclusiveOpenRetryDelay, cancellationToken).ConfigureAwait(false);
             }
         }
     }
 
-    // Same exclusive hold as OpenExclusiveAsync, but never creates the file: reading (or removing from)
-    // a store that was never written must not itself bring the file, or its directory, into existence.
-    private async Task<Stream?> OpenIfExistsExclusiveAsync(string path, FileAccess access, CancellationToken cancellationToken)
-    {
-        while (true)
-        {
-            try
-            {
-                return _fileSystem.File.Open(path, FileMode.Open, access, FileShare.None);
-            }
-            catch (FileNotFoundException)
-            {
-                return null;
-            }
-            catch (DirectoryNotFoundException)
-            {
-                return null;
-            }
-            catch (IOException)
-            {
-                await Task.Delay(ExclusiveOpenRetryDelay, cancellationToken).ConfigureAwait(false);
-            }
-        }
-    }
+    // A missing path, an unreachable drive or an over-long path all surface as IOException but will never
+    // clear by waiting, so they must escape the retry loop rather than be polled.
+    private static bool IsSharingConflict(IOException exception)
+        => exception is not (FileNotFoundException or DirectoryNotFoundException or PathTooLongException or DriveNotFoundException);
 
     private string Encrypt(string value)
     {
@@ -262,9 +303,21 @@ internal sealed class FileSecretStore : ISecretStoreProvider, IDisposable
         }
     }
 
-    private string Decrypt(string encoded)
+    private string Decrypt(string path, string targetName, string encoded)
     {
-        var plaintext = Protector.Unprotect(Convert.FromBase64String(encoded));
+        byte[] enveloped;
+        try
+        {
+            enveloped = Convert.FromBase64String(encoded);
+        }
+        catch (FormatException e)
+        {
+            throw new InvalidOperationException(
+                $"The stored value of secret '{targetName}' in '{path}' is not valid Base64 and cannot be " +
+                "decrypted. An interrupted write can corrupt it; re-provision that secret.", e);
+        }
+
+        var plaintext = Protector.Unprotect(enveloped);
         try
         {
             return Encoding.UTF8.GetString(plaintext);
@@ -292,7 +345,7 @@ internal sealed class FileSecretStore : ISecretStoreProvider, IDisposable
             return cached.Document;
         }
 
-        await using var stream = await OpenIfExistsExclusiveAsync(path, FileAccess.Read, cancellationToken).ConfigureAwait(false);
+        await using var stream = await OpenIfExistsForReadAsync(path, cancellationToken).ConfigureAwait(false);
         if (stream is null)
         {
             _cachedDocument = null;
@@ -324,8 +377,21 @@ internal sealed class FileSecretStore : ISecretStoreProvider, IDisposable
         }
 
         stream.Position = 0;
-        var document = await JsonSerializer.DeserializeAsync<SecretDocument>(stream, JsonOptions, cancellationToken).ConfigureAwait(false)
-            ?? new SecretDocument { Protector = Protector.Name };
+        SecretDocument? parsed;
+        try
+        {
+            parsed = await JsonSerializer.DeserializeAsync<SecretDocument>(stream, JsonOptions, cancellationToken).ConfigureAwait(false);
+        }
+        // InvalidOperationException as well as JsonException: a "secrets": null member is rejected by the
+        // serializer, and used to surface as a bare NullReferenceException naming nothing at all.
+        catch (Exception e) when (e is JsonException or InvalidOperationException)
+        {
+            throw new InvalidOperationException(
+                $"The secret store file '{path}' could not be parsed. An interrupted write can leave it " +
+                "truncated or corrupt; restore it from a backup or re-provision its secrets.", e);
+        }
+
+        var document = parsed ?? new SecretDocument { Protector = Protector.Name };
 
         if (!string.IsNullOrEmpty(document.Protector)
             && !string.Equals(document.Protector, Protector.Name, StringComparison.OrdinalIgnoreCase))
@@ -338,15 +404,23 @@ internal sealed class FileSecretStore : ISecretStoreProvider, IDisposable
         return document;
     }
 
+    // Serialized to memory first because the live file is the only copy: a serialization failure or a
+    // cancellation must not be able to leave half a document in it. The token guards the buffering, not
+    // the write - once the first byte is out, honouring it would corrupt the store.
     private async Task WriteDocumentAsync(Stream stream, SecretDocument document, CancellationToken cancellationToken)
     {
         document.Protector = Protector.Name;
+
+        using var buffer = new MemoryStream();
+        await JsonSerializer.SerializeAsync(buffer, document, JsonOptions, cancellationToken).ConfigureAwait(false);
+        cancellationToken.ThrowIfCancellationRequested();
+
         stream.Position = 0;
-        await JsonSerializer.SerializeAsync(stream, document, JsonOptions, cancellationToken).ConfigureAwait(false);
+        await stream.WriteAsync(buffer.GetBuffer().AsMemory(0, (int)buffer.Length), CancellationToken.None).ConfigureAwait(false);
         // The new content may be shorter than what was there before (e.g. a removed secret); writing in
         // place without truncating would leave trailing bytes from the old content after it.
         stream.SetLength(stream.Position);
-        await stream.FlushAsync(cancellationToken).ConfigureAwait(false);
+        await stream.FlushAsync(CancellationToken.None).ConfigureAwait(false);
     }
 
     private string ResolvePath()
@@ -378,6 +452,10 @@ internal sealed class FileSecretStore : ISecretStoreProvider, IDisposable
         public string? Protector { get; set; }
 
         /// <summary>Base64-encoded protected payloads keyed by the namespaced target name.</summary>
-        public Dictionary<string, string> Secrets { get; set; } = new(StringComparer.OrdinalIgnoreCase);
+        // Populated, not replaced: by default System.Text.Json assigns a fresh, case-sensitive dictionary
+        // over the initializer, which silently dropped the comparer for every file it read. Get-only so
+        // that a null in the JSON cannot null the property either.
+        [JsonObjectCreationHandling(JsonObjectCreationHandling.Populate)]
+        public Dictionary<string, string> Secrets { get; } = new(StringComparer.OrdinalIgnoreCase);
     }
 }

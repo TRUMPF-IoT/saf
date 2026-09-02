@@ -189,25 +189,60 @@ internal sealed class SecretResolvingConfigurationProvider : ConfigurationProvid
 
     private Dictionary<string, string?> ResolveAll(ICollection<SecretReference> references)
     {
-        using var timeout = _options.ResolveTimeout == Timeout.InfiniteTimeSpan
-            ? new CancellationTokenSource()
-            : new CancellationTokenSource(_options.ResolveTimeout);
+        var timeout = new CancellationTokenSource();
 
+        // Task.Run keeps the one blocking wait off any captured SynchronizationContext: Load() is
+        // synchronous by contract, and a store whose continuations resume on the calling context
+        // would otherwise deadlock instead of answering.
+        var work = Task.Run(() => ResolveAllAsync(references, timeout.Token), CancellationToken.None);
+
+        var abandoned = false;
         try
         {
-            // Task.Run keeps the one blocking wait off any captured SynchronizationContext: Load() is
-            // synchronous by contract, and a store whose continuations resume on the calling context
-            // would otherwise deadlock instead of answering.
-            return Task.Run(() => ResolveAllAsync(references, timeout.Token), timeout.Token).GetAwaiter().GetResult();
+            // WaitAsync bounds the wait itself instead of relying on the token: a provider that blocks
+            // inside a synchronous call - the in-box Windows one blocks in CredReadW - never observes
+            // cancellation, so waiting for the token to come back is waiting forever.
+            return work.WaitAsync(ResolveWait).GetAwaiter().GetResult();
         }
-        catch (OperationCanceledException) when (timeout.IsCancellationRequested)
+        catch (TimeoutException) when (!work.IsCompleted)
         {
+            // Cancelling stays a courtesy to a cooperative provider; the wait is over either way.
+            abandoned = true;
+            timeout.Cancel();
+            Abandon(work, timeout);
+
             throw new TimeoutException(
                 $"Resolving {references.Count} secret reference(s) did not complete within {_options.ResolveTimeout}. " +
                 $"Raise {nameof(SecretStoreOptions)}.{nameof(SecretStoreOptions.ResolveTimeout)} or check that the " +
                 $"'{_options.ProviderName}' secret store provider is reachable.");
         }
+        finally
+        {
+            if (!abandoned)
+            {
+                timeout.Dispose();
+            }
+        }
     }
+
+    // Clamped because WaitAsync rejects anything above int.MaxValue milliseconds; a timeout of 24 days
+    // is indistinguishable from waiting forever anyway.
+    private TimeSpan ResolveWait => _options.ResolveTimeout == Timeout.InfiniteTimeSpan
+        ? Timeout.InfiniteTimeSpan
+        : TimeSpan.FromMilliseconds(Math.Min(_options.ResolveTimeout.TotalMilliseconds, int.MaxValue));
+
+    // The abandoned resolve keeps running and still holds the token, so the source cannot be disposed
+    // here; the continuation also observes its exception, which would otherwise go unobserved.
+    private static void Abandon(Task task, CancellationTokenSource timeout)
+        => _ = task.ContinueWith(
+            completed =>
+            {
+                _ = completed.Exception;
+                timeout.Dispose();
+            },
+            CancellationToken.None,
+            TaskContinuationOptions.ExecuteSynchronously,
+            TaskScheduler.Default);
 
     private async Task<Dictionary<string, string?>> ResolveAllAsync(
         ICollection<SecretReference> references,

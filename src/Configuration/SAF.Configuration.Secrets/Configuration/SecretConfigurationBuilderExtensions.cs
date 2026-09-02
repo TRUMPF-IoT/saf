@@ -54,8 +54,30 @@ public static class SecretConfigurationBuilderExtensions
         Action<ISecretStoreBuilder>? configureProviders = null)
     {
         ArgumentNullException.ThrowIfNull(builder);
+        ThrowIfBuiltEagerly(builder);
 
         builder.Add(new SecretResolvingConfigurationSource(configure, configureProviders, hostServices));
         return builder;
+    }
+
+    // A builder that is its own configuration root - ConfigurationManager, behind
+    // Host.CreateApplicationBuilder().Configuration - builds every source as it is added. The resolving
+    // source would then be built before the sources that follow it exist, so a reference from one of them
+    // is neither resolved nor detectable as shadowing, and the consumer receives the literal token as its
+    // credential. Refuse at registration rather than fail open at read time.
+    private static void ThrowIfBuiltEagerly(IConfigurationBuilder builder)
+    {
+        if (builder is not IConfigurationRoot)
+        {
+            return;
+        }
+
+        throw new NotSupportedException(
+            $"'{builder.GetType().Name}' builds every configuration source as soon as it is added, so " +
+            $"{nameof(AddResolvedSecrets)} cannot see the sources added after it: a secret reference from " +
+            "one of them would reach the consumer as its literal token instead of being resolved or " +
+            $"reported. Compose the sources in a {nameof(ConfigurationBuilder)}, call " +
+            $"{nameof(AddResolvedSecrets)} on that, and add the built root here - or use " +
+            "SAF.Configuration.Secrets.Extensions, which resolves against the composed configuration root.");
     }
 }

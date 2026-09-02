@@ -297,12 +297,23 @@ Key points:
   touches (and never widens) the file's existing permissions; a first write on Linux defaults to
   owner-only (`0600`) rather than the process umask. No temporary or sidecar file is ever created — the
   store also works on deployment targets that only permit writing an already-existing file. The
-  trade-off: a crash mid-write can leave the store file truncated or corrupt, since there is no atomic
-  replace to fall back to.
+  document is serialized to memory first and written in a single call, so a serialization failure or a
+  cancelled write leaves the previous content intact. The remaining trade-off: a process crash or a full
+  disk *during* that one write can still truncate the file, since there is no atomic replace to fall back
+  to. A store file damaged that way is reported at startup with an error naming the file — and, for an
+  undecryptable value, the secret — rather than surfacing as an unrelated parse or format error.
 - **Concurrent readers/writers are serialized**, including across processes (e.g. this host and a
-  separate installer/CLI tool touching the same file): every read and write opens the store file itself
-  exclusively for its duration, so a second reader or writer — in this process or another — waits its
-  turn instead of racing.
+  separate installer/CLI tool touching the same file): a write opens the store file exclusively for its
+  duration, so a second reader or writer — in this process or another — waits its turn instead of racing.
+  Reads share the file with other readers, so two hosts pointed at the same store resolve their
+  configuration concurrently.
+
+  That wait is **bounded by `FileSecretStoreOptions.LockTimeout`** (default 30 seconds), after which the
+  operation throws a `TimeoutException` naming the file. A foreign holder of the file — a backup agent,
+  an on-access virus scanner, an admin's editor — would otherwise block every secret operation in the
+  process for as long as it kept the handle. Set `Timeout.InfiniteTimeSpan` to wait indefinitely instead.
+  A failure that cannot clear by waiting is never retried: a denied ACL or an unreachable path is
+  reported immediately, and a store file that does not exist simply has no secrets.
 
 - **The parsed file is cached between reads**, and revalidated against the file's last-write time and
   size on every lookup. Resolving configuration asks for each reference in turn, so re-reading and
@@ -372,6 +383,30 @@ Then reference secrets in the plugin configuration with the `secret://` prefix:
 > providers answer first. A reference coming from such a source therefore **throws at startup**, naming
 > the configuration keys, rather than passing the literal `secret://…` token to the consumer as its
 > credential. Call `AddResolvedSecrets` last to avoid it.
+>
+> That guarantee needs a builder that defers building until `Build()`. `ConfigurationManager` — the
+> builder behind `Host.CreateApplicationBuilder().Configuration` and
+> `WebApplication.CreateBuilder().Configuration` — instead builds every source as soon as it is added, so
+> the resolver could see neither the later sources nor the fact that they shadow it. `AddResolvedSecrets`
+> therefore **refuses a `ConfigurationManager` with a `NotSupportedException`** instead of failing open.
+> Compose and resolve in a `ConfigurationBuilder`, then chain the built root in:
+>
+> ```csharp
+> var resolved = new ConfigurationBuilder()
+>     .AddJsonFile("appsettings.json")
+>     .AddResolvedSecrets(o => o.Namespace = "myapp")
+>     .Build();
+>
+> builder.Configuration.AddConfiguration(resolved);
+> ```
+>
+> For plug-in configuration, prefer `AddSecretConfigurationResolution` — it resolves against the composed
+> root and has none of these ordering constraints.
+
+> **Enabling resolution does not change unrelated settings.** A value that is not a `secret://`
+> reference is served exactly as the undecorated configuration would serve it, empty strings included: a
+> `"Suffix": ""` an operator configured deliberately still reads as `""`, not `null`. Only values that
+> parse as a reference are replaced.
 
 > **How resolution reaches the host container.** Plugin configuration is built inside the same factory
 > that constructs `IPluginSystemHostContext`, which the plugin system only ever invokes once the host's
@@ -392,7 +427,14 @@ Then reference secrets in the plugin configuration with the `secret://` prefix:
 | `AllowEnvironmentOverride` | `false` | When resolving a reference, check a derived environment variable before the store. See [Environment overrides](#environment-overrides). |
 | `EnvironmentVariablePrefix` | `"SECRET"` | Prefix of that environment variable. |
 | `ThrowOnUnresolvedReference` | `true` | Throw when a `secret://` reference cannot be resolved, instead of passing it through as `null`. |
-| `ResolveTimeout` | `30s` | Upper bound on resolving all references of one configuration load. Configuration loads synchronously, so without it an unreachable store hangs startup with no diagnostic. `Timeout.InfiniteTimeSpan` waits forever. |
+| `ResolveTimeout` | `30s` | Upper bound on resolving all references of one configuration load. Configuration loads synchronously, so without it an unreachable store hangs startup with no diagnostic. `Timeout.InfiniteTimeSpan` waits forever. Enforced by bounding the wait itself, so it also applies to a provider that blocks in a synchronous call and never observes cancellation. |
+
+`FileSecretStoreOptions` (configure via `providers.AddFile(o => ...)`, or `services.AddFileSecretStore(o => ...)`):
+
+| Option | Default | Meaning |
+|---|---|---|
+| `Path` | per-machine data location | Filesystem path of the store file. See [The file store and its protector](#the-file-store-and-its-protector). |
+| `LockTimeout` | `30s` | Upper bound on waiting for another process to release its exclusive hold on the store file, after which the operation throws a `TimeoutException`. `Timeout.InfiniteTimeSpan` waits forever. |
 
 ## Secret names
 
@@ -404,6 +446,10 @@ The physical store key is **case-insensitive** — `Namespace` and the name are 
 use, the same way on every provider. This matches the Windows Credential Manager, which treats target
 names case-insensitively regardless of what is written; without normalizing, the same logical secret
 could resolve differently depending on which backend is active.
+
+The file store also matches keys case-insensitively when it *reads*, so a `secrets.json` provisioned by
+hand or by an installer resolves whatever case its keys were written in, and a later write updates that
+entry instead of adding a second one beside it.
 
 ## Environment overrides
 

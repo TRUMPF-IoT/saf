@@ -5,6 +5,7 @@
 namespace SAF.Configuration.Secrets.Tests;
 
 using System.IO.Abstractions;
+using System.Diagnostics;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
@@ -408,6 +409,35 @@ public class SecretResolvingConfigurationTests
         Assert.Contains(nameof(SecretStoreOptions.ResolveTimeout), ex.Message, StringComparison.Ordinal);
     }
 
+
+    [Fact]
+    public void Resolve_TimesOut_WhenTheStoreIgnoresTheCancellationToken()
+    {
+        // The in-box Windows provider blocks in the synchronous CredReadW P/Invoke and any provider added
+        // through AddProvider<T> may do the same, so the timeout must not depend on the token being observed.
+        var hostServices = new ServiceCollection()
+            .AddLogging()
+            .AddSecretStore(o =>
+            {
+                o.Namespace = "app";
+                o.ResolveTimeout = TimeSpan.FromMilliseconds(100);
+            })
+            .AddProvider<BlockingProvider>()
+            .Services
+            .BuildServiceProvider();
+
+        var elapsed = Stopwatch.StartNew();
+        var ex = Assert.Throws<TimeoutException>(() => new ConfigurationBuilder()
+            .AddInMemoryCollection(new Dictionary<string, string?> { ["Db:Password"] = "secret://app/db/pw" })
+            .AddResolvedSecrets(hostServices)
+            .Build());
+        elapsed.Stop();
+
+        Assert.Contains(nameof(SecretStoreOptions.ResolveTimeout), ex.Message, StringComparison.Ordinal);
+        Assert.True(
+            elapsed.Elapsed < BlockingProvider.BlockFor,
+            $"the timeout must abandon the blocked store, but the build took {elapsed.Elapsed}");
+    }
     [Fact]
     public void NonPositiveResolveTimeout_Throws_NamingTheOption()
     {
@@ -441,6 +471,54 @@ public class SecretResolvingConfigurationTests
 
         Assert.Equal("resolved-pw", config["Db:Password"]);
     }
+
+    [Fact]
+    public void AddResolvedSecrets_Throws_OnAnEagerlyBuildingBuilder()
+    {
+        // ConfigurationManager - Host.CreateApplicationBuilder().Configuration - builds each source as it
+        // is added, so the resolver never sees the sources that follow and used to hand the consumer the
+        // literal secret:// token as its credential, silently and with no shadowing error.
+        using var manager = new ConfigurationManager();
+        ((IConfigurationBuilder)manager).AddInMemoryCollection(
+            new Dictionary<string, string?> { ["Db:Password"] = "secret://app/db/pw" });
+
+        var ex = Assert.Throws<NotSupportedException>(() => ((IConfigurationBuilder)manager).AddResolvedSecrets(
+            o => o.Namespace = "app",
+            providers => providers.AddProvider<FakeReaderProvider>()));
+
+        Assert.Contains(nameof(ConfigurationManager), ex.Message, StringComparison.Ordinal);
+        Assert.Contains(nameof(ConfigurationBuilder), ex.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void AddResolvedSecrets_Throws_WithoutRegisteringTheSource()
+    {
+        using var manager = new ConfigurationManager();
+        var sourcesBefore = ((IConfigurationBuilder)manager).Sources.ToList();
+
+        Assert.Throws<NotSupportedException>(
+            () => ((IConfigurationBuilder)manager).AddResolvedSecrets());
+
+        // Refused before Add, so the eager builder never got to build a half-blind resolver.
+        Assert.Equal(sourcesBefore, ((IConfigurationBuilder)manager).Sources);
+    }
+
+    [Fact]
+    public void AddResolvedSecrets_ResolvesThroughAnEagerBuilder_WhenTheRootIsComposedSeparately()
+    {
+        // The shape the exception points at: compose and resolve in a ConfigurationBuilder, then chain the
+        // built root into the eager one.
+        using var manager = new ConfigurationManager();
+        var resolved = new ConfigurationBuilder()
+            .AddInMemoryCollection(new Dictionary<string, string?> { ["Db:Password"] = "secret://app/db/pw" })
+            .AddResolvedSecrets(
+                o => o.Namespace = "app",
+                providers => providers.AddProvider<FakeReaderProvider>())
+            .Build();
+        ((IConfigurationBuilder)manager).AddConfiguration(resolved);
+
+        Assert.Equal("resolved-pw", manager["Db:Password"]);
+    }
     [Fact]
     public void ChainedRoot_ResolvesReferences_WithoutRebuildingTheSources()
     {
@@ -464,6 +542,77 @@ public class SecretResolvingConfigurationTests
         Assert.Equal(1, countingSource.BuildCount);
     }
 
+
+    [Fact]
+    public void ChainedRoot_KeepsAConfiguredEmptyValueEmpty_RatherThanNull()
+    {
+        // A ChainedConfigurationProvider reports IsNullOrEmpty as "no value", so merely enabling secret
+        // resolution used to turn every deliberately blank setting into null - a NullReferenceException
+        // for a bound non-nullable string, and a silent fallback for every ?? "default".
+        var innerRoot = new ConfigurationBuilder()
+            .AddInMemoryCollection(new Dictionary<string, string?>
+            {
+                ["Feature:Suffix"] = string.Empty,
+                ["Feature:Name"] = "x",
+                ["Db:Password"] = "secret://app/db/pw"
+            })
+            .Build();
+
+        var config = innerRoot.ResolveSecrets(
+            hostServices: null,
+            o => o.Namespace = "app",
+            providers => providers.AddProvider<FakeReaderProvider>());
+
+        Assert.Equal(string.Empty, config["Feature:Suffix"]);
+        Assert.Equal(string.Empty, config.GetSection("Feature").GetChildren().Single(c => c.Key == "Suffix").Value);
+        Assert.Equal("x", config["Feature:Name"]);
+        Assert.Equal("resolved-pw", config["Db:Password"]);
+    }
+
+    [Fact]
+    public void ChainedRoot_ReadsTheSameValuesAsTheUndecoratedRoot()
+    {
+        var values = new Dictionary<string, string?>
+        {
+            ["Empty"] = string.Empty,
+            ["Set"] = "value",
+            ["Nested:Empty"] = string.Empty,
+            ["Nested:Set"] = "nested"
+        };
+        var innerRoot = new ConfigurationBuilder().AddInMemoryCollection(values).Build();
+        var undecorated = new ConfigurationBuilder().AddInMemoryCollection(values).Build();
+
+        var config = innerRoot.ResolveSecrets(
+            hostServices: null,
+            o => o.Namespace = "app",
+            providers => providers.AddProvider<FakeReaderProvider>());
+
+        foreach (var key in values.Keys)
+        {
+            Assert.Equal(undecorated[key], config[key]);
+        }
+
+        Assert.Null(config["NeverConfigured"]);
+    }
+
+    [Fact]
+    public void ChainedRoot_HonoursTheInnerProviderOrder_ForOverriddenKeys()
+    {
+        // The chained provider reads the inner providers directly, so it has to reproduce the inner root's
+        // own "last provider that has the key wins" precedence itself.
+        var innerRoot = new ConfigurationBuilder()
+            .AddInMemoryCollection(new Dictionary<string, string?> { ["Key"] = "first", ["Blanked"] = "value" })
+            .AddInMemoryCollection(new Dictionary<string, string?> { ["Key"] = "second", ["Blanked"] = string.Empty })
+            .Build();
+
+        var config = innerRoot.ResolveSecrets(
+            hostServices: null,
+            o => o.Namespace = "app",
+            providers => providers.AddProvider<FakeReaderProvider>());
+
+        Assert.Equal("second", config["Key"]);
+        Assert.Equal(string.Empty, config["Blanked"]);
+    }
     [Fact]
     public void ChainedRoot_ResolvesAReferenceThatOnlyAppearsOnReload()
     {
@@ -702,6 +851,28 @@ public class SecretResolvingConfigurationTests
         {
             CallCount++;
             return Task.FromResult<string?>(name == "app/db/pw" ? "resolved-pw" : null);
+        }
+
+        public Task SetSecretAsync(string name, string value, CancellationToken cancellationToken = default)
+            => Task.CompletedTask;
+
+        public Task RemoveSecretAsync(string name, CancellationToken cancellationToken = default)
+            => Task.CompletedTask;
+    }
+
+    // Ignores the cancellation token entirely, the way a provider blocked in a synchronous native call does.
+    private sealed class BlockingProvider : ISecretStoreProvider
+    {
+        public static readonly TimeSpan BlockFor = TimeSpan.FromSeconds(10);
+
+        public string Name => "blocking";
+
+        public bool IsAvailable => true;
+
+        public Task<string?> GetSecretAsync(string name, CancellationToken cancellationToken = default)
+        {
+            Thread.Sleep(BlockFor);
+            return Task.FromResult<string?>(null);
         }
 
         public Task SetSecretAsync(string name, string value, CancellationToken cancellationToken = default)

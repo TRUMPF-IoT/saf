@@ -31,11 +31,7 @@ internal static class SecretConfigurationRootExtensions
         ArgumentNullException.ThrowIfNull(inner);
 
         return new ConfigurationBuilder()
-            .Add(new ChainedConfigurationSource
-            {
-                Configuration = new UnwatchedConfigurationRoot(inner),
-                ShouldDisposeConfiguration = true
-            })
+            .Add(new ChainedConfigurationRootSource(new UnwatchedConfigurationRoot(inner), shouldDisposeRoot: true))
             .Add(new SecretResolvingConfigurationSource(inner, configure, configureProviders, hostServices))
             .Build();
     }
