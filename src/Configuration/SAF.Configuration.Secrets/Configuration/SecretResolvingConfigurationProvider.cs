@@ -195,30 +195,69 @@ internal sealed class SecretResolvingConfigurationProvider : ConfigurationProvid
     {
         var timeout = new CancellationTokenSource();
 
-        // Task.Run keeps the one blocking wait off any captured SynchronizationContext: Load() is
-        // synchronous by contract, and a store whose continuations resume on the calling context
-        // would otherwise deadlock instead of answering.
-        var work = Task.Run(() => ResolveAllAsync(references, timeout.Token), CancellationToken.None);
+        // A dedicated thread, not Task.Run: Load() is synchronous by contract and blocks its calling
+        // thread until this completes, and a provider that blocks inside a synchronous call - the
+        // in-box Windows one blocks in CredReadW, and any provider added through AddProvider<T> may do
+        // the same - never yields, so the timeout below can only be enforced by a thread that isn't the
+        // one running that call. That thread must also run off any SynchronizationContext the caller may
+        // have, or a store whose continuations resume on it would deadlock instead of answering. But
+        // asking the ThreadPool for that worker while also blocking one of the ThreadPool's own threads
+        // waiting on it doubles the pool threads every concurrent resolve needs; under load (many hosts
+        // starting concurrently, or this provider's own tests running in parallel) that starves the pool
+        // and every resolve hangs until the pool's slow-start thread injection eventually catches up,
+        // which can take minutes to hours. A thread of its own never competes with the pool for the
+        // privilege of being waited on.
+        var work = new TaskCompletionSource<Dictionary<string, string?>>(TaskCreationOptions.RunContinuationsAsynchronously);
+        new Thread(() =>
+        {
+            try
+            {
+                work.SetResult(ResolveAllAsync(references, timeout.Token).GetAwaiter().GetResult());
+            }
+            catch (Exception e)
+            {
+                work.SetException(e);
+            }
+        })
+        {
+            IsBackground = true,
+            Name = $"{nameof(SecretResolvingConfigurationProvider)}.{nameof(ResolveAll)}"
+        }.Start();
 
         var abandoned = false;
         try
         {
-            // WaitAsync bounds the wait itself instead of relying on the token: a provider that blocks
-            // inside a synchronous call - the in-box Windows one blocks in CredReadW - never observes
-            // cancellation, so waiting for the token to come back is waiting forever.
-            return work.WaitAsync(ResolveWait).GetAwaiter().GetResult();
-        }
-        catch (TimeoutException) when (!work.IsCompleted)
-        {
-            // Cancelling stays a courtesy to a cooperative provider; the wait is over either way.
-            abandoned = true;
-            timeout.Cancel();
-            Abandon(work, timeout);
+            // Task.Wait bounds the wait itself instead of relying on the token: a provider that blocks
+            // inside a synchronous call never observes cancellation either, so waiting for the token to
+            // come back is waiting forever.
+            bool completed;
+            try
+            {
+                completed = work.Task.Wait(ResolveWait);
+            }
+            catch (AggregateException)
+            {
+                // Wait(), unlike GetAwaiter().GetResult(), throws (wrapped) on a faulted antecedent
+                // instead of just returning true. The fault completed within the timeout either way;
+                // GetAwaiter().GetResult() below reports it as the single, unwrapped exception callers
+                // of a synchronous Load() expect.
+                completed = true;
+            }
 
-            throw new TimeoutException(
-                $"Resolving {references.Count} secret reference(s) did not complete within {_options.ResolveTimeout}. " +
-                $"Raise {nameof(SecretStoreOptions)}.{nameof(SecretStoreOptions.ResolveTimeout)} or check that the " +
-                $"'{_options.ProviderName}' secret store provider is reachable.");
+            if (!completed)
+            {
+                // Cancelling stays a courtesy to a cooperative provider; the wait is over either way.
+                abandoned = true;
+                timeout.Cancel();
+                Abandon(work.Task, timeout);
+
+                throw new TimeoutException(
+                    $"Resolving {references.Count} secret reference(s) did not complete within {_options.ResolveTimeout}. " +
+                    $"Raise {nameof(SecretStoreOptions)}.{nameof(SecretStoreOptions.ResolveTimeout)} or check that the " +
+                    $"'{_options.ProviderName}' secret store provider is reachable.");
+            }
+
+            return work.Task.GetAwaiter().GetResult();
         }
         finally
         {
@@ -229,7 +268,7 @@ internal sealed class SecretResolvingConfigurationProvider : ConfigurationProvid
         }
     }
 
-    // Clamped because WaitAsync rejects anything above int.MaxValue milliseconds; a timeout of 24 days
+    // Clamped because Task.Wait rejects anything above int.MaxValue milliseconds; a timeout of 24 days
     // is indistinguishable from waiting forever anyway.
     private TimeSpan ResolveWait => _options.ResolveTimeout == Timeout.InfiniteTimeSpan
         ? Timeout.InfiniteTimeSpan
