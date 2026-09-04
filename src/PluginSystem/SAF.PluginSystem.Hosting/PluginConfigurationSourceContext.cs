@@ -82,8 +82,14 @@ public sealed class PluginConfigurationSourceContext
 
     /// <summary>
     /// The host's <see cref="IServiceProvider"/>. It is fully built by the time this context is created,
-    /// so any host-registered service can be resolved from it here — as long as that service does not
-    /// itself depend on <see cref="IPluginSystemHostContext"/>, which would be circular.
+    /// so a host-registered service can be resolved from it here — except one that itself depends on
+    /// <see cref="IPluginSystemHostContext"/>, which is the service these callbacks are running inside.
+    /// Resolving such a service (<c>IPluginServiceProvider</c>, <c>IPluginSystemController</c> and the
+    /// host context itself, among others) throws an <see cref="InvalidOperationException"/> naming it,
+    /// rather than being left to the container, which re-enters its own factory until the process dies of
+    /// a StackOverflowException. The refusal comes from the host built by <c>AddPluginSystem</c>; a
+    /// directly constructed <see cref="PluginSystemHostContext"/> hands the callbacks whatever provider it
+    /// was given.
     /// </summary>
     public required IServiceProvider HostServices { get; init; }
 }

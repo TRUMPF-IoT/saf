@@ -134,4 +134,56 @@ public class HostApplicationBuilderExtensionsTests
         // Assert
         Assert.Equal("ValueFromOutside", hostContext.PluginConfiguration["Custom:Setting"]);
     }
+
+    [Fact]
+    public void AddPluginSystem_LetsAConfigurationSourceResolveAHostService()
+    {
+        var services = new ServiceCollection();
+        var builder = Substitute.For<IHostApplicationBuilder>();
+        builder.Services.Returns(services);
+        services.AddLogging();
+        services.AddSingleton(new HostRegisteredService());
+
+        var pluginSystemHostBuilder = builder.AddPluginSystem(options => options.PluginSettingsFilePath = string.Empty);
+        pluginSystemHostBuilder.AddPluginConfigurationSource(sourceContext =>
+            sourceContext.Builder.AddInMemoryCollection(new Dictionary<string, string?>
+            {
+                ["Custom:Setting"] = sourceContext.HostServices.GetRequiredService<HostRegisteredService>().Value,
+            }));
+
+        using var serviceProvider = services.BuildServiceProvider();
+        var hostContext = serviceProvider.GetRequiredService<IPluginSystemHostContext>();
+
+        Assert.Equal("ValueFromTheHostContainer", hostContext.PluginConfiguration["Custom:Setting"]);
+    }
+
+    [Fact]
+    public void AddPluginSystem_RefusesToResolveAPluginSystemServiceFromAConfigurationSource()
+    {
+        // IPluginServiceProvider needs IPluginServicesContainer, which needs IPluginSystemHostContext -
+        // the service whose factory these callbacks run inside. The container does not report that cycle:
+        // it re-invokes the factory it is already in until the process dies of an uncatchable
+        // StackOverflowException, with no exception and no log line.
+        var services = new ServiceCollection();
+        var builder = Substitute.For<IHostApplicationBuilder>();
+        builder.Services.Returns(services);
+        services.AddLogging();
+
+        var pluginSystemHostBuilder = builder.AddPluginSystem(options => options.PluginSettingsFilePath = string.Empty);
+        pluginSystemHostBuilder.AddPluginConfigurationSource(
+            sourceContext => sourceContext.HostServices.GetRequiredService<IPluginServiceProvider>());
+
+        using var serviceProvider = services.BuildServiceProvider();
+
+        var exception = Assert.Throws<InvalidOperationException>(
+            () => serviceProvider.GetRequiredService<IPluginSystemHostContext>());
+        Assert.Contains(typeof(IPluginServiceProvider).ToString(), exception.Message, StringComparison.Ordinal);
+        Assert.Contains(nameof(IPluginSystemHostContext), exception.Message, StringComparison.Ordinal);
+        Assert.Contains(nameof(PluginConfigurationSourceContext.HostServices), exception.Message, StringComparison.Ordinal);
+    }
+
+    private sealed class HostRegisteredService
+    {
+        public string Value => "ValueFromTheHostContainer";
+    }
 }

@@ -484,14 +484,28 @@ pipeline already resolved: `SettingsFileProvider` (the `IFileProvider` scoped to
 directory — the same instance the default plugin JSON files use), `SettingsFileName` (e.g.
 `pluginsettings.json`), `EnvironmentName`, `OnLoadException` (the shared handler that ignores a failed
 load and logs a warning instead of crashing host startup or silently wiping values on reload), and
-`HostServices` — the host's fully-built `IServiceProvider`, safe to resolve any host-registered service
-from (as long as that service does not itself depend on `IPluginSystemHostContext`). Building sources
-through `source.SettingsFileProvider` keeps them rooted at the same directory as the default plugin JSON
+`HostServices` — the host's fully-built `IServiceProvider`. Building sources through
+`source.SettingsFileProvider` keeps them rooted at the same directory as the default plugin JSON
 regardless of how `PluginSettingsRootPath` resolves — there is no separate path to keep in sync.
 
 The callback runs exactly once, during `IPluginSystemHostContext` construction; any exception it throws
 propagates into host startup. Additional providers are appended after the default plugin JSON sources.
 Configuration precedence follows normal .NET rules (later providers override earlier ones).
+
+> **`HostServices` cannot resolve the plugin system's own services.** The callbacks run *inside* the
+> construction of `IPluginSystemHostContext` — the plugin configuration they contribute to is part of it —
+> so resolving a service that needs the host context is refused with an `InvalidOperationException` naming
+> the service. That covers `IPluginSystemHostContext` itself and everything built on it —
+> `IPluginServiceProvider`, `IPluginServicesContainer`, `IPluginServicesReloader`,
+> `IServicePluginLifecycleRunner`, `IPluginSystemController` — plus anything of your own that depends on
+> one of them. It is a refusal rather than a container cycle error because
+> `Microsoft.Extensions.DependencyInjection` does not detect this cycle: it re-invokes the factory it is
+> already inside until the process dies of an uncatchable `StackOverflowException`, with no exception and
+> no log line.
+>
+> Everything else is fair game — `ILoggerFactory`, `IFileSystem`, an `IOptions<T>` of your own, a client
+> your composition root registered. If you need a plugin-system service, take it where the host context
+> already exists: a plugin manifest's `ConfigureServices`, or a hosted service.
 
 #### Decorating the built configuration root
 

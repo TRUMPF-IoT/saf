@@ -398,8 +398,27 @@ Then reference secrets in the plugin configuration with the `secret://` prefix:
   also covers why it is off and the one naming pitfall to know about before turning it on.
 - Provider selection/registration is the same as `AddSecretStore` (default = platform providers, or
   pass `configureProviders` to choose explicitly). `AddSecretConfigurationResolution` and
-  `AddSecretStore` compose safely, so transparent resolution and direct `ISecretStore` injection can be
-  used together.
+  `AddSecretStore` compose, so transparent resolution and direct `ISecretStore` injection can be used
+  together — subject to one rule: **register the providers in exactly one of the two calls.**
+
+> **Composing the two calls.** Both register the same store, so the order of the two calls does not
+> matter and calling either twice changes nothing. Options callbacks from both are applied in call order, so a
+> property set in both takes the value from the later call.
+>
+> The provider list is the exception. The order providers are registered in is the priority order
+> `ProviderName = "auto"` selects from, and registration *appends*: a second list would land behind the
+> first rather than replace it, leaving the store reading from a backend nobody chose. So pass
+> `configureProviders` to one call only — the other takes what is already registered:
+>
+> ```csharp
+> ps.AddSecretStore(o => o.Namespace = "myapp", p => p.AddFile());
+> ps.AddSecretConfigurationResolution();   // same store, same options, same providers
+> ```
+>
+> Passing it to both throws an `InvalidOperationException` during registration, naming both calls, instead
+> of letting the call order decide the active backend. A call that omits it accepts whatever is already
+> registered — including providers registered directly, e.g. `services.AddSecretStore().AddFile()` — and
+> registers the platform defaults only when nothing is.
 
 > **Registration order does not matter, and a reference is never handed out unresolved.** Every plugin
 > configuration source is resolved, whether its `AddPluginConfigurationSource` callback ran before or

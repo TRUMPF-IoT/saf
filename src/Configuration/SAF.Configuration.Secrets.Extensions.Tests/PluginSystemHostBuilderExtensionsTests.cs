@@ -159,6 +159,125 @@ public class PluginSystemHostBuilderExtensionsTests
         Assert.Equal(1, countingSource.BuildCount);
     }
 
+    [Fact]
+    public void AddSecretConfigurationResolution_KeepsTheProvidersAnEarlierCallRegistered()
+    {
+        // The order providers are registered in is the order auto-selection picks from, and TryAddEnumerable
+        // appends: adding the platform defaults on top here could not override the explicit choice, it would
+        // only add a fallback backend nobody asked for.
+        var services = NewServices();
+        var hostBuilder = NewHostBuilder(services);
+
+        hostBuilder.AddSecretStore(configureProviders: providers => providers.AddProvider<StubProvider>());
+        hostBuilder.AddSecretConfigurationResolution();
+
+        using var provider = services.BuildServiceProvider();
+        var registered = provider.GetServices<ISecretStoreProvider>().ToList();
+        Assert.Single(registered);
+        Assert.IsType<StubProvider>(registered[0]);
+    }
+
+    [Fact]
+    public void AddSecretConfigurationResolution_KeepsProvidersRegisteredOutsideTheseExtensions()
+    {
+        var services = NewServices();
+        services.AddSecretStore().AddProvider<StubProvider>();
+        var hostBuilder = NewHostBuilder(services);
+
+        hostBuilder.AddSecretConfigurationResolution();
+
+        using var provider = services.BuildServiceProvider();
+        Assert.IsType<StubProvider>(Assert.Single(provider.GetServices<ISecretStoreProvider>()));
+    }
+
+    [Fact]
+    public void AddSecretStore_Throws_WhenProvidersWereAlreadyConfiguredByResolution()
+    {
+        // The reported failure: on Windows this used to leave the Credential Manager selected and ignore the
+        // explicit AddFile(), so secrets provisioned into the encrypted file were never read.
+        var services = NewServices();
+        var hostBuilder = NewHostBuilder(services);
+        hostBuilder.AddSecretConfigurationResolution();
+
+        var exception = Assert.Throws<InvalidOperationException>(
+            () => hostBuilder.AddSecretStore(configureProviders: providers => providers.AddProvider<StubProvider>()));
+
+        Assert.Contains(nameof(PluginSystemHostBuilderExtensions.AddSecretConfigurationResolution), exception.Message, StringComparison.Ordinal);
+        Assert.Contains(nameof(PluginSystemHostBuilderExtensions.AddSecretStore), exception.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void AddSecretConfigurationResolution_Throws_WhenProvidersWereAlreadyConfiguredByTheStore()
+    {
+        var services = NewServices();
+        var hostBuilder = NewHostBuilder(services);
+        hostBuilder.AddSecretStore(configureProviders: providers => providers.AddProvider<StubProvider>());
+
+        Assert.Throws<InvalidOperationException>(
+            () => hostBuilder.AddSecretConfigurationResolution(
+                configureProviders: providers => providers.AddProvider<FakeSecretProvider>()));
+    }
+
+    [Fact]
+    public void AddSecretStore_ForwardsTheStoreOnce_WhenCalledTwice()
+    {
+        var services = NewServices();
+        var hostBuilder = NewHostBuilder(services);
+
+        hostBuilder.AddSecretStore();
+        hostBuilder.AddSecretStore();
+
+        Assert.Single(services, d => d.ServiceType == typeof(IHostServiceForwarder));
+    }
+
+    [Fact]
+    public void AddSecretConfigurationResolution_RegistersNothingNew_WhenCalledTwice()
+    {
+        // A second root decorator would resolve the already resolved configuration again, with its own
+        // resolver, its own change-token registration and its own reader.
+        var services = NewServices();
+        var hostBuilder = NewHostBuilder(services);
+        hostBuilder.AddSecretConfigurationResolution();
+        var registeredAfterFirstCall = services.Count;
+
+        hostBuilder.AddSecretConfigurationResolution();
+
+        Assert.Equal(registeredAfterFirstCall, services.Count);
+    }
+
+    [Fact]
+    public void AddSecretStore_AndAddSecretConfigurationResolution_ApplyBothOptionsCallbacks_InCallOrder()
+    {
+        var services = NewServices();
+        var hostBuilder = NewHostBuilder(services);
+
+        hostBuilder.AddSecretStore(o =>
+        {
+            o.Namespace = "first";
+            o.ProviderName = "first";
+        });
+        hostBuilder.AddSecretConfigurationResolution(o => o.ProviderName = "second");
+
+        using var provider = services.BuildServiceProvider();
+        var options = provider.GetRequiredService<Microsoft.Extensions.Options.IOptions<SecretStoreOptions>>().Value;
+        Assert.Equal("first", options.Namespace);
+        Assert.Equal("second", options.ProviderName);
+    }
+
+    private static ServiceCollection NewServices()
+    {
+        var services = new ServiceCollection();
+        services.AddLogging();
+        return services;
+    }
+
+    private static IPluginSystemHostBuilder NewHostBuilder(IServiceCollection services)
+    {
+        var hostBuilder = Substitute.For<IPluginSystemHostBuilder>();
+        hostBuilder.Services.Returns(services);
+        return hostBuilder;
+    }
+
     private sealed class CountingSource : IConfigurationSource
     {
         public int BuildCount { get; private set; }
