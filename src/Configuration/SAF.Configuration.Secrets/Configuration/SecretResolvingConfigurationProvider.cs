@@ -191,7 +191,7 @@ internal sealed class SecretResolvingConfigurationProvider : ConfigurationProvid
             "win over the resolved value. Add that source before the AddResolvedSecrets call.");
     }
 
-    private Dictionary<string, string?> ResolveAll(ICollection<SecretReference> references)
+    private Dictionary<string, string?> ResolveAll(Dictionary<string, SecretReference>.ValueCollection references)
     {
         var timeout = new CancellationTokenSource();
 
@@ -249,7 +249,7 @@ internal sealed class SecretResolvingConfigurationProvider : ConfigurationProvid
             TaskScheduler.Default);
 
     private async Task<Dictionary<string, string?>> ResolveAllAsync(
-        ICollection<SecretReference> references,
+        Dictionary<string, SecretReference>.ValueCollection references,
         CancellationToken cancellationToken)
     {
         var resolved = new Dictionary<string, string?>(StringComparer.Ordinal);
@@ -352,7 +352,7 @@ internal sealed class SecretResolvingConfigurationProvider : ConfigurationProvid
         return builder.ToString();
     }
 
-    private static bool DataEquals(IDictionary<string, string?> left, IDictionary<string, string?> right)
+    private static bool DataEquals(IDictionary<string, string?> left, Dictionary<string, string?> right)
     {
         if (left.Count != right.Count)
         {

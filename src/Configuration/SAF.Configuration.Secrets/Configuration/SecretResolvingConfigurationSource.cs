@@ -70,14 +70,11 @@ internal sealed class SecretResolvingConfigurationSource(
             innerBuilder.Properties[property.Key] = property.Value;
         }
 
-        foreach (var source in builder.Sources)
+        // Every resolving source is skipped, not just this one: two AddResolvedSecrets calls on one
+        // builder would otherwise build each other recursively.
+        foreach (var source in builder.Sources.Where(source => source is not SecretResolvingConfigurationSource))
         {
-            // Every resolving source is skipped, not just this one: two AddResolvedSecrets calls on one
-            // builder would otherwise build each other recursively.
-            if (source is not SecretResolvingConfigurationSource)
-            {
-                innerBuilder.Add(source);
-            }
+            innerBuilder.Add(source);
         }
 
         return innerBuilder.Build();

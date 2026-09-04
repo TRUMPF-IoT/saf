@@ -4,6 +4,7 @@
 
 namespace SAF.Configuration.Secrets.Configuration;
 
+using System.Diagnostics.CodeAnalysis;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Primitives;
 
@@ -46,6 +47,7 @@ internal sealed class UnwatchedConfigurationRoot(IConfigurationRoot inner) : ICo
 
         private sealed class NullDisposable : IDisposable
         {
+            [SuppressMessage("Minor Code Smell", "S3218", Justification = "Using 'Instance' for singleton-style fields is intentional.")]
             public static readonly NullDisposable Instance = new();
 
             public void Dispose()

@@ -253,39 +253,61 @@ internal sealed class FileSecretStore : ISecretStoreProvider, IDisposable
             {
                 return open();
             }
-            catch (FileNotFoundException) when (nullIfMissing)
-            {
-                return null;
-            }
-            catch (DirectoryNotFoundException) when (nullIfMissing)
+            catch (IOException e) when (nullIfMissing && IsMissingPathException(e))
             {
                 return null;
             }
             catch (UnauthorizedAccessException e)
             {
-                throw new InvalidOperationException(
-                    $"Access to the secret store file '{path}' was denied. The runtime account needs read " +
-                    "(and, for writes, write) access to it; granting that is the installer's responsibility.", e);
+                throw CreateAccessDeniedException(path, e);
             }
             catch (IOException e) when (IsSharingConflict(e))
             {
-                if (deadline is not null && Environment.TickCount64 >= deadline)
-                {
-                    throw new TimeoutException(
-                        $"The secret store file '{path}' stayed locked by another process for longer than " +
-                        $"{timeout} ({nameof(FileSecretStoreOptions)}.{nameof(FileSecretStoreOptions.LockTimeout)}).", e);
-                }
-
-                if (!waiting)
-                {
-                    waiting = true;
-                    _logger.LogInformation(
-                        "Waiting for another process to release the secret store file {Path} (up to {Timeout}).",
-                        path, timeout);
-                }
-
-                await Task.Delay(ExclusiveOpenRetryDelay, cancellationToken).ConfigureAwait(false);
+                waiting = await WaitForSharingConflictAsync(path, timeout, deadline, waiting, e, cancellationToken)
+                    .ConfigureAwait(false);
             }
+        }
+    }
+
+    private static bool IsMissingPathException(IOException exception)
+        => exception is FileNotFoundException or DirectoryNotFoundException;
+
+    private static InvalidOperationException CreateAccessDeniedException(string path, UnauthorizedAccessException exception)
+        => new(
+            $"Access to the secret store file '{path}' was denied. The runtime account needs read " +
+            "(and, for writes, write) access to it; granting that is the installer's responsibility.", exception);
+
+    private async Task<bool> WaitForSharingConflictAsync(
+        string path,
+        TimeSpan timeout,
+        long? deadline,
+        bool waiting,
+        IOException exception,
+        CancellationToken cancellationToken)
+    {
+        ThrowIfLockTimeoutExceeded(path, timeout, deadline, exception);
+
+        if (!waiting)
+        {
+            _logger.LogInformation(
+                "Waiting for another process to release the secret store file {Path} (up to {Timeout}).",
+                path,
+                timeout);
+            waiting = true;
+        }
+
+        await Task.Delay(ExclusiveOpenRetryDelay, cancellationToken).ConfigureAwait(false);
+        return waiting;
+    }
+
+    private static void ThrowIfLockTimeoutExceeded(string path, TimeSpan timeout, long? deadline, IOException exception)
+    {
+        if (deadline is not null && Environment.TickCount64 >= deadline)
+        {
+            throw new TimeoutException(
+                $"The secret store file '{path}' stayed locked by another process for longer than " +
+                $"{timeout} ({nameof(FileSecretStoreOptions)}.{nameof(FileSecretStoreOptions.LockTimeout)}).",
+                exception);
         }
     }
 
