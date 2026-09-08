@@ -261,6 +261,15 @@ internal sealed class FileSecretStore : ISecretStoreProvider, IDisposable
             {
                 throw CreateAccessDeniedException(path, e);
             }
+            // A directory sits where the store file should be: opening it as a file will never succeed by
+            // waiting. Windows reports this as UnauthorizedAccessException (caught above); Linux reports a
+            // plain IOException ("already exists") that IsSharingConflict cannot tell apart from a real,
+            // transient sharing conflict, so without this it polled a failure that could never clear.
+            catch (IOException e) when (_fileSystem.Directory.Exists(path))
+            {
+                throw CreateAccessDeniedException(path, new UnauthorizedAccessException(
+                    $"The path '{path}' is a directory.", e));
+            }
             catch (IOException e) when (IsSharingConflict(e))
             {
                 waiting = await WaitForSharingConflictAsync(path, timeout, deadline, waiting, e, cancellationToken)
