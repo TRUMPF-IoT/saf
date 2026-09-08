@@ -127,6 +127,10 @@ public class SharedAssemblyResolverTests
         Assert.Equal(SharedAssemblyDecision.LoadIsolated, decision);
     }
 
+    [Fact]
+    public void DefaultDecision_IsLoadIsolated_SoAnUninitializedDecisionKeepsIsolation()
+        => Assert.Equal(SharedAssemblyDecision.LoadIsolated, default(SharedAssemblyDecision));
+
     private static SharedAssemblyResolver CreateResolver(ISharedAssemblyRegistry registry, bool allowMajorVersionRollForward = false)
         => new(registry, new SharedAssemblyVersionComparer(), allowMajorVersionRollForward);
 
