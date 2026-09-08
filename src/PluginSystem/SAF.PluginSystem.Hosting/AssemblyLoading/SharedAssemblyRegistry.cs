@@ -8,21 +8,23 @@ using Contracts;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
+using Microsoft.Extensions.Primitives;
 using System.IO.Abstractions;
 using System.Reflection;
 
 /// <inheritdoc />
 /// <remarks>
 /// The shared set is explicit, not computed from a dependency scan: it is the union of the assemblies SAF
-/// implicitly forces across the plugin boundary (see <see cref="CollectImplicitlySharedAssemblies"/>) and
-/// the plugin contract assemblies configured through
-/// <see cref="PluginSystemOptions.PluginContractsSearchPattern"/> (reported by
-/// <see cref="IPublicServiceTypeRegistry"/>). Consumers must therefore configure any additional dependency
-/// whose types cross the boundary; anything not in the set loads isolated per plugin.
+/// implicitly forces across the plugin boundary (see <see cref="CollectImplicitlySharedAssemblies"/>), the
+/// assemblies contributed by <see cref="ISharedAssemblySource"/> registrations, and the plugin contract
+/// assemblies configured through <see cref="PluginSystemOptions.PluginContractsSearchPattern"/>. Anything
+/// not in the set loads isolated per plugin.
 /// </remarks>
 internal sealed class SharedAssemblyRegistry(
     ILogger<SharedAssemblyRegistry> logger,
-    IPublicServiceTypeRegistry publicServiceTypeRegistry)
+    IPublicServiceTypeRegistry publicServiceTypeRegistry,
+    IEnumerable<ISharedAssemblySource> sharedAssemblySources)
     : ISharedAssemblyRegistry
 {
     private readonly Dictionary<string, SharedAssemblyInfo> _sharedAssemblies = new(StringComparer.OrdinalIgnoreCase);
@@ -79,6 +81,11 @@ internal sealed class SharedAssemblyRegistry(
             Record(assemblyName);
         }
 
+        foreach (var assemblyName in sharedAssemblySources.SelectMany(source => source.GetSharedAssemblyNames()))
+        {
+            Record(assemblyName);
+        }
+
         foreach (var contractFullName in publicServiceTypeRegistry.GetAssemblyNames())
         {
             try
@@ -94,14 +101,16 @@ internal sealed class SharedAssemblyRegistry(
 
     private static IEnumerable<AssemblyName> CollectImplicitlySharedAssemblies()
     {
-        // Everything SAF forces across the boundary: the hosting contracts (IPluginManifest,
-        // IPluginSystemHostContext, IHostServiceForwarder, IPluginServiceProvider, ...) plus the abstraction
-        // assemblies of the common services RedirectCommonServices injects into every plugin container.
+        // Everything SAF forces across the boundary: the hosting contracts, the abstraction assemblies of
+        // the common services RedirectCommonServices injects, and the assemblies those expose on their own
+        // public surface (Options via the Contracts helpers, Primitives via IConfiguration.GetReloadToken).
         yield return typeof(IPluginManifest).Assembly.GetName();       // SAF.PluginSystem.Hosting.Contracts
         yield return typeof(IServiceCollection).Assembly.GetName();    // Microsoft.Extensions.DependencyInjection.Abstractions
         yield return typeof(IConfiguration).Assembly.GetName();        // Microsoft.Extensions.Configuration.Abstractions
         yield return typeof(ILoggerFactory).Assembly.GetName();        // Microsoft.Extensions.Logging.Abstractions
         yield return typeof(IFileSystem).Assembly.GetName();           // System.IO.Abstractions
+        yield return typeof(IOptions<>).Assembly.GetName();            // Microsoft.Extensions.Options
+        yield return typeof(IChangeToken).Assembly.GetName();          // Microsoft.Extensions.Primitives
     }
 
     private void Record(AssemblyName name)

@@ -577,8 +577,7 @@ public sealed class PluginAssemblyFolderContainerTests : IDisposable
     [Fact]
     public void GetPluginManifests_Rethrows_WhenSharedAssemblyVersionConflictWrappedInFileLoadException()
     {
-        var testDirectory = Path.Combine(AppContext.BaseDirectory, $"test-plugins-{Guid.NewGuid():N}");
-        _fileSystem.Directory.CreateDirectory(testDirectory);
+        var testDirectory = CreateTestDirectory($"test-plugins-{Guid.NewGuid():N}");
 
         var pluginAssemblyPath = Path.Combine(testDirectory, "valid.managed.dll");
         _fileSystem.File.Copy(Path.Combine(AppContext.BaseDirectory, "SAF.PluginSystem.Hosting.Tests.dll"), pluginAssemblyPath);

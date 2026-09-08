@@ -204,19 +204,21 @@ Additional services can be bridged explicitly via `IHostServiceForwarder` (see b
 
 ### IHostServiceForwarder
 
-To forward an additional host service into every plugin container, register a `HostServiceForwarder<T>` in the host's `IServiceCollection`:
+To forward an additional host service into every plugin container, call `AddHostServiceForwarder<T>()` on the host's `IServiceCollection`:
 
 ```csharp
 // Register the service in the host container
 services.AddSingleton<MySharedService>();
 
 // Bridge it into every plugin container
-services.AddSingleton<IHostServiceForwarder, HostServiceForwarder<MySharedService>>();
+services.AddHostServiceForwarder<MySharedService>();
 ```
+
+`AddHostServiceForwarder<T>()` registers two things together, and that pairing is the point: a `HostServiceForwarder<T>` that bridges the instance, and a `SharedAssemblySource<T>` that puts the assembly declaring `T` into the [shared set](#the-shared-set). Without the second registration the plug-in would load its own copy of the contract assembly and fail to resolve the forwarded instance. Repeated calls for the same `T` are idempotent.
 
 `HostServiceForwarder<T>` is resolved from the host container (receiving the already-built singleton via constructor injection) and calls `pluginServices.AddSingleton(instance)` for each plugin — one shared instance, no factory, no service locator.
 
-Implement `IHostServiceForwarder` directly for more control, e.g. to register a service under a different interface:
+Implement `IHostServiceForwarder` directly for more control, e.g. to register a service under a different interface. Registering the forwarder by hand also means declaring the shared assembly by hand:
 
 ```csharp
 public sealed class MyForwarder(MySharedService service) : IHostServiceForwarder
@@ -224,6 +226,9 @@ public sealed class MyForwarder(MySharedService service) : IHostServiceForwarder
     public void Forward(IServiceCollection pluginServices)
         => pluginServices.AddSingleton<IMyContract>(service);
 }
+
+services.AddSingleton<IHostServiceForwarder, MyForwarder>();
+services.AddSingleton<ISharedAssemblySource, SharedAssemblySource<IMyContract>>();
 ```
 
 > **Forward instances, not factories.** Register the resolved host instance (`AddSingleton(instance)`), never a factory delegate that returns a host service (`AddSingleton(_ => hostProvider.GetRequiredService<T>())`). A plugin container disposes the singletons it created itself, so a factory-forwarded service would be disposed together with the plugin container — for example on a [live reload](#live-reload-reconfiguration) — while the host still uses it. Instance registrations are not owned by the plugin container and survive. The built-in forwarded services (`IPluginServiceProvider`, `IPluginSystemHostEnvironment`, `IFileSystem`) are additionally shielded by a non-owning proxy, so their `Dispose`/`DisposeAsync` calls never reach the host instance.
@@ -325,7 +330,11 @@ plug-in context. The set is **explicit**, not derived from a dependency scan:
 
 - **SAF's own boundary assemblies**, added automatically — the hosting contracts plus the abstraction
   assemblies of the common services SAF injects into every plug-in container (`IServiceCollection`,
-  `IConfiguration`, `ILoggerFactory`/`ILogger<T>`, `IFileSystem`). You never configure these.
+  `IConfiguration`, `ILoggerFactory`/`ILogger<T>`, `IFileSystem`), together with the assemblies those
+  expose on their own public surface (`Microsoft.Extensions.Options`,
+  `Microsoft.Extensions.Primitives`). You never configure these.
+- The **contract assemblies of forwarded host services**, added automatically by
+  `AddHostServiceForwarder<T>()` (see [IHostServiceForwarder](#ihostserviceforwarder)).
 - The **contract assemblies** you configure through `PluginSystemOptions.PluginContractsSearchPattern`,
   **and any further dependency whose types cross the plug-in boundary** — list those in the same
   pattern so they enter the shared set.
@@ -334,10 +343,12 @@ Any assembly **not** in the shared set stays isolated: each plug-in loads its ow
 folder. This is intentional — plug-ins can use their own private versions of non-contract libraries.
 
 > **Consequence:** if a type on your contract surface comes from a *separate* assembly (a shared domain
-> model, a common utility or serializer library that both the host and plug-ins carry, a third-party type
-> exposed by a contract method, or a host service you forward via `IHostServiceForwarder`), that assembly
-> must also match `PluginContractsSearchPattern`. If you forget it, the plug-in loads its own copy and
-> casting the type across the boundary throws `InvalidCastException`. Enable `Debug` logging on
+> model, a common utility or serializer library that both the host and plug-ins carry, or a third-party
+> type exposed by a contract method), that assembly must also match `PluginContractsSearchPattern`. If you
+> forget it, the plug-in loads its own copy and casting the type across the boundary throws
+> `InvalidCastException`. Services forwarded with `AddHostServiceForwarder<T>()` are the exception: their
+> contract assembly is shared automatically and must **not** be added to the pattern, which would also
+> export them as cross-plugin services. Enable `Debug` logging on
 > `SharedAssemblyRegistry` to see the full shared set at start-up, and `Trace` on
 > `PluginAssemblyLoadContext` to see which assemblies load in isolation.
 >

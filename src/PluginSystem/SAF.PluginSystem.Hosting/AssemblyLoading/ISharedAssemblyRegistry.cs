@@ -5,9 +5,10 @@
 namespace SAF.PluginSystem.Hosting.AssemblyLoading;
 
 /// <summary>
-/// Holds the set of assemblies that must be shared between the host and all plugin load contexts: the
-/// transitive closure of the plugin contract assemblies plus any explicitly configured additions.
-/// Lookups are performed by simple assembly name.
+/// Holds the set of assemblies that must be shared between the host and all plugin load contexts. The set
+/// is explicit, never a dependency scan: the assemblies SAF forces across the boundary, those contributed
+/// by <see cref="ISharedAssemblySource"/>, and the configured plugin contract assemblies. Lookups are
+/// performed by simple assembly name.
 /// </summary>
 internal interface ISharedAssemblyRegistry
 {

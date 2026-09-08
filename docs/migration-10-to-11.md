@@ -398,6 +398,32 @@ callback a null provider.
 
 ---
 
+### Register forwarded host services with `AddHostServiceForwarder<T>()`
+
+Forwarding a host service into plug-in containers now has a second, inseparable half: the assembly
+declaring the forwarded contract must be in the plugin system's
+[shared set](./plugin-system.md#the-shared-set), otherwise each plug-in loads its own copy and cannot
+resolve the forwarded instance. `AddHostServiceForwarder<T>()` registers both halves in one call.
+
+```csharp
+// Before — forwards the instance, but does not share the contract assembly
+services.AddSingleton<IHostServiceForwarder, HostServiceForwarder<IMyContract>>();
+
+// After
+services.AddHostServiceForwarder<IMyContract>();
+```
+
+The old registration still compiles. It is not a compile error but a silent one: the plug-in resolves
+`IMyContract` from its own private copy of the assembly and the container reports the service as missing.
+If you implement `IHostServiceForwarder` yourself, register an `ISharedAssemblySource` alongside it —
+`services.AddSingleton<ISharedAssemblySource, SharedAssemblySource<IMyContract>>()`.
+
+`AddSecretStore()` and `AddSafHost()` were updated, so `ISecretStore` and `IServiceHostInfo` need no
+action. In particular, do **not** add their contract assemblies to `PluginContractsSearchPattern`; that
+setting exports cross-plugin services and is not the mechanism behind forwarding.
+
+---
+
 ## Quick Migration Checklist
 
 - [ ] Replace `new ServiceCollection()` + `AddHost()` with `Host.CreateApplicationBuilder()` + `AddSafHost()`
@@ -412,3 +438,4 @@ callback a null provider.
 - [ ] Deploy messaging/storage as plug-ins (add their DLLs to `IncludePatterns`) instead of calling `Add*Infrastructure()` on the host
 - [ ] Reference `SAF.PluginSystem.Hosting.Extensions` explicitly if you use plugin assembly validation, and check the `RequireValidDigitalSignature = true` default against the signatures your plug-ins actually carry
 - [ ] Pass the host `IServiceProvider` if you construct `PluginSystemHostContext` or `PluginConfigurationSourceContext` yourself (`AddSafHost()` already does)
+- [ ] Replace `AddSingleton<IHostServiceForwarder, HostServiceForwarder<T>>()` with `AddHostServiceForwarder<T>()` so the forwarded contract assembly is shared with every plug-in

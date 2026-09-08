@@ -90,10 +90,9 @@ builder.AddSafHost()
 `ISecretStore` is forwarded from the host into every plug-in container via `IHostServiceForwarder` (see
 [Plugin System: IHostServiceForwarder](./plugin-system.md#ihostserviceforwarder)). For a plug-in to
 accept the forwarded instance, its isolated load context must resolve `ISecretStore` to the *same*
-`SAF.Configuration.Secrets.Contracts` assembly the host uses — the plugin system does this automatically
-for any assembly it finds in the host's own base directory. Referencing
-`SAF.Configuration.Secrets.Extensions` from your host project is normally all it takes: the contracts
-assembly is a transitive dependency, so the build already places it next to your host executable.
+`SAF.Configuration.Secrets.Contracts` assembly the host uses. `AddSecretStore` handles this: it registers
+the forwarder through `AddHostServiceForwarder<ISecretStore>()`, which adds the contracts assembly to the
+plugin system's [shared set](./plugin-system.md#the-shared-set) in the same step. Nothing to configure.
 
 > Do **not** add it to `PluginContractsSearchPattern` — that setting controls a different mechanism,
 > discovering **cross-plugin service exports** (see

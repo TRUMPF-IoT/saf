@@ -32,10 +32,9 @@ internal static class ServiceCollectionExtensions
             return new ServiceHostInfo(options, () => GetOrInitializeHostId(ResolveStorageInfrastructure(sp)));
         });
 
-        // Bridge: forward the configured service into every plugin container.
-        // Runs before each plugin manifest's ConfigureServices, so plugins always receive
-        // the IServiceHostInfo that includes all code-based Configure<ServiceHostOptions> calls.
-        services.AddSingleton<IHostServiceForwarder, HostServiceForwarder<IServiceHostInfo>>();
+        // Bridge: forward the configured service into every plugin container and share its declaring
+        // assembly, so plugins resolve the same IServiceHostInfo type the host registered.
+        services.AddHostServiceForwarder<IServiceHostInfo>();
 
         return services;
     }

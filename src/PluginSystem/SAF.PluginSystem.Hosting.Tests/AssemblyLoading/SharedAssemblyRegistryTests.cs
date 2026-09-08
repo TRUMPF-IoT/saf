@@ -10,13 +10,17 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
+using Microsoft.Extensions.Options;
+using Microsoft.Extensions.Primitives;
 using NSubstitute;
 using SAF.PluginSystem.Hosting.Contracts;
 using System.IO.Abstractions;
+using System.Reflection;
 
 public class SharedAssemblyRegistryTests
 {
     private readonly IPublicServiceTypeRegistry _publicServiceTypeRegistry = Substitute.For<IPublicServiceTypeRegistry>();
+    private readonly List<ISharedAssemblySource> _sharedAssemblySources = [];
 
     public SharedAssemblyRegistryTests()
     {
@@ -29,6 +33,8 @@ public class SharedAssemblyRegistryTests
     [InlineData(typeof(IConfiguration))]         // Microsoft.Extensions.Configuration.Abstractions
     [InlineData(typeof(ILoggerFactory))]         // Microsoft.Extensions.Logging.Abstractions
     [InlineData(typeof(IFileSystem))]            // System.IO.Abstractions
+    [InlineData(typeof(IOptions<>))]             // Microsoft.Extensions.Options
+    [InlineData(typeof(IChangeToken))]           // Microsoft.Extensions.Primitives
     public void SharedSet_AlwaysContains_ImplicitlySharedSafAssembly(Type type)
     {
         var expected = type.Assembly.GetName();
@@ -111,6 +117,49 @@ public class SharedAssemblyRegistryTests
         _publicServiceTypeRegistry.Received(1).GetAssemblyNames();
     }
 
+    [Fact]
+    public void SharedSet_ContainsAssembliesContributedBySources()
+    {
+        _sharedAssemblySources.Add(new SharedAssemblySource<SharedAssemblyRegistryTests>());
+        var expected = typeof(SharedAssemblyRegistryTests).Assembly.GetName();
+
+        var registry = CreateRegistry();
+
+        Assert.True(registry.TryGetSharedAssembly(expected.Name!, out var info));
+        Assert.Equal(expected.Version, info.Version);
+    }
+
+    [Fact]
+    public void SharedSet_ContainsAssembliesFromEverySource()
+    {
+        _sharedAssemblySources.Add(new StubSharedAssemblySource("First.Contracts, Version=1.0.0.0"));
+        _sharedAssemblySources.Add(new StubSharedAssemblySource("Second.Contracts, Version=3.2.0.0"));
+
+        var registry = CreateRegistry();
+
+        Assert.True(registry.TryGetSharedAssembly("First.Contracts", out _));
+        Assert.True(registry.TryGetSharedAssembly("Second.Contracts", out var second));
+        Assert.Equal(new Version(3, 2, 0, 0), second.Version);
+    }
+
+    [Fact]
+    public void SharedSet_PrefersContractAssemblies_OverSourceContributions_ForTheSameSimpleName()
+    {
+        // The configured contract assemblies are recorded last, so an explicitly configured version wins.
+        _sharedAssemblySources.Add(new StubSharedAssemblySource("Acme.Contracts, Version=1.0.0.0"));
+        _publicServiceTypeRegistry.GetAssemblyNames().Returns(["Acme.Contracts, Version=2.0.0.0"]);
+
+        var registry = CreateRegistry();
+
+        Assert.True(registry.TryGetSharedAssembly("Acme.Contracts", out var info));
+        Assert.Equal(new Version(2, 0, 0, 0), info.Version);
+    }
+
     private SharedAssemblyRegistry CreateRegistry()
-        => new(NullLogger<SharedAssemblyRegistry>.Instance, _publicServiceTypeRegistry);
+        => new(NullLogger<SharedAssemblyRegistry>.Instance, _publicServiceTypeRegistry, _sharedAssemblySources);
+
+    private sealed class StubSharedAssemblySource(params string[] fullNames) : ISharedAssemblySource
+    {
+        public IEnumerable<AssemblyName> GetSharedAssemblyNames() => fullNames.Select(name => new AssemblyName(name));
+    }
 }
