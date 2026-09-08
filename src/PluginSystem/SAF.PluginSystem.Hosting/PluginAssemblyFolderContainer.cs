@@ -153,19 +153,50 @@ public class PluginAssemblyFolderContainer(
         return manifests;
     }
 
-    // The runtime wraps a fail-fast SharedAssemblyVersionConflictException in a FileLoadException; let it
-    // propagate instead of swallowing it, so SharedAssemblyConflictBehavior.Fail actually fails the host.
+    // The runtime wraps a fail-fast SharedAssemblyVersionConflictException in a FileLoadException, and
+    // reflection over the plugin types reports it through ReflectionTypeLoadException.LoaderExceptions
+    // instead of InnerException; let it propagate either way, so SharedAssemblyConflictBehavior.Fail
+    // actually fails the host.
     private static bool IsSharedAssemblyVersionConflict(Exception exception)
     {
-        for (var current = exception; current is not null; current = current.InnerException)
+        var pending = new Stack<Exception>();
+        pending.Push(exception);
+
+        while (pending.Count > 0)
         {
-            if (current is SharedAssemblyVersionConflictException)
+            var current = pending.Pop();
+            switch (current)
             {
-                return true;
+                case SharedAssemblyVersionConflictException:
+                    return true;
+
+                case ReflectionTypeLoadException typeLoadException:
+                    PushAll(pending, typeLoadException.LoaderExceptions);
+                    break;
+
+                case AggregateException aggregateException:
+                    PushAll(pending, aggregateException.InnerExceptions);
+                    break;
+            }
+
+            if (current.InnerException is not null)
+            {
+                pending.Push(current.InnerException);
             }
         }
 
         return false;
+    }
+
+    private static void PushAll(Stack<Exception> pending, IEnumerable<Exception?> exceptions)
+    {
+        foreach (var exception in exceptions)
+        {
+            if (exception is not null)
+            {
+                pending.Push(exception);
+            }
+        }
     }
 
     /// <summary>

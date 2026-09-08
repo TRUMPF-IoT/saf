@@ -601,6 +601,36 @@ public sealed class PluginAssemblyFolderContainerTests : IDisposable
     }
 
     [Fact]
+    public void GetPluginManifests_Rethrows_WhenSharedAssemblyVersionConflictIsReportedAsLoaderException()
+    {
+        var conflict = new SharedAssemblyVersionConflictException("Acme.Contracts", new Version(2, 0, 0, 0), new Version(1, 0, 0, 0));
+
+        var thrown = Assert.Throws<ReflectionTypeLoadException>(
+            () => LoadManifestsThrowing(new ReflectionTypeLoadException(null, [new TypeLoadException(), conflict])));
+
+        Assert.Contains(conflict, thrown.LoaderExceptions);
+    }
+
+    [Fact]
+    public void GetPluginManifests_Rethrows_WhenSharedAssemblyVersionConflictIsNotTheFirstAggregatedException()
+    {
+        var conflict = new SharedAssemblyVersionConflictException("Acme.Contracts", new Version(2, 0, 0, 0), new Version(1, 0, 0, 0));
+        var aggregate = new AggregateException(new TypeLoadException(), conflict);
+
+        var thrown = Assert.Throws<FileLoadException>(() => LoadManifestsThrowing(new FileLoadException("wrapped by runtime", aggregate)));
+
+        Assert.Same(aggregate, thrown.InnerException);
+    }
+
+    [Fact]
+    public void GetPluginManifests_SkipsAssembly_WhenLoaderExceptionsHoldNoSharedAssemblyVersionConflict()
+    {
+        var manifests = LoadManifestsThrowing(new ReflectionTypeLoadException(null, [new TypeLoadException(), null]));
+
+        Assert.Empty(manifests);
+    }
+
+    [Fact]
     public void GetPluginManifests_SkipsAssembly_WhenAccessIsDenied()
     {
         if (!OperatingSystem.IsWindows())
@@ -659,6 +689,28 @@ public sealed class PluginAssemblyFolderContainerTests : IDisposable
 
         Assert.Single(result);
         manifestLoader.Received(1).LoadPluginManifest(Arg.Any<Assembly>());
+    }
+
+    private List<IPluginManifest> LoadManifestsThrowing(Exception exception)
+    {
+        var testDirectory = CreateTestDirectory($"test-plugins-{Guid.NewGuid():N}");
+        _fileSystem.File.Copy(
+            Path.Combine(AppContext.BaseDirectory, "SAF.PluginSystem.Hosting.Tests.dll"),
+            Path.Combine(testDirectory, "valid.managed.dll"));
+
+        var manifestLoader = Substitute.For<IPluginManifestLoader>();
+        manifestLoader.When(x => x.LoadPluginManifest(Arg.Any<Assembly>())).Do(_ => throw exception);
+
+        var options = new PluginAssemblyFolderSearchOptions
+        {
+            SearchRootPath = testDirectory,
+            IncludePatterns = "*.dll",
+            ExcludePatterns = string.Empty,
+            Recursive = false
+        };
+        var container = new PluginAssemblyFolderContainer(_loggerFactory, manifestLoader, options, _fileSystem, [], TestSharedAssemblyResolver.SharesHostProvidedAssemblies, SharedAssemblyConflictBehavior.Fail);
+
+        return container.GetPluginManifests().ToList();
     }
 
     [SupportedOSPlatform("windows")]
