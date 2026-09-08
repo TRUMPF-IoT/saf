@@ -15,6 +15,7 @@ SAF builds on top of the .NET Generic Host and provides a production-focused fou
 - **SAF host integration** for plug-in discovery, host identity, and consistent startup wiring
 - **Exchangeable messaging infrastructure** (In-Process, Redis, NATS, C-DEngine, Routing)
 - **Exchangeable storage infrastructure** (LiteDB, SQLite, Redis, C-DEngine)
+- **Secret store** for keeping credentials out of configuration files, backed by an OS-level store (Windows Credential Manager or a cross-platform encrypted file store)
 - **Toolbox services** such as Heartbeat, Request/Reply, and File Transfer helpers
 
 This combination allows teams to run the same architectural model in both edge and cloud scenarios while keeping infrastructure choices flexible.

@@ -106,6 +106,7 @@ public class PluginSystemHostBuilderExtensionsTests
             EnvironmentName = "Test",
             SettingsFileName = null,
             OnLoadException = _ => { },
+            HostServices = Substitute.For<IServiceProvider>(),
         };
         foreach (var configureSource in configureSources)
             configureSource(sourceContext);

@@ -4,6 +4,13 @@ SPDX-FileCopyrightText: 2017-2026 TRUMPF Laser SE
 SPDX-License-Identifier: MPL-2.0
 -->
 <Solution>
+  <Folder Name="/Configuration/">
+    <Project Path="Configuration/SAF.Configuration.Secrets.Contracts/SAF.Configuration.Secrets.Contracts.csproj" />
+    <Project Path="Configuration/SAF.Configuration.Secrets.Extensions.Tests/SAF.Configuration.Secrets.Extensions.Tests.csproj" />
+    <Project Path="Configuration/SAF.Configuration.Secrets.Extensions/SAF.Configuration.Secrets.Extensions.csproj" />
+    <Project Path="Configuration/SAF.Configuration.Secrets.Tests/SAF.Configuration.Secrets.Tests.csproj" />
+    <Project Path="Configuration/SAF.Configuration.Secrets/SAF.Configuration.Secrets.csproj" />
+  </Folder>
   <Folder Name="/Communication/">
     <Project Path="Communication/SAF.Communication.Cde/SAF.Communication.Cde.csproj" />
     <Project Path="Communication/SAF.Communication.PubSub.Cde.Tests/SAF.Communication.PubSub.Cde.Tests.csproj" />
@@ -23,7 +30,7 @@ SPDX-License-Identifier: MPL-2.0
     <Project Path="Messaging/SAF.Messaging.InProcess/SAF.Messaging.InProcess.csproj" />
     <Project Path="Messaging/SAF.Messaging.LoadTest/SAF.Messaging.LoadTest.csproj" />
     <Project Path="Messaging/SAF.Messaging.Nats.Tests/SAF.Messaging.Nats.Tests.csproj" />
-    <Project Path="Messaging/SAF.Messaging.Nats/SAF.Messaging.Nats.csproj" />
+    <Project Path="Messaging/SAF.Messaging.NATS/SAF.Messaging.NATS.csproj" />
     <Project Path="Messaging/SAF.Messaging.Redis.Tests/SAF.Messaging.Redis.Tests.csproj" />
     <Project Path="Messaging/SAF.Messaging.Redis/SAF.Messaging.Redis.csproj" />
     <Project Path="Messaging/SAF.Messaging.Routing.Tests/SAF.Messaging.Routing.Tests.csproj" />

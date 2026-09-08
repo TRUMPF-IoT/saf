@@ -95,7 +95,7 @@ Backed by [StackExchange.Redis](https://github.com/StackExchange/StackExchange.R
 
 Backed by [NATS.Net](https://nats.io). High-performance, cloud-native messaging. Also provides NATS-backed storage.
 
-**Package / plug-in DLL:** `SAF.Messaging.NATS` (`SAF.Messaging.Nats.dll`)
+**Package / plug-in DLL:** `SAF.Messaging.NATS` (`SAF.Messaging.NATS.dll`)
 
 ```json
 {
@@ -103,6 +103,11 @@ Backed by [NATS.Net](https://nats.io). High-performance, cloud-native messaging.
   "Nats": { "Url": "nats://localhost:4222" }
 }
 ```
+
+A subscription buffers incoming messages in a bounded channel. SAF configures that channel to **wait**
+when it is full (`SubPendingChannelFullMode = BoundedChannelFullMode.Wait`), so a handler that is slower
+than the publish rate applies backpressure to the reader rather than having messages dropped
+silently — NATS.Net's own default is to drop the newest message instead.
 
 ### C-DEngine
 

@@ -80,9 +80,9 @@ The `SAF.Messaging.Redis` plug-in registers `IStorageInfrastructure` alongside i
 
 ### NATS (JetStream KV)
 
-The `SAF.Messaging.NATS` plug-in registers NATS JetStream-backed `IStorageInfrastructure` alongside its messaging factory. Load `SAF.Messaging.Nats.dll` and configure the shared `Nats` section.
+The `SAF.Messaging.NATS` plug-in registers NATS JetStream-backed `IStorageInfrastructure` alongside its messaging factory. Load `SAF.Messaging.NATS.dll` and configure the shared `Nats` section.
 
-**Plug-in DLL:** `SAF.Messaging.Nats.dll`
+**Plug-in DLL:** `SAF.Messaging.NATS.dll`
 
 ```json
 {

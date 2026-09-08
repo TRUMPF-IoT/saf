@@ -20,6 +20,8 @@ nav:
     url: /messaging
   - title: Storage Infrastructure
     url: /storage
+  - title: Secret Store
+    url: /secret-store
   - title: Toolbox Services
     url: /toolbox
   - title: "Migration: 10.x → 11.x"

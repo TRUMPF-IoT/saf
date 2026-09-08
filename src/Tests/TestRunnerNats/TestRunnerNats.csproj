@@ -20,7 +20,7 @@ SPDX-License-Identifier: MPL-2.0
     <PackageReference Include="Microsoft.Extensions.Logging.Console" />
   </ItemGroup>
   <ItemGroup>
-    <ProjectReference Include="..\..\Messaging\SAF.Messaging.Nats\SAF.Messaging.Nats.csproj" />
+    <ProjectReference Include="..\..\Messaging\SAF.Messaging.NATS\SAF.Messaging.NATS.csproj" />
     <ProjectReference Include="..\..\PluginSystem\SAF.PluginSystem.Hosting\SAF.PluginSystem.Hosting.csproj" />
     <ProjectReference Include="..\..\Hosting\SAF.Hosting\SAF.Hosting.csproj" />
     <ProjectReference Include="..\..\SAF.Common\SAF.Common.csproj" />

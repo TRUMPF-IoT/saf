@@ -4,6 +4,7 @@
 
 using System.Net;
 using System.Runtime.CompilerServices;
+using System.Threading.Channels;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using NATS.Client.Core;
@@ -95,13 +96,30 @@ public static class ServiceCollectionExtensions
 
     private static INatsClient CreateNatsClient(NatsConfiguration config, ILogger logger)
     {
-        var natsConfiguration = new NatsOpts()
+        var natsClient = new NatsClient(CreateNatsOpts(config));
+        try
+        {
+            natsClient.ConnectAsync().GetAwaiter().GetResult();
+        }
+        catch (Exception e)
+        {
+            logger.LogError(e, e.Message);
+        }
+
+        return natsClient;
+    }
+
+    internal static NatsOpts CreateNatsOpts(NatsConfiguration config)
+    {
+        return new NatsOpts
         {
             Url = config.Url,
             Verbose = config.Verbose,
             CommandTimeout = config.CommandTimeout,
             RequestTimeout = config.RequestTimeout,
             MaxReconnectRetry = config.MaxReconnectRetry,
+            // NATS.Net 3.0.0 stopped forcing Wait in the NatsClient ctor; keep backpressure instead of dropping messages.
+            SubPendingChannelFullMode = BoundedChannelFullMode.Wait,
             AuthOpts = new NatsAuthOpts
             {
                 Username = config.AuthOpts.Username,
@@ -134,18 +152,6 @@ public static class ServiceCollectionExtensions
                 }
             }
         };
-
-        var natsClient = new NatsClient(natsConfiguration);
-        try
-        {
-            natsClient.ConnectAsync().GetAwaiter().GetResult();
-        }
-        catch (Exception e)
-        {
-            logger.LogError(e, e.Message);
-        }
-
-        return natsClient;
     }
 
     private static IWebProxy? CreateWebProxyOrNullFromNatsConfig(NatsConfiguration config)

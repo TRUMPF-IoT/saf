@@ -85,3 +85,6 @@ signtool/
 
 .tools/
 coverage.xml
+
+# Local planning notes, never committed
+plans/

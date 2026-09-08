@@ -30,7 +30,7 @@ public class PluginServiceProviderExtensionsTests
     {
         // Arrange
         var serviceProvider = Substitute.For<IPluginServiceProvider>();
-        serviceProvider.GetService<object>().Returns(null);
+        serviceProvider.GetService<object>().Returns((object?)null);
 
         // Act & Assert
         Assert.Throws<InvalidOperationException>(() => serviceProvider.GetRequiredService<object>());
@@ -56,7 +56,7 @@ public class PluginServiceProviderExtensionsTests
     {
         // Arrange
         var serviceProvider = Substitute.For<IPluginServiceProvider>();
-        serviceProvider.GetKeyedService<object>("key").Returns(null);
+        serviceProvider.GetKeyedService<object>("key").Returns((object?)null);
 
         // Act & Assert
         Assert.Throws<InvalidOperationException>(() => serviceProvider.GetRequiredKeyedService<object>("key"));

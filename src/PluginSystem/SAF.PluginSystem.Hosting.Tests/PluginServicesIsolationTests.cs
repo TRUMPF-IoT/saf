@@ -11,6 +11,7 @@ using System.Linq;
 using TestPlugin.PublicDependencyA;
 using Testably.Abstractions;
 using SAF.PluginSystem.Hosting.Contracts;
+using Xunit;
 
 public class PluginServicesIsolationTests
 {

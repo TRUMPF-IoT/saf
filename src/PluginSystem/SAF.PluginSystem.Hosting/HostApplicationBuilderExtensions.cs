@@ -30,14 +30,24 @@ public static class HostApplicationBuilderExtensions
             }
             return pluginHostBuilder.Environment;
         });
+        pluginHostBuilder.Services.AddSingleton<PluginConfigurationHostServices>();
         pluginHostBuilder.Services.AddSingleton<IPluginSystemHostContext>(sp =>
         {
+            // Checked before anything else: a configuration source callback that resolves a service which
+            // needs the host context lands back in this factory, and the container answers by invoking it
+            // again rather than reporting the cycle.
+            var hostServices = sp.GetRequiredService<PluginConfigurationHostServices>();
+            if (hostServices.IsResolving)
+            {
+                throw hostServices.CircularResolution();
+            }
+
             var options = sp.GetRequiredService<IOptions<PluginSystemOptions>>();
             var environment = sp.GetRequiredService<IPluginSystemHostEnvironment>();
             var logger = sp.GetRequiredService<ILogger<PluginSystemHostContext>>();
             var fileSystem = sp.GetRequiredService<IFileSystem>();
             var configureSources = sp.GetRequiredService<IOptions<PluginConfigurationSourcesOptions>>().Value.ConfigureSources;
-            return new PluginSystemHostContext(logger, environment, hostAppBuilder.Configuration, options.Value, fileSystem, configureSources);
+            return new PluginSystemHostContext(logger, environment, hostAppBuilder.Configuration, options.Value, fileSystem, hostServices, configureSources);
         });
 
         pluginHostBuilder.Services.AddSingleton<IPublicServiceTypeRegistry, PublicServiceTypeRegistry>();

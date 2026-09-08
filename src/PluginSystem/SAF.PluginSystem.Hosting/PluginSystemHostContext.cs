@@ -23,13 +23,14 @@ public sealed class PluginSystemHostContext : IPluginSystemHostContext, IDisposa
         IConfigurationManager hostConfiguration,
         PluginSystemOptions options,
         IFileSystem fileSystem,
+        IServiceProvider hostServices,
         IEnumerable<Action<PluginConfigurationSourceContext>>? configurePluginConfigurationSources = null)
     {
         Environment = environment;
         HostConfiguration = hostConfiguration;
 
         (_pluginConfigurationRoot, _pluginSettingsFileProvider, _customSourcesDefaultFileProvider) =
-            BuildPluginConfiguration(logger, options, environment, fileSystem, configurePluginConfigurationSources ?? []);
+            BuildPluginConfiguration(logger, options, environment, fileSystem, hostServices, configurePluginConfigurationSources ?? []);
     }
 
     public IPluginSystemHostEnvironment Environment { get; }
@@ -52,6 +53,7 @@ public sealed class PluginSystemHostContext : IPluginSystemHostContext, IDisposa
         PluginSystemOptions options,
         IPluginSystemHostEnvironment environment,
         IFileSystem fileSystem,
+        IServiceProvider hostServices,
         IEnumerable<Action<PluginConfigurationSourceContext>> configurePluginConfigurationSources)
     {
         var builder = new ConfigurationBuilder();
@@ -76,10 +78,26 @@ public sealed class PluginSystemHostContext : IPluginSystemHostContext, IDisposa
                 EnvironmentName = environment.EnvironmentName,
                 SettingsFileName = settingsFileName,
                 OnLoadException = onLoadException,
+                HostServices = hostServices,
             };
 
             AddCustomPluginConfigurationSources(builder, sourceContext, configurePluginConfigurationSources, onLoadException);
-            return (builder.Build(), settingsFileProvider, customSourcesDefaultFileProvider);
+
+            var configurationRoot = builder.Build();
+            try
+            {
+                // Applied after every source is built, so a decorator can read the composed configuration.
+                configurationRoot = sourceContext.ApplyConfigurationRootDecorators(configurationRoot);
+            }
+            catch
+            {
+                // A decorator that fails has not taken ownership, so the undecorated root - and the
+                // providers it built - would otherwise leak.
+                (configurationRoot as IDisposable)?.Dispose();
+                throw;
+            }
+
+            return (configurationRoot, settingsFileProvider, customSourcesDefaultFileProvider);
         }
         catch
         {

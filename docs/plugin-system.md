@@ -482,14 +482,54 @@ pluginSystemBuilder.AddPluginConfigurationSource(source =>
 The callback receives a `PluginConfigurationSourceContext` with everything the built-in plugin settings
 pipeline already resolved: `SettingsFileProvider` (the `IFileProvider` scoped to the resolved settings
 directory — the same instance the default plugin JSON files use), `SettingsFileName` (e.g.
-`pluginsettings.json`), `EnvironmentName`, and `OnLoadException` (the shared handler that ignores a failed
-load and logs a warning instead of crashing host startup or silently wiping values on reload). Building
-sources through `source.SettingsFileProvider` keeps them rooted at the same directory as the default plugin
-JSON regardless of how `PluginSettingsRootPath` resolves — there is no separate path to keep in sync.
+`pluginsettings.json`), `EnvironmentName`, `OnLoadException` (the shared handler that ignores a failed
+load and logs a warning instead of crashing host startup or silently wiping values on reload), and
+`HostServices` — the host's fully-built `IServiceProvider`. Building sources through
+`source.SettingsFileProvider` keeps them rooted at the same directory as the default plugin JSON
+regardless of how `PluginSettingsRootPath` resolves — there is no separate path to keep in sync.
 
 The callback runs exactly once, during `IPluginSystemHostContext` construction; any exception it throws
 propagates into host startup. Additional providers are appended after the default plugin JSON sources.
 Configuration precedence follows normal .NET rules (later providers override earlier ones).
+
+> **`HostServices` cannot resolve the plugin system's own services.** The callbacks run *inside* the
+> construction of `IPluginSystemHostContext` — the plugin configuration they contribute to is part of it —
+> so resolving a service that needs the host context is refused with an `InvalidOperationException` naming
+> the service. That covers `IPluginSystemHostContext` itself and everything built on it —
+> `IPluginServiceProvider`, `IPluginServicesContainer`, `IPluginServicesReloader`,
+> `IServicePluginLifecycleRunner`, `IPluginSystemController` — plus anything of your own that depends on
+> one of them. It is a refusal rather than a container cycle error because
+> `Microsoft.Extensions.DependencyInjection` does not detect this cycle: it re-invokes the factory it is
+> already inside until the process dies of an uncatchable `StackOverflowException`, with no exception and
+> no log line.
+>
+> Everything else is fair game — `ILoggerFactory`, `IFileSystem`, an `IOptions<T>` of your own, a client
+> your composition root registered. If you need a plugin-system service, take it where the host context
+> already exists: a plugin manifest's `ConfigureServices`, or a hosted service.
+
+#### Decorating the built configuration root
+
+A provider that has to read the **composed** plugin configuration — one that resolves or overlays values,
+rather than contributing its own — cannot work as a peer source: the composition it needs does not exist
+until every source has been built. For that, the same callback can register a decorator instead of (or in
+addition to) adding a source:
+
+```csharp
+pluginSystemBuilder.AddPluginConfigurationSource(source =>
+    source.DecorateConfigurationRoot(root => new ConfigurationBuilder()
+        .AddConfiguration(root, shouldDisposeConfiguration: true)
+        .Add(new MyOverlaySource(root))
+        .Build()));
+```
+
+The decorator receives the root built from **all** sources, whichever callback added them, and returns the
+root the host will use — so it is unaffected by the order the callbacks were registered in. Returning a new
+root transfers ownership of the one passed in: the returned root must dispose it (`AddConfiguration(...,
+shouldDisposeConfiguration: true)` does this for you). Decorators are applied in registration order, each
+wrapping the previous result. This is how
+[transparent secret resolution](./secret-store.md#transparent-configuration-resolution) is implemented; it
+lets the resolver chain the existing root instead of rebuilding the sources, so every settings file is
+still parsed and watched exactly once.
 
 Because the file is shared, plugins keep their settings under distinct top-level sections (the built-in messaging/storage plugins use `Messaging`, `Redis`, `Nats`, `LiteDb`, `SQLite`, `MessageRouting`).
 
