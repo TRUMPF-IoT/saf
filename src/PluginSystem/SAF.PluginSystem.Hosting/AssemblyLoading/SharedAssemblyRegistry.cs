@@ -27,76 +27,81 @@ internal sealed class SharedAssemblyRegistry(
     IEnumerable<ISharedAssemblySource> sharedAssemblySources)
     : ISharedAssemblyRegistry
 {
-    private readonly Dictionary<string, SharedAssemblyInfo> _sharedAssemblies = new(StringComparer.OrdinalIgnoreCase);
     private readonly Lock _syncInitialization = new();
-    private volatile bool _initialized;
+    private volatile IReadOnlyDictionary<string, SharedAssemblyInfo>? _sharedAssemblies;
 
     /// <inheritdoc />
     public bool TryGetSharedAssembly(string simpleName, out SharedAssemblyInfo info)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(simpleName);
 
-        EnsureInitialized();
-        return _sharedAssemblies.TryGetValue(simpleName, out info);
+        return EnsureInitialized().TryGetValue(simpleName, out info);
     }
 
     /// <inheritdoc />
     public IReadOnlyDictionary<string, SharedAssemblyInfo> GetSharedAssemblies()
-    {
-        EnsureInitialized();
-        return new Dictionary<string, SharedAssemblyInfo>(_sharedAssemblies, StringComparer.OrdinalIgnoreCase);
-    }
+        => new Dictionary<string, SharedAssemblyInfo>(EnsureInitialized(), StringComparer.OrdinalIgnoreCase);
 
-    private void EnsureInitialized()
+    private IReadOnlyDictionary<string, SharedAssemblyInfo> EnsureInitialized()
     {
-        // Double-checked locking: once built, the volatile read makes lookups lock-free on the assembly-load
-        // hot path. The volatile write publishes the fully populated set with release semantics.
-        if (_initialized)
+        // Double-checked locking: once published, the volatile read makes lookups lock-free on the
+        // assembly-load hot path. Publication is a single reference swap of a fully built dictionary, so a
+        // reentrant rebuild (BuildSharedSet is called again on the same thread before the first call
+        // returns, e.g. because building it triggers a managed load that re-enters this method) can never
+        // observe or mutate a partially-filled shared set - each call only ever writes to its own local
+        // dictionary, and the last publish wins.
+        var sharedAssemblies = _sharedAssemblies;
+        if (sharedAssemblies is not null)
         {
-            return;
+            return sharedAssemblies;
         }
 
         lock (_syncInitialization)
         {
-            if (_initialized)
+            sharedAssemblies = _sharedAssemblies;
+            if (sharedAssemblies is not null)
             {
-                return;
+                return sharedAssemblies;
             }
 
-            BuildSharedSet();
-            _initialized = true;
+            sharedAssemblies = BuildSharedSet();
+            _sharedAssemblies = sharedAssemblies;
 
             logger.LogInformation(
                 "Computed shared plugin assembly set with {SharedAssemblyCount} assemblies.",
-                _sharedAssemblies.Count);
+                sharedAssemblies.Count);
+
+            return sharedAssemblies;
         }
     }
 
-    private void BuildSharedSet()
+    private Dictionary<string, SharedAssemblyInfo> BuildSharedSet()
     {
-        _sharedAssemblies.Clear();
+        var sharedAssemblies = new Dictionary<string, SharedAssemblyInfo>(StringComparer.OrdinalIgnoreCase);
 
         foreach (var assemblyName in CollectImplicitlySharedAssemblies())
         {
-            Record(assemblyName);
+            Record(sharedAssemblies, assemblyName);
         }
 
         foreach (var assemblyName in sharedAssemblySources.SelectMany(source => source.GetSharedAssemblyNames()))
         {
-            Record(assemblyName);
+            Record(sharedAssemblies, assemblyName);
         }
 
         foreach (var contractFullName in publicServiceTypeRegistry.GetAssemblyNames())
         {
             try
             {
-                Record(new AssemblyName(contractFullName));
+                Record(sharedAssemblies, new AssemblyName(contractFullName));
             }
             catch (Exception ex) when (ex is FileLoadException or ArgumentException)
             {
                 logger.LogWarning(ex, "Ignoring malformed plugin contract assembly name {AssemblyFullName}.", contractFullName);
             }
         }
+
+        return sharedAssemblies;
     }
 
     private static IEnumerable<AssemblyName> CollectImplicitlySharedAssemblies()
@@ -113,14 +118,14 @@ internal sealed class SharedAssemblyRegistry(
         yield return typeof(IChangeToken).Assembly.GetName();          // Microsoft.Extensions.Primitives
     }
 
-    private void Record(AssemblyName name)
+    private void Record(Dictionary<string, SharedAssemblyInfo> sharedAssemblies, AssemblyName name)
     {
         if (name.Name is null || name.Version is null)
         {
             return;
         }
 
-        _sharedAssemblies[name.Name] = new SharedAssemblyInfo(name.Version, name.GetPublicKeyToken());
+        sharedAssemblies[name.Name] = new SharedAssemblyInfo(name.Version, name.GetPublicKeyToken());
 
         if (logger.IsEnabled(LogLevel.Debug))
         {
