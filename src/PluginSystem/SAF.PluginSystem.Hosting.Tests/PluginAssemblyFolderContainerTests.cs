@@ -13,6 +13,7 @@ using Microsoft.Extensions.Options;
 using NSubstitute;
 using SAF.PluginSystem.Hosting.Extensions;
 using System.Reflection;
+using System.Runtime.Loader;
 using System.Runtime.Versioning;
 using System.Security.AccessControl;
 using System.Security.Principal;
@@ -174,8 +175,9 @@ public sealed class PluginAssemblyFolderContainerTests : IDisposable
     public void GetPluginManifests_ReturnsManifest_ForAssemblyLoadedInDefaultContext()
     {
         // Arrange
+        Assembly? loadedAssembly = null;
         var manifestLoader = Substitute.For<IPluginManifestLoader>();
-        manifestLoader.LoadPluginManifest(Arg.Any<Assembly>()).Returns(Substitute.For<IPluginManifest>());
+        manifestLoader.LoadPluginManifest(Arg.Do<Assembly>(a => loadedAssembly = a)).Returns(Substitute.For<IPluginManifest>());
 
         var options = new PluginAssemblyFolderSearchOptions
         {
@@ -191,6 +193,11 @@ public sealed class PluginAssemblyFolderContainerTests : IDisposable
 
         // Assert
         Assert.Single(result);
+
+        // A base-directory candidate is loaded via AssemblyLoadContext.Default, not a PluginAssemblyLoadContext,
+        // so neither isolation nor shared-assembly conflict detection ever applies to it (documented in
+        // docs/plugin-system.md).
+        Assert.Same(AssemblyLoadContext.Default, AssemblyLoadContext.GetLoadContext(loadedAssembly!));
     }
 
     [Fact]
