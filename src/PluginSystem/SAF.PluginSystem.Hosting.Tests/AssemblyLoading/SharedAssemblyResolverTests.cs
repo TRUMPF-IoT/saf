@@ -10,8 +10,8 @@ using System.Reflection;
 
 public class SharedAssemblyResolverTests
 {
-    private static readonly byte[] TokenA = [1, 2, 3, 4, 5, 6, 7, 8];
-    private static readonly byte[] TokenB = [8, 7, 6, 5, 4, 3, 2, 1];
+    private static readonly byte[] _tokenA = [1, 2, 3, 4, 5, 6, 7, 8];
+    private static readonly byte[] _tokenB = [8, 7, 6, 5, 4, 3, 2, 1];
 
     [Fact]
     public void Resolve_ReturnsLoadIsolated_WhenAssemblyNotShared()
@@ -96,10 +96,10 @@ public class SharedAssemblyResolverTests
     [Fact]
     public void Resolve_ReturnsShareFromDefault_WhenStrongNameTokensMatch()
     {
-        var registry = new FakeSharedAssemblyRegistry().Add("Shared", new Version(1, 5, 0, 0), TokenA);
+        var registry = new FakeSharedAssemblyRegistry().Add("Shared", new Version(1, 5, 0, 0), _tokenA);
         var resolver = CreateResolver(registry);
 
-        var decision = resolver.Resolve(Name("Shared", "1.0.0.0", TokenA), out _);
+        var decision = resolver.Resolve(Name("Shared", "1.0.0.0", _tokenA), out _);
 
         Assert.Equal(SharedAssemblyDecision.ShareFromDefault, decision);
     }
@@ -107,10 +107,10 @@ public class SharedAssemblyResolverTests
     [Fact]
     public void Resolve_ReturnsLoadIsolated_WhenPublicKeyTokensDiffer()
     {
-        var registry = new FakeSharedAssemblyRegistry().Add("Shared", new Version(2, 0, 0, 0), TokenA);
+        var registry = new FakeSharedAssemblyRegistry().Add("Shared", new Version(2, 0, 0, 0), _tokenA);
         var resolver = CreateResolver(registry);
 
-        var decision = resolver.Resolve(Name("Shared", "1.0.0.0", TokenB), out var hostVersion);
+        var decision = resolver.Resolve(Name("Shared", "1.0.0.0", _tokenB), out var hostVersion);
 
         Assert.Equal(SharedAssemblyDecision.LoadIsolated, decision);
         Assert.Null(hostVersion);
@@ -119,7 +119,7 @@ public class SharedAssemblyResolverTests
     [Fact]
     public void Resolve_ReturnsLoadIsolated_WhenRequestedIsUnsignedButHostIsStrongNamed()
     {
-        var registry = new FakeSharedAssemblyRegistry().Add("Shared", new Version(2, 0, 0, 0), TokenA);
+        var registry = new FakeSharedAssemblyRegistry().Add("Shared", new Version(2, 0, 0, 0), _tokenA);
         var resolver = CreateResolver(registry);
 
         var decision = resolver.Resolve(Name("Shared", "1.0.0.0"), out _);
