@@ -16,6 +16,7 @@ using NSubstitute;
 using SAF.PluginSystem.Hosting.Contracts;
 using System.IO.Abstractions;
 using System.Reflection;
+using TestPlugin.PublicDependencyA;
 
 public class SharedAssemblyRegistryTests
 {
@@ -140,6 +141,32 @@ public class SharedAssemblyRegistryTests
         Assert.True(registry.TryGetSharedAssembly("First.Contracts", out _));
         Assert.True(registry.TryGetSharedAssembly("Second.Contracts", out var second));
         Assert.Equal(new Version(3, 2, 0, 0), second.Version);
+    }
+
+    [Fact]
+    public void SharedSet_DerivesVersion_FromAlreadyLoadedAssembly_WhenSourceOmitsIt()
+    {
+        // A hand-written ISharedAssemblySource can return `new AssemblyName(simpleNameOnly)`, which has no
+        // Version - unlike SharedAssemblySource<T>'s typeof(T).Assembly.GetName().
+        var expected = typeof(PublicDependencyAMarker).Assembly.GetName();
+        _sharedAssemblySources.Add(new StubSharedAssemblySource(expected.Name!));
+
+        var registry = CreateRegistry();
+
+        Assert.True(registry.TryGetSharedAssembly(expected.Name!, out var info));
+        Assert.Equal(expected.Version, info.Version);
+    }
+
+    [Fact]
+    public void SharedSet_WarnsOnceAndIgnoresEntry_WhenSourceOmitsVersion_AndNoLoadedAssemblyMatches()
+    {
+        _sharedAssemblySources.Add(new StubSharedAssemblySource("Totally.Unresolvable.TestOnlyAssembly"));
+        var logger = new CapturingLogger<SharedAssemblyRegistry>();
+
+        var registry = CreateRegistry(logger);
+
+        Assert.False(registry.TryGetSharedAssembly("Totally.Unresolvable.TestOnlyAssembly", out _));
+        Assert.Single(logger.Entries, e => e.Level == LogLevel.Warning);
     }
 
     [Fact]

@@ -12,6 +12,7 @@ using Microsoft.Extensions.Options;
 using Microsoft.Extensions.Primitives;
 using System.IO.Abstractions;
 using System.Reflection;
+using System.Runtime.Loader;
 
 /// <inheritdoc />
 /// <remarks>
@@ -164,8 +165,20 @@ internal sealed class SharedAssemblyRegistry(
 
     private void Record(Dictionary<string, SharedAssemblyInfo> sharedAssemblies, AssemblyName name, AssemblyOrigin origin)
     {
-        if (name.Name is null || name.Version is null)
+        if (name.Name is null)
         {
+            return;
+        }
+
+        // A hand-written ISharedAssemblySource can return an AssemblyName built from just a simple name
+        // (unlike typeof(T).Assembly.GetName(), which always carries a version); fall back to whatever
+        // version is already loaded under that name instead of dropping the entry outright.
+        var version = name.Version ?? ResolveVersionFromDefaultContext(name.Name);
+        if (version is null)
+        {
+            logger.LogWarning(
+                "Ignoring shared assembly {AssemblyName}: it has no version, and none could be derived from an " +
+                "already-loaded assembly of the same simple name.", name.Name);
             return;
         }
 
@@ -177,23 +190,28 @@ internal sealed class SharedAssemblyRegistry(
         // against.
         if (origin == AssemblyOrigin.OnDisk && sharedAssemblies.TryGetValue(name.Name, out var loaded))
         {
-            if (loaded.Version != name.Version)
+            if (loaded.Version != version)
             {
                 logger.LogWarning(
                     "Ignoring on-disk version {OnDiskVersion} of shared assembly {AssemblyName}; keeping the already-loaded version {LoadedVersion}.",
-                    name.Version, name.Name, loaded.Version);
+                    version, name.Name, loaded.Version);
             }
 
             return;
         }
 
-        sharedAssemblies[name.Name] = new SharedAssemblyInfo(name.Version, name.GetPublicKeyToken());
+        sharedAssemblies[name.Name] = new SharedAssemblyInfo(version, name.GetPublicKeyToken());
 
         if (logger.IsEnabled(LogLevel.Debug))
         {
-            logger.LogDebug("Shared plugin assembly registered: {AssemblyName} {AssemblyVersion}", name.Name, name.Version);
+            logger.LogDebug("Shared plugin assembly registered: {AssemblyName} {AssemblyVersion}", name.Name, version);
         }
     }
+
+    private static Version? ResolveVersionFromDefaultContext(string simpleName)
+        => AssemblyLoadContext.Default.Assemblies
+            .FirstOrDefault(assembly => string.Equals(assembly.GetName().Name, simpleName, StringComparison.OrdinalIgnoreCase))
+            ?.GetName().Version;
 
     private enum AssemblyOrigin
     {

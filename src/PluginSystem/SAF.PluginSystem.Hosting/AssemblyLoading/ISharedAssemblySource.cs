@@ -15,7 +15,11 @@ using System.Reflection;
 public interface ISharedAssemblySource
 {
     /// <summary>
-    /// Gets the assemblies this source requires to be shared.
+    /// Gets the assemblies this source requires to be shared. Each <see cref="AssemblyName"/> should carry
+    /// a <see cref="AssemblyName.Version"/> - <c>typeof(T).Assembly.GetName()</c> always provides one, but a
+    /// hand-written <see cref="AssemblyName(string)"/> built from just the simple name does not. If the
+    /// version is missing, the registry falls back to an already-loaded assembly of the same simple name,
+    /// or otherwise ignores the entry and logs a warning.
     /// </summary>
     IEnumerable<AssemblyName> GetSharedAssemblyNames();
 }
