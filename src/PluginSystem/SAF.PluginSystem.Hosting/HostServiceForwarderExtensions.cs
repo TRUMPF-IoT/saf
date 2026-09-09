@@ -23,6 +23,13 @@ public static class HostServiceForwarderExtensions
     /// <typeparam name="T">The host service type to forward.</typeparam>
     /// <param name="services">The host service collection.</param>
     /// <returns>The same service collection for chaining.</returns>
+    /// <remarks>
+    /// <typeparamref name="T"/> must be registered in <paramref name="services"/> (immediately, or later
+    /// in the same builder chain, before the container is built). If it is not, resolving the plugin
+    /// system's forwarder collection throws <see cref="InvalidOperationException"/> and the host fails to
+    /// start. This is deliberate: a missing registration is a host wiring mistake, and failing loudly at
+    /// startup beats silently dropping the forwarder and leaving a plug-in without a service it expects.
+    /// </remarks>
     public static IServiceCollection AddHostServiceForwarder<T>(this IServiceCollection services)
         where T : class
     {

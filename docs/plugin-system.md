@@ -216,6 +216,12 @@ services.AddHostServiceForwarder<MySharedService>();
 
 `AddHostServiceForwarder<T>()` registers two things together, and that pairing is the point: a `HostServiceForwarder<T>` that bridges the instance, and a `SharedAssemblySource<T>` that puts the assembly declaring `T` into the [shared set](#the-shared-set). Without the second registration the plug-in would load its own copy of the contract assembly and fail to resolve the forwarded instance. Repeated calls for the same `T` are idempotent.
 
+`T` must be registered in the host container - immediately, or later in the same builder chain, before
+the container is built. If it is not, the plugin system fails to start with `InvalidOperationException`
+when it resolves the forwarder collection. This is deliberate: a missing registration is a host wiring
+mistake, and failing loudly at startup beats silently dropping the forwarder and leaving a plug-in
+without a service it expects.
+
 `HostServiceForwarder<T>` is resolved from the host container (receiving the already-built singleton via constructor injection) and calls `pluginServices.AddSingleton(instance)` for each plugin — one shared instance, no factory, no service locator.
 
 Implement `IHostServiceForwarder` directly for more control, e.g. to register a service under a different interface. Registering the forwarder by hand also means declaring the shared assembly by hand:
