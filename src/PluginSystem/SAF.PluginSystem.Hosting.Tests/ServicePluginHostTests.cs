@@ -5,6 +5,7 @@
 namespace SAF.PluginSystem.Hosting.Tests;
 
 using Contracts;
+using SAF.PluginSystem.Hosting.AssemblyLoading;
 using Microsoft.Extensions.Logging;
 using NSubstitute;
 
@@ -14,6 +15,7 @@ public class ServicePluginHostTests
     private readonly ILogger<ServicePluginLifecycleRunner> _runnerLogger = Substitute.For<ILogger<ServicePluginLifecycleRunner>>();
     private readonly IServiceProvider _pluginServiceProvider = Substitute.For<IServiceProvider>();
     private readonly IPluginServicesContainer _pluginServicesContainer = Substitute.For<IPluginServicesContainer>();
+    private readonly ISharedAssemblyRegistry _sharedAssemblyRegistry = Substitute.For<ISharedAssemblyRegistry>();
     private IServicePluginLifecycleRunner LifecycleRunner => new ServicePluginLifecycleRunner(_runnerLogger, _pluginServicesContainer);
 
     public ServicePluginHostTests()
@@ -30,7 +32,7 @@ public class ServicePluginHostTests
         _pluginServiceProvider.GetService(Arg.Is(typeof(IEnumerable<IServicePlugin>)))
             .Returns(new List<IServicePlugin>() { servicePlugin1, servicePlugin2 });
 
-        var service = new ServicePluginHost(_logger, LifecycleRunner);
+        var service = new ServicePluginHost(_logger, LifecycleRunner, _sharedAssemblyRegistry);
 
         // Act
         await service.StartAsync(CancellationToken.None);
@@ -49,7 +51,7 @@ public class ServicePluginHostTests
         _pluginServiceProvider.GetService(Arg.Is(typeof(IEnumerable<IServicePlugin>)))
             .Returns(new List<IServicePlugin>() { servicePlugin1, servicePlugin2 });
 
-        var service = new ServicePluginHost(_logger, LifecycleRunner);
+        var service = new ServicePluginHost(_logger, LifecycleRunner, _sharedAssemblyRegistry);
 
         // Act
         await service.StopAsync(CancellationToken.None);
@@ -68,7 +70,7 @@ public class ServicePluginHostTests
         _pluginServiceProvider.GetService(Arg.Is(typeof(IEnumerable<IServicePlugin>)))
             .Returns(new List<IServicePlugin>() { servicePlugin });
 
-        var service = new ServicePluginHost(_logger, LifecycleRunner);
+        var service = new ServicePluginHost(_logger, LifecycleRunner, _sharedAssemblyRegistry);
 
         // Act
         await service.StartAsync(CancellationToken.None);
@@ -86,13 +88,33 @@ public class ServicePluginHostTests
         _pluginServiceProvider.GetService(Arg.Is(typeof(IEnumerable<IServicePlugin>)))
             .Returns(new List<IServicePlugin>() { servicePlugin });
 
-        var service = new ServicePluginHost(_logger, LifecycleRunner);
+        var service = new ServicePluginHost(_logger, LifecycleRunner, _sharedAssemblyRegistry);
 
         // Act
         await service.StopAsync(CancellationToken.None);
 
         // Assert
         _runnerLogger.Received(1).LogError(Arg.Any<Exception?>(), "Failed to stop service plug-in.");
+    }
+
+    [Fact]
+    public async Task StartingAsync_ComputesSharedAssemblySet_BeforeGettingServicePlugins()
+    {
+        // Arrange
+        _pluginServiceProvider.GetService(Arg.Is(typeof(IEnumerable<IServicePlugin>)))
+            .Returns(new List<IServicePlugin>());
+        var service = new ServicePluginHost(_logger, LifecycleRunner, _sharedAssemblyRegistry);
+
+        // Act
+        await service.StartingAsync(CancellationToken.None);
+
+        // Assert
+        _sharedAssemblyRegistry.Received(1).GetSharedAssemblies();
+        Received.InOrder(() =>
+        {
+            _sharedAssemblyRegistry.GetSharedAssemblies();
+            _pluginServicesContainer.GetPluginServices();
+        });
     }
 
     [Fact]
@@ -104,7 +126,7 @@ public class ServicePluginHostTests
         _pluginServiceProvider.GetService(Arg.Is(typeof(IEnumerable<IServicePlugin>)))
             .Returns(new List<IServicePlugin>() { lifecyclePlugin1, lifecyclePlugin2 });
 
-        var service = new ServicePluginHost(_logger, LifecycleRunner);
+        var service = new ServicePluginHost(_logger, LifecycleRunner, _sharedAssemblyRegistry);
 
         // Act
         await service.StartingAsync(CancellationToken.None);
@@ -125,7 +147,7 @@ public class ServicePluginHostTests
         _pluginServiceProvider.GetService(Arg.Is(typeof(IEnumerable<IServicePlugin>)))
             .Returns(new List<IServicePlugin>() { failingLifecyclePlugin, succeedingLifecyclePlugin });
 
-        var service = new ServicePluginHost(_logger, LifecycleRunner);
+        var service = new ServicePluginHost(_logger, LifecycleRunner, _sharedAssemblyRegistry);
 
         // Act
         await service.StartingAsync(CancellationToken.None);
@@ -143,7 +165,7 @@ public class ServicePluginHostTests
         _pluginServiceProvider.GetService(Arg.Is(typeof(IEnumerable<IServicePlugin>)))
             .Returns(new List<IServicePlugin>() { lifecyclePlugin1, lifecyclePlugin2 });
 
-        var service = new ServicePluginHost(_logger, LifecycleRunner);
+        var service = new ServicePluginHost(_logger, LifecycleRunner, _sharedAssemblyRegistry);
 
         // Act
         await service.StartedAsync(CancellationToken.None);
@@ -164,7 +186,7 @@ public class ServicePluginHostTests
         _pluginServiceProvider.GetService(Arg.Is(typeof(IEnumerable<IServicePlugin>)))
             .Returns(new List<IServicePlugin>() { failingLifecyclePlugin, succeedingLifecyclePlugin });
 
-        var service = new ServicePluginHost(_logger, LifecycleRunner);
+        var service = new ServicePluginHost(_logger, LifecycleRunner, _sharedAssemblyRegistry);
 
         // Act
         await service.StartedAsync(CancellationToken.None);
@@ -182,7 +204,7 @@ public class ServicePluginHostTests
         _pluginServiceProvider.GetService(Arg.Is(typeof(IEnumerable<IServicePlugin>)))
             .Returns(new List<IServicePlugin>() { lifecyclePlugin1, lifecyclePlugin2 });
 
-        var service = new ServicePluginHost(_logger, LifecycleRunner);
+        var service = new ServicePluginHost(_logger, LifecycleRunner, _sharedAssemblyRegistry);
 
         // Act
         await service.StoppingAsync(CancellationToken.None);
@@ -203,7 +225,7 @@ public class ServicePluginHostTests
         _pluginServiceProvider.GetService(Arg.Is(typeof(IEnumerable<IServicePlugin>)))
             .Returns(new List<IServicePlugin>() { failingLifecyclePlugin, succeedingLifecyclePlugin });
 
-        var service = new ServicePluginHost(_logger, LifecycleRunner);
+        var service = new ServicePluginHost(_logger, LifecycleRunner, _sharedAssemblyRegistry);
 
         // Act
         await service.StoppingAsync(CancellationToken.None);
@@ -221,7 +243,7 @@ public class ServicePluginHostTests
         _pluginServiceProvider.GetService(Arg.Is(typeof(IEnumerable<IServicePlugin>)))
             .Returns(new List<IServicePlugin>() { lifecyclePlugin1, lifecyclePlugin2 });
 
-        var service = new ServicePluginHost(_logger, LifecycleRunner);
+        var service = new ServicePluginHost(_logger, LifecycleRunner, _sharedAssemblyRegistry);
 
         // Act
         await service.StoppedAsync(CancellationToken.None);
@@ -242,7 +264,7 @@ public class ServicePluginHostTests
         _pluginServiceProvider.GetService(Arg.Is(typeof(IEnumerable<IServicePlugin>)))
             .Returns(new List<IServicePlugin>() { failingLifecyclePlugin, succeedingLifecyclePlugin });
 
-        var service = new ServicePluginHost(_logger, LifecycleRunner);
+        var service = new ServicePluginHost(_logger, LifecycleRunner, _sharedAssemblyRegistry);
 
         // Act
         await service.StoppedAsync(CancellationToken.None);
