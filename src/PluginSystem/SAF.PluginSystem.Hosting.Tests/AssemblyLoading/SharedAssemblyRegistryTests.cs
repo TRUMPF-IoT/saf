@@ -143,16 +143,35 @@ public class SharedAssemblyRegistryTests
     }
 
     [Fact]
-    public void SharedSet_PrefersContractAssemblies_OverSourceContributions_ForTheSameSimpleName()
+    public void SharedSet_PrefersTheLoadedSourceVersion_OverAnOnDiskContractAssembly_ForTheSameSimpleName()
     {
-        // The configured contract assemblies are recorded last, so an explicitly configured version wins.
-        _sharedAssemblySources.Add(new StubSharedAssemblySource("Acme.Contracts, Version=1.0.0.0"));
-        _publicServiceTypeRegistry.GetAssemblyNames().Returns(["Acme.Contracts, Version=2.0.0.0"]);
+        // The contract assembly full name comes from a file on AppContext.BaseDirectory (read via
+        // AssemblyName.GetAssemblyName, never loaded); the source reports an already-loaded assembly's own
+        // AssemblyName. A stale on-disk copy must not win over the version actually bound in the default
+        // context, so the loaded version is kept and the mismatch is logged.
+        _sharedAssemblySources.Add(new StubSharedAssemblySource("Acme.Contracts, Version=2.0.0.0"));
+        _publicServiceTypeRegistry.GetAssemblyNames().Returns(["Acme.Contracts, Version=1.0.0.0"]);
+        var logger = new CapturingLogger<SharedAssemblyRegistry>();
 
-        var registry = CreateRegistry();
+        var registry = CreateRegistry(logger);
 
         Assert.True(registry.TryGetSharedAssembly("Acme.Contracts", out var info));
         Assert.Equal(new Version(2, 0, 0, 0), info.Version);
+        Assert.Single(logger.Entries, e => e.Level == LogLevel.Warning);
+    }
+
+    [Fact]
+    public void SharedSet_DoesNotWarn_WhenOnDiskContractAssemblyMatchesTheLoadedSourceVersion()
+    {
+        _sharedAssemblySources.Add(new StubSharedAssemblySource("Acme.Contracts, Version=1.0.0.0"));
+        _publicServiceTypeRegistry.GetAssemblyNames().Returns(["Acme.Contracts, Version=1.0.0.0"]);
+        var logger = new CapturingLogger<SharedAssemblyRegistry>();
+
+        var registry = CreateRegistry(logger);
+
+        Assert.True(registry.TryGetSharedAssembly("Acme.Contracts", out var info));
+        Assert.Equal(new Version(1, 0, 0, 0), info.Version);
+        Assert.DoesNotContain(logger.Entries, e => e.Level == LogLevel.Warning);
     }
 
     [Fact]

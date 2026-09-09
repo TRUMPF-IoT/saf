@@ -81,7 +81,7 @@ internal sealed class SharedAssemblyRegistry(
 
         foreach (var assemblyName in CollectImplicitlySharedAssemblies())
         {
-            Record(sharedAssemblies, assemblyName);
+            Record(sharedAssemblies, assemblyName, AssemblyOrigin.Loaded);
         }
 
         foreach (var source in sharedAssemblySources)
@@ -97,7 +97,7 @@ internal sealed class SharedAssemblyRegistry(
             {
                 try
                 {
-                    Record(sharedAssemblies, new AssemblyName(contractFullName));
+                    Record(sharedAssemblies, new AssemblyName(contractFullName), AssemblyOrigin.OnDisk);
                 }
                 catch (Exception ex) when (ex is FileLoadException or ArgumentException)
                 {
@@ -144,7 +144,7 @@ internal sealed class SharedAssemblyRegistry(
                 continue;
             }
 
-            Record(sharedAssemblies, assemblyName);
+            Record(sharedAssemblies, assemblyName, AssemblyOrigin.Loaded);
         }
     }
 
@@ -162,10 +162,28 @@ internal sealed class SharedAssemblyRegistry(
         yield return typeof(IChangeToken).Assembly.GetName();          // Microsoft.Extensions.Primitives
     }
 
-    private void Record(Dictionary<string, SharedAssemblyInfo> sharedAssemblies, AssemblyName name)
+    private void Record(Dictionary<string, SharedAssemblyInfo> sharedAssemblies, AssemblyName name, AssemblyOrigin origin)
     {
         if (name.Name is null || name.Version is null)
         {
+            return;
+        }
+
+        // An on-disk candidate (a file matching PluginContractsSearchPattern, read via
+        // AssemblyName.GetAssemblyName) never overrides an assembly already recorded from a loaded one (SAF's
+        // own implicit set, or a SharedAssemblySource<T> reporting typeof(T).Assembly.GetName()): a stale
+        // copy sitting next to the host would otherwise win over the version actually bound in the default
+        // context, and the registry would report that stale version as the host version to compare plugins
+        // against.
+        if (origin == AssemblyOrigin.OnDisk && sharedAssemblies.TryGetValue(name.Name, out var loaded))
+        {
+            if (loaded.Version != name.Version)
+            {
+                logger.LogWarning(
+                    "Ignoring on-disk version {OnDiskVersion} of shared assembly {AssemblyName}; keeping the already-loaded version {LoadedVersion}.",
+                    name.Version, name.Name, loaded.Version);
+            }
+
             return;
         }
 
@@ -175,5 +193,11 @@ internal sealed class SharedAssemblyRegistry(
         {
             logger.LogDebug("Shared plugin assembly registered: {AssemblyName} {AssemblyVersion}", name.Name, name.Version);
         }
+    }
+
+    private enum AssemblyOrigin
+    {
+        Loaded,
+        OnDisk,
     }
 }
