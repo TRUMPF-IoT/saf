@@ -36,11 +36,10 @@ public class PublicServiceTypeRegistry(
                 return;
             }
 
-            _initialized = true;
-
             if (string.IsNullOrWhiteSpace(_options.PluginContractsSearchPattern))
             {
                 logger.LogInformation("No search pattern for plug-in contract assemblies specified. No public plug-in services will be available.");
+                _initialized = true;
                 return;
             }
 
@@ -51,6 +50,8 @@ public class PublicServiceTypeRegistry(
             logger.LogDebug("Found {MatchingAssemblyCount} matching plug-in contract assemblies", result.Count);
 
             _assemblies.AddRange(result.Select(a => AssemblyName.GetAssemblyName(a).FullName));
+
+            _initialized = true;
         }
     }
 }
