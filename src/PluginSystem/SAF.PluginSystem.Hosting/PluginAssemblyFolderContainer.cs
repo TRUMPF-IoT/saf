@@ -299,7 +299,7 @@ public class PluginAssemblyFolderContainer(
         {
             assemblyName = GetAssemblyName(assemblyBytes);
         }
-        catch (Exception ex) when (ex is BadImageFormatException or FileLoadException or FileNotFoundException)
+        catch (Exception ex) when (ex is BadImageFormatException or FileLoadException or FileNotFoundException or ArgumentException)
         {
             rejectionReason = $"metadata could not be read ({ex.GetType().Name})";
             return false;

@@ -13,6 +13,9 @@ using Microsoft.Extensions.Options;
 using NSubstitute;
 using SAF.PluginSystem.Hosting.Extensions;
 using System.Reflection;
+using System.Reflection.Metadata;
+using System.Reflection.Metadata.Ecma335;
+using System.Reflection.PortableExecutable;
 using System.Runtime.Loader;
 using System.Runtime.Versioning;
 using System.Security.AccessControl;
@@ -333,6 +336,48 @@ public sealed class PluginAssemblyFolderContainerTests : IDisposable
         Assert.Single(result);
         Assert.Same(manifest, result[0]);
         manifestLoader.Received(1).LoadPluginManifest(Arg.Any<Assembly>());
+    }
+
+    [Fact]
+    public void GetPluginManifests_SkipsAssembly_WhenCultureMetadataIsMalformed()
+    {
+        // Arrange - a candidate whose raw assembly metadata carries a culture string that
+        // AssemblyName.CultureName's setter rejects with CultureNotFoundException (an ArgumentException).
+        // This bypasses the managed AssemblyName validation entirely, the way a hand-crafted or
+        // corrupted satellite resource assembly would.
+        var testDirectory = CreateTestDirectory($"test-plugins-{Guid.NewGuid():N}");
+
+        var malformedCultureAssemblyPath = Path.Combine(testDirectory, "malformed.culture.dll");
+        _fileSystem.File.WriteAllBytes(
+            malformedCultureAssemblyPath,
+            BuildAssemblyWithCulture("MalformedCulture", "not-a-real-culture!!!"));
+
+        var validAssemblyPath = Path.Combine(testDirectory, "valid.managed.dll");
+        _fileSystem.File.Copy(_testAssemblyPath, validAssemblyPath);
+
+        var manifest = Substitute.For<IPluginManifest>();
+        var manifestLoader = Substitute.For<IPluginManifestLoader>();
+        manifestLoader.LoadPluginManifest(Arg.Any<Assembly>()).Returns(manifest);
+
+        var options = new PluginAssemblyFolderSearchOptions
+        {
+            SearchRootPath = testDirectory,
+            IncludePatterns = "*.dll",
+            ExcludePatterns = string.Empty,
+            Recursive = false
+        };
+        var loggerFactory = new CapturingLoggerFactory();
+        var container = new PluginAssemblyFolderContainer(
+            loggerFactory, manifestLoader, options, _fileSystem, [new AcceptingPluginAssemblyValidator()], TestSharedAssemblyResolver.SharesHostProvidedAssemblies, SharedAssemblyConflictBehavior.Fail);
+
+        // Act
+        var result = container.GetPluginManifests().ToList();
+
+        // Assert - the malformed candidate is skipped, not thrown, and the other candidate still loads
+        Assert.Single(result);
+        Assert.Same(manifest, result[0]);
+        Assert.Contains(loggerFactory.Entries, entry =>
+            entry.Level == LogLevel.Warning && entry.Message.Contains("metadata could not be read", StringComparison.Ordinal));
     }
 
     [Fact]
@@ -734,6 +779,48 @@ public sealed class PluginAssemblyFolderContainerTests : IDisposable
     {
         public PluginAssemblyValidationResult Validate(PluginAssemblyValidationContext context)
             => PluginAssemblyValidationResult.Accepted();
+    }
+
+    /// <summary>
+    /// Builds a minimal managed PE image whose assembly-definition row carries the given culture
+    /// string verbatim in the metadata string heap - unlike <see cref="AssemblyName.CultureName"/>'s
+    /// setter, the raw metadata format does not validate it.
+    /// </summary>
+    private static byte[] BuildAssemblyWithCulture(string assemblyName, string culture)
+    {
+        var metadataBuilder = new MetadataBuilder();
+
+        metadataBuilder.AddModule(
+            0,
+            metadataBuilder.GetOrAddString(assemblyName + ".dll"),
+            metadataBuilder.GetOrAddGuid(Guid.NewGuid()),
+            default,
+            default);
+
+        metadataBuilder.AddAssembly(
+            metadataBuilder.GetOrAddString(assemblyName),
+            new Version(1, 0, 0, 0),
+            metadataBuilder.GetOrAddString(culture),
+            default,
+            default,
+            AssemblyHashAlgorithm.None);
+
+        metadataBuilder.AddTypeDefinition(
+            default,
+            default,
+            metadataBuilder.GetOrAddString("<Module>"),
+            default,
+            MetadataTokens.FieldDefinitionHandle(1),
+            MetadataTokens.MethodDefinitionHandle(1));
+
+        var peBuilder = new ManagedPEBuilder(
+            new PEHeaderBuilder(imageCharacteristics: Characteristics.Dll | Characteristics.ExecutableImage),
+            new MetadataRootBuilder(metadataBuilder),
+            new BlobBuilder());
+
+        var peBlob = new BlobBuilder();
+        peBuilder.Serialize(peBlob);
+        return peBlob.ToArray();
     }
 
     private sealed class OversizedStream : Stream
