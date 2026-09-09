@@ -16,7 +16,7 @@ internal sealed class SharedAssemblyVersionComparer : ISharedAssemblyVersionComp
 
         var requested = requestedVersion ?? LowestVersion;
 
-        var comparison = hostVersion.CompareTo(requested);
+        var comparison = Normalize(hostVersion).CompareTo(Normalize(requested));
         return comparison switch
         {
             > 0 => SharedAssemblyVersionRelation.Higher,
@@ -24,4 +24,11 @@ internal sealed class SharedAssemblyVersionComparer : ISharedAssemblyVersionComp
             _ => SharedAssemblyVersionRelation.Equal
         };
     }
+
+    // Version.CompareTo treats an unspecified Build/Revision (-1) as lower than any specified one, so
+    // "1.0" and "1.0.0.0" compare as different versions even though a plugin's AssemblyRef (always
+    // four-field) and a hand-written ISharedAssemblySource's Version (e.g. new Version(1, 0)) mean the same
+    // version. Normalizing both sides first makes the comparison field-count-independent.
+    private static Version Normalize(Version version)
+        => new(version.Major, version.Minor, Math.Max(version.Build, 0), Math.Max(version.Revision, 0));
 }

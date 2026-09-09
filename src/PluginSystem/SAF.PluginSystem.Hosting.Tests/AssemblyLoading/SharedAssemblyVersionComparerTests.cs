@@ -40,6 +40,16 @@ public class SharedAssemblyVersionComparerTests
         Assert.Equal(SharedAssemblyVersionRelation.Equal, result);
     }
 
+    [Theory]
+    [InlineData("1.0", "1.0.0.0")]
+    [InlineData("1.0.0", "1.0.0.0")]
+    public void Compare_ReturnsEqual_WhenVersionsDifferOnlyInFieldCount(string host, string requested)
+    {
+        var result = _comparer.Compare(Version.Parse(host), Version.Parse(requested));
+
+        Assert.Equal(SharedAssemblyVersionRelation.Equal, result);
+    }
+
     [Fact]
     public void Compare_TreatsNullRequestedAsLowest_ReturnsHigher()
     {
