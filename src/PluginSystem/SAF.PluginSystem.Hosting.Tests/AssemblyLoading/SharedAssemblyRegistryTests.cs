@@ -155,11 +155,84 @@ public class SharedAssemblyRegistryTests
         Assert.Equal(new Version(2, 0, 0, 0), info.Version);
     }
 
+    [Fact]
+    public void SharedSet_IgnoresThrowingSource_AndKeepsAssembliesFromOtherSources()
+    {
+        var throwingSource = Substitute.For<ISharedAssemblySource>();
+        throwingSource.GetSharedAssemblyNames().Returns(_ => throw new InvalidOperationException("boom"));
+        _sharedAssemblySources.Add(throwingSource);
+        _sharedAssemblySources.Add(new StubSharedAssemblySource("Good.Contracts, Version=1.0.0.0"));
+        var logger = new CapturingLogger<SharedAssemblyRegistry>();
+
+        var registry = CreateRegistry(logger);
+
+        Assert.True(registry.TryGetSharedAssembly("Good.Contracts", out _));
+        Assert.Single(logger.Entries, e => e.Level == LogLevel.Warning);
+    }
+
+    [Fact]
+    public void SharedSet_IgnoresSourceReturningNull_AndKeepsAssembliesFromOtherSources()
+    {
+        var nullReturningSource = Substitute.For<ISharedAssemblySource>();
+        nullReturningSource.GetSharedAssemblyNames().Returns((IEnumerable<AssemblyName>)null!);
+        _sharedAssemblySources.Add(nullReturningSource);
+        _sharedAssemblySources.Add(new StubSharedAssemblySource("Good.Contracts, Version=1.0.0.0"));
+        var logger = new CapturingLogger<SharedAssemblyRegistry>();
+
+        var registry = CreateRegistry(logger);
+
+        Assert.True(registry.TryGetSharedAssembly("Good.Contracts", out _));
+        Assert.Single(logger.Entries, e => e.Level == LogLevel.Warning);
+    }
+
+    [Fact]
+    public void SharedSet_IgnoresNullElementFromSource_AndKeepsOtherAssembliesFromSameSource()
+    {
+        var sourceWithNullElement = Substitute.For<ISharedAssemblySource>();
+        sourceWithNullElement.GetSharedAssemblyNames().Returns(
+            new AssemblyName?[] { new("Good.Contracts, Version=1.0.0.0"), null }!);
+        _sharedAssemblySources.Add(sourceWithNullElement);
+        var logger = new CapturingLogger<SharedAssemblyRegistry>();
+
+        var registry = CreateRegistry(logger);
+
+        Assert.True(registry.TryGetSharedAssembly("Good.Contracts", out _));
+        Assert.Single(logger.Entries, e => e.Level == LogLevel.Warning);
+    }
+
+    [Fact]
+    public void SharedSet_IgnoresThrowingPublicServiceTypeRegistry_AndKeepsAssembliesFromSources()
+    {
+        _publicServiceTypeRegistry.GetAssemblyNames().Returns(_ => throw new InvalidOperationException("boom"));
+        _sharedAssemblySources.Add(new StubSharedAssemblySource("Good.Contracts, Version=1.0.0.0"));
+        var logger = new CapturingLogger<SharedAssemblyRegistry>();
+
+        var registry = CreateRegistry(logger);
+
+        Assert.True(registry.TryGetSharedAssembly("Good.Contracts", out _));
+        Assert.Single(logger.Entries, e => e.Level == LogLevel.Warning);
+    }
+
     private SharedAssemblyRegistry CreateRegistry()
-        => new(NullLogger<SharedAssemblyRegistry>.Instance, _publicServiceTypeRegistry, _sharedAssemblySources);
+        => CreateRegistry(NullLogger<SharedAssemblyRegistry>.Instance);
+
+    private SharedAssemblyRegistry CreateRegistry(ILogger<SharedAssemblyRegistry> logger)
+        => new(logger, _publicServiceTypeRegistry, _sharedAssemblySources);
 
     private sealed class StubSharedAssemblySource(params string[] fullNames) : ISharedAssemblySource
     {
         public IEnumerable<AssemblyName> GetSharedAssemblyNames() => fullNames.Select(name => new AssemblyName(name));
+    }
+
+    private sealed class CapturingLogger<T> : ILogger<T>
+    {
+        public List<(LogLevel Level, string Message)> Entries { get; } = [];
+
+        public IDisposable? BeginScope<TState>(TState state) where TState : notnull => null;
+
+        public bool IsEnabled(LogLevel logLevel) => true;
+
+        public void Log<TState>(LogLevel logLevel, EventId eventId, TState state, Exception? exception, Func<TState, Exception?, string> formatter)
+            => Entries.Add((logLevel, formatter(state, exception)));
     }
 }

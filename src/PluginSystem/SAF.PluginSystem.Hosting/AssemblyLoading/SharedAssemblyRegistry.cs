@@ -84,24 +84,68 @@ internal sealed class SharedAssemblyRegistry(
             Record(sharedAssemblies, assemblyName);
         }
 
-        foreach (var assemblyName in sharedAssemblySources.SelectMany(source => source.GetSharedAssemblyNames()))
+        foreach (var source in sharedAssemblySources)
         {
-            Record(sharedAssemblies, assemblyName);
+            RecordFromSource(sharedAssemblies, source);
         }
 
-        foreach (var contractFullName in publicServiceTypeRegistry.GetAssemblyNames())
+        try
         {
-            try
+            var contractFullNames = publicServiceTypeRegistry.GetAssemblyNames();
+
+            foreach (var contractFullName in contractFullNames)
             {
-                Record(sharedAssemblies, new AssemblyName(contractFullName));
+                try
+                {
+                    Record(sharedAssemblies, new AssemblyName(contractFullName));
+                }
+                catch (Exception ex) when (ex is FileLoadException or ArgumentException)
+                {
+                    logger.LogWarning(ex, "Ignoring malformed plugin contract assembly name {AssemblyFullName}.", contractFullName);
+                }
             }
-            catch (Exception ex) when (ex is FileLoadException or ArgumentException)
-            {
-                logger.LogWarning(ex, "Ignoring malformed plugin contract assembly name {AssemblyFullName}.", contractFullName);
-            }
+        }
+        catch (Exception ex)
+        {
+            // IPublicServiceTypeRegistry is a public extension point: a throwing implementation must not
+            // abort the whole shared set, it just contributes no contract assemblies.
+            logger.LogWarning(ex, "Ignoring plugin contract assemblies because {PublicServiceTypeRegistryType} threw while listing them.", publicServiceTypeRegistry.GetType().Name);
         }
 
         return sharedAssemblies;
+    }
+
+    private void RecordFromSource(Dictionary<string, SharedAssemblyInfo> sharedAssemblies, ISharedAssemblySource source)
+    {
+        // ISharedAssemblySource is a public extension point: a throwing or misbehaving implementation must
+        // not abort the whole shared set, it just contributes no assemblies.
+        IEnumerable<AssemblyName>? assemblyNames;
+        try
+        {
+            assemblyNames = source.GetSharedAssemblyNames();
+        }
+        catch (Exception ex)
+        {
+            logger.LogWarning(ex, "Ignoring shared assembly source {SharedAssemblySourceType} because it threw while listing its assemblies.", source.GetType().Name);
+            return;
+        }
+
+        if (assemblyNames is null)
+        {
+            logger.LogWarning("Ignoring shared assembly source {SharedAssemblySourceType} because it returned null instead of a shared assembly name sequence.", source.GetType().Name);
+            return;
+        }
+
+        foreach (var assemblyName in assemblyNames)
+        {
+            if (assemblyName is null)
+            {
+                logger.LogWarning("Ignoring a null assembly name returned by shared assembly source {SharedAssemblySourceType}.", source.GetType().Name);
+                continue;
+            }
+
+            Record(sharedAssemblies, assemblyName);
+        }
     }
 
     private static IEnumerable<AssemblyName> CollectImplicitlySharedAssemblies()
