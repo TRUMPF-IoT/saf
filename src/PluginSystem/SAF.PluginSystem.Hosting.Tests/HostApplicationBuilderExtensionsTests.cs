@@ -5,6 +5,7 @@
 namespace SAF.PluginSystem.Hosting.Tests;
 
 using Contracts;
+using SAF.PluginSystem.Hosting.AssemblyLoading;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
@@ -12,6 +13,7 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using NSubstitute;
+using System.Reflection;
 
 public class HostApplicationBuilderExtensionsTests
 {
@@ -52,6 +54,51 @@ public class HostApplicationBuilderExtensionsTests
         Assert.Contains(services, s => s.ServiceType == typeof(IPluginServiceProvider));
         Assert.Contains(services, s => s.ServiceType == typeof(IPluginSystemController));
         Assert.Contains(services, s => s.ServiceType == typeof(IHostedService) && s.ImplementationType == typeof(ServicePluginHost));
+    }
+
+    [Fact]
+    public void PluginSystemOptions_AllowMajorVersionRollForward_DefaultsToFalse()
+        => Assert.False(new PluginSystemOptions().AllowMajorVersionRollForward);
+
+    [Fact]
+    public void AddPluginSystem_WiresSharedAssemblyResolver_ToRejectMajorRollForward_ByDefault()
+    {
+        var services = new ServiceCollection();
+        services.AddLogging();
+
+        var builder = Substitute.For<IHostApplicationBuilder>();
+        builder.Services.Returns(services);
+
+        builder.AddPluginSystem(_ => { });
+
+        using var serviceProvider = services.BuildServiceProvider();
+        var resolver = serviceProvider.GetRequiredService<ISharedAssemblyResolver>();
+        var contracts = typeof(IPluginManifest).Assembly.GetName();
+
+        var decision = resolver.Resolve(new AssemblyName(contracts.Name!) { Version = new Version(1, 0, 0, 0) }, out var hostVersion);
+
+        Assert.Equal(SharedAssemblyDecision.Conflict, decision);
+        Assert.Equal(contracts.Version, hostVersion);
+    }
+
+    [Fact]
+    public void AddPluginSystem_WiresSharedAssemblyResolver_ToAllowMajorRollForward_WhenOptionIsSet()
+    {
+        var services = new ServiceCollection();
+        services.AddLogging();
+
+        var builder = Substitute.For<IHostApplicationBuilder>();
+        builder.Services.Returns(services);
+
+        builder.AddPluginSystem(options => options.AllowMajorVersionRollForward = true);
+
+        using var serviceProvider = services.BuildServiceProvider();
+        var resolver = serviceProvider.GetRequiredService<ISharedAssemblyResolver>();
+        var contracts = typeof(IPluginManifest).Assembly.GetName();
+
+        var decision = resolver.Resolve(new AssemblyName(contracts.Name!) { Version = new Version(1, 0, 0, 0) }, out _);
+
+        Assert.Equal(SharedAssemblyDecision.ShareFromDefault, decision);
     }
 
     [Fact]
