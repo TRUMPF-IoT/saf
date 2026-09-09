@@ -69,17 +69,17 @@ public class PluginAssemblyVersioningTests(HostSharedV2Fixture hostSharedV2)
     }
 
     [Fact]
-    public void SharedDependency_Conflict_Fails_WithClearException()
+    public void SharedDependency_Conflict_QueuesConflict_WithClearDetails()
     {
         var context = CreateContext(SharedAssemblyDecision.Conflict, new Version(1, 0, 0, 0), SharedAssemblyConflictBehavior.Fail);
 
         var requested = new AssemblyName(SharedSimpleName) { Version = new Version(2, 0, 0, 0) };
 
-        // The runtime wraps any exception thrown from an AssemblyLoadContext.Load callback in a
-        // FileLoadException; our clear diagnostic is preserved as the inner exception.
-        var fileLoadException = Assert.Throws<FileLoadException>(() => context.LoadFromAssemblyName(requested));
-        var exception = Assert.IsType<SharedAssemblyVersionConflictException>(fileLoadException.InnerException);
+        // Load defers to the default context instead of throwing; it is the container's job to turn a
+        // queued conflict into a hard failure once loading completes (PluginAssemblyFolderContainerTests).
+        context.LoadFromAssemblyName(requested);
 
+        var exception = Assert.Single(context.Conflicts);
         Assert.Equal(SharedSimpleName, exception.SharedAssemblyName);
         Assert.Equal(new Version(2, 0, 0, 0), exception.RequestedVersion);
         Assert.Equal(new Version(1, 0, 0, 0), exception.HostVersion);

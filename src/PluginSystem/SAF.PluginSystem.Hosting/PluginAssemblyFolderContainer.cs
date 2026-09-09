@@ -97,6 +97,7 @@ public class PluginAssemblyFolderContainer(
 
         foreach (var pluginAssemblyPath in pluginAssemblyPaths)
         {
+            AssemblyLoadContext? pluginLoadContext = null;
             try
             {
                 // FileShare.Read denies every subsequent open that asks for write or delete access, so on
@@ -125,12 +126,13 @@ public class PluginAssemblyFolderContainer(
                     continue;
                 }
 
-                var pluginLoadContext = isInBaseDirectory
+                pluginLoadContext = isInBaseDirectory
                     ? AssemblyLoadContext.Default
                     : new PluginAssemblyLoadContext(loggerFactory, pluginAssemblyPath, sharedAssemblyResolver, sharedAssemblyConflictBehavior);
 
                 var assembly = pluginLoadContext.LoadFromAssemblyPath(pluginAssemblyPath);
                 var manifest = _manifestLoader.LoadPluginManifest(assembly);
+                ThrowIfSharedAssemblyConflict(pluginLoadContext);
 
                 if (manifest == null)
                 {
@@ -141,11 +143,14 @@ public class PluginAssemblyFolderContainer(
                 _logger.LogDebug("Found manifest in {Assembly} from {AssemblyLocation}", assembly, assembly.Location);
                 manifests.Add(manifest);
             }
-            catch (Exception ex) when ((ex is BadImageFormatException or FileLoadException or FileNotFoundException
+            catch (Exception ex) when (ex is BadImageFormatException or FileLoadException or FileNotFoundException
                                           or ReflectionTypeLoadException or TypeLoadException
                                           or IOException or UnauthorizedAccessException)
-                                          && !IsSharedAssemblyVersionConflict(ex))
             {
+                // A conflict can surface here instead of at the call site above: the runtime may wrap it
+                // (or report it through ReflectionTypeLoadException.LoaderExceptions) as a side effect of
+                // whatever else failed. Prefer the queued, unwrapped conflict over the caught exception.
+                ThrowIfSharedAssemblyConflict(pluginLoadContext);
                 _logger.LogError(ex, "Failed to load plugin manifest from {PluginAssemblyPath}, skipping assembly.", pluginAssemblyPath);
             }
         }
@@ -153,50 +158,14 @@ public class PluginAssemblyFolderContainer(
         return manifests;
     }
 
-    // The runtime wraps a fail-fast SharedAssemblyVersionConflictException in a FileLoadException, and
-    // reflection over the plugin types reports it through ReflectionTypeLoadException.LoaderExceptions
-    // instead of InnerException; let it propagate either way, so SharedAssemblyConflictBehavior.Fail
-    // actually fails the host.
-    private static bool IsSharedAssemblyVersionConflict(Exception exception)
+    private static void ThrowIfSharedAssemblyConflict(AssemblyLoadContext? context)
     {
-        var pending = new Stack<Exception>();
-        pending.Push(exception);
-
-        while (pending.Count > 0)
+        if (context is not PluginAssemblyLoadContext plc || plc.Conflicts.Count == 0)
         {
-            var current = pending.Pop();
-            switch (current)
-            {
-                case SharedAssemblyVersionConflictException:
-                    return true;
-
-                case ReflectionTypeLoadException typeLoadException:
-                    PushAll(pending, typeLoadException.LoaderExceptions);
-                    break;
-
-                case AggregateException aggregateException:
-                    PushAll(pending, aggregateException.InnerExceptions);
-                    break;
-            }
-
-            if (current.InnerException is not null)
-            {
-                pending.Push(current.InnerException);
-            }
+            return;
         }
 
-        return false;
-    }
-
-    private static void PushAll(Stack<Exception> pending, IEnumerable<Exception?> exceptions)
-    {
-        foreach (var exception in exceptions)
-        {
-            if (exception is not null)
-            {
-                pending.Push(exception);
-            }
-        }
+        throw plc.Conflicts.Count == 1 ? plc.Conflicts.First() : new AggregateException(plc.Conflicts);
     }
 
     /// <summary>

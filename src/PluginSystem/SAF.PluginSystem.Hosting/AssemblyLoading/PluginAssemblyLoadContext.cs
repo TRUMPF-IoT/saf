@@ -5,6 +5,7 @@
 namespace SAF.PluginSystem.Hosting.AssemblyLoading;
 
 using Microsoft.Extensions.Logging;
+using System.Collections.Concurrent;
 using System.Reflection;
 using System.Runtime.Loader;
 
@@ -17,6 +18,10 @@ internal sealed class PluginAssemblyLoadContext(
     private readonly ILogger _logger = loggerFactory.CreateLogger<PluginAssemblyLoadContext>();
 
     private readonly AssemblyDependencyResolver _resolver = new(pluginAssemblyPath);
+
+    private readonly ConcurrentQueue<SharedAssemblyVersionConflictException> _conflicts = new();
+
+    internal IReadOnlyCollection<SharedAssemblyVersionConflictException> Conflicts => _conflicts;
 
     protected override Assembly? Load(AssemblyName assemblyName)
     {
@@ -54,14 +59,17 @@ internal sealed class PluginAssemblyLoadContext(
 
         if (conflictBehavior == SharedAssemblyConflictBehavior.Fail)
         {
-            // The runtime wraps exceptions thrown from Load in a FileLoadException; log here so the clear
-            // diagnostic is visible regardless of how the caller surfaces the error.
+            // Logged unconditionally: Load may run again later for a member touched only during plugin
+            // execution, after the container has already stopped checking Conflicts. Returning null
+            // instead of throwing lets the default context bind the host version; the container turns
+            // the queued conflict into a hard failure once loading completes.
             _logger.LogError(
                 "Plugin requires shared assembly {AssemblyName} version {RequestedVersion}, which is not compatible " +
                 "with the host-provided version {HostVersion}. Failing the plugin assembly load.",
                 assemblyName.Name, requestedVersion, hostVersion);
 
-            throw new SharedAssemblyVersionConflictException(assemblyName.Name!, requestedVersion, hostVersion);
+            _conflicts.Enqueue(new SharedAssemblyVersionConflictException(assemblyName.Name!, requestedVersion, hostVersion));
+            return null;
         }
 
         var isolatedPath = _resolver.ResolveAssemblyToPath(assemblyName);

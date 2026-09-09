@@ -627,59 +627,39 @@ public sealed class PluginAssemblyFolderContainerTests : IDisposable
     }
 
     [Fact]
-    public void GetPluginManifests_Rethrows_WhenSharedAssemblyVersionConflictWrappedInFileLoadException()
+    public void GetPluginManifests_Throws_WhenPluginTriggersConflictingSharedAssembly_AndBehaviorIsFail()
     {
-        var testDirectory = CreateTestDirectory($"test-plugins-{Guid.NewGuid():N}");
-
-        var pluginAssemblyPath = Path.Combine(testDirectory, "valid.managed.dll");
-        _fileSystem.File.Copy(Path.Combine(AppContext.BaseDirectory, "SAF.PluginSystem.Hosting.Tests.dll"), pluginAssemblyPath);
-
-        var conflict = new SharedAssemblyVersionConflictException("Acme.Contracts", new Version(2, 0, 0, 0), new Version(1, 0, 0, 0));
-        var manifestLoader = Substitute.For<IPluginManifestLoader>();
-        manifestLoader.When(x => x.LoadPluginManifest(Arg.Any<Assembly>()))
-            .Do(_ => throw new FileLoadException("wrapped by runtime", conflict));
-
         var options = new PluginAssemblyFolderSearchOptions
         {
-            SearchRootPath = testDirectory,
-            IncludePatterns = "*.dll",
+            SearchRootPath = _testRootPath,
+            IncludePatterns = Path.GetFileName(_testAssemblyPath),
             ExcludePatterns = string.Empty,
             Recursive = false
         };
-        var container = new PluginAssemblyFolderContainer(_loggerFactory, manifestLoader, options, _fileSystem, [], TestSharedAssemblyResolver.SharesHostProvidedAssemblies, SharedAssemblyConflictBehavior.Fail);
+        var resolver = new ConflictingSharedAssemblyResolver(new Version(1, 0, 0, 0));
+        var container = new PluginAssemblyFolderContainer(
+            _loggerFactory, new ConflictTriggeringManifestLoader(), options, _fileSystem, [], resolver, SharedAssemblyConflictBehavior.Fail);
 
-        var thrown = Assert.Throws<FileLoadException>(() => container.GetPluginManifests().ToList());
-        Assert.Same(conflict, thrown.InnerException);
+        Assert.Throws<SharedAssemblyVersionConflictException>(() => container.GetPluginManifests().ToList());
     }
 
     [Fact]
-    public void GetPluginManifests_Rethrows_WhenSharedAssemblyVersionConflictIsReportedAsLoaderException()
+    public void GetPluginManifests_DoesNotThrow_WhenPluginTriggersConflictingSharedAssembly_AndBehaviorIsIsolateWithWarning()
     {
-        var conflict = new SharedAssemblyVersionConflictException("Acme.Contracts", new Version(2, 0, 0, 0), new Version(1, 0, 0, 0));
+        var options = new PluginAssemblyFolderSearchOptions
+        {
+            SearchRootPath = _testRootPath,
+            IncludePatterns = Path.GetFileName(_testAssemblyPath),
+            ExcludePatterns = string.Empty,
+            Recursive = false
+        };
+        var resolver = new ConflictingSharedAssemblyResolver(new Version(1, 0, 0, 0));
+        var container = new PluginAssemblyFolderContainer(
+            _loggerFactory, new ConflictTriggeringManifestLoader(), options, _fileSystem, [], resolver, SharedAssemblyConflictBehavior.IsolateWithWarning);
 
-        var thrown = Assert.Throws<ReflectionTypeLoadException>(
-            () => LoadManifestsThrowing(new ReflectionTypeLoadException(null, [new TypeLoadException(), conflict])));
+        var result = container.GetPluginManifests().ToList();
 
-        Assert.Contains(conflict, thrown.LoaderExceptions);
-    }
-
-    [Fact]
-    public void GetPluginManifests_Rethrows_WhenSharedAssemblyVersionConflictIsNotTheFirstAggregatedException()
-    {
-        var conflict = new SharedAssemblyVersionConflictException("Acme.Contracts", new Version(2, 0, 0, 0), new Version(1, 0, 0, 0));
-        var aggregate = new AggregateException(new TypeLoadException(), conflict);
-
-        var thrown = Assert.Throws<FileLoadException>(() => LoadManifestsThrowing(new FileLoadException("wrapped by runtime", aggregate)));
-
-        Assert.Same(aggregate, thrown.InnerException);
-    }
-
-    [Fact]
-    public void GetPluginManifests_SkipsAssembly_WhenLoaderExceptionsHoldNoSharedAssemblyVersionConflict()
-    {
-        var manifests = LoadManifestsThrowing(new ReflectionTypeLoadException(null, [new TypeLoadException(), null]));
-
-        Assert.Empty(manifests);
+        Assert.Single(result);
     }
 
     [Fact]
@@ -741,28 +721,6 @@ public sealed class PluginAssemblyFolderContainerTests : IDisposable
 
         Assert.Single(result);
         manifestLoader.Received(1).LoadPluginManifest(Arg.Any<Assembly>());
-    }
-
-    private List<IPluginManifest> LoadManifestsThrowing(Exception exception)
-    {
-        var testDirectory = CreateTestDirectory($"test-plugins-{Guid.NewGuid():N}");
-        _fileSystem.File.Copy(
-            Path.Combine(AppContext.BaseDirectory, "SAF.PluginSystem.Hosting.Tests.dll"),
-            Path.Combine(testDirectory, "valid.managed.dll"));
-
-        var manifestLoader = Substitute.For<IPluginManifestLoader>();
-        manifestLoader.When(x => x.LoadPluginManifest(Arg.Any<Assembly>())).Do(_ => throw exception);
-
-        var options = new PluginAssemblyFolderSearchOptions
-        {
-            SearchRootPath = testDirectory,
-            IncludePatterns = "*.dll",
-            ExcludePatterns = string.Empty,
-            Recursive = false
-        };
-        var container = new PluginAssemblyFolderContainer(_loggerFactory, manifestLoader, options, _fileSystem, [], TestSharedAssemblyResolver.SharesHostProvidedAssemblies, SharedAssemblyConflictBehavior.Fail);
-
-        return container.GetPluginManifests().ToList();
     }
 
     [SupportedOSPlatform("windows")]
@@ -866,6 +824,44 @@ public sealed class PluginAssemblyFolderContainerTests : IDisposable
 
             public void Log<TState>(LogLevel logLevel, EventId eventId, TState state, Exception? exception, Func<TState, Exception?, string> formatter)
                 => entries.Add(new LogEntry(logLevel, formatter(state, exception)));
+        }
+    }
+
+    /// <summary>
+    /// Simulates a plugin whose manifest-loading step lazily binds a shared dependency - forcing
+    /// PluginAssemblyLoadContext.Load to run for it - without needing a real conflicting assembly on disk.
+    /// </summary>
+    private sealed class ConflictTriggeringManifestLoader : IPluginManifestLoader
+    {
+        public IPluginManifest? LoadPluginManifest(Assembly assembly)
+        {
+            var context = (PluginAssemblyLoadContext)AssemblyLoadContext.GetLoadContext(assembly)!;
+            try
+            {
+                context.LoadFromAssemblyName(new AssemblyName("Acme.Contracts"));
+            }
+            catch (FileNotFoundException)
+            {
+                // Load() already ran its conflict handling before returning null; whether the runtime
+                // then finds a fallback for this made-up name is irrelevant to what these tests check.
+            }
+
+            return Substitute.For<IPluginManifest>();
+        }
+    }
+
+    private sealed class ConflictingSharedAssemblyResolver(Version hostVersion) : ISharedAssemblyResolver
+    {
+        public SharedAssemblyDecision Resolve(AssemblyName requested, out Version? host)
+        {
+            if (string.Equals(requested.Name, "Acme.Contracts", StringComparison.OrdinalIgnoreCase))
+            {
+                host = hostVersion;
+                return SharedAssemblyDecision.Conflict;
+            }
+
+            host = null;
+            return SharedAssemblyDecision.LoadIsolated;
         }
     }
 
