@@ -338,21 +338,9 @@ public class PluginAssemblyFolderContainer(
             throw new BadImageFormatException("Assembly metadata is missing.");
         }
 
-        var metadataReader = peReader.GetMetadataReader();
-        var assemblyDefinition = metadataReader.GetAssemblyDefinition();
-        var assemblyName = new AssemblyName(metadataReader.GetString(assemblyDefinition.Name))
-        {
-            CultureName = assemblyDefinition.Culture.IsNil
-                ? null
-                : metadataReader.GetString(assemblyDefinition.Culture),
-            Version = assemblyDefinition.Version
-        };
-
-        if (!assemblyDefinition.PublicKey.IsNil)
-        {
-            assemblyName.SetPublicKey(metadataReader.GetBlobBytes(assemblyDefinition.PublicKey));
-        }
-
-        return assemblyName;
+        // AssemblyDefinition.GetAssemblyName() also maps AssemblyFlags/HashAlgorithm onto
+        // ContentType/ProcessorArchitecture and picks SetPublicKey vs. SetPublicKeyToken correctly - all of
+        // which a hand-written mapping of the same fields would otherwise have to duplicate.
+        return peReader.GetMetadataReader().GetAssemblyDefinition().GetAssemblyName();
     }
 }
