@@ -358,8 +358,11 @@ folder. This is intentional — plug-ins can use their own private versions of n
 > `SharedAssemblyRegistry` to see the full shared set at start-up, and `Trace` on
 > `PluginAssemblyLoadContext` to see which assemblies load in isolation.
 >
-> This is a deliberate change from earlier drop-in base-directory sharing: an assembly is shared only
-> when you declare it, never because it merely happens to sit next to the host.
+> This is a deliberate change from earlier drop-in base-directory sharing, for a plug-in loaded into its
+> **own** `AssemblyLoadContext`: an assembly is shared only when you declare it, never because it merely
+> happens to sit next to the host. A plug-in candidate that itself sits in the host's base directory does
+> not go through this mechanism at all — see the note on `AssemblyLoadContext.Default` under
+> [Assembly Validation](#assembly-validation-optional).
 
 ### Version handling
 
@@ -403,10 +406,12 @@ The related types live in the `SAF.PluginSystem.Hosting.AssemblyLoading` namespa
 (`SharedAssemblyConflictBehavior`, `SharedAssemblyVersionConflictException`).
 
 > **Note (behaviour change):** earlier versions shared any assembly that happened to sit in the host
-> base directory when its full name matched exactly. Sharing is now **explicit**: SAF's own boundary
-> assemblies plus exactly what `PluginContractsSearchPattern` matches, by simple name with roll-forward.
-> If you relied on an assembly being shared implicitly, add it to `PluginContractsSearchPattern` so it
-> enters the shared set.
+> base directory when its full name matched exactly. For a plug-in loaded into its **own**
+> `AssemblyLoadContext`, sharing is now **explicit**: SAF's own boundary assemblies plus exactly what
+> `PluginContractsSearchPattern` matches, by simple name with roll-forward. If you relied on an assembly
+> being shared implicitly, add it to `PluginContractsSearchPattern` so it enters the shared set. This
+> change does not affect a plug-in candidate that itself sits in the host's base directory — see
+> [Assembly Validation](#assembly-validation-optional).
 
 ---
 
@@ -499,7 +504,7 @@ How much the pipeline can guarantee about the file it loads depends on the platf
 
 Neither mechanism extends to the plugin's dependencies. Managed and native dependencies are resolved from the deployment folder by `AssemblyDependencyResolver` when they are first needed, without validation and without either guarantee above, which is why the protected active directory described in [Plugin Deployment Security](./plugin-security.md) remains the control that matters.
 
-Candidates that sit in `AppContext.BaseDirectory` are loaded into `AssemblyLoadContext.Default`, whose binder resolves by assembly *identity* first. If an assembly of that identity is already loaded, or ships with the host and is therefore on the default binder's list of platform assemblies, that one wins and the validated file is never loaded. `SAF.Messaging.Runtime.dll` is the case you are most likely to meet: `AddSafHost` discovers it from the base directory, where the host's own package reference has already placed it. Validation still runs for such a candidate, but it does not decide which bytes end up in the process.
+Candidates that sit in `AppContext.BaseDirectory` are loaded into `AssemblyLoadContext.Default`, whose binder resolves by assembly *identity* first. If an assembly of that identity is already loaded, or ships with the host and is therefore on the default binder's list of platform assemblies, that one wins and the validated file is never loaded. `SAF.Messaging.Runtime.dll` is the case you are most likely to meet: `AddSafHost` discovers it from the base directory, where the host's own package reference has already placed it. Validation still runs for such a candidate, but it does not decide which bytes end up in the process. Such a candidate shares everything the host has already loaded, unconditionally: it never gets its own `AssemblyLoadContext`, so [the shared set](#the-shared-set), `SharedAssemblyRegistry`, `SharedAssemblyResolver` and `SharedAssemblyConflictBehavior` do not apply to it at all.
 
 The digital-signature validator reads the Authenticode signature from the PE certificate table and recomputes the PE hash to confirm that the signature covers the file. Signer trust is decided by `WinVerifyTrust` on Windows and by `X509Chain` against the platform certificate store elsewhere; the semantics differ, because the cross-platform verifier validates only the certificate chain and leaves file integrity to the PE hash check, whereas `WinVerifyTrust` also applies the Authenticode policy layer above the chain.
 
