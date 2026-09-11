@@ -10,6 +10,10 @@ namespace SAF.PluginSystem.Hosting.AssemblyLoading;
 /// <see cref="PluginSystemOptions.SharedAssemblyConflictBehavior"/> is set to
 /// <see cref="SharedAssemblyConflictBehavior.Fail"/>.
 /// </summary>
+/// <remarks>
+/// See "One Plug-in's Shared-Assembly Conflict Fails the Whole Host" in docs/migration-10-to-11.md for
+/// the underlying mechanism and full guidance.
+/// </remarks>
 public sealed class SharedAssemblyVersionConflictException : Exception
 {
     /// <summary>Gets the simple name of the conflicting shared assembly.</summary>
@@ -27,8 +31,9 @@ public sealed class SharedAssemblyVersionConflictException : Exception
     public SharedAssemblyVersionConflictException(string sharedAssemblyName, Version requestedVersion, Version hostVersion)
         : base($"A plugin requires shared assembly '{sharedAssemblyName}' version {requestedVersion}, which is not " +
                $"compatible with the host-provided version {hostVersion}. Types of this shared (contract) assembly " +
-               $"cannot cross the plugin boundary. Deploy a compatible host version, or exclude the assembly from " +
-               $"the shared set so the plugin can load it in isolation.")
+               $"cannot cross the plugin boundary. Rebuild the plugin against the host's version; if that is not " +
+               $"possible, set PluginSystemOptions.AllowMajorVersionRollForward = true, or " +
+               $"SharedAssemblyConflictBehavior = SharedAssemblyConflictBehavior.IsolateWithWarning.")
     {
         SharedAssemblyName = sharedAssemblyName;
         RequestedVersion = requestedVersion;
