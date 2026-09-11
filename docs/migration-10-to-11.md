@@ -424,8 +424,26 @@ setting exports cross-plugin services and is not the mechanism behind forwarding
 
 ---
 
+## One Plug-in's Shared-Assembly Conflict Fails the Whole Host
+
+Rebuilding every plug-in against v11 is already required for reasons covered elsewhere in this guide — `IPluginManifest`, `ConfigureServices`, the `SAF.Messaging.Contracts` namespace, and so on. A plug-in that still targets the old API does not implement `IPluginManifest` at all, so it is simply skipped with a log entry; it does not stop the host.
+
+What is easy to miss is what happens **after** a plug-in has been rebuilt against v11's contracts, if it — or one of its own dependencies — still pins an older major version of an assembly the host shares. That is not just a problem for the one plug-in: with the default `SharedAssemblyConflictBehavior.Fail`, `PluginAssemblyFolderContainer` queues the conflict and throws once loading finishes, and that exception propagates out of the whole plugin system, so **the v11 host does not start** — every other plug-in included. See [the shared set](./plugin-system.md#the-shared-set) and [version handling](./plugin-system.md#version-handling) for the full mechanism.
+
+The [shared set](./plugin-system.md#the-shared-set) includes `SAF.PluginSystem.Hosting.Contracts` and `SAF.Common` (both now `AssemblyVersion=11.0.0.0`), plus the `Microsoft.Extensions.*`/`System.IO.Abstractions` assemblies the plugin system forces across the boundary. A plug-in built correctly against `IPluginManifest` can still hit the conflict this way — for example, if one of *its own* dependencies still pins an older major of `Microsoft.Extensions.*`, that is the same disallowed roll-forward as an unported SAF contract reference, and it takes the whole host down just the same.
+
+**Required:** rebuild the plug-in, or update the outdated dependency, against v11.
+
+**If that is not possible right now:**
+
+- Set `PluginSystemOptions.AllowMajorVersionRollForward = true`. This is global — it also removes the major-version protection for your *own* contract assemblies, not only for the dependency causing the immediate failure.
+- Or set `SharedAssemblyConflictBehavior = SharedAssemblyConflictBehavior.IsolateWithWarning`. The plug-in starts, but at a cost: types of the conflicting assembly no longer cross the plug-in boundary, so instances the plug-in constructs and instances the host constructs are no longer type-compatible.
+
+---
+
 ## Quick Migration Checklist
 
+- [ ] Rebuild plug-ins (and check their dependencies) against v11 — one outdated shared-assembly reference fails the whole host's startup, not just that plug-in
 - [ ] Replace `new ServiceCollection()` + `AddHost()` with `Host.CreateApplicationBuilder()` + `AddSafHost()`
 - [ ] Rename `IServiceAssemblyManifest` → `IPluginManifest`
 - [ ] Rename `RegisterDependencies(IServiceCollection)` → `ConfigureServices(IPluginSystemHostContext, IServiceCollection)`
