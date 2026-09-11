@@ -40,11 +40,11 @@ SPDX-License-Identifier: MPL-2.0
     <PackageVersion Include="xunit.v3" Version="3.2.2" />
   </ItemGroup>
   <ItemGroup>
-    <GlobalPackageReference Include="MinVer" Version="7.0.0">
+    <GlobalPackageReference Include="MinVer" Version="8.0.0">
       <PrivateAssets>all</PrivateAssets>
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
     </GlobalPackageReference>
-    <GlobalPackageReference Include="Microsoft.SourceLink.GitHub" Version="10.0.301">
+    <GlobalPackageReference Include="Microsoft.SourceLink.GitHub" Version="10.0.401">
       <PrivateAssets>all</PrivateAssets>
       <IncludeAssets>runtime; build; native; contentfiles; analyzers</IncludeAssets>
     </GlobalPackageReference>
