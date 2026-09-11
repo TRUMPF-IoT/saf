@@ -317,6 +317,12 @@ public class DynamicConsumer(IPluginServiceProvider pluginServices)
 }
 ```
 
+> Implementing `IPluginServiceProvider` yourself (a test double, for example)? `GetRequiredService<T>` /
+> `GetRequiredKeyedService<T>` can't decide on the resolved value's nullness with `value ?? throw`: for an
+> unconstrained `T`, that expression boxes value types for the null check, and a boxed struct is never
+> `null` — the throw branch never runs, so a value-typed `T` would silently get `default(T)` back instead
+> of the expected exception. Decide on the number of matching registrations instead, as `PluginServiceProvider` does.
+
 ---
 
 ## Assembly Loading and Shared Assemblies
