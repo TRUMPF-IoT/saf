@@ -34,7 +34,7 @@ public class SharedAssemblyEndToEndTests
             NullLogger<SharedAssemblyRegistry>.Instance,
             publicServiceTypeRegistry,
             [new SharedAssemblySource<IPublicSingleton>()]);
-        var resolver = new SharedAssemblyResolver(registry, new SharedAssemblyVersionComparer(), allowMajorVersionRollForward: false);
+        var resolver = new SharedAssemblyResolver(registry, allowMajorVersionRollForward: false);
 
         _pluginContainer = new PluginAssemblyFolderContainer(
             NullLoggerFactory.Instance,

@@ -82,6 +82,19 @@ public class SharedAssemblyResolverTests
         Assert.Equal(new Version(1, 0, 0, 0), hostVersion);
     }
 
+    [Theory]
+    [InlineData("1.0")]
+    [InlineData("1.0.0")]
+    public void Resolve_ReturnsShareFromDefault_WhenVersionsDifferOnlyInFieldCount(string hostVersion)
+    {
+        var registry = new FakeSharedAssemblyRegistry().Add("Shared", Version.Parse(hostVersion));
+        var resolver = CreateResolver(registry);
+
+        var decision = resolver.Resolve(Name("Shared", "1.0.0.0"), out _);
+
+        Assert.Equal(SharedAssemblyDecision.ShareFromDefault, decision);
+    }
+
     [Fact]
     public void Resolve_TreatsNullRequestedVersionAsShareable()
     {
@@ -132,7 +145,7 @@ public class SharedAssemblyResolverTests
         => Assert.Equal(SharedAssemblyDecision.LoadIsolated, default(SharedAssemblyDecision));
 
     private static SharedAssemblyResolver CreateResolver(ISharedAssemblyRegistry registry, bool allowMajorVersionRollForward = false)
-        => new(registry, new SharedAssemblyVersionComparer(), allowMajorVersionRollForward);
+        => new(registry, allowMajorVersionRollForward);
 
     private static AssemblyName Name(string name, string version, byte[]? publicKeyToken = null)
     {

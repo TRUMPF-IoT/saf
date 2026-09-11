@@ -9,10 +9,11 @@ using System.Reflection;
 /// <inheritdoc />
 internal sealed class SharedAssemblyResolver(
     ISharedAssemblyRegistry sharedAssemblyRegistry,
-    ISharedAssemblyVersionComparer versionComparer,
     bool allowMajorVersionRollForward)
     : ISharedAssemblyResolver
 {
+    private static readonly Version LowestVersion = new(0, 0, 0, 0);
+
     /// <inheritdoc />
     public SharedAssemblyDecision Resolve(AssemblyName requested, out Version? hostVersion)
     {
@@ -37,8 +38,7 @@ internal sealed class SharedAssemblyResolver(
 
         hostVersion = info.Version;
 
-        var relation = versionComparer.Compare(info.Version, requested.Version);
-        if (relation == SharedAssemblyVersionRelation.Lower || IsBreakingMajorRollForward(info.Version, requested.Version))
+        if (IsLowerThanRequested(info.Version, requested.Version) || IsBreakingMajorRollForward(info.Version, requested.Version))
         {
             return SharedAssemblyDecision.Conflict;
         }
@@ -48,6 +48,16 @@ internal sealed class SharedAssemblyResolver(
 
     private bool IsBreakingMajorRollForward(Version hostVersion, Version? requestedVersion)
         => !allowMajorVersionRollForward && requestedVersion is not null && hostVersion.Major > requestedVersion.Major;
+
+    // Version.CompareTo treats an unspecified Build/Revision (-1) as lower than any specified one, so
+    // "1.0" and "1.0.0.0" compare as different versions even though a plugin's AssemblyRef (always
+    // four-field) and a hand-written ISharedAssemblySource's Version (e.g. new Version(1, 0)) mean the same
+    // version. Normalizing both sides first makes the comparison field-count-independent.
+    private static bool IsLowerThanRequested(Version hostVersion, Version? requestedVersion)
+        => Normalize(hostVersion).CompareTo(Normalize(requestedVersion ?? LowestVersion)) < 0;
+
+    private static Version Normalize(Version version)
+        => new(version.Major, version.Minor, Math.Max(version.Build, 0), Math.Max(version.Revision, 0));
 
     private static bool PublicKeyTokensMatch(byte[]? requested, byte[]? host)
     {
