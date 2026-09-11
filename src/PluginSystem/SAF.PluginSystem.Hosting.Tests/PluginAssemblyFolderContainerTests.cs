@@ -190,7 +190,8 @@ public sealed class PluginAssemblyFolderContainerTests : IDisposable
             ExcludePatterns = string.Empty,
             Recursive = false
         };
-        var container = new PluginAssemblyFolderContainer(_loggerFactory, manifestLoader, options, _fileSystem, [], TestSharedAssemblyResolver.SharesHostProvidedAssemblies, SharedAssemblyConflictBehavior.Fail);
+        var loggerFactory = new CapturingLoggerFactory();
+        var container = new PluginAssemblyFolderContainer(loggerFactory, manifestLoader, options, _fileSystem, [], TestSharedAssemblyResolver.SharesHostProvidedAssemblies, SharedAssemblyConflictBehavior.Fail);
 
         // Act
         var result = container.GetPluginManifests().ToList();
@@ -202,6 +203,8 @@ public sealed class PluginAssemblyFolderContainerTests : IDisposable
         // so neither isolation nor shared-assembly conflict detection ever applies to it (documented in
         // docs/plugin-system.md).
         Assert.Same(AssemblyLoadContext.Default, AssemblyLoadContext.GetLoadContext(loadedAssembly!));
+        Assert.Contains(loggerFactory.Entries, e =>
+            e.Level == LogLevel.Information && e.Message.Contains("AssemblyLoadContext.Default", StringComparison.Ordinal));
     }
 
     [Fact]

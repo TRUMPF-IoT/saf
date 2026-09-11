@@ -129,9 +129,18 @@ public class PluginAssemblyFolderContainer(
                     continue;
                 }
 
-                pluginLoadContext = isInBaseDirectory
-                    ? AssemblyLoadContext.Default
-                    : new PluginAssemblyLoadContext(loggerFactory, pluginAssemblyPath, sharedAssemblyResolver, sharedAssemblyConflictBehavior);
+                if (isInBaseDirectory)
+                {
+                    _logger.LogInformation(
+                        "Plugin assembly {PluginAssemblyPath} is in the application base directory and will be " +
+                        "loaded into AssemblyLoadContext.Default; neither isolation nor shared assembly conflict " +
+                        "handling applies to it.", pluginAssemblyPath);
+                    pluginLoadContext = AssemblyLoadContext.Default;
+                }
+                else
+                {
+                    pluginLoadContext = new PluginAssemblyLoadContext(loggerFactory, pluginAssemblyPath, sharedAssemblyResolver, sharedAssemblyConflictBehavior);
+                }
 
                 var assembly = pluginLoadContext.LoadFromAssemblyPath(pluginAssemblyPath);
                 var manifest = _manifestLoader.LoadPluginManifest(assembly);
