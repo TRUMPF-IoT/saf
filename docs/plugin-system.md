@@ -435,13 +435,13 @@ pluginSystemBuilder.AddPluginAssemblyFolderContainer(options =>
 
 // Register host services that should be forwarded into every plugin container
 builder.Services.AddSingleton<IMySharedService, MySharedService>();
-builder.Services.AddSingleton<IHostServiceForwarder, HostServiceForwarder<IMySharedService>>();
+builder.Services.AddHostServiceForwarder<IMySharedService>();
 
 var host = builder.Build();
 await host.RunAsync();
 ```
 
-Services are **not** forwarded into plugin containers automatically. Use `IHostServiceForwarder` / `HostServiceForwarder<T>` to bridge specific host services explicitly.
+Services are **not** forwarded into plugin containers automatically. Use `AddHostServiceForwarder<T>()` (see [IHostServiceForwarder](#ihostserviceforwarder)) to bridge specific host services explicitly.
 
 ---
 

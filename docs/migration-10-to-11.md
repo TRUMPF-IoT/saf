@@ -355,72 +355,26 @@ Switching the requirement off is only meaningful together with `AllowedSignerThu
 
 `DigitalSignaturePluginAssemblyValidator` is constructed by `AddDigitalSignaturePluginAssemblyValidator` only; it has no public constructor, and registering it as a plain service type (`AddPluginAssemblyValidator<DigitalSignaturePluginAssemblyValidator>()`) fails when the service provider resolves it.
 
-### `PluginSystemHostContext` and `PluginConfigurationSourceContext` take the host `IServiceProvider`
-
-`IServiceProvider hostServices` was added to the `PluginSystemHostContext` constructor **before** the
-optional trailing `configurePluginConfigurationSources` parameter, so no earlier call compiles unchanged —
-including the 5-argument form that omitted the optional one — and a caller compiled against an earlier 11.0
-pre-release fails at runtime with `MissingMethodException`:
-
-```csharp
-// Before
-new PluginSystemHostContext(logger, environment, hostConfiguration, options, fileSystem, configureSources);
-
-// After
-new PluginSystemHostContext(logger, environment, hostConfiguration, options, fileSystem, hostServices, configureSources);
-```
-
-`AddSafHost()` constructs the context itself and supplies the provider, so a host that uses the normal
-bootstrap needs no change. This affects code that constructs the context directly — in practice, tests.
-
-`PluginConfigurationSourceContext` gained a matching `required IServiceProvider HostServices { get; init; }`,
-which breaks object-initializer construction — a test double that invokes a source callback outside a host,
-for example:
-
-```csharp
-var sourceContext = new PluginConfigurationSourceContext
-{
-    Builder = configurationBuilder,
-    SettingsFileProvider = null,
-    EnvironmentName = "Test",
-    SettingsFileName = null,
-    OnLoadException = _ => { },
-    HostServices = hostServices,    // new, and required
-};
-```
-
-Both breaks are intentional. A configuration source that resolves values against host services —
-[transparent secret resolution](./secret-store.md#transparent-configuration-resolution) is the case that
-prompted it — has no other way to reach them: the callback runs during `IPluginSystemHostContext`
-construction, before any plugin container exists. Making it required rather than optional is what turns a
-stale call into a compile error; an optional parameter would have compiled unchanged and handed the
-callback a null provider.
-
----
-
 ### Register forwarded host services with `AddHostServiceForwarder<T>()`
 
-Forwarding a host service into plug-in containers now has a second, inseparable half: the assembly
-declaring the forwarded contract must be in the plugin system's
-[shared set](./plugin-system.md#the-shared-set), otherwise each plug-in loads its own copy and cannot
-resolve the forwarded instance. `AddHostServiceForwarder<T>()` registers both halves in one call.
+SAF 10.x had a single, shared `ServiceCollection` — every plug-in saw every host service directly. In
+11.x each plug-in loads into its own isolated container, so a host service now reaches a plug-in only if
+you forward it explicitly:
 
 ```csharp
-// Before — forwards the instance, but does not share the contract assembly
-services.AddSingleton<IHostServiceForwarder, HostServiceForwarder<IMyContract>>();
-
-// After
-services.AddHostServiceForwarder<IMyContract>();
+services.AddSingleton<MySharedSingleton>();
+services.AddHostServiceForwarder<MySharedSingleton>();
 ```
 
-The old registration still compiles. It is not a compile error but a silent one: the plug-in resolves
-`IMyContract` from its own private copy of the assembly and the container reports the service as missing.
-If you implement `IHostServiceForwarder` yourself, register an `ISharedAssemblySource` alongside it —
-`services.AddSingleton<ISharedAssemblySource, SharedAssemblySource<IMyContract>>()`.
+`AddHostServiceForwarder<T>()` registers two things together, and both are required: a forwarder that
+bridges the already-resolved host instance into each plug-in container, and an `ISharedAssemblySource`
+that puts `T`'s declaring assembly into the plugin system's
+[shared set](./plugin-system.md#the-shared-set) — without it, each plug-in would load its own copy of the
+contract assembly and fail to resolve the forwarded instance.
 
-`AddSecretStore()` and `AddSafHost()` were updated, so `ISecretStore` and `IServiceHostInfo` need no
-action. In particular, do **not** add their contract assemblies to `PluginContractsSearchPattern`; that
-setting exports cross-plugin services and is not the mechanism behind forwarding.
+`AddSecretStore()` and `AddSafHost()` already do this for `ISecretStore` and `IServiceHostInfo`, so no
+action is needed for either. For a custom `IHostServiceForwarder` implementation, see
+[IHostServiceForwarder](./plugin-system.md#ihostserviceforwarder).
 
 ---
 
@@ -455,5 +409,4 @@ The [shared set](./plugin-system.md#the-shared-set) includes `SAF.PluginSystem.H
 - [ ] Move plugin configuration into the shared plugin settings file (or host `appsettings.json`) under a per-plugin section
 - [ ] Deploy messaging/storage as plug-ins (add their DLLs to `IncludePatterns`) instead of calling `Add*Infrastructure()` on the host
 - [ ] Reference `SAF.PluginSystem.Hosting.Extensions` explicitly if you use plugin assembly validation, and check the `RequireValidDigitalSignature = true` default against the signatures your plug-ins actually carry
-- [ ] Pass the host `IServiceProvider` if you construct `PluginSystemHostContext` or `PluginConfigurationSourceContext` yourself (`AddSafHost()` already does)
-- [ ] Replace `AddSingleton<IHostServiceForwarder, HostServiceForwarder<T>>()` with `AddHostServiceForwarder<T>()` so the forwarded contract assembly is shared with every plug-in
+- [ ] Forward any additional host service your plug-ins need with `AddHostServiceForwarder<T>()` — v10's single shared container needed no such step

@@ -238,15 +238,15 @@ public class MyPlugin(IServiceHostInfo hostInfo)
 
 The plugin system calls all `IHostServiceForwarder` registrations before each plugin manifest's `ConfigureServices` runs. SAF uses this to bridge `IServiceHostInfo` into the isolated plugin containers without re-creating it.
 
-You can forward additional host-level services the same way using the built-in `HostServiceForwarder<T>`:
+You can forward additional host-level services the same way using `AddHostServiceForwarder<T>()`:
 
 ```csharp
 // Anywhere in host setup — e.g. your own ServiceCollectionExtensions
 services.AddSingleton<MySharedSingleton>();
-services.AddSingleton<IHostServiceForwarder, HostServiceForwarder<MySharedSingleton>>();
+services.AddHostServiceForwarder<MySharedSingleton>();
 ```
 
-`HostServiceForwarder<T>` receives the already-resolved host singleton via constructor injection and registers the **same instance** in each plugin container — no factory, no service locator.
+`AddHostServiceForwarder<T>()` registers both halves in one call: a `HostServiceForwarder<T>` that receives the already-resolved host singleton via constructor injection and registers the **same instance** in each plugin container — no factory, no service locator — and an `ISharedAssemblySource` for `T`'s declaring assembly, adding it to the [shared set](./plugin-system.md#the-shared-set) so plugins resolve that same type identity instead of loading a private copy.
 
 Keep it that way: forward the resolved instance, not a factory delegate that resolves from the host provider. A plugin container disposes only the singletons it created itself, so an instance registration stays owned by the host and survives the disposal of a plugin container — for example when the plugin system is [reloaded](./plugin-system.md#live-reload-reconfiguration).
 
