@@ -40,7 +40,21 @@ internal sealed class PluginAssemblyLoadContext(
                 return null;
 
             case SharedAssemblyDecision.Conflict:
-                return HandleConflict(assemblyName, hostVersion!);
+                // ISharedAssemblyResolver is a public extension point: nothing enforces that a Conflict
+                // decision actually carries a host version or that the request carries a simple name (both
+                // are only documented expectations). Forcing either with `!` here would let a misbehaving
+                // resolver construct a SharedAssemblyVersionConflictException with null fields instead.
+                if (hostVersion is null || assemblyName.Name is null)
+                {
+                    _logger.LogError(
+                        "Shared assembly resolver {SharedAssemblyResolverType} reported a conflict for " +
+                        "{AssemblyFullName} without a host version and/or simple name; the response cannot be " +
+                        "used. Loading in isolation instead.",
+                        sharedAssemblyResolver.GetType().Name, assemblyName.FullName);
+                    return LoadIsolated(assemblyName);
+                }
+
+                return HandleConflict(assemblyName, hostVersion);
 
             default:
                 return LoadIsolated(assemblyName);
@@ -68,6 +82,7 @@ internal sealed class PluginAssemblyLoadContext(
                 "with the host-provided version {HostVersion}. Failing the plugin assembly load.",
                 assemblyName.Name, requestedVersion, hostVersion);
 
+            // Name is non-null here: Load only reaches HandleConflict once it has confirmed that itself.
             _conflicts.Enqueue(new SharedAssemblyVersionConflictException(assemblyName.Name!, requestedVersion, hostVersion));
             return null;
         }

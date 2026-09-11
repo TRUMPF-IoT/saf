@@ -229,6 +229,30 @@ public class PluginAssemblyLoadContextTests
         Assert.DoesNotContain(capturingLoggerFactory.Entries, e => e.Message.Contains("Falling back to the host version"));
     }
 
+    [Fact]
+    public void Conflict_LoadsIsolated_AndLogsError_WhenResolverReportsConflictWithoutHostVersion()
+    {
+        var pluginAPath = GetAssemblyPath("TestPlugin.PluginA");
+        var capturingLoggerFactory = new CapturingLoggerFactory();
+
+        // A misbehaving resolver: reports Conflict without setting hostVersion. ISharedAssemblyResolver
+        // only documents this as an expectation - nothing enforces it for a third-party implementation.
+        var privateDependency = new AssemblyName("TestPlugin.DependencyA");
+
+        var context = new PluginAssemblyLoadContext(
+            capturingLoggerFactory,
+            pluginAPath,
+            new FixedDecisionResolver(privateDependency.Name!, SharedAssemblyDecision.Conflict, hostVersion: null),
+            SharedAssemblyConflictBehavior.Fail);
+
+        var loaded = context.LoadFromAssemblyName(privateDependency);
+
+        Assert.NotSame(AssemblyLoadContext.Default, AssemblyLoadContext.GetLoadContext(loaded));
+        Assert.Same(context, AssemblyLoadContext.GetLoadContext(loaded));
+        Assert.Single(capturingLoggerFactory.Entries, e => e.Level == LogLevel.Error);
+        Assert.Empty(context.Conflicts);
+    }
+
     private static string GetAssemblyPath(string pluginName)
         => Path.Combine(AppContext.BaseDirectory, "plugins", pluginName, $"{pluginName}.dll");
 
