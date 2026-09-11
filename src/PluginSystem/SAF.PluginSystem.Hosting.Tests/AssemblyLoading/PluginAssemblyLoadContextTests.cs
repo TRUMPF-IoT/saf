@@ -187,7 +187,7 @@ public class PluginAssemblyLoadContextTests
         var context = new PluginAssemblyLoadContext(
             capturingLoggerFactory,
             pluginAPath,
-            new FixedDecisionResolver(notShippedByPlugin.Name!, SharedAssemblyDecision.Conflict, higherHostVersion),
+            TestSharedAssemblyResolver.WithFixedDecision(notShippedByPlugin.Name!, SharedAssemblyDecision.Conflict, higherHostVersion),
             SharedAssemblyConflictBehavior.IsolateWithWarning);
 
         var loaded = context.LoadFromAssemblyName(notShippedByPlugin);
@@ -212,7 +212,7 @@ public class PluginAssemblyLoadContextTests
         var context = new PluginAssemblyLoadContext(
             capturingLoggerFactory,
             pluginAPath,
-            new FixedDecisionResolver(requested.Name!, SharedAssemblyDecision.Conflict, lowerHostVersion),
+            TestSharedAssemblyResolver.WithFixedDecision(requested.Name!, SharedAssemblyDecision.Conflict, lowerHostVersion),
             SharedAssemblyConflictBehavior.IsolateWithWarning);
 
         try
@@ -242,7 +242,7 @@ public class PluginAssemblyLoadContextTests
         var context = new PluginAssemblyLoadContext(
             capturingLoggerFactory,
             pluginAPath,
-            new FixedDecisionResolver(privateDependency.Name!, SharedAssemblyDecision.Conflict, hostVersion: null),
+            TestSharedAssemblyResolver.WithFixedDecision(privateDependency.Name!, SharedAssemblyDecision.Conflict, hostVersion: null),
             SharedAssemblyConflictBehavior.Fail);
 
         var loaded = context.LoadFromAssemblyName(privateDependency);
@@ -273,22 +273,6 @@ public class PluginAssemblyLoadContextTests
         var type = assembly.GetType(typeName)!;
         var method = type.GetMethod(methodName, BindingFlags.Static | BindingFlags.Public)!;
         return method.Invoke(null, null) as Assembly;
-    }
-
-    private sealed class FixedDecisionResolver(string simpleName, SharedAssemblyDecision decision, Version? hostVersion)
-        : ISharedAssemblyResolver
-    {
-        public SharedAssemblyDecision Resolve(AssemblyName requested, out Version? host)
-        {
-            if (string.Equals(requested.Name, simpleName, StringComparison.OrdinalIgnoreCase))
-            {
-                host = hostVersion;
-                return decision;
-            }
-
-            host = null;
-            return SharedAssemblyDecision.LoadIsolated;
-        }
     }
 
     private sealed class CapturingLoggerFactory : ILoggerFactory

@@ -103,7 +103,7 @@ public class PluginAssemblyVersioningTests(HostSharedV2Fixture hostSharedV2)
         => new(
             NullLoggerFactory.Instance,
             PluginPath,
-            new StubSharedAssemblyResolver(SharedSimpleName, decision, hostVersion),
+            TestSharedAssemblyResolver.WithFixedDecision(SharedSimpleName, decision, hostVersion),
             conflictBehavior);
 
     private static Assembly InvokeGetSharedAssembly(Assembly plugin)
@@ -117,22 +117,5 @@ public class PluginAssemblyVersioningTests(HostSharedV2Fixture hostSharedV2)
         var entryType = plugin.GetType(PluginEntryTypeName)!;
         var method = entryType.GetMethod(methodName, BindingFlags.Public | BindingFlags.Static)!;
         return method.Invoke(null, null);
-    }
-
-    /// <summary>Returns a fixed decision for the shared assembly under test and isolates everything else.</summary>
-    private sealed class StubSharedAssemblyResolver(string simpleName, SharedAssemblyDecision decision, Version? hostVersion)
-        : ISharedAssemblyResolver
-    {
-        public SharedAssemblyDecision Resolve(AssemblyName requested, out Version? host)
-        {
-            if (string.Equals(requested.Name, simpleName, StringComparison.OrdinalIgnoreCase))
-            {
-                host = hostVersion;
-                return decision;
-            }
-
-            host = null;
-            return SharedAssemblyDecision.LoadIsolated;
-        }
     }
 }
