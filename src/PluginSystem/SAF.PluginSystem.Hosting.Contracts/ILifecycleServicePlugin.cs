@@ -7,7 +7,7 @@ namespace SAF.PluginSystem.Hosting.Contracts;
 /// <summary>
 /// Extends <see cref="IServicePlugin"/> with finer-grained lifecycle hooks for plugins
 /// that need phased initialization and shutdown (starting, started, stopping, stopped).
-/// Similar in purpose to <see cref="Microsoft.Extensions.Hosting.IHostedLifecycleService"/>,
+/// Similar in purpose to <c>Microsoft.Extensions.Hosting.IHostedLifecycleService</c>,
 /// but scoped to the plugin system.
 /// </summary>
 public interface ILifecycleServicePlugin : IServicePlugin
