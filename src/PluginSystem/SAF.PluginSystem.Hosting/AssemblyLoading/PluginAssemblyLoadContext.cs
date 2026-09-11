@@ -75,12 +75,26 @@ internal sealed class PluginAssemblyLoadContext(
         var isolatedPath = _resolver.ResolveAssemblyToPath(assemblyName);
         if (isolatedPath is null)
         {
-            // Nothing to isolate: the runtime falls back to the host version from the default context.
-            _logger.LogWarning(
-                "Plugin requires shared assembly {AssemblyName} version {RequestedVersion}, which is not compatible " +
-                "with the host-provided version {HostVersion}, and ships no private copy. Falling back to the host " +
-                "version; the plugin may fail at runtime.",
-                assemblyName.Name, requestedVersion, hostVersion);
+            // The default context's binder only rolls a reference forward to a HIGHER already-bound
+            // version; it never binds one down. Below this point, "falling back to the host version"
+            // is only true when the host is higher (a disallowed major roll-forward) - when the host is
+            // actually lower, the bind itself fails and this plugin will not load.
+            if (hostVersion > requestedVersion)
+            {
+                _logger.LogWarning(
+                    "Plugin requires shared assembly {AssemblyName} version {RequestedVersion}, which is not compatible " +
+                    "with the host-provided version {HostVersion}, and ships no private copy. Falling back to the host " +
+                    "version; the plugin may fail at runtime.",
+                    assemblyName.Name, requestedVersion, hostVersion);
+            }
+            else
+            {
+                _logger.LogWarning(
+                    "Plugin requires shared assembly {AssemblyName} version {RequestedVersion}, which is not compatible " +
+                    "with the host-provided version {HostVersion}, and ships no private copy. The default context " +
+                    "cannot bind the lower host version to this request; loading this plugin will fail.",
+                    assemblyName.Name, requestedVersion, hostVersion);
+            }
 
             return null;
         }

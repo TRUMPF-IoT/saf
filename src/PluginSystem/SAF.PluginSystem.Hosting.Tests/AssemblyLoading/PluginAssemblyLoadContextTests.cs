@@ -173,26 +173,60 @@ public class PluginAssemblyLoadContextTests
     }
 
     [Fact]
-    public void Conflict_IsolateWithWarning_FallsBackToHostVersion_AndWarns_WhenPluginShipsNoPrivateCopy()
+    public void Conflict_IsolateWithWarning_FallsBackToHostVersion_AndWarns_WhenHostIsHigher_AndPluginShipsNoPrivateCopy()
     {
         var pluginAPath = GetAssemblyPath("TestPlugin.PluginA");
         var capturingLoggerFactory = new CapturingLoggerFactory();
 
         // The test assembly is loaded in the default context but is not shipped by PluginA, so the plugin's
-        // dependency resolver cannot provide a private copy to isolate.
+        // dependency resolver cannot provide a private copy to isolate. The host version is fixed a major
+        // above the test assembly's real version, so it is unambiguously the higher one.
         var notShippedByPlugin = typeof(PluginAssemblyLoadContextTests).Assembly.GetName();
+        var higherHostVersion = new Version(notShippedByPlugin.Version!.Major + 1, 0, 0, 0);
 
         var context = new PluginAssemblyLoadContext(
             capturingLoggerFactory,
             pluginAPath,
-            new FixedDecisionResolver(notShippedByPlugin.Name!, SharedAssemblyDecision.Conflict, new Version(1, 0, 0, 0)),
+            new FixedDecisionResolver(notShippedByPlugin.Name!, SharedAssemblyDecision.Conflict, higherHostVersion),
             SharedAssemblyConflictBehavior.IsolateWithWarning);
 
         var loaded = context.LoadFromAssemblyName(notShippedByPlugin);
 
         Assert.Same(AssemblyLoadContext.Default, AssemblyLoadContext.GetLoadContext(loaded));
-        Assert.Contains(capturingLoggerFactory.Entries, e => e.Level == LogLevel.Warning && e.Message.Contains("no private copy"));
+        Assert.Contains(capturingLoggerFactory.Entries, e =>
+            e.Level == LogLevel.Warning && e.Message.Contains("no private copy") && e.Message.Contains("Falling back to the host version"));
         Assert.DoesNotContain(capturingLoggerFactory.Entries, e => e.Message.Contains("in isolation"));
+    }
+
+    [Fact]
+    public void Conflict_IsolateWithWarning_WarnsThatBindWillFail_WhenHostIsLower_AndPluginShipsNoPrivateCopy()
+    {
+        var pluginAPath = GetAssemblyPath("TestPlugin.PluginA");
+        var capturingLoggerFactory = new CapturingLoggerFactory();
+
+        // A name nothing provides: not shipped by PluginA (no private copy to isolate) and not loaded
+        // anywhere in the default context (the fallback bind itself will fail).
+        var requested = new AssemblyName("Not.Shipped.Anywhere") { Version = new Version(2, 0, 0, 0) };
+        var lowerHostVersion = new Version(1, 0, 0, 0);
+
+        var context = new PluginAssemblyLoadContext(
+            capturingLoggerFactory,
+            pluginAPath,
+            new FixedDecisionResolver(requested.Name!, SharedAssemblyDecision.Conflict, lowerHostVersion),
+            SharedAssemblyConflictBehavior.IsolateWithWarning);
+
+        try
+        {
+            context.LoadFromAssemblyName(requested);
+        }
+        catch (FileNotFoundException)
+        {
+            // Expected: the default context has nothing under this made-up name to bind to.
+        }
+
+        Assert.Contains(capturingLoggerFactory.Entries, e =>
+            e.Level == LogLevel.Warning && e.Message.Contains("no private copy") && e.Message.Contains("cannot bind the lower host version"));
+        Assert.DoesNotContain(capturingLoggerFactory.Entries, e => e.Message.Contains("Falling back to the host version"));
     }
 
     private static string GetAssemblyPath(string pluginName)
