@@ -195,6 +195,12 @@ jobs:
     steps:
     - name: Checkout
       uses: actions/checkout@v7
+      with:
+        # MinVer is a GlobalPackageReference and derives every assembly's version from git tags; a
+        # shallow checkout can't reach any tag, so it silently falls back to 0.0.0.0 here while
+        # build_test_pack (which does fetch full history) computes the real version - a mismatch that
+        # only surfaces once a test compares a real assembly's version against an expected value.
+        fetch-depth: 0
 
     - name: Setup .NET
       uses: actions/setup-dotnet@v6
