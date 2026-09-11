@@ -105,7 +105,10 @@ public class PluginAssemblyFolderContainer(
                 // validation below and the load further down. The handle is kept open until both are done.
                 using var assemblyFile = _fileSystem.FileInfo.New(pluginAssemblyPath)
                     .Open(FileMode.Open, FileAccess.Read, FileShare.Read);
-                var assemblyBytes = ReadAllBytes(assemblyFile);
+                // Validators are opt-in (AddPluginSystem registers none) and are the only consumers of
+                // this buffer; without one, reading every candidate fully into memory just to throw it
+                // away would put multi-megabyte plugin DLLs on the LOH for nothing.
+                var assemblyBytes = _assemblyValidators.Count > 0 ? ReadAllBytes(assemblyFile) : [];
 
                 if (!TryValidateAssembly(pluginAssemblyPath, assemblyBytes, out var rejectionReason))
                 {
@@ -151,7 +154,18 @@ public class PluginAssemblyFolderContainer(
                 // (or report it through ReflectionTypeLoadException.LoaderExceptions) as a side effect of
                 // whatever else failed. Prefer the queued, unwrapped conflict over the caught exception.
                 ThrowIfSharedAssemblyConflict(pluginLoadContext);
-                _logger.LogError(ex, "Failed to load plugin manifest from {PluginAssemblyPath}, skipping assembly.", pluginAssemblyPath);
+
+                // Without validators, a native or corrupt DLL never gets the GetAssemblyName pre-filter
+                // (which used to reject it here with a warning); it now reaches LoadFromAssemblyPath
+                // instead. Keep the old, lower severity for that ordinary case instead of a load failure.
+                if (ex is BadImageFormatException)
+                {
+                    _logger.LogWarning(ex, "Failed to load plugin manifest from {PluginAssemblyPath}, skipping assembly.", pluginAssemblyPath);
+                }
+                else
+                {
+                    _logger.LogError(ex, "Failed to load plugin manifest from {PluginAssemblyPath}, skipping assembly.", pluginAssemblyPath);
+                }
             }
         }
 
@@ -259,7 +273,6 @@ public class PluginAssemblyFolderContainer(
 
         if (_assemblyValidators.Count == 0)
         {
-            rejectionReason = string.Empty;
             return true;
         }
 

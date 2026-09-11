@@ -18,6 +18,7 @@ using System.Reflection.Metadata.Ecma335;
 using System.Reflection.PortableExecutable;
 using System.Runtime.Loader;
 using System.Runtime.Versioning;
+using System.IO.Abstractions;
 using System.Security.AccessControl;
 using System.Security.Principal;
 using Testably.Abstractions;
@@ -336,6 +337,82 @@ public sealed class PluginAssemblyFolderContainerTests : IDisposable
         Assert.Single(result);
         Assert.Same(manifest, result[0]);
         manifestLoader.Received(1).LoadPluginManifest(Arg.Any<Assembly>());
+    }
+
+    [Fact]
+    public void GetPluginManifests_DoesNotReadFileContent_WhenNoValidatorsAreConfigured()
+    {
+        // Arrange
+        var testDirectory = CreateTestDirectory($"test-plugins-{Guid.NewGuid():N}");
+        var pluginPath = Path.Combine(testDirectory, "valid.managed.dll");
+        _fileSystem.File.Copy(_testAssemblyPath, pluginPath);
+
+        CountingStream? countingStream = null;
+        var fileInfo = Substitute.For<IFileInfo>();
+        fileInfo.Open(Arg.Any<FileMode>(), Arg.Any<FileAccess>(), Arg.Any<FileShare>())
+            .Returns(_ => countingStream = new CountingStream(pluginPath));
+
+        var fileInfoFactory = Substitute.For<IFileInfoFactory>();
+        fileInfoFactory.New(Arg.Any<string>()).Returns(fileInfo);
+
+        // Only FileInfo is faked; Directory and Path pass straight through to the real file system so
+        // directory enumeration and path resolution behave normally.
+        var fileSystem = Substitute.For<IFileSystem>();
+        fileSystem.Directory.Returns(_fileSystem.Directory);
+        fileSystem.Path.Returns(_fileSystem.Path);
+        fileSystem.FileInfo.Returns(fileInfoFactory);
+
+        var manifestLoader = Substitute.For<IPluginManifestLoader>();
+        manifestLoader.LoadPluginManifest(Arg.Any<Assembly>()).Returns(Substitute.For<IPluginManifest>());
+
+        var options = new PluginAssemblyFolderSearchOptions
+        {
+            SearchRootPath = testDirectory,
+            IncludePatterns = "*.dll",
+            ExcludePatterns = string.Empty,
+            Recursive = false
+        };
+        var container = new PluginAssemblyFolderContainer(
+            _loggerFactory, manifestLoader, options, fileSystem, [], TestSharedAssemblyResolver.SharesHostProvidedAssemblies, SharedAssemblyConflictBehavior.Fail);
+
+        // Act
+        var result = container.GetPluginManifests().ToList();
+
+        // Assert - the file is opened (to pin it and hand a stream to the loader), but with no
+        // validators configured, its content is never read into memory.
+        Assert.Single(result);
+        Assert.NotNull(countingStream);
+        Assert.Equal(0, countingStream.ReadCount);
+    }
+
+    [Fact]
+    public void GetPluginManifests_LogsWarning_NotError_WhenNativeOrCorruptDllMatchesSearchPattern_AndNoValidatorsAreConfigured()
+    {
+        // Arrange - without validators, GetAssemblyName no longer pre-filters candidates (2.8), so a
+        // native/corrupt DLL now reaches LoadFromAssemblyPath instead of being rejected during validation.
+        var testDirectory = CreateTestDirectory($"test-plugins-{Guid.NewGuid():N}");
+        var invalidAssemblyPath = Path.Combine(testDirectory, "invalid.native.dll");
+        _fileSystem.File.WriteAllBytes(invalidAssemblyPath, [0x01, 0x02, 0x03, 0x04]);
+
+        var options = new PluginAssemblyFolderSearchOptions
+        {
+            SearchRootPath = testDirectory,
+            IncludePatterns = "*.dll",
+            ExcludePatterns = string.Empty,
+            Recursive = false
+        };
+        var loggerFactory = new CapturingLoggerFactory();
+        var container = new PluginAssemblyFolderContainer(
+            loggerFactory, _manifestLoader, options, _fileSystem, [], TestSharedAssemblyResolver.SharesHostProvidedAssemblies, SharedAssemblyConflictBehavior.Fail);
+
+        // Act
+        var result = container.GetPluginManifests().ToList();
+
+        // Assert - skipped, not a load failure: the old severity for an ordinary non-plugin DLL.
+        Assert.Empty(result);
+        Assert.Contains(loggerFactory.Entries, e =>
+            e.Level == LogLevel.Warning && e.Message.Contains("Failed to load plugin manifest", StringComparison.Ordinal));
+        Assert.DoesNotContain(loggerFactory.Entries, e => e.Level == LogLevel.Error);
     }
 
     [Fact]
@@ -779,6 +856,22 @@ public sealed class PluginAssemblyFolderContainerTests : IDisposable
         var peBlob = new BlobBuilder();
         peBuilder.Serialize(peBlob);
         return peBlob.ToArray();
+    }
+
+    /// <summary>
+    /// A real file stream (IFileInfo.Open must return a FileSystemStream) that counts calls to
+    /// <see cref="Read"/>, which <see cref="Stream.ReadExactly(byte[])"/> loops through internally.
+    /// </summary>
+    private sealed class CountingStream(string path)
+        : FileSystemStream(new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.Read), path, isAsync: false)
+    {
+        public int ReadCount { get; private set; }
+
+        public override int Read(byte[] buffer, int offset, int count)
+        {
+            ReadCount++;
+            return base.Read(buffer, offset, count);
+        }
     }
 
     private sealed class OversizedStream : Stream
