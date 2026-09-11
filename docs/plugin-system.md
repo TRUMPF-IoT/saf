@@ -361,8 +361,9 @@ folder. This is intentional — plug-ins can use their own private versions of n
 > `InvalidCastException`. Services forwarded with `AddHostServiceForwarder<T>()` are the exception: their
 > contract assembly is shared automatically and must **not** be added to the pattern, which would also
 > export them as cross-plugin services. Enable `Debug` logging on
-> `SharedAssemblyRegistry` to see the full shared set at start-up, and `Trace` on
-> `PluginAssemblyLoadContext` to see which assemblies load in isolation.
+> `SAF.PluginSystem.Hosting.AssemblyLoading.SharedAssemblyRegistry` to see the full shared set at start-up,
+> and `Trace` on `SAF.PluginSystem.Hosting.AssemblyLoading.PluginAssemblyLoadContext` to see which
+> assemblies load in isolation.
 >
 > This is a deliberate change from earlier drop-in base-directory sharing, for a plug-in loaded into its
 > **own** `AssemblyLoadContext`: an assembly is shared only when you declare it, never because it merely
