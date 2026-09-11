@@ -5,6 +5,7 @@
 namespace SAF.PluginSystem.Hosting.Tests;
 
 using Microsoft.Extensions.Logging.Abstractions;
+using Microsoft.Extensions.Options;
 using NSubstitute;
 using System.Linq;
 using System.Reflection;
@@ -34,7 +35,7 @@ public class SharedAssemblyEndToEndTests
             NullLogger<SharedAssemblyRegistry>.Instance,
             publicServiceTypeRegistry,
             [new SharedAssemblySource<IPublicSingleton>()]);
-        var resolver = new SharedAssemblyResolver(registry, allowMajorVersionRollForward: false);
+        var resolver = new SharedAssemblyResolver(registry, Options.Create(new PluginSystemOptions()));
 
         _pluginContainer = new PluginAssemblyFolderContainer(
             NullLoggerFactory.Instance,

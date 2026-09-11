@@ -6,6 +6,7 @@ namespace SAF.PluginSystem.Hosting.Tests.AssemblyLoading;
 
 using SAF.PluginSystem.Hosting.AssemblyLoading;
 
+using Microsoft.Extensions.Options;
 using System.Reflection;
 
 public class SharedAssemblyResolverTests
@@ -145,7 +146,7 @@ public class SharedAssemblyResolverTests
         => Assert.Equal(SharedAssemblyDecision.LoadIsolated, default(SharedAssemblyDecision));
 
     private static SharedAssemblyResolver CreateResolver(ISharedAssemblyRegistry registry, bool allowMajorVersionRollForward = false)
-        => new(registry, allowMajorVersionRollForward);
+        => new(registry, Options.Create(new PluginSystemOptions { AllowMajorVersionRollForward = allowMajorVersionRollForward }));
 
     private static AssemblyName Name(string name, string version, byte[]? publicKeyToken = null)
     {

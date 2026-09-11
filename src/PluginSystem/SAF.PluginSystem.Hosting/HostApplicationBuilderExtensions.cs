@@ -53,9 +53,7 @@ public static class HostApplicationBuilderExtensions
 
         pluginHostBuilder.Services.AddSingleton<IPublicServiceTypeRegistry, PublicServiceTypeRegistry>();
         pluginHostBuilder.Services.AddSingleton<ISharedAssemblyRegistry, SharedAssemblyRegistry>();
-        pluginHostBuilder.Services.AddSingleton<ISharedAssemblyResolver>(sp => new SharedAssemblyResolver(
-            sp.GetRequiredService<ISharedAssemblyRegistry>(),
-            sp.GetRequiredService<IOptions<PluginSystemOptions>>().Value.AllowMajorVersionRollForward));
+        pluginHostBuilder.Services.AddSingleton<ISharedAssemblyResolver, SharedAssemblyResolver>();
         pluginHostBuilder.Services.AddSingleton<IPluginManifestLoader, PluginManifestLoader>();
         pluginHostBuilder.Services.AddSingleton<PluginServicesContainer>();
         pluginHostBuilder.Services.AddSingleton<IPluginServicesContainer>(sp => sp.GetRequiredService<PluginServicesContainer>());
