@@ -17,6 +17,7 @@ using SAF.PluginSystem.Hosting.Contracts;
 using System.IO.Abstractions;
 using System.Reflection;
 using TestPlugin.PublicDependencyA;
+using TestUtilities;
 
 public class SharedAssemblyRegistryTests
 {
@@ -161,12 +162,12 @@ public class SharedAssemblyRegistryTests
     public void SharedSet_WarnsOnceAndIgnoresEntry_WhenSourceOmitsVersion_AndNoLoadedAssemblyMatches()
     {
         _sharedAssemblySources.Add(new StubSharedAssemblySource("Totally.Unresolvable.TestOnlyAssembly"));
-        var logger = new CapturingLogger<SharedAssemblyRegistry>();
+        var logger = Substitute.For<MockLogger<SharedAssemblyRegistry>>();
 
         var registry = CreateRegistry(logger);
 
         Assert.False(registry.TryGetSharedAssembly("Totally.Unresolvable.TestOnlyAssembly", out _));
-        Assert.Single(logger.Entries, e => e.Level == LogLevel.Warning);
+        logger.AssertLoggedOnce(LogLevel.Warning);
     }
 
     [Fact]
@@ -178,13 +179,13 @@ public class SharedAssemblyRegistryTests
         // context, so the loaded version is kept and the mismatch is logged.
         _sharedAssemblySources.Add(new StubSharedAssemblySource("Acme.Contracts, Version=2.0.0.0"));
         _publicServiceTypeRegistry.GetAssemblyNames().Returns(["Acme.Contracts, Version=1.0.0.0"]);
-        var logger = new CapturingLogger<SharedAssemblyRegistry>();
+        var logger = Substitute.For<MockLogger<SharedAssemblyRegistry>>();
 
         var registry = CreateRegistry(logger);
 
         Assert.True(registry.TryGetSharedAssembly("Acme.Contracts", out var info));
         Assert.Equal(new Version(2, 0, 0, 0), info.Version);
-        Assert.Single(logger.Entries, e => e.Level == LogLevel.Warning);
+        logger.AssertLoggedOnce(LogLevel.Warning);
     }
 
     [Fact]
@@ -192,13 +193,13 @@ public class SharedAssemblyRegistryTests
     {
         _sharedAssemblySources.Add(new StubSharedAssemblySource("Acme.Contracts, Version=1.0.0.0"));
         _publicServiceTypeRegistry.GetAssemblyNames().Returns(["Acme.Contracts, Version=1.0.0.0"]);
-        var logger = new CapturingLogger<SharedAssemblyRegistry>();
+        var logger = Substitute.For<MockLogger<SharedAssemblyRegistry>>();
 
         var registry = CreateRegistry(logger);
 
         Assert.True(registry.TryGetSharedAssembly("Acme.Contracts", out var info));
         Assert.Equal(new Version(1, 0, 0, 0), info.Version);
-        Assert.DoesNotContain(logger.Entries, e => e.Level == LogLevel.Warning);
+        logger.AssertNotLogged(LogLevel.Warning);
     }
 
     [Fact]
@@ -208,12 +209,12 @@ public class SharedAssemblyRegistryTests
         throwingSource.GetSharedAssemblyNames().Returns(_ => throw new InvalidOperationException("boom"));
         _sharedAssemblySources.Add(throwingSource);
         _sharedAssemblySources.Add(new StubSharedAssemblySource("Good.Contracts, Version=1.0.0.0"));
-        var logger = new CapturingLogger<SharedAssemblyRegistry>();
+        var logger = Substitute.For<MockLogger<SharedAssemblyRegistry>>();
 
         var registry = CreateRegistry(logger);
 
         Assert.True(registry.TryGetSharedAssembly("Good.Contracts", out _));
-        Assert.Single(logger.Entries, e => e.Level == LogLevel.Warning);
+        logger.AssertLoggedOnce(LogLevel.Warning);
     }
 
     [Fact]
@@ -223,12 +224,12 @@ public class SharedAssemblyRegistryTests
         nullReturningSource.GetSharedAssemblyNames().Returns((IEnumerable<AssemblyName>)null!);
         _sharedAssemblySources.Add(nullReturningSource);
         _sharedAssemblySources.Add(new StubSharedAssemblySource("Good.Contracts, Version=1.0.0.0"));
-        var logger = new CapturingLogger<SharedAssemblyRegistry>();
+        var logger = Substitute.For<MockLogger<SharedAssemblyRegistry>>();
 
         var registry = CreateRegistry(logger);
 
         Assert.True(registry.TryGetSharedAssembly("Good.Contracts", out _));
-        Assert.Single(logger.Entries, e => e.Level == LogLevel.Warning);
+        logger.AssertLoggedOnce(LogLevel.Warning);
     }
 
     [Fact]
@@ -238,12 +239,12 @@ public class SharedAssemblyRegistryTests
         sourceWithNullElement.GetSharedAssemblyNames().Returns(
             new AssemblyName?[] { new("Good.Contracts, Version=1.0.0.0"), null }!);
         _sharedAssemblySources.Add(sourceWithNullElement);
-        var logger = new CapturingLogger<SharedAssemblyRegistry>();
+        var logger = Substitute.For<MockLogger<SharedAssemblyRegistry>>();
 
         var registry = CreateRegistry(logger);
 
         Assert.True(registry.TryGetSharedAssembly("Good.Contracts", out _));
-        Assert.Single(logger.Entries, e => e.Level == LogLevel.Warning);
+        logger.AssertLoggedOnce(LogLevel.Warning);
     }
 
     [Fact]
@@ -251,12 +252,12 @@ public class SharedAssemblyRegistryTests
     {
         _publicServiceTypeRegistry.GetAssemblyNames().Returns(_ => throw new InvalidOperationException("boom"));
         _sharedAssemblySources.Add(new StubSharedAssemblySource("Good.Contracts, Version=1.0.0.0"));
-        var logger = new CapturingLogger<SharedAssemblyRegistry>();
+        var logger = Substitute.For<MockLogger<SharedAssemblyRegistry>>();
 
         var registry = CreateRegistry(logger);
 
         Assert.True(registry.TryGetSharedAssembly("Good.Contracts", out _));
-        Assert.Single(logger.Entries, e => e.Level == LogLevel.Warning);
+        logger.AssertLoggedOnce(LogLevel.Warning);
     }
 
     private SharedAssemblyRegistry CreateRegistry()
@@ -268,17 +269,5 @@ public class SharedAssemblyRegistryTests
     private sealed class StubSharedAssemblySource(params string[] fullNames) : ISharedAssemblySource
     {
         public IEnumerable<AssemblyName> GetSharedAssemblyNames() => fullNames.Select(name => new AssemblyName(name));
-    }
-
-    private sealed class CapturingLogger<T> : ILogger<T>
-    {
-        public List<(LogLevel Level, string Message)> Entries { get; } = [];
-
-        public IDisposable? BeginScope<TState>(TState state) where TState : notnull => null;
-
-        public bool IsEnabled(LogLevel logLevel) => true;
-
-        public void Log<TState>(LogLevel logLevel, EventId eventId, TState state, Exception? exception, Func<TState, Exception?, string> formatter)
-            => Entries.Add((logLevel, formatter(state, exception)));
     }
 }

@@ -22,6 +22,7 @@ using System.IO.Abstractions;
 using System.Security.AccessControl;
 using System.Security.Principal;
 using Testably.Abstractions;
+using TestUtilities;
 
 [Collection("BaseDirectoryFileSystem")]
 public sealed class PluginAssemblyFolderContainerTests : IDisposable
@@ -190,8 +191,8 @@ public sealed class PluginAssemblyFolderContainerTests : IDisposable
             ExcludePatterns = string.Empty,
             Recursive = false
         };
-        var loggerFactory = new CapturingLoggerFactory();
-        var container = new PluginAssemblyFolderContainer(loggerFactory, manifestLoader, options, _fileSystem, [], TestSharedAssemblyResolver.SharesHostProvidedAssemblies, SharedAssemblyConflictBehavior.Fail);
+        var logger = Substitute.For<MockLogger>();
+        var container = new PluginAssemblyFolderContainer(new SingleLoggerFactory(logger), manifestLoader, options, _fileSystem, [], TestSharedAssemblyResolver.SharesHostProvidedAssemblies, SharedAssemblyConflictBehavior.Fail);
 
         // Act
         var result = container.GetPluginManifests().ToList();
@@ -203,8 +204,7 @@ public sealed class PluginAssemblyFolderContainerTests : IDisposable
         // so neither isolation nor shared-assembly conflict detection ever applies to it (documented in
         // docs/plugin-system.md).
         Assert.Same(AssemblyLoadContext.Default, AssemblyLoadContext.GetLoadContext(loadedAssembly!));
-        Assert.Contains(loggerFactory.Entries, e =>
-            e.Level == LogLevel.Information && e.Message.Contains("AssemblyLoadContext.Default", StringComparison.Ordinal));
+        logger.AssertLogged(LogLevel.Information, message => message.Contains("AssemblyLoadContext.Default", StringComparison.Ordinal));
     }
 
     [Fact]
@@ -404,18 +404,17 @@ public sealed class PluginAssemblyFolderContainerTests : IDisposable
             ExcludePatterns = string.Empty,
             Recursive = false
         };
-        var loggerFactory = new CapturingLoggerFactory();
+        var logger = Substitute.For<MockLogger>();
         var container = new PluginAssemblyFolderContainer(
-            loggerFactory, _manifestLoader, options, _fileSystem, [], TestSharedAssemblyResolver.SharesHostProvidedAssemblies, SharedAssemblyConflictBehavior.Fail);
+            new SingleLoggerFactory(logger), _manifestLoader, options, _fileSystem, [], TestSharedAssemblyResolver.SharesHostProvidedAssemblies, SharedAssemblyConflictBehavior.Fail);
 
         // Act
         var result = container.GetPluginManifests().ToList();
 
         // Assert - skipped, not a load failure: the old severity for an ordinary non-plugin DLL.
         Assert.Empty(result);
-        Assert.Contains(loggerFactory.Entries, e =>
-            e.Level == LogLevel.Warning && e.Message.Contains("Failed to load plugin manifest", StringComparison.Ordinal));
-        Assert.DoesNotContain(loggerFactory.Entries, e => e.Level == LogLevel.Error);
+        logger.AssertLogged(LogLevel.Warning, message => message.Contains("Failed to load plugin manifest", StringComparison.Ordinal));
+        logger.AssertNotLogged(LogLevel.Error);
     }
 
     [Fact]
@@ -446,9 +445,9 @@ public sealed class PluginAssemblyFolderContainerTests : IDisposable
             ExcludePatterns = string.Empty,
             Recursive = false
         };
-        var loggerFactory = new CapturingLoggerFactory();
+        var logger = Substitute.For<MockLogger>();
         var container = new PluginAssemblyFolderContainer(
-            loggerFactory, manifestLoader, options, _fileSystem, [new AcceptingPluginAssemblyValidator()], TestSharedAssemblyResolver.SharesHostProvidedAssemblies, SharedAssemblyConflictBehavior.Fail);
+            new SingleLoggerFactory(logger), manifestLoader, options, _fileSystem, [new AcceptingPluginAssemblyValidator()], TestSharedAssemblyResolver.SharesHostProvidedAssemblies, SharedAssemblyConflictBehavior.Fail);
 
         // Act
         var result = container.GetPluginManifests().ToList();
@@ -456,8 +455,7 @@ public sealed class PluginAssemblyFolderContainerTests : IDisposable
         // Assert - the malformed candidate is skipped, not thrown, and the other candidate still loads
         Assert.Single(result);
         Assert.Same(manifest, result[0]);
-        Assert.Contains(loggerFactory.Entries, entry =>
-            entry.Level == LogLevel.Warning && entry.Message.Contains("metadata could not be read", StringComparison.Ordinal));
+        logger.AssertLogged(LogLevel.Warning, message => message.Contains("metadata could not be read", StringComparison.Ordinal));
     }
 
     [Fact]
@@ -547,8 +545,8 @@ public sealed class PluginAssemblyFolderContainerTests : IDisposable
             ExcludePatterns = string.Empty,
             Recursive = false
         };
-        var loggerFactory = new CapturingLoggerFactory();
-        var container = new PluginAssemblyFolderContainer(loggerFactory, manifestLoader, options, _fileSystem, [validator], TestSharedAssemblyResolver.SharesHostProvidedAssemblies, SharedAssemblyConflictBehavior.Fail);
+        var logger = Substitute.For<MockLogger>();
+        var container = new PluginAssemblyFolderContainer(new SingleLoggerFactory(logger), manifestLoader, options, _fileSystem, [validator], TestSharedAssemblyResolver.SharesHostProvidedAssemblies, SharedAssemblyConflictBehavior.Fail);
 
         var result = container.GetPluginManifests().ToList();
 
@@ -563,7 +561,7 @@ public sealed class PluginAssemblyFolderContainerTests : IDisposable
         {
             // The replacement succeeds, and the check before the load must catch it.
             Assert.Empty(result);
-            Assert.Contains(loggerFactory.Entries, entry => entry.Message.Contains("changed after it was validated", StringComparison.Ordinal));
+            logger.AssertLogged(message => message.Contains("changed after it was validated", StringComparison.Ordinal));
         }
     }
 
@@ -898,29 +896,6 @@ public sealed class PluginAssemblyFolderContainerTests : IDisposable
         public override void Write(byte[] buffer, int offset, int count) => throw new NotSupportedException();
 
         public override void Flush() { }
-    }
-
-    private sealed record LogEntry(LogLevel Level, string Message);
-
-    private sealed class CapturingLoggerFactory : ILoggerFactory
-    {
-        public List<LogEntry> Entries { get; } = [];
-
-        public ILogger CreateLogger(string categoryName) => new CapturingLogger(Entries);
-
-        public void AddProvider(ILoggerProvider provider) { }
-
-        public void Dispose() { }
-
-        private sealed class CapturingLogger(List<LogEntry> entries) : ILogger
-        {
-            public IDisposable? BeginScope<TState>(TState state) where TState : notnull => null;
-
-            public bool IsEnabled(LogLevel logLevel) => true;
-
-            public void Log<TState>(LogLevel logLevel, EventId eventId, TState state, Exception? exception, Func<TState, Exception?, string> formatter)
-                => entries.Add(new LogEntry(logLevel, formatter(state, exception)));
-        }
     }
 
     /// <summary>

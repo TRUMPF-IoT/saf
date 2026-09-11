@@ -85,6 +85,7 @@ SPDX-License-Identifier: MPL-2.0
     </ProjectReference>
     <ProjectReference Include="..\SAF.PluginSystem.Hosting.Extensions\SAF.PluginSystem.Hosting.Extensions.csproj" />
     <ProjectReference Include="..\SAF.PluginSystem.Hosting\SAF.PluginSystem.Hosting.csproj" />
+    <ProjectReference Include="..\..\TestUtilities\TestUtilities.csproj" />
   </ItemGroup>
 
   <Target Name="CopyPluginOutputs" AfterTargets="Build">

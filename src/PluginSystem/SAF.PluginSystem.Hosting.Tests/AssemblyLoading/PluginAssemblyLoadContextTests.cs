@@ -7,8 +7,10 @@ namespace SAF.PluginSystem.Hosting.Tests.AssemblyLoading;
 using SAF.PluginSystem.Hosting.AssemblyLoading;
 
 using Microsoft.Extensions.Logging;
+using NSubstitute;
 using System.Reflection;
 using System.Runtime.Loader;
+using TestUtilities;
 using Xunit;
 
 public class PluginAssemblyLoadContextTests
@@ -176,7 +178,7 @@ public class PluginAssemblyLoadContextTests
     public void Conflict_IsolateWithWarning_FallsBackToHostVersion_AndWarns_WhenHostIsHigher_AndPluginShipsNoPrivateCopy()
     {
         var pluginAPath = GetAssemblyPath("TestPlugin.PluginA");
-        var capturingLoggerFactory = new CapturingLoggerFactory();
+        var logger = Substitute.For<MockLogger>();
 
         // The test assembly is loaded in the default context but is not shipped by PluginA, so the plugin's
         // dependency resolver cannot provide a private copy to isolate. The host version is fixed a major
@@ -185,7 +187,7 @@ public class PluginAssemblyLoadContextTests
         var higherHostVersion = new Version(notShippedByPlugin.Version!.Major + 1, 0, 0, 0);
 
         var context = new PluginAssemblyLoadContext(
-            capturingLoggerFactory,
+            new SingleLoggerFactory(logger),
             pluginAPath,
             TestSharedAssemblyResolver.WithFixedDecision(notShippedByPlugin.Name!, SharedAssemblyDecision.Conflict, higherHostVersion),
             SharedAssemblyConflictBehavior.IsolateWithWarning);
@@ -193,16 +195,15 @@ public class PluginAssemblyLoadContextTests
         var loaded = context.LoadFromAssemblyName(notShippedByPlugin);
 
         Assert.Same(AssemblyLoadContext.Default, AssemblyLoadContext.GetLoadContext(loaded));
-        Assert.Contains(capturingLoggerFactory.Entries, e =>
-            e.Level == LogLevel.Warning && e.Message.Contains("no private copy") && e.Message.Contains("Falling back to the host version"));
-        Assert.DoesNotContain(capturingLoggerFactory.Entries, e => e.Message.Contains("in isolation"));
+        logger.AssertLogged(LogLevel.Warning, message => message.Contains("no private copy") && message.Contains("Falling back to the host version"));
+        logger.AssertNotLogged(message => message.Contains("in isolation"));
     }
 
     [Fact]
     public void Conflict_IsolateWithWarning_WarnsThatBindWillFail_WhenHostIsLower_AndPluginShipsNoPrivateCopy()
     {
         var pluginAPath = GetAssemblyPath("TestPlugin.PluginA");
-        var capturingLoggerFactory = new CapturingLoggerFactory();
+        var logger = Substitute.For<MockLogger>();
 
         // A name nothing provides: not shipped by PluginA (no private copy to isolate) and not loaded
         // anywhere in the default context (the fallback bind itself will fail).
@@ -210,7 +211,7 @@ public class PluginAssemblyLoadContextTests
         var lowerHostVersion = new Version(1, 0, 0, 0);
 
         var context = new PluginAssemblyLoadContext(
-            capturingLoggerFactory,
+            new SingleLoggerFactory(logger),
             pluginAPath,
             TestSharedAssemblyResolver.WithFixedDecision(requested.Name!, SharedAssemblyDecision.Conflict, lowerHostVersion),
             SharedAssemblyConflictBehavior.IsolateWithWarning);
@@ -224,23 +225,22 @@ public class PluginAssemblyLoadContextTests
             // Expected: the default context has nothing under this made-up name to bind to.
         }
 
-        Assert.Contains(capturingLoggerFactory.Entries, e =>
-            e.Level == LogLevel.Warning && e.Message.Contains("no private copy") && e.Message.Contains("cannot bind the lower host version"));
-        Assert.DoesNotContain(capturingLoggerFactory.Entries, e => e.Message.Contains("Falling back to the host version"));
+        logger.AssertLogged(LogLevel.Warning, message => message.Contains("no private copy") && message.Contains("cannot bind the lower host version"));
+        logger.AssertNotLogged(message => message.Contains("Falling back to the host version"));
     }
 
     [Fact]
     public void Conflict_LoadsIsolated_AndLogsError_WhenResolverReportsConflictWithoutHostVersion()
     {
         var pluginAPath = GetAssemblyPath("TestPlugin.PluginA");
-        var capturingLoggerFactory = new CapturingLoggerFactory();
+        var logger = Substitute.For<MockLogger>();
 
         // A misbehaving resolver: reports Conflict without setting hostVersion. ISharedAssemblyResolver
         // only documents this as an expectation - nothing enforces it for a third-party implementation.
         var privateDependency = new AssemblyName("TestPlugin.DependencyA");
 
         var context = new PluginAssemblyLoadContext(
-            capturingLoggerFactory,
+            new SingleLoggerFactory(logger),
             pluginAPath,
             TestSharedAssemblyResolver.WithFixedDecision(privateDependency.Name!, SharedAssemblyDecision.Conflict, hostVersion: null),
             SharedAssemblyConflictBehavior.Fail);
@@ -249,7 +249,7 @@ public class PluginAssemblyLoadContextTests
 
         Assert.NotSame(AssemblyLoadContext.Default, AssemblyLoadContext.GetLoadContext(loaded));
         Assert.Same(context, AssemblyLoadContext.GetLoadContext(loaded));
-        Assert.Single(capturingLoggerFactory.Entries, e => e.Level == LogLevel.Error);
+        logger.AssertLoggedOnce(LogLevel.Error);
         Assert.Empty(context.Conflicts);
     }
 
@@ -273,26 +273,5 @@ public class PluginAssemblyLoadContextTests
         var type = assembly.GetType(typeName)!;
         var method = type.GetMethod(methodName, BindingFlags.Static | BindingFlags.Public)!;
         return method.Invoke(null, null) as Assembly;
-    }
-
-    private sealed class CapturingLoggerFactory : ILoggerFactory
-    {
-        public List<(LogLevel Level, string Message)> Entries { get; } = [];
-
-        public ILogger CreateLogger(string categoryName) => new CapturingLogger(Entries);
-
-        public void AddProvider(ILoggerProvider provider) { }
-
-        public void Dispose() { }
-
-        private sealed class CapturingLogger(List<(LogLevel Level, string Message)> entries) : ILogger
-        {
-            public IDisposable? BeginScope<TState>(TState state) where TState : notnull => null;
-
-            public bool IsEnabled(LogLevel logLevel) => true;
-
-            public void Log<TState>(LogLevel logLevel, EventId eventId, TState state, Exception? exception, Func<TState, Exception?, string> formatter)
-                => entries.Add((logLevel, formatter(state, exception)));
-        }
     }
 }
