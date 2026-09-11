@@ -330,13 +330,15 @@ That package references `System.Security.Cryptography.Pkcs` for Authenticode CMS
 
 ### `PluginAssemblyFolderContainer` constructor
 
-`IEnumerable<IPluginAssemblyValidator> assemblyValidators` was added as the **last** constructor parameter, after `IFileSystem fileSystem`, and is required. Code that constructs the container directly instead of using `AddPluginAssemblyFolderContainer` must pass a sequence — an empty one keeps the 10.x behaviour of loading without validation:
+Constructing this type directly — instead of using `AddPluginAssemblyFolderContainer` — takes seven parameters:
 
 ```csharp
-new PluginAssemblyFolderContainer(loggerFactory, manifestLoader, options, fileSystem, []);
+new PluginAssemblyFolderContainer(
+    loggerFactory, manifestLoader, options, fileSystem,
+    assemblyValidators, sharedAssemblyResolver, sharedAssemblyConflictBehavior);
 ```
 
-This is an intentional break. It is a compile error rather than a silent behaviour change, which is the point: a container built with a stale call would otherwise load plug-ins with validators that were configured but never consulted.
+`assemblyValidators` takes a sequence of `IPluginAssemblyValidator` — an empty one keeps 10.x's behaviour of loading without validation. `sharedAssemblyResolver` is harder to supply yourself: its only implementation, `SharedAssemblyResolver`, is `internal` and is registered solely by `AddPluginSystem()`. In practice, constructing this container outside of `AddPluginAssemblyFolderContainer` means either resolving `ISharedAssemblyResolver` from a service provider that already had `AddPluginSystem()` applied to it, or implementing that (public) interface yourself. `sharedAssemblyConflictBehavior` is the `SharedAssemblyConflictBehavior` enum described under [Version handling](./plugin-system.md#version-handling).
 
 ### NATS messaging keeps blocking backpressure
 
