@@ -200,7 +200,7 @@ internal sealed class SharedAssemblyRegistry(
             return;
         }
 
-        sharedAssemblies[name.Name] = new SharedAssemblyInfo(version, name.GetPublicKeyToken());
+        sharedAssemblies[name.Name] = new SharedAssemblyInfo(version, SharedAssemblyInfo.NormalizeToken(name.GetPublicKeyToken()));
 
         if (logger.IsEnabled(LogLevel.Debug))
         {

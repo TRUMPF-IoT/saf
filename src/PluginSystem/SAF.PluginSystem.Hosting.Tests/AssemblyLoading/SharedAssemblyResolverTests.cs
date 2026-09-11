@@ -164,7 +164,7 @@ public class SharedAssemblyResolverTests
 
         public FakeSharedAssemblyRegistry Add(string simpleName, Version version, byte[]? publicKeyToken = null)
         {
-            _shared[simpleName] = new SharedAssemblyInfo(version, publicKeyToken);
+            _shared[simpleName] = new SharedAssemblyInfo(version, SharedAssemblyInfo.NormalizeToken(publicKeyToken));
             return this;
         }
 

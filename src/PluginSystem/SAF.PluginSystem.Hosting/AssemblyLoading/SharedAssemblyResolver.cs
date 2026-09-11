@@ -59,16 +59,6 @@ internal sealed class SharedAssemblyResolver(
     private static Version Normalize(Version version)
         => new(version.Major, version.Minor, Math.Max(version.Build, 0), Math.Max(version.Revision, 0));
 
-    private static bool PublicKeyTokensMatch(byte[]? requested, byte[]? host)
-    {
-        var requestedEmpty = requested is null || requested.Length == 0;
-        var hostEmpty = host is null || host.Length == 0;
-
-        if (requestedEmpty || hostEmpty)
-        {
-            return requestedEmpty && hostEmpty;
-        }
-
-        return requested.AsSpan().SequenceEqual(host);
-    }
+    private static bool PublicKeyTokensMatch(byte[]? requestedToken, string? hostToken)
+        => SharedAssemblyInfo.NormalizeToken(requestedToken) == hostToken;
 }

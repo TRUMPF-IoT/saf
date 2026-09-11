@@ -44,7 +44,7 @@ public class SharedAssemblyRegistryTests
 
         Assert.True(registry.TryGetSharedAssembly(expected.Name!, out var info));
         Assert.Equal(expected.Version, info.Version);
-        Assert.Equal(expected.GetPublicKeyToken(), info.PublicKeyToken);
+        Assert.Equal(SharedAssemblyInfo.NormalizeToken(expected.GetPublicKeyToken()), info.PublicKeyToken);
     }
 
     [Fact]
@@ -57,7 +57,7 @@ public class SharedAssemblyRegistryTests
 
         Assert.True(registry.TryGetSharedAssembly("Acme.Contracts", out var info));
         Assert.Equal(new Version(2, 5, 0, 0), info.Version);
-        Assert.Equal(Convert.FromHexString("0011223344556677"), info.PublicKeyToken);
+        Assert.Equal("0011223344556677", info.PublicKeyToken);
     }
 
     [Fact]
