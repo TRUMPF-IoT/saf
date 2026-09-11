@@ -128,17 +128,33 @@ jobs:
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}  # Needed to get PR information, if any
         SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+        PR_NUMBER: ${{ github.event.number }}
       shell: powershell
       run: |
-        $branchName = if ("$env:GITHUB_REF_NAME" -eq "main") { "master" } else { "$env:GITHUB_REF_NAME" }
-        dotnet dotnet-sonarscanner begin /k:"TRUMPF-IoT_saf" /o:"trumpf-iot" /d:sonar.token="$env:SONAR_TOKEN" /d:sonar.host.url="https://sonarcloud.io" /d:sonar.branch.name="$branchName" /d:sonar.dotnet.excludeTestProjects=true /d:sonar.exclusions="src/Tests/**,src/PluginSystem/TestPlugins/**,src/Messaging/SAF.Messaging.LoadTest/**" /d:sonar.coverage.exclusions="src/Tests/**,src/PluginSystem/TestPlugins/**,src/Messaging/SAF.Messaging.LoadTest/**" /d:sonar.cs.vscoveragexml.reportsPaths=coverage.xml
-        if ( $LASTEXITCODE -ne 0 ) { exit $LASTEXITCODE }
+        # PR builds get PR-mode params instead of sonar.branch.name: the two can't be combined, and
+        # GITHUB_REF_NAME is "<number>/merge" for a PR, which would otherwise create a phantom branch
+        # in SonarCloud instead of PR decoration. Tag pushes skip analysis entirely for the same reason
+        # (GITHUB_REF_NAME is the tag name there) - the tagged commit was already analyzed as a branch push.
+        $isPullRequest = $env:GITHUB_EVENT_NAME -eq 'pull_request'
+        $isTagPush = $env:GITHUB_REF.StartsWith('refs/tags/')
+
+        if (-not $isTagPush) {
+          if ($isPullRequest) {
+            dotnet dotnet-sonarscanner begin /k:"TRUMPF-IoT_saf" /o:"trumpf-iot" /d:sonar.token="$env:SONAR_TOKEN" /d:sonar.host.url="https://sonarcloud.io" /d:sonar.pullrequest.key="$env:PR_NUMBER" /d:sonar.pullrequest.branch="$env:GITHUB_HEAD_REF" /d:sonar.pullrequest.base="$env:GITHUB_BASE_REF" /d:sonar.dotnet.excludeTestProjects=true /d:sonar.exclusions="src/Tests/**,src/PluginSystem/TestPlugins/**,src/Messaging/SAF.Messaging.LoadTest/**" /d:sonar.coverage.exclusions="src/Tests/**,src/PluginSystem/TestPlugins/**,src/Messaging/SAF.Messaging.LoadTest/**" /d:sonar.cs.vscoveragexml.reportsPaths=coverage.xml
+          } else {
+            $branchName = if ("$env:GITHUB_REF_NAME" -eq "main") { "master" } else { "$env:GITHUB_REF_NAME" }
+            dotnet dotnet-sonarscanner begin /k:"TRUMPF-IoT_saf" /o:"trumpf-iot" /d:sonar.token="$env:SONAR_TOKEN" /d:sonar.host.url="https://sonarcloud.io" /d:sonar.branch.name="$branchName" /d:sonar.dotnet.excludeTestProjects=true /d:sonar.exclusions="src/Tests/**,src/PluginSystem/TestPlugins/**,src/Messaging/SAF.Messaging.LoadTest/**" /d:sonar.coverage.exclusions="src/Tests/**,src/PluginSystem/TestPlugins/**,src/Messaging/SAF.Messaging.LoadTest/**" /d:sonar.cs.vscoveragexml.reportsPaths=coverage.xml
+          }
+          if ( $LASTEXITCODE -ne 0 ) { exit $LASTEXITCODE }
+        }
         dotnet build './src/SmartApplicationFramework.slnx' --configuration Release --no-restore
         if ( $LASTEXITCODE -ne 0 ) { exit $LASTEXITCODE }
         dotnet dotnet-coverage collect -f xml -o coverage.xml 'dotnet test ./src/SmartApplicationFramework.slnx --configuration Release --no-build --no-restore --verbosity normal'
         if ( $LASTEXITCODE -ne 0 ) { exit $LASTEXITCODE }
-        dotnet dotnet-sonarscanner end /d:sonar.token="$env:SONAR_TOKEN"
-        if ( $LASTEXITCODE -ne 0 ) { exit $LASTEXITCODE }
+        if (-not $isTagPush) {
+          dotnet dotnet-sonarscanner end /d:sonar.token="$env:SONAR_TOKEN"
+          if ( $LASTEXITCODE -ne 0 ) { exit $LASTEXITCODE }
+        }
       
     - name: Pack
       shell: powershell
