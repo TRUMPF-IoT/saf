@@ -149,7 +149,7 @@ jobs:
         }
         dotnet build './src/SmartApplicationFramework.slnx' --configuration Release --no-restore
         if ( $LASTEXITCODE -ne 0 ) { exit $LASTEXITCODE }
-        dotnet dotnet-coverage collect -f xml -o coverage.xml 'dotnet test ./src/SmartApplicationFramework.slnx --configuration Release --no-build --no-restore --verbosity normal'
+        dotnet dotnet-coverage collect -f xml -o coverage.xml 'dotnet test --solution ./src/SmartApplicationFramework.slnx --configuration Release --no-build --no-restore --verbosity normal'
         if ( $LASTEXITCODE -ne 0 ) { exit $LASTEXITCODE }
         if (-not $isTagPush) {
           dotnet dotnet-sonarscanner end /d:sonar.token="$env:SONAR_TOKEN"
@@ -215,7 +215,7 @@ jobs:
     - name: Build and test
       run: |
         dotnet build './src/SmartApplicationFramework.slnx' --configuration Release --no-restore
-        dotnet test './src/SmartApplicationFramework.slnx' --configuration Release --no-build --no-restore --verbosity normal
+        dotnet test --solution './src/SmartApplicationFramework.slnx' --configuration Release --no-build --no-restore --verbosity normal
 
   authenticode_fixture:
     name: Prepare signtool Authenticode fixture
@@ -294,7 +294,7 @@ jobs:
       env:
         SAF_AUTHENTICODE_SIGNED_ASSEMBLY: ${{ github.workspace }}/signed-authenticode/SAF.Authenticode.SignedFixture.dll
         SAF_AUTHENTICODE_REQUIRE_FIXTURE: '1'
-      run: dotnet test './src/PluginSystem/SAF.PluginSystem.Hosting.Extensions.Tests/SAF.PluginSystem.Hosting.Extensions.Tests.csproj' --configuration Release --filter 'FullyQualifiedName~AuthenticodeSignatureReaderIntegrationTests' --verbosity normal
+      run: dotnet test --project './src/PluginSystem/SAF.PluginSystem.Hosting.Extensions.Tests/SAF.PluginSystem.Hosting.Extensions.Tests.csproj' --configuration Release --filter-class 'SAF.PluginSystem.Hosting.Extensions.Tests.Authenticode.AuthenticodeSignatureReaderIntegrationTests' --verbosity normal
 
   # Installs the fixture certificate as a trusted root, which is the only way to see the production
   # verifiers reach a trusted verdict on their own: WinVerifyTrust against the Windows root store, and
@@ -348,7 +348,7 @@ jobs:
       env:
         SAF_AUTHENTICODE_SIGNED_ASSEMBLY: ${{ github.workspace }}/signed-authenticode/SAF.Authenticode.SignedFixture.dll
         SAF_AUTHENTICODE_TRUSTED_ROOT: '1'
-      run: dotnet test './src/PluginSystem/SAF.PluginSystem.Hosting.Extensions.Tests/SAF.PluginSystem.Hosting.Extensions.Tests.csproj' --configuration Release --filter 'FullyQualifiedName~AuthenticodeTrustedRootIntegrationTests' --verbosity normal
+      run: dotnet test --project './src/PluginSystem/SAF.PluginSystem.Hosting.Extensions.Tests/SAF.PluginSystem.Hosting.Extensions.Tests.csproj' --configuration Release --filter-class 'SAF.PluginSystem.Hosting.Extensions.Tests.Authenticode.AuthenticodeTrustedRootIntegrationTests' --verbosity normal
 
     - name: Remove the fixture certificate (Windows)
       if: always() && runner.os == 'Windows'
