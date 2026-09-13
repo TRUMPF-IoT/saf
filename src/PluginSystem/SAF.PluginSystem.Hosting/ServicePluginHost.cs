@@ -4,11 +4,12 @@
 
 namespace SAF.PluginSystem.Hosting;
 
+using AssemblyLoading;
 using Contracts;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 
-internal class ServicePluginHost(ILogger<ServicePluginHost> logger, IServicePluginLifecycleRunner runner) : IHostedLifecycleService
+internal class ServicePluginHost(ILogger<ServicePluginHost> logger, IServicePluginLifecycleRunner runner, ISharedAssemblyRegistry sharedAssemblyRegistry) : IHostedLifecycleService
 {
     public async Task StartAsync(CancellationToken cancellationToken)
     {
@@ -25,7 +26,14 @@ internal class ServicePluginHost(ILogger<ServicePluginHost> logger, IServicePlug
     }
 
     public Task StartingAsync(CancellationToken cancellationToken)
-        => runner.StartingAsync(runner.GetServicePlugins(), cancellationToken);
+    {
+        // Computes the shared assembly set here, before the first plugin gets a chance to load, instead of
+        // leaving it to build lazily inside the CLR's assembly-bind callback for whichever plugin binds
+        // first - which would pay for the full initialization there and blame a misbehaving shared assembly
+        // source's failure on an innocent plugin.
+        sharedAssemblyRegistry.GetSharedAssemblies();
+        return runner.StartingAsync(runner.GetServicePlugins(), cancellationToken);
+    }
 
     public Task StartedAsync(CancellationToken cancellationToken)
         => runner.StartedAsync(runner.GetServicePlugins(), cancellationToken);

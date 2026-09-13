@@ -9,6 +9,7 @@ using Microsoft.Extensions.Options;
 using System.IO;
 using System.Reflection;
 
+[Collection("BaseDirectoryFileSystem")]
 public class PublicServiceTypeRegistryTests
 {
     [Fact]
@@ -35,6 +36,38 @@ public class PublicServiceTypeRegistryTests
         var result = registry.GetAssemblyNames().ToList();
 
         Assert.Contains(expectedFullName, result);
+    }
+
+    [Fact]
+    public void GetAssemblyNames_RetriesOnNextCall_WhenReadingAnAssemblyNamePreviouslyFailed()
+    {
+        var testId = Guid.NewGuid().ToString("N");
+        var fileName = $"malformed-{testId}.dll";
+        var filePath = Path.Combine(AppContext.BaseDirectory, fileName);
+        File.WriteAllBytes(filePath, [0x00, 0x01, 0x02, 0x03]);
+
+        var options = Options.Create(new PluginSystemOptions { PluginContractsSearchPattern = fileName });
+        var registry = new PublicServiceTypeRegistry(NullLogger<PublicServiceTypeRegistry>.Instance, options);
+
+        try
+        {
+            Assert.Throws<BadImageFormatException>(() => registry.GetAssemblyNames().ToList());
+
+            var validAssemblyPath = typeof(PublicServiceTypeRegistry).Assembly.Location;
+            File.Copy(validAssemblyPath, filePath, overwrite: true);
+            var expectedFullName = AssemblyName.GetAssemblyName(filePath).FullName;
+
+            var result = registry.GetAssemblyNames().ToList();
+
+            Assert.Contains(expectedFullName, result);
+        }
+        finally
+        {
+            if (File.Exists(filePath))
+            {
+                File.Delete(filePath);
+            }
+        }
     }
 
     [Fact]

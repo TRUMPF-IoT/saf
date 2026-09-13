@@ -10,7 +10,6 @@ using AnyOtherInternalLogic;
 using MessageHandlers;
 using SAF.Messaging.Extensions;
 using SAF.PluginSystem.Hosting.Contracts;
-using SAF.PluginSystem.Hosting.Extensions;
 using Toolbox;
 
 public class PluginManifest : IPluginManifest

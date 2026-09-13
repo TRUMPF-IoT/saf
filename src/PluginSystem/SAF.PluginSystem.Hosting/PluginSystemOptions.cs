@@ -4,6 +4,8 @@
 
 namespace SAF.PluginSystem.Hosting;
 
+using AssemblyLoading;
+
 /// <summary>
 /// Provides configuration options for the plugin system, including paths for plugin settings and search patterns for
 /// plugin contracts (public types used for cross-plugin communication).
@@ -34,4 +36,21 @@ public class PluginSystemOptions
     /// contracts during discovery. The pattern should follow standard file system search conventions.
     /// Multiple patterns should be seperated with ';'</remarks>
     public string PluginContractsSearchPattern { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Gets or sets the behavior applied when a plugin requests a version of a shared (contract) assembly
+    /// that is not compatible with the one the host provides. Defaults to
+    /// <see cref="SharedAssemblyConflictBehavior.Fail"/>.
+    /// </summary>
+    public SharedAssemblyConflictBehavior SharedAssemblyConflictBehavior { get; set; } = SharedAssemblyConflictBehavior.Fail;
+
+    /// <summary>
+    /// Gets or sets whether a shared assembly may roll forward across a <b>major</b> version, i.e. whether
+    /// a plugin built against major <c>N</c> may be bound to the host's major <c>&gt; N</c>. Since a major
+    /// version signals breaking changes (SemVer), this defaults to <see langword="false"/>: a breaking
+    /// roll-forward is treated as a conflict and handled per <see cref="SharedAssemblyConflictBehavior"/>.
+    /// Set to <see langword="true"/> only if your major versions are known to stay compatible.
+    /// Roll-forward within the same major (minor/patch) is always allowed.
+    /// </summary>
+    public bool AllowMajorVersionRollForward { get; set; }
 }

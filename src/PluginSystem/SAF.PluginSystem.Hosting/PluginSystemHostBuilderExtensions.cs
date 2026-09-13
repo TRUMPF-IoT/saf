@@ -4,6 +4,7 @@
 
 namespace SAF.PluginSystem.Hosting;
 
+using AssemblyLoading;
 using Contracts;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -69,13 +70,16 @@ public static class PluginSystemHostBuilderExtensions
         {
             var namedOptionsAccessor = sp.GetRequiredService<IOptionsMonitor<PluginAssemblyFolderSearchOptions>>();
             var options = namedOptionsAccessor.Get(uniqueOptionsKey);
+            var pluginSystemOptions = sp.GetRequiredService<IOptions<PluginSystemOptions>>().Value;
 
             return new PluginAssemblyFolderContainer(
                 sp.GetRequiredService<ILoggerFactory>(),
                 sp.GetRequiredService<IPluginManifestLoader>(),
                 options,
                 sp.GetRequiredService<IFileSystem>(),
-                sp.GetServices<IPluginAssemblyValidator>());
+                sp.GetServices<IPluginAssemblyValidator>(),
+                sp.GetRequiredService<ISharedAssemblyResolver>(),
+                pluginSystemOptions.SharedAssemblyConflictBehavior);
         });
 
         return hostBuilder;

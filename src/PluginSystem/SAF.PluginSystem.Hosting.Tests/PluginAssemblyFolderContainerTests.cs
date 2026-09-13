@@ -6,16 +6,25 @@ namespace SAF.PluginSystem.Hosting.Tests;
 
 using Contracts;
 using Microsoft.Extensions.Logging;
+using SAF.PluginSystem.Hosting.AssemblyLoading;
+using SAF.PluginSystem.Hosting.Tests.AssemblyLoading;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using NSubstitute;
 using SAF.PluginSystem.Hosting.Extensions;
 using System.Reflection;
+using System.Reflection.Metadata;
+using System.Reflection.Metadata.Ecma335;
+using System.Reflection.PortableExecutable;
+using System.Runtime.Loader;
 using System.Runtime.Versioning;
+using System.IO.Abstractions;
 using System.Security.AccessControl;
 using System.Security.Principal;
 using Testably.Abstractions;
+using TestUtilities;
 
+[Collection("BaseDirectoryFileSystem")]
 public sealed class PluginAssemblyFolderContainerTests : IDisposable
 {
     private readonly RealFileSystem _fileSystem;
@@ -63,7 +72,7 @@ public sealed class PluginAssemblyFolderContainerTests : IDisposable
             ExcludePatterns = "*.exclude.*",
             Recursive = true
         };
-        var container = new PluginAssemblyFolderContainer(_loggerFactory, manifestLoader, options, _fileSystem, []);
+        var container = new PluginAssemblyFolderContainer(_loggerFactory, manifestLoader, options, _fileSystem, [], TestSharedAssemblyResolver.SharesHostProvidedAssemblies, SharedAssemblyConflictBehavior.Fail);
 
         // Act
         var result = container.GetPluginManifests().ToList();
@@ -94,7 +103,7 @@ public sealed class PluginAssemblyFolderContainerTests : IDisposable
             ExcludePatterns = "*.exclude.*",
             Recursive = false
         };
-        var container = new PluginAssemblyFolderContainer(_loggerFactory, manifestLoader, options, _fileSystem, []);
+        var container = new PluginAssemblyFolderContainer(_loggerFactory, manifestLoader, options, _fileSystem, [], TestSharedAssemblyResolver.SharesHostProvidedAssemblies, SharedAssemblyConflictBehavior.Fail);
 
         // Act
         var result = container.GetPluginManifests().ToList();
@@ -117,7 +126,7 @@ public sealed class PluginAssemblyFolderContainerTests : IDisposable
             ExcludePatterns = "*.exclude.*",
             Recursive = true
         };
-        var container = new PluginAssemblyFolderContainer(_loggerFactory, manifestLoader, options, _fileSystem, []);
+        var container = new PluginAssemblyFolderContainer(_loggerFactory, manifestLoader, options, _fileSystem, [], TestSharedAssemblyResolver.SharesHostProvidedAssemblies, SharedAssemblyConflictBehavior.Fail);
 
         // Act
         var result = container.GetPluginManifests().ToList();
@@ -138,7 +147,7 @@ public sealed class PluginAssemblyFolderContainerTests : IDisposable
             ExcludePatterns = "*.exclude.*",
             Recursive = true
         };
-        var container = new PluginAssemblyFolderContainer(_loggerFactory, _manifestLoader, options, _fileSystem, []);
+        var container = new PluginAssemblyFolderContainer(_loggerFactory, _manifestLoader, options, _fileSystem, [], TestSharedAssemblyResolver.SharesHostProvidedAssemblies, SharedAssemblyConflictBehavior.Fail);
 
         // Act
         var result = container.GetPluginManifests();
@@ -158,7 +167,7 @@ public sealed class PluginAssemblyFolderContainerTests : IDisposable
             ExcludePatterns = string.Empty,
             Recursive = false
         };
-        var container = new PluginAssemblyFolderContainer(_loggerFactory, _manifestLoader, options, _fileSystem, []);
+        var container = new PluginAssemblyFolderContainer(_loggerFactory, _manifestLoader, options, _fileSystem, [], TestSharedAssemblyResolver.SharesHostProvidedAssemblies, SharedAssemblyConflictBehavior.Fail);
 
         // Act
         var result = container.GetPluginManifests().ToList();
@@ -171,8 +180,9 @@ public sealed class PluginAssemblyFolderContainerTests : IDisposable
     public void GetPluginManifests_ReturnsManifest_ForAssemblyLoadedInDefaultContext()
     {
         // Arrange
+        Assembly? loadedAssembly = null;
         var manifestLoader = Substitute.For<IPluginManifestLoader>();
-        manifestLoader.LoadPluginManifest(Arg.Any<Assembly>()).Returns(Substitute.For<IPluginManifest>());
+        manifestLoader.LoadPluginManifest(Arg.Do<Assembly>(a => loadedAssembly = a)).Returns(Substitute.For<IPluginManifest>());
 
         var options = new PluginAssemblyFolderSearchOptions
         {
@@ -181,13 +191,20 @@ public sealed class PluginAssemblyFolderContainerTests : IDisposable
             ExcludePatterns = string.Empty,
             Recursive = false
         };
-        var container = new PluginAssemblyFolderContainer(_loggerFactory, manifestLoader, options, _fileSystem, []);
+        var logger = Substitute.For<MockLogger>();
+        var container = new PluginAssemblyFolderContainer(new SingleLoggerFactory(logger), manifestLoader, options, _fileSystem, [], TestSharedAssemblyResolver.SharesHostProvidedAssemblies, SharedAssemblyConflictBehavior.Fail);
 
         // Act
         var result = container.GetPluginManifests().ToList();
 
         // Assert
         Assert.Single(result);
+
+        // A base-directory candidate is loaded via AssemblyLoadContext.Default, not a PluginAssemblyLoadContext,
+        // so neither isolation nor shared-assembly conflict detection ever applies to it (documented in
+        // docs/plugin-system.md).
+        Assert.Same(AssemblyLoadContext.Default, AssemblyLoadContext.GetLoadContext(loadedAssembly!));
+        logger.AssertLogged(LogLevel.Information, message => message.Contains("AssemblyLoadContext.Default", StringComparison.Ordinal));
     }
 
     [Fact]
@@ -210,7 +227,7 @@ public sealed class PluginAssemblyFolderContainerTests : IDisposable
             ExcludePatterns = string.Empty,
             Recursive = false
         };
-        var container = new PluginAssemblyFolderContainer(_loggerFactory, _manifestLoader, options, _fileSystem, []);
+        var container = new PluginAssemblyFolderContainer(_loggerFactory, _manifestLoader, options, _fileSystem, [], TestSharedAssemblyResolver.SharesHostProvidedAssemblies, SharedAssemblyConflictBehavior.Fail);
 
         // Act
         var result = container.GetPluginManifests().ToList();
@@ -230,7 +247,7 @@ public sealed class PluginAssemblyFolderContainerTests : IDisposable
             ExcludePatterns = string.Empty,
             Recursive = false
         };
-        var container = new PluginAssemblyFolderContainer(_loggerFactory, _manifestLoader, options, _fileSystem, []);
+        var container = new PluginAssemblyFolderContainer(_loggerFactory, _manifestLoader, options, _fileSystem, [], TestSharedAssemblyResolver.SharesHostProvidedAssemblies, SharedAssemblyConflictBehavior.Fail);
 
         // Act
         var firstCall = container.GetPluginManifests();
@@ -255,7 +272,7 @@ public sealed class PluginAssemblyFolderContainerTests : IDisposable
             ExcludePatterns = string.Empty,
             Recursive = false
         };
-        var container = new PluginAssemblyFolderContainer(_loggerFactory, manifestLoader, options, _fileSystem, []);
+        var container = new PluginAssemblyFolderContainer(_loggerFactory, manifestLoader, options, _fileSystem, [], TestSharedAssemblyResolver.SharesHostProvidedAssemblies, SharedAssemblyConflictBehavior.Fail);
 
         // Act – call twice
         _ = container.GetPluginManifests().ToList();
@@ -280,7 +297,7 @@ public sealed class PluginAssemblyFolderContainerTests : IDisposable
             ExcludePatterns = string.Empty,
             Recursive = false
         };
-        var container = new PluginAssemblyFolderContainer(_loggerFactory, manifestLoader, options, _fileSystem, []);
+        var container = new PluginAssemblyFolderContainer(_loggerFactory, manifestLoader, options, _fileSystem, [], TestSharedAssemblyResolver.SharesHostProvidedAssemblies, SharedAssemblyConflictBehavior.Fail);
 
         // Act
         var firstCall = container.GetPluginManifests().ToList();
@@ -314,7 +331,7 @@ public sealed class PluginAssemblyFolderContainerTests : IDisposable
             Recursive = false
         };
 
-        var container = new PluginAssemblyFolderContainer(_loggerFactory, manifestLoader, options, _fileSystem, []);
+        var container = new PluginAssemblyFolderContainer(_loggerFactory, manifestLoader, options, _fileSystem, [], TestSharedAssemblyResolver.SharesHostProvidedAssemblies, SharedAssemblyConflictBehavior.Fail);
 
         // Act
         var result = container.GetPluginManifests().ToList();
@@ -323,6 +340,122 @@ public sealed class PluginAssemblyFolderContainerTests : IDisposable
         Assert.Single(result);
         Assert.Same(manifest, result[0]);
         manifestLoader.Received(1).LoadPluginManifest(Arg.Any<Assembly>());
+    }
+
+    [Fact]
+    public void GetPluginManifests_DoesNotReadFileContent_WhenNoValidatorsAreConfigured()
+    {
+        // Arrange
+        var testDirectory = CreateTestDirectory($"test-plugins-{Guid.NewGuid():N}");
+        var pluginPath = Path.Combine(testDirectory, "valid.managed.dll");
+        _fileSystem.File.Copy(_testAssemblyPath, pluginPath);
+
+        CountingStream? countingStream = null;
+        var fileInfo = Substitute.For<IFileInfo>();
+        fileInfo.Open(Arg.Any<FileMode>(), Arg.Any<FileAccess>(), Arg.Any<FileShare>())
+            .Returns(_ => countingStream = new CountingStream(pluginPath));
+
+        var fileInfoFactory = Substitute.For<IFileInfoFactory>();
+        fileInfoFactory.New(Arg.Any<string>()).Returns(fileInfo);
+
+        // Only FileInfo is faked; Directory and Path pass straight through to the real file system so
+        // directory enumeration and path resolution behave normally.
+        var fileSystem = Substitute.For<IFileSystem>();
+        fileSystem.Directory.Returns(_fileSystem.Directory);
+        fileSystem.Path.Returns(_fileSystem.Path);
+        fileSystem.FileInfo.Returns(fileInfoFactory);
+
+        var manifestLoader = Substitute.For<IPluginManifestLoader>();
+        manifestLoader.LoadPluginManifest(Arg.Any<Assembly>()).Returns(Substitute.For<IPluginManifest>());
+
+        var options = new PluginAssemblyFolderSearchOptions
+        {
+            SearchRootPath = testDirectory,
+            IncludePatterns = "*.dll",
+            ExcludePatterns = string.Empty,
+            Recursive = false
+        };
+        var container = new PluginAssemblyFolderContainer(
+            _loggerFactory, manifestLoader, options, fileSystem, [], TestSharedAssemblyResolver.SharesHostProvidedAssemblies, SharedAssemblyConflictBehavior.Fail);
+
+        // Act
+        var result = container.GetPluginManifests().ToList();
+
+        // Assert - the file is opened (to pin it and hand a stream to the loader), but with no
+        // validators configured, its content is never read into memory.
+        Assert.Single(result);
+        Assert.NotNull(countingStream);
+        Assert.Equal(0, countingStream.ReadCount);
+    }
+
+    [Fact]
+    public void GetPluginManifests_LogsWarning_NotError_WhenNativeOrCorruptDllMatchesSearchPattern_AndNoValidatorsAreConfigured()
+    {
+        // Arrange - without validators, GetAssemblyName no longer pre-filters candidates (2.8), so a
+        // native/corrupt DLL now reaches LoadFromAssemblyPath instead of being rejected during validation.
+        var testDirectory = CreateTestDirectory($"test-plugins-{Guid.NewGuid():N}");
+        var invalidAssemblyPath = Path.Combine(testDirectory, "invalid.native.dll");
+        _fileSystem.File.WriteAllBytes(invalidAssemblyPath, [0x01, 0x02, 0x03, 0x04]);
+
+        var options = new PluginAssemblyFolderSearchOptions
+        {
+            SearchRootPath = testDirectory,
+            IncludePatterns = "*.dll",
+            ExcludePatterns = string.Empty,
+            Recursive = false
+        };
+        var logger = Substitute.For<MockLogger>();
+        var container = new PluginAssemblyFolderContainer(
+            new SingleLoggerFactory(logger), _manifestLoader, options, _fileSystem, [], TestSharedAssemblyResolver.SharesHostProvidedAssemblies, SharedAssemblyConflictBehavior.Fail);
+
+        // Act
+        var result = container.GetPluginManifests().ToList();
+
+        // Assert - skipped, not a load failure: the old severity for an ordinary non-plugin DLL.
+        Assert.Empty(result);
+        logger.AssertLogged(LogLevel.Warning, message => message.Contains("Failed to load plugin manifest", StringComparison.Ordinal));
+        logger.AssertNotLogged(LogLevel.Error);
+    }
+
+    [Fact]
+    public void GetPluginManifests_SkipsAssembly_WhenCultureMetadataIsMalformed()
+    {
+        // Arrange - a candidate whose raw assembly metadata carries a culture string that
+        // AssemblyName.CultureName's setter rejects with CultureNotFoundException (an ArgumentException).
+        // This bypasses the managed AssemblyName validation entirely, the way a hand-crafted or
+        // corrupted satellite resource assembly would.
+        var testDirectory = CreateTestDirectory($"test-plugins-{Guid.NewGuid():N}");
+
+        var malformedCultureAssemblyPath = Path.Combine(testDirectory, "malformed.culture.dll");
+        _fileSystem.File.WriteAllBytes(
+            malformedCultureAssemblyPath,
+            BuildAssemblyWithCulture("MalformedCulture", "not-a-real-culture!!!"));
+
+        var validAssemblyPath = Path.Combine(testDirectory, "valid.managed.dll");
+        _fileSystem.File.Copy(_testAssemblyPath, validAssemblyPath);
+
+        var manifest = Substitute.For<IPluginManifest>();
+        var manifestLoader = Substitute.For<IPluginManifestLoader>();
+        manifestLoader.LoadPluginManifest(Arg.Any<Assembly>()).Returns(manifest);
+
+        var options = new PluginAssemblyFolderSearchOptions
+        {
+            SearchRootPath = testDirectory,
+            IncludePatterns = "*.dll",
+            ExcludePatterns = string.Empty,
+            Recursive = false
+        };
+        var logger = Substitute.For<MockLogger>();
+        var container = new PluginAssemblyFolderContainer(
+            new SingleLoggerFactory(logger), manifestLoader, options, _fileSystem, [new AcceptingPluginAssemblyValidator()], TestSharedAssemblyResolver.SharesHostProvidedAssemblies, SharedAssemblyConflictBehavior.Fail);
+
+        // Act
+        var result = container.GetPluginManifests().ToList();
+
+        // Assert - the malformed candidate is skipped, not thrown, and the other candidate still loads
+        Assert.Single(result);
+        Assert.Same(manifest, result[0]);
+        logger.AssertLogged(LogLevel.Warning, message => message.Contains("metadata could not be read", StringComparison.Ordinal));
     }
 
     [Fact]
@@ -348,7 +481,7 @@ public sealed class PluginAssemblyFolderContainerTests : IDisposable
             manifestLoader,
             options,
             _fileSystem,
-            [new StrongNamePluginAssemblyValidator(optionsMonitor)]);
+            [new StrongNamePluginAssemblyValidator(optionsMonitor)], TestSharedAssemblyResolver.SharesHostProvidedAssemblies, SharedAssemblyConflictBehavior.Fail);
 
         var result = container.GetPluginManifests().ToList();
 
@@ -369,7 +502,7 @@ public sealed class PluginAssemblyFolderContainerTests : IDisposable
             ExcludePatterns = string.Empty,
             Recursive = false
         };
-        var container = new PluginAssemblyFolderContainer(_loggerFactory, manifestLoader, options, _fileSystem, [new RejectingPluginAssemblyValidator()]);
+        var container = new PluginAssemblyFolderContainer(_loggerFactory, manifestLoader, options, _fileSystem, [new RejectingPluginAssemblyValidator()], TestSharedAssemblyResolver.SharesHostProvidedAssemblies, SharedAssemblyConflictBehavior.Fail);
 
         var result = container.GetPluginManifests().ToList();
 
@@ -390,7 +523,7 @@ public sealed class PluginAssemblyFolderContainerTests : IDisposable
             ExcludePatterns = string.Empty,
             Recursive = false
         };
-        var container = new PluginAssemblyFolderContainer(_loggerFactory, manifestLoader, options, _fileSystem, []);
+        var container = new PluginAssemblyFolderContainer(_loggerFactory, manifestLoader, options, _fileSystem, [], TestSharedAssemblyResolver.SharesHostProvidedAssemblies, SharedAssemblyConflictBehavior.Fail);
 
         var result = container.GetPluginManifests().ToList();
 
@@ -412,8 +545,8 @@ public sealed class PluginAssemblyFolderContainerTests : IDisposable
             ExcludePatterns = string.Empty,
             Recursive = false
         };
-        var loggerFactory = new CapturingLoggerFactory();
-        var container = new PluginAssemblyFolderContainer(loggerFactory, manifestLoader, options, _fileSystem, [validator]);
+        var logger = Substitute.For<MockLogger>();
+        var container = new PluginAssemblyFolderContainer(new SingleLoggerFactory(logger), manifestLoader, options, _fileSystem, [validator], TestSharedAssemblyResolver.SharesHostProvidedAssemblies, SharedAssemblyConflictBehavior.Fail);
 
         var result = container.GetPluginManifests().ToList();
 
@@ -428,7 +561,7 @@ public sealed class PluginAssemblyFolderContainerTests : IDisposable
         {
             // The replacement succeeds, and the check before the load must catch it.
             Assert.Empty(result);
-            Assert.Contains(loggerFactory.Entries, entry => entry.Message.Contains("changed after it was validated", StringComparison.Ordinal));
+            logger.AssertLogged(message => message.Contains("changed after it was validated", StringComparison.Ordinal));
         }
     }
 
@@ -502,7 +635,7 @@ public sealed class PluginAssemblyFolderContainerTests : IDisposable
             Recursive = false
         };
         var container = new PluginAssemblyFolderContainer(
-            _loggerFactory, manifestLoader, options, _fileSystem, [new AcceptingPluginAssemblyValidator()]);
+            _loggerFactory, manifestLoader, options, _fileSystem, [new AcceptingPluginAssemblyValidator()], TestSharedAssemblyResolver.SharesHostProvidedAssemblies, SharedAssemblyConflictBehavior.Fail);
 
         var result = container.GetPluginManifests().ToList();
 
@@ -529,7 +662,7 @@ public sealed class PluginAssemblyFolderContainerTests : IDisposable
             ExcludePatterns = string.Empty,
             Recursive = false
         };
-        var container = new PluginAssemblyFolderContainer(_loggerFactory, _manifestLoader, options, _fileSystem, []);
+        var container = new PluginAssemblyFolderContainer(_loggerFactory, _manifestLoader, options, _fileSystem, [], TestSharedAssemblyResolver.SharesHostProvidedAssemblies, SharedAssemblyConflictBehavior.Fail);
 
         var manifest = Assert.Single(container.GetPluginManifests());
 
@@ -561,7 +694,7 @@ public sealed class PluginAssemblyFolderContainerTests : IDisposable
             ExcludePatterns = string.Empty,
             Recursive = false
         };
-        var container = new PluginAssemblyFolderContainer(_loggerFactory, manifestLoader, options, _fileSystem, []);
+        var container = new PluginAssemblyFolderContainer(_loggerFactory, manifestLoader, options, _fileSystem, [], TestSharedAssemblyResolver.SharesHostProvidedAssemblies, SharedAssemblyConflictBehavior.Fail);
 
         using (new FileStream(lockedPath, FileMode.Open, FileAccess.ReadWrite, FileShare.None))
         {
@@ -569,6 +702,42 @@ public sealed class PluginAssemblyFolderContainerTests : IDisposable
 
             Assert.Single(result);
         }
+    }
+
+    [Fact]
+    public void GetPluginManifests_Throws_WhenPluginTriggersConflictingSharedAssembly_AndBehaviorIsFail()
+    {
+        var options = new PluginAssemblyFolderSearchOptions
+        {
+            SearchRootPath = _testRootPath,
+            IncludePatterns = Path.GetFileName(_testAssemblyPath),
+            ExcludePatterns = string.Empty,
+            Recursive = false
+        };
+        var resolver = new ConflictingSharedAssemblyResolver(new Version(1, 0, 0, 0));
+        var container = new PluginAssemblyFolderContainer(
+            _loggerFactory, new ConflictTriggeringManifestLoader(), options, _fileSystem, [], resolver, SharedAssemblyConflictBehavior.Fail);
+
+        Assert.Throws<SharedAssemblyVersionConflictException>(() => container.GetPluginManifests().ToList());
+    }
+
+    [Fact]
+    public void GetPluginManifests_DoesNotThrow_WhenPluginTriggersConflictingSharedAssembly_AndBehaviorIsIsolateWithWarning()
+    {
+        var options = new PluginAssemblyFolderSearchOptions
+        {
+            SearchRootPath = _testRootPath,
+            IncludePatterns = Path.GetFileName(_testAssemblyPath),
+            ExcludePatterns = string.Empty,
+            Recursive = false
+        };
+        var resolver = new ConflictingSharedAssemblyResolver(new Version(1, 0, 0, 0));
+        var container = new PluginAssemblyFolderContainer(
+            _loggerFactory, new ConflictTriggeringManifestLoader(), options, _fileSystem, [], resolver, SharedAssemblyConflictBehavior.IsolateWithWarning);
+
+        var result = container.GetPluginManifests().ToList();
+
+        Assert.Single(result);
     }
 
     [Fact]
@@ -597,7 +766,7 @@ public sealed class PluginAssemblyFolderContainerTests : IDisposable
             ExcludePatterns = string.Empty,
             Recursive = false
         };
-        var container = new PluginAssemblyFolderContainer(_loggerFactory, manifestLoader, options, _fileSystem, []);
+        var container = new PluginAssemblyFolderContainer(_loggerFactory, manifestLoader, options, _fileSystem, [], TestSharedAssemblyResolver.SharesHostProvidedAssemblies, SharedAssemblyConflictBehavior.Fail);
 
         var result = container.GetPluginManifests().ToList();
 
@@ -624,7 +793,7 @@ public sealed class PluginAssemblyFolderContainerTests : IDisposable
             Recursive = false
         };
         var container = new PluginAssemblyFolderContainer(
-            _loggerFactory, manifestLoader, options, _fileSystem, [new ThrowingPluginAssemblyValidator(throwingPath)]);
+            _loggerFactory, manifestLoader, options, _fileSystem, [new ThrowingPluginAssemblyValidator(throwingPath)], TestSharedAssemblyResolver.SharesHostProvidedAssemblies, SharedAssemblyConflictBehavior.Fail);
 
         var result = container.GetPluginManifests().ToList();
 
@@ -646,6 +815,64 @@ public sealed class PluginAssemblyFolderContainerTests : IDisposable
     {
         public PluginAssemblyValidationResult Validate(PluginAssemblyValidationContext context)
             => PluginAssemblyValidationResult.Accepted();
+    }
+
+    /// <summary>
+    /// Builds a minimal managed PE image whose assembly-definition row carries the given culture
+    /// string verbatim in the metadata string heap - unlike <see cref="AssemblyName.CultureName"/>'s
+    /// setter, the raw metadata format does not validate it.
+    /// </summary>
+    private static byte[] BuildAssemblyWithCulture(string assemblyName, string culture)
+    {
+        var metadataBuilder = new MetadataBuilder();
+
+        metadataBuilder.AddModule(
+            0,
+            metadataBuilder.GetOrAddString(assemblyName + ".dll"),
+            metadataBuilder.GetOrAddGuid(Guid.NewGuid()),
+            default,
+            default);
+
+        metadataBuilder.AddAssembly(
+            metadataBuilder.GetOrAddString(assemblyName),
+            new Version(1, 0, 0, 0),
+            metadataBuilder.GetOrAddString(culture),
+            default,
+            default,
+            AssemblyHashAlgorithm.None);
+
+        metadataBuilder.AddTypeDefinition(
+            default,
+            default,
+            metadataBuilder.GetOrAddString("<Module>"),
+            default,
+            MetadataTokens.FieldDefinitionHandle(1),
+            MetadataTokens.MethodDefinitionHandle(1));
+
+        var peBuilder = new ManagedPEBuilder(
+            new PEHeaderBuilder(imageCharacteristics: Characteristics.Dll | Characteristics.ExecutableImage),
+            new MetadataRootBuilder(metadataBuilder),
+            new BlobBuilder());
+
+        var peBlob = new BlobBuilder();
+        peBuilder.Serialize(peBlob);
+        return peBlob.ToArray();
+    }
+
+    /// <summary>
+    /// A real file stream (IFileInfo.Open must return a FileSystemStream) that counts calls to
+    /// <see cref="Read"/>, which <see cref="Stream.ReadExactly(byte[])"/> loops through internally.
+    /// </summary>
+    private sealed class CountingStream(string path)
+        : FileSystemStream(new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.Read), path, isAsync: false)
+    {
+        public int ReadCount { get; private set; }
+
+        public override int Read(byte[] buffer, int offset, int count)
+        {
+            ReadCount++;
+            return base.Read(buffer, offset, count);
+        }
     }
 
     private sealed class OversizedStream : Stream
@@ -671,26 +898,41 @@ public sealed class PluginAssemblyFolderContainerTests : IDisposable
         public override void Flush() { }
     }
 
-    private sealed record LogEntry(LogLevel Level, string Message);
-
-    private sealed class CapturingLoggerFactory : ILoggerFactory
+    /// <summary>
+    /// Simulates a plugin whose manifest-loading step lazily binds a shared dependency - forcing
+    /// PluginAssemblyLoadContext.Load to run for it - without needing a real conflicting assembly on disk.
+    /// </summary>
+    private sealed class ConflictTriggeringManifestLoader : IPluginManifestLoader
     {
-        public List<LogEntry> Entries { get; } = [];
-
-        public ILogger CreateLogger(string categoryName) => new CapturingLogger(Entries);
-
-        public void AddProvider(ILoggerProvider provider) { }
-
-        public void Dispose() { }
-
-        private sealed class CapturingLogger(List<LogEntry> entries) : ILogger
+        public IPluginManifest? LoadPluginManifest(Assembly assembly)
         {
-            public IDisposable? BeginScope<TState>(TState state) where TState : notnull => null;
+            var context = (PluginAssemblyLoadContext)AssemblyLoadContext.GetLoadContext(assembly)!;
+            try
+            {
+                context.LoadFromAssemblyName(new AssemblyName("Acme.Contracts"));
+            }
+            catch (FileNotFoundException)
+            {
+                // Load() already ran its conflict handling before returning null; whether the runtime
+                // then finds a fallback for this made-up name is irrelevant to what these tests check.
+            }
 
-            public bool IsEnabled(LogLevel logLevel) => true;
+            return Substitute.For<IPluginManifest>();
+        }
+    }
 
-            public void Log<TState>(LogLevel logLevel, EventId eventId, TState state, Exception? exception, Func<TState, Exception?, string> formatter)
-                => entries.Add(new LogEntry(logLevel, formatter(state, exception)));
+    private sealed class ConflictingSharedAssemblyResolver(Version hostVersion) : ISharedAssemblyResolver
+    {
+        public SharedAssemblyDecision Resolve(AssemblyName requested, out Version? host)
+        {
+            if (string.Equals(requested.Name, "Acme.Contracts", StringComparison.OrdinalIgnoreCase))
+            {
+                host = hostVersion;
+                return SharedAssemblyDecision.Conflict;
+            }
+
+            host = null;
+            return SharedAssemblyDecision.LoadIsolated;
         }
     }
 

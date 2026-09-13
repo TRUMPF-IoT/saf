@@ -2,22 +2,24 @@
 //
 // SPDX-License-Identifier: MPL-2.0
 
-namespace SAF.PluginSystem.Hosting.Tests;
+namespace SAF.PluginSystem.Hosting.Tests.AssemblyLoading;
+
+using SAF.PluginSystem.Hosting.AssemblyLoading;
 
 using Microsoft.Extensions.Logging;
+using NSubstitute;
 using System.Reflection;
 using System.Runtime.Loader;
-using System.IO.Abstractions;
-using Testably.Abstractions;
+using TestUtilities;
 using Xunit;
 
 public class PluginAssemblyLoadContextTests
 {
     private readonly ILoggerFactory _loggerFactory;
 
-    // This test loads a real plugin assembly from disk through AssemblyLoadContext, which reads from
-    // the real file system, so a mock cannot be used.
-    private readonly IFileSystem _fileSystem = new RealFileSystem();
+    // Shares the contract closure (hosting contracts, Microsoft.Extensions.* and public dependencies);
+    // private plugin dependencies stay isolated.
+    private readonly ISharedAssemblyResolver _sharedAssemblyResolver = TestSharedAssemblyResolver.SharesHostProvidedAssemblies;
 
     public PluginAssemblyLoadContextTests(ITestOutputHelper outputHelper)
     {
@@ -33,7 +35,8 @@ public class PluginAssemblyLoadContextTests
         var context = new PluginAssemblyLoadContext(
             _loggerFactory,
             pluginAPath,
-            _fileSystem);
+            _sharedAssemblyResolver,
+            SharedAssemblyConflictBehavior.Fail);
 
         // Act
         var pluginA = context.LoadFromAssemblyPath(pluginAPath);
@@ -55,11 +58,13 @@ public class PluginAssemblyLoadContextTests
         var contextA = new PluginAssemblyLoadContext(
             _loggerFactory,
             pluginAPath,
-            _fileSystem);
+            _sharedAssemblyResolver,
+            SharedAssemblyConflictBehavior.Fail);
         var contextB = new PluginAssemblyLoadContext(
             _loggerFactory,
             pluginBPath,
-            _fileSystem);
+            _sharedAssemblyResolver,
+            SharedAssemblyConflictBehavior.Fail);
 
         // Act
         var pluginA = contextA.LoadFromAssemblyPath(pluginAPath);
@@ -86,7 +91,8 @@ public class PluginAssemblyLoadContextTests
         var context = new PluginAssemblyLoadContext(
             _loggerFactory,
             pluginAPath,
-            _fileSystem);
+            _sharedAssemblyResolver,
+            SharedAssemblyConflictBehavior.Fail);
 
         // Act
         var pluginA = context.LoadFromAssemblyPath(pluginAPath);
@@ -108,7 +114,8 @@ public class PluginAssemblyLoadContextTests
         var context = new PluginAssemblyLoadContext(
             _loggerFactory,
             pluginBPath,
-            _fileSystem);
+            _sharedAssemblyResolver,
+            SharedAssemblyConflictBehavior.Fail);
 
         // Act
         var pluginB = context.LoadFromAssemblyPath(pluginBPath);
@@ -130,7 +137,8 @@ public class PluginAssemblyLoadContextTests
         var context = new PluginAssemblyLoadContext(
             _loggerFactory,
             pluginAPath,
-            _fileSystem);
+            _sharedAssemblyResolver,
+            SharedAssemblyConflictBehavior.Fail);
 
         // Act
         var pluginA = context.LoadFromAssemblyPath(pluginAPath);
@@ -152,7 +160,8 @@ public class PluginAssemblyLoadContextTests
         var context = new PluginAssemblyLoadContext(
             _loggerFactory,
             pluginBPath,
-            _fileSystem);
+            _sharedAssemblyResolver,
+            SharedAssemblyConflictBehavior.Fail);
 
         // Act
         var pluginB = context.LoadFromAssemblyPath(pluginBPath);
@@ -163,6 +172,85 @@ public class PluginAssemblyLoadContextTests
         var pluginBDepContext = AssemblyLoadContext.GetLoadContext(pluginBTransDepB);
         Assert.NotSame(context, pluginBDepContext);
         Assert.Same(AssemblyLoadContext.Default, pluginBDepContext);
+    }
+
+    [Fact]
+    public void Conflict_IsolateWithWarning_FallsBackToHostVersion_AndWarns_WhenHostIsHigher_AndPluginShipsNoPrivateCopy()
+    {
+        var pluginAPath = GetAssemblyPath("TestPlugin.PluginA");
+        var logger = Substitute.For<MockLogger>();
+
+        // The test assembly is loaded in the default context but is not shipped by PluginA, so the plugin's
+        // dependency resolver cannot provide a private copy to isolate. The host version is fixed a major
+        // above the test assembly's real version, so it is unambiguously the higher one.
+        var notShippedByPlugin = typeof(PluginAssemblyLoadContextTests).Assembly.GetName();
+        var higherHostVersion = new Version(notShippedByPlugin.Version!.Major + 1, 0, 0, 0);
+
+        var context = new PluginAssemblyLoadContext(
+            new SingleLoggerFactory(logger),
+            pluginAPath,
+            TestSharedAssemblyResolver.WithFixedDecision(notShippedByPlugin.Name!, SharedAssemblyDecision.Conflict, higherHostVersion),
+            SharedAssemblyConflictBehavior.IsolateWithWarning);
+
+        var loaded = context.LoadFromAssemblyName(notShippedByPlugin);
+
+        Assert.Same(AssemblyLoadContext.Default, AssemblyLoadContext.GetLoadContext(loaded));
+        logger.AssertLogged(LogLevel.Warning, message => message.Contains("no private copy") && message.Contains("Falling back to the host version"));
+        logger.AssertNotLogged(message => message.Contains("in isolation"));
+    }
+
+    [Fact]
+    public void Conflict_IsolateWithWarning_WarnsThatBindWillFail_WhenHostIsLower_AndPluginShipsNoPrivateCopy()
+    {
+        var pluginAPath = GetAssemblyPath("TestPlugin.PluginA");
+        var logger = Substitute.For<MockLogger>();
+
+        // A name nothing provides: not shipped by PluginA (no private copy to isolate) and not loaded
+        // anywhere in the default context (the fallback bind itself will fail).
+        var requested = new AssemblyName("Not.Shipped.Anywhere") { Version = new Version(2, 0, 0, 0) };
+        var lowerHostVersion = new Version(1, 0, 0, 0);
+
+        var context = new PluginAssemblyLoadContext(
+            new SingleLoggerFactory(logger),
+            pluginAPath,
+            TestSharedAssemblyResolver.WithFixedDecision(requested.Name!, SharedAssemblyDecision.Conflict, lowerHostVersion),
+            SharedAssemblyConflictBehavior.IsolateWithWarning);
+
+        try
+        {
+            context.LoadFromAssemblyName(requested);
+        }
+        catch (FileNotFoundException)
+        {
+            // Expected: the default context has nothing under this made-up name to bind to.
+        }
+
+        logger.AssertLogged(LogLevel.Warning, message => message.Contains("no private copy") && message.Contains("cannot bind the lower host version"));
+        logger.AssertNotLogged(message => message.Contains("Falling back to the host version"));
+    }
+
+    [Fact]
+    public void Conflict_LoadsIsolated_AndLogsError_WhenResolverReportsConflictWithoutHostVersion()
+    {
+        var pluginAPath = GetAssemblyPath("TestPlugin.PluginA");
+        var logger = Substitute.For<MockLogger>();
+
+        // A misbehaving resolver: reports Conflict without setting hostVersion. ISharedAssemblyResolver
+        // only documents this as an expectation - nothing enforces it for a third-party implementation.
+        var privateDependency = new AssemblyName("TestPlugin.DependencyA");
+
+        var context = new PluginAssemblyLoadContext(
+            new SingleLoggerFactory(logger),
+            pluginAPath,
+            TestSharedAssemblyResolver.WithFixedDecision(privateDependency.Name!, SharedAssemblyDecision.Conflict, hostVersion: null),
+            SharedAssemblyConflictBehavior.Fail);
+
+        var loaded = context.LoadFromAssemblyName(privateDependency);
+
+        Assert.NotSame(AssemblyLoadContext.Default, AssemblyLoadContext.GetLoadContext(loaded));
+        Assert.Same(context, AssemblyLoadContext.GetLoadContext(loaded));
+        logger.AssertLoggedOnce(LogLevel.Error);
+        Assert.Empty(context.Conflicts);
     }
 
     private static string GetAssemblyPath(string pluginName)

@@ -5,7 +5,6 @@
 namespace SAF.Configuration.Secrets.Extensions;
 
 using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.DependencyInjection.Extensions;
 using SAF.Configuration.Secrets;
 using SAF.Configuration.Secrets.Configuration;
 using SAF.Configuration.Secrets.Contracts;
@@ -40,11 +39,9 @@ public static class PluginSystemHostBuilderExtensions
 
         AddStore(hostBuilder.Services, configure, configureProviders, nameof(AddSecretStore));
 
-        // Bridge: forward the single ISecretStore into every plugin container. Runs before each plugin
-        // manifest's ConfigureServices, so plugins always receive the same host-level secret store.
-        // TryAddEnumerable keeps a second call from forwarding the same store twice.
-        hostBuilder.Services.TryAddEnumerable(
-            ServiceDescriptor.Singleton<IHostServiceForwarder, HostServiceForwarder<ISecretStore>>());
+        // Bridge: forward the single ISecretStore into every plugin container and share its contract
+        // assembly, so the plugin resolves the same ISecretStore type the host registered.
+        hostBuilder.Services.AddHostServiceForwarder<ISecretStore>();
 
         return hostBuilder;
     }

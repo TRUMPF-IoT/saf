@@ -330,13 +330,15 @@ That package references `System.Security.Cryptography.Pkcs` for Authenticode CMS
 
 ### `PluginAssemblyFolderContainer` constructor
 
-`IEnumerable<IPluginAssemblyValidator> assemblyValidators` was added as the **last** constructor parameter, after `IFileSystem fileSystem`, and is required. Code that constructs the container directly instead of using `AddPluginAssemblyFolderContainer` must pass a sequence — an empty one keeps the 10.x behaviour of loading without validation:
+Constructing this type directly — instead of using `AddPluginAssemblyFolderContainer` — takes seven parameters:
 
 ```csharp
-new PluginAssemblyFolderContainer(loggerFactory, manifestLoader, options, fileSystem, []);
+new PluginAssemblyFolderContainer(
+    loggerFactory, manifestLoader, options, fileSystem,
+    assemblyValidators, sharedAssemblyResolver, sharedAssemblyConflictBehavior);
 ```
 
-This is an intentional break. It is a compile error rather than a silent behaviour change, which is the point: a container built with a stale call would otherwise load plug-ins with validators that were configured but never consulted.
+`assemblyValidators` takes a sequence of `IPluginAssemblyValidator` — an empty one keeps 10.x's behaviour of loading without validation. `sharedAssemblyResolver` is harder to supply yourself: its only implementation, `SharedAssemblyResolver`, is `internal` and is registered solely by `AddPluginSystem()`. In practice, constructing this container outside of `AddPluginAssemblyFolderContainer` means either resolving `ISharedAssemblyResolver` from a service provider that already had `AddPluginSystem()` applied to it, or implementing that (public) interface yourself. `sharedAssemblyConflictBehavior` is the `SharedAssemblyConflictBehavior` enum described under [Version handling](./plugin-system.md#version-handling).
 
 ### NATS messaging keeps blocking backpressure
 
@@ -355,51 +357,49 @@ Switching the requirement off is only meaningful together with `AllowedSignerThu
 
 `DigitalSignaturePluginAssemblyValidator` is constructed by `AddDigitalSignaturePluginAssemblyValidator` only; it has no public constructor, and registering it as a plain service type (`AddPluginAssemblyValidator<DigitalSignaturePluginAssemblyValidator>()`) fails when the service provider resolves it.
 
-### `PluginSystemHostContext` and `PluginConfigurationSourceContext` take the host `IServiceProvider`
+### Register forwarded host services with `AddHostServiceForwarder<T>()`
 
-`IServiceProvider hostServices` was added to the `PluginSystemHostContext` constructor **before** the
-optional trailing `configurePluginConfigurationSources` parameter, so no earlier call compiles unchanged —
-including the 5-argument form that omitted the optional one — and a caller compiled against an earlier 11.0
-pre-release fails at runtime with `MissingMethodException`:
-
-```csharp
-// Before
-new PluginSystemHostContext(logger, environment, hostConfiguration, options, fileSystem, configureSources);
-
-// After
-new PluginSystemHostContext(logger, environment, hostConfiguration, options, fileSystem, hostServices, configureSources);
-```
-
-`AddSafHost()` constructs the context itself and supplies the provider, so a host that uses the normal
-bootstrap needs no change. This affects code that constructs the context directly — in practice, tests.
-
-`PluginConfigurationSourceContext` gained a matching `required IServiceProvider HostServices { get; init; }`,
-which breaks object-initializer construction — a test double that invokes a source callback outside a host,
-for example:
+SAF 10.x had a single, shared `ServiceCollection` — every plug-in saw every host service directly. In
+11.x each plug-in loads into its own isolated container, so a host service now reaches a plug-in only if
+you forward it explicitly:
 
 ```csharp
-var sourceContext = new PluginConfigurationSourceContext
-{
-    Builder = configurationBuilder,
-    SettingsFileProvider = null,
-    EnvironmentName = "Test",
-    SettingsFileName = null,
-    OnLoadException = _ => { },
-    HostServices = hostServices,    // new, and required
-};
+services.AddSingleton<MySharedSingleton>();
+services.AddHostServiceForwarder<MySharedSingleton>();
 ```
 
-Both breaks are intentional. A configuration source that resolves values against host services —
-[transparent secret resolution](./secret-store.md#transparent-configuration-resolution) is the case that
-prompted it — has no other way to reach them: the callback runs during `IPluginSystemHostContext`
-construction, before any plugin container exists. Making it required rather than optional is what turns a
-stale call into a compile error; an optional parameter would have compiled unchanged and handed the
-callback a null provider.
+`AddHostServiceForwarder<T>()` registers two things together, and both are required: a forwarder that
+bridges the already-resolved host instance into each plug-in container, and an `ISharedAssemblySource`
+that puts `T`'s declaring assembly into the plugin system's
+[shared set](./plugin-system.md#the-shared-set) — without it, each plug-in would load its own copy of the
+contract assembly and fail to resolve the forwarded instance.
+
+`AddSecretStore()` and `AddSafHost()` already do this for `ISecretStore` and `IServiceHostInfo`, so no
+action is needed for either. For a custom `IHostServiceForwarder` implementation, see
+[IHostServiceForwarder](./plugin-system.md#ihostserviceforwarder).
+
+---
+
+## One Plug-in's Shared-Assembly Conflict Fails the Whole Host
+
+Rebuilding every plug-in against v11 is already required for reasons covered elsewhere in this guide — `IPluginManifest`, `ConfigureServices`, the `SAF.Messaging.Contracts` namespace, and so on. A plug-in that still targets the old API does not implement `IPluginManifest` at all, so it is simply skipped with a log entry; it does not stop the host.
+
+What is easy to miss is what happens **after** a plug-in has been rebuilt against v11's contracts, if it — or one of its own dependencies — still pins an older major version of an assembly the host shares. That is not just a problem for the one plug-in: with the default `SharedAssemblyConflictBehavior.Fail`, `PluginAssemblyFolderContainer` queues the conflict and throws once loading finishes, and that exception propagates out of the whole plugin system, so **the v11 host does not start** — every other plug-in included. See [the shared set](./plugin-system.md#the-shared-set) and [version handling](./plugin-system.md#version-handling) for the full mechanism.
+
+The [shared set](./plugin-system.md#the-shared-set) includes `SAF.PluginSystem.Hosting.Contracts` and `SAF.Common` (both now `AssemblyVersion=11.0.0.0`), plus the `Microsoft.Extensions.*`/`System.IO.Abstractions` assemblies the plugin system forces across the boundary. A plug-in built correctly against `IPluginManifest` can still hit the conflict this way — for example, if one of *its own* dependencies still pins an older major of `Microsoft.Extensions.*`, that is the same disallowed roll-forward as an unported SAF contract reference, and it takes the whole host down just the same.
+
+**Required:** rebuild the plug-in, or update the outdated dependency, against v11.
+
+**If that is not possible right now:**
+
+- Set `PluginSystemOptions.AllowMajorVersionRollForward = true`. This is global — it also removes the major-version protection for your *own* contract assemblies, not only for the dependency causing the immediate failure.
+- Or set `SharedAssemblyConflictBehavior = SharedAssemblyConflictBehavior.IsolateWithWarning`. The plug-in starts, but at a cost: types of the conflicting assembly no longer cross the plug-in boundary, so instances the plug-in constructs and instances the host constructs are no longer type-compatible.
 
 ---
 
 ## Quick Migration Checklist
 
+- [ ] Rebuild plug-ins (and check their dependencies) against v11 — one outdated shared-assembly reference fails the whole host's startup, not just that plug-in
 - [ ] Replace `new ServiceCollection()` + `AddHost()` with `Host.CreateApplicationBuilder()` + `AddSafHost()`
 - [ ] Rename `IServiceAssemblyManifest` → `IPluginManifest`
 - [ ] Rename `RegisterDependencies(IServiceCollection)` → `ConfigureServices(IPluginSystemHostContext, IServiceCollection)`
@@ -411,4 +411,4 @@ callback a null provider.
 - [ ] Move plugin configuration into the shared plugin settings file (or host `appsettings.json`) under a per-plugin section
 - [ ] Deploy messaging/storage as plug-ins (add their DLLs to `IncludePatterns`) instead of calling `Add*Infrastructure()` on the host
 - [ ] Reference `SAF.PluginSystem.Hosting.Extensions` explicitly if you use plugin assembly validation, and check the `RequireValidDigitalSignature = true` default against the signatures your plug-ins actually carry
-- [ ] Pass the host `IServiceProvider` if you construct `PluginSystemHostContext` or `PluginConfigurationSourceContext` yourself (`AddSafHost()` already does)
+- [ ] Forward any additional host service your plug-ins need with `AddHostServiceForwarder<T>()` — v10's single shared container needed no such step

@@ -204,19 +204,27 @@ Additional services can be bridged explicitly via `IHostServiceForwarder` (see b
 
 ### IHostServiceForwarder
 
-To forward an additional host service into every plugin container, register a `HostServiceForwarder<T>` in the host's `IServiceCollection`:
+To forward an additional host service into every plugin container, call `AddHostServiceForwarder<T>()` on the host's `IServiceCollection`:
 
 ```csharp
 // Register the service in the host container
 services.AddSingleton<MySharedService>();
 
 // Bridge it into every plugin container
-services.AddSingleton<IHostServiceForwarder, HostServiceForwarder<MySharedService>>();
+services.AddHostServiceForwarder<MySharedService>();
 ```
+
+`AddHostServiceForwarder<T>()` registers two things together, and that pairing is the point: a `HostServiceForwarder<T>` that bridges the instance, and a `SharedAssemblySource<T>` that puts the assembly declaring `T` into the [shared set](#the-shared-set). Without the second registration the plug-in would load its own copy of the contract assembly and fail to resolve the forwarded instance. Repeated calls for the same `T` are idempotent.
+
+`T` must be registered in the host container - immediately, or later in the same builder chain, before
+the container is built. If it is not, the plugin system fails to start with `InvalidOperationException`
+when it resolves the forwarder collection. This is deliberate: a missing registration is a host wiring
+mistake, and failing loudly at startup beats silently dropping the forwarder and leaving a plug-in
+without a service it expects.
 
 `HostServiceForwarder<T>` is resolved from the host container (receiving the already-built singleton via constructor injection) and calls `pluginServices.AddSingleton(instance)` for each plugin — one shared instance, no factory, no service locator.
 
-Implement `IHostServiceForwarder` directly for more control, e.g. to register a service under a different interface:
+Implement `IHostServiceForwarder` directly for more control, e.g. to register a service under a different interface. Registering the forwarder by hand also means declaring the shared assembly by hand:
 
 ```csharp
 public sealed class MyForwarder(MySharedService service) : IHostServiceForwarder
@@ -224,6 +232,9 @@ public sealed class MyForwarder(MySharedService service) : IHostServiceForwarder
     public void Forward(IServiceCollection pluginServices)
         => pluginServices.AddSingleton<IMyContract>(service);
 }
+
+services.AddSingleton<IHostServiceForwarder, MyForwarder>();
+services.AddSingleton<ISharedAssemblySource, SharedAssemblySource<IMyContract>>();
 ```
 
 > **Forward instances, not factories.** Register the resolved host instance (`AddSingleton(instance)`), never a factory delegate that returns a host service (`AddSingleton(_ => hostProvider.GetRequiredService<T>())`). A plugin container disposes the singletons it created itself, so a factory-forwarded service would be disposed together with the plugin container — for example on a [live reload](#live-reload-reconfiguration) — while the host still uses it. Instance registrations are not owned by the plugin container and survive. The built-in forwarded services (`IPluginServiceProvider`, `IPluginSystemHostEnvironment`, `IFileSystem`) are additionally shielded by a non-owning proxy, so their `Dispose`/`DisposeAsync` calls never reach the host instance.
@@ -306,6 +317,109 @@ public class DynamicConsumer(IPluginServiceProvider pluginServices)
 }
 ```
 
+> Implementing `IPluginServiceProvider` yourself (a test double, for example)? `GetRequiredService<T>` /
+> `GetRequiredKeyedService<T>` can't decide on the resolved value's nullness with `value ?? throw`: for an
+> unconstrained `T`, that expression boxes value types for the null check, and a boxed struct is never
+> `null` — the throw branch never runs, so a value-typed `T` would silently get `default(T)` back instead
+> of the expected exception. Decide on the number of matching registrations instead, as `PluginServiceProvider` does.
+
+---
+
+## Assembly Loading and Shared Assemblies
+
+Each plug-in is loaded into its **own** `AssemblyLoadContext`, so plug-ins are isolated and may carry
+their own private versions of dependencies without interfering with each other or the host.
+
+Isolation alone, however, breaks cross-plugin communication: a type is only compatible across the
+boundary if **exactly one** copy of its assembly is loaded. This matters not just for the contract
+interfaces themselves, but for every type on a contract's surface (e.g. a serializer type exposed by a
+contract method).
+
+### The shared set
+
+The plugin system loads a **shared set** of assemblies once in the host and shares them with every
+plug-in context. The set is **explicit**, not derived from a dependency scan:
+
+- **SAF's own boundary assemblies**, added automatically — the hosting contracts plus the abstraction
+  assemblies of the common services SAF injects into every plug-in container (`IServiceCollection`,
+  `IConfiguration`, `ILoggerFactory`/`ILogger<T>`, `IFileSystem`), together with the assemblies those
+  expose on their own public surface (`Microsoft.Extensions.Options`,
+  `Microsoft.Extensions.Primitives`). You never configure these.
+- The **contract assemblies of forwarded host services**, added automatically by
+  `AddHostServiceForwarder<T>()` (see [IHostServiceForwarder](#ihostserviceforwarder)).
+- The **contract assemblies** you configure through `PluginSystemOptions.PluginContractsSearchPattern`,
+  **and any further dependency whose types cross the plug-in boundary** — list those in the same
+  pattern so they enter the shared set.
+
+Any assembly **not** in the shared set stays isolated: each plug-in loads its own copy from its own
+folder. This is intentional — plug-ins can use their own private versions of non-contract libraries.
+
+> **Consequence:** if a type on your contract surface comes from a *separate* assembly (a shared domain
+> model, a common utility or serializer library that both the host and plug-ins carry, or a third-party
+> type exposed by a contract method), that assembly must also match `PluginContractsSearchPattern`. If you
+> forget it, the plug-in loads its own copy and casting the type across the boundary throws
+> `InvalidCastException`. Services forwarded with `AddHostServiceForwarder<T>()` are the exception: their
+> contract assembly is shared automatically and must **not** be added to the pattern, which would also
+> export them as cross-plugin services. Enable `Debug` logging on
+> `SAF.PluginSystem.Hosting.AssemblyLoading.SharedAssemblyRegistry` to see the full shared set at start-up,
+> and `Trace` on `SAF.PluginSystem.Hosting.AssemblyLoading.PluginAssemblyLoadContext` to see which
+> assemblies load in isolation.
+>
+> This is a deliberate change from earlier drop-in base-directory sharing, for a plug-in loaded into its
+> **own** `AssemblyLoadContext`: an assembly is shared only when you declare it, never because it merely
+> happens to sit next to the host. A plug-in candidate that itself sits in the host's base directory does
+> not go through this mechanism at all — see the note on `AssemblyLoadContext.Default` under
+> [Assembly Validation](#assembly-validation-optional).
+
+### Version handling
+
+Shared assemblies are matched by **simple name**, and the host's version is used as long as it is
+**greater than or equal to** the version a plug-in was built against, **within the same major version**
+(roll-forward). This lets a plug-in compiled against an older contract dependency transparently bind to
+the host's newer one — the common case that plain isolation would break.
+
+Two situations are treated as a **conflict**:
+
+- The host provides a **lower** version than the plug-in requires — the .NET loader never binds a lower
+  version to a higher request.
+- The host provides a **higher major** version — a major bump signals breaking changes (SemVer), so a
+  plug-in built against major `N` is not bound to major `> N` by default. Set
+  `AllowMajorVersionRollForward = true` if your major versions stay compatible.
+
+The reaction to a conflict is configurable:
+
+```csharp
+builder.AddPluginSystem(options =>
+{
+    options.PluginContractsSearchPattern = "MyApp.Contracts.dll";
+
+    // Default: fail fast with a clear diagnostic (SharedAssemblyVersionConflictException).
+    options.SharedAssemblyConflictBehavior = SharedAssemblyConflictBehavior.Fail;
+
+    // Alternative: load the plug-in's own copy in isolation and log a warning. The plug-in may start,
+    // but types of that assembly can no longer cross the plug-in boundary.
+    // options.SharedAssemblyConflictBehavior = SharedAssemblyConflictBehavior.IsolateWithWarning;
+
+    // Opt in to rolling forward across a breaking major version (off by default).
+    // options.AllowMajorVersionRollForward = true;
+});
+```
+
+> **Deployment rule:** the host must provide the **highest** version of every shared assembly. Because
+> sharing rolls forward but never down, shipping the newest version with the host keeps all plug-ins
+> compatible.
+
+The related types live in the `SAF.PluginSystem.Hosting.AssemblyLoading` namespace
+(`SharedAssemblyConflictBehavior`, `SharedAssemblyVersionConflictException`).
+
+> **Note (behaviour change):** earlier versions shared any assembly that happened to sit in the host
+> base directory when its full name matched exactly. For a plug-in loaded into its **own**
+> `AssemblyLoadContext`, sharing is now **explicit**: SAF's own boundary assemblies plus exactly what
+> `PluginContractsSearchPattern` matches, by simple name with roll-forward. If you relied on an assembly
+> being shared implicitly, add it to `PluginContractsSearchPattern` so it enters the shared set. This
+> change does not affect a plug-in candidate that itself sits in the host's base directory — see
+> [Assembly Validation](#assembly-validation-optional).
+
 ---
 
 ## Using the Plugin System Without SAF
@@ -328,13 +442,13 @@ pluginSystemBuilder.AddPluginAssemblyFolderContainer(options =>
 
 // Register host services that should be forwarded into every plugin container
 builder.Services.AddSingleton<IMySharedService, MySharedService>();
-builder.Services.AddSingleton<IHostServiceForwarder, HostServiceForwarder<IMySharedService>>();
+builder.Services.AddHostServiceForwarder<IMySharedService>();
 
 var host = builder.Build();
 await host.RunAsync();
 ```
 
-Services are **not** forwarded into plugin containers automatically. Use `IHostServiceForwarder` / `HostServiceForwarder<T>` to bridge specific host services explicitly.
+Services are **not** forwarded into plugin containers automatically. Use `AddHostServiceForwarder<T>()` (see [IHostServiceForwarder](#ihostserviceforwarder)) to bridge specific host services explicitly.
 
 ---
 
@@ -397,7 +511,7 @@ How much the pipeline can guarantee about the file it loads depends on the platf
 
 Neither mechanism extends to the plugin's dependencies. Managed and native dependencies are resolved from the deployment folder by `AssemblyDependencyResolver` when they are first needed, without validation and without either guarantee above, which is why the protected active directory described in [Plugin Deployment Security](./plugin-security.md) remains the control that matters.
 
-Candidates that sit in `AppContext.BaseDirectory` are loaded into `AssemblyLoadContext.Default`, whose binder resolves by assembly *identity* first. If an assembly of that identity is already loaded, or ships with the host and is therefore on the default binder's list of platform assemblies, that one wins and the validated file is never loaded. `SAF.Messaging.Runtime.dll` is the case you are most likely to meet: `AddSafHost` discovers it from the base directory, where the host's own package reference has already placed it. Validation still runs for such a candidate, but it does not decide which bytes end up in the process.
+Candidates that sit in `AppContext.BaseDirectory` are loaded into `AssemblyLoadContext.Default`, whose binder resolves by assembly *identity* first. If an assembly of that identity is already loaded, or ships with the host and is therefore on the default binder's list of platform assemblies, that one wins and the validated file is never loaded. `SAF.Messaging.Runtime.dll` is the case you are most likely to meet: `AddSafHost` discovers it from the base directory, where the host's own package reference has already placed it. Validation still runs for such a candidate, but it does not decide which bytes end up in the process. Such a candidate shares everything the host has already loaded, unconditionally: it never gets its own `AssemblyLoadContext`, so [the shared set](#the-shared-set), `SharedAssemblyRegistry`, `SharedAssemblyResolver` and `SharedAssemblyConflictBehavior` do not apply to it at all.
 
 The digital-signature validator reads the Authenticode signature from the PE certificate table and recomputes the PE hash to confirm that the signature covers the file. Signer trust is decided by `WinVerifyTrust` on Windows and by `X509Chain` against the platform certificate store elsewhere; the semantics differ, because the cross-platform verifier validates only the certificate chain and leaves file integrity to the PE hash check, whereas `WinVerifyTrust` also applies the Authenticode policy layer above the chain.
 

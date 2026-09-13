@@ -57,6 +57,9 @@ SPDX-License-Identifier: MPL-2.0
     <Project Path="PluginSystem/TestPlugins/TestPlugin.PluginB/TestPlugin.PluginB.csproj" />
     <Project Path="PluginSystem/TestPlugins/TestPlugin.PublicDependencyA/TestPlugin.PublicDependencyA.csproj" />
     <Project Path="PluginSystem/TestPlugins/TestPlugin.PublicDependencyB/TestPlugin.PublicDependencyB.csproj" />
+    <Project Path="PluginSystem/TestPlugins/TestPlugin.SharedVersioned/TestPlugin.SharedVersioned.csproj" />
+    <Project Path="PluginSystem/TestPlugins/TestPlugin.SharedVersioned.V2/TestPlugin.SharedVersioned.V2.csproj" />
+    <Project Path="PluginSystem/TestPlugins/TestPlugin.PluginVersioned/TestPlugin.PluginVersioned.csproj" />
   </Folder>
   <Folder Name="/Tests/TestPlugins/">
     <Project Path="Tests/TestPlugins/SAF.Services.SampleService1/SAF.Services.SampleService1.csproj" />

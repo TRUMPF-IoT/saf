@@ -4,6 +4,7 @@
 
 namespace SAF.PluginSystem.Hosting;
 
+using AssemblyLoading;
 using Contracts;
 using Microsoft.Extensions.FileSystemGlobbing;
 using Microsoft.Extensions.Logging;
@@ -22,7 +23,9 @@ public class PluginAssemblyFolderContainer(
     IPluginManifestLoader manifestLoader,
     PluginAssemblyFolderSearchOptions options,
     IFileSystem fileSystem,
-    IEnumerable<IPluginAssemblyValidator> assemblyValidators)
+    IEnumerable<IPluginAssemblyValidator> assemblyValidators,
+    ISharedAssemblyResolver sharedAssemblyResolver,
+    SharedAssemblyConflictBehavior sharedAssemblyConflictBehavior)
     : IPluginAssemblyContainer
 {
     private const int CompareBufferSize = 64 * 1024;
@@ -30,7 +33,7 @@ public class PluginAssemblyFolderContainer(
     private readonly ILogger _logger = loggerFactory.CreateLogger<PluginAssemblyFolderContainer>();
     private readonly IPluginManifestLoader _manifestLoader = manifestLoader;
     private readonly IFileSystem _fileSystem = fileSystem;
-    private readonly IReadOnlyList<IPluginAssemblyValidator> _assemblyValidators = assemblyValidators.ToList();
+    private readonly IReadOnlyList<IPluginAssemblyValidator> _assemblyValidators = [.. assemblyValidators];
     private IReadOnlyList<IPluginManifest>? _cachedManifests;
     private readonly Lock _cacheLock = new();
 
@@ -94,59 +97,135 @@ public class PluginAssemblyFolderContainer(
 
         foreach (var pluginAssemblyPath in pluginAssemblyPaths)
         {
-            try
+            var manifest = LoadManifest(pluginAssemblyPath);
+            if (manifest is not null)
             {
-                // FileShare.Read denies every subsequent open that asks for write or delete access, so on
-                // Windows this handle pins the candidate: it cannot be modified or swapped between the
-                // validation below and the load further down. The handle is kept open until both are done.
-                using var assemblyFile = _fileSystem.FileInfo.New(pluginAssemblyPath)
-                    .Open(FileMode.Open, FileAccess.Read, FileShare.Read);
-                var assemblyBytes = ReadAllBytes(assemblyFile);
-
-                if (!TryValidateAssembly(pluginAssemblyPath, assemblyBytes, out var rejectionReason))
-                {
-                    _logger.LogWarning("Skip plugin assembly {PluginAssemblyPath}: {Reason}", pluginAssemblyPath, rejectionReason);
-                    continue;
-                }
-
-                _logger.LogDebug("Create AssemblyLoadContext for {PluginAssemblyPath}", pluginAssemblyPath);
-
-                var isInBaseDirectory = string.Compare(
-                    _fileSystem.Path.GetDirectoryName(AppContext.BaseDirectory),
-                    _fileSystem.Path.GetDirectoryName(pluginAssemblyPath),
-                    StringComparison.OrdinalIgnoreCase) == 0;
-
-                if (!IsUnchangedOnDisk(pluginAssemblyPath, assemblyBytes))
-                {
-                    _logger.LogWarning("Skip plugin assembly {PluginAssemblyPath}: the file changed after it was validated", pluginAssemblyPath);
-                    continue;
-                }
-
-                var pluginLoadContext = isInBaseDirectory
-                    ? AssemblyLoadContext.Default
-                    : new PluginAssemblyLoadContext(loggerFactory, pluginAssemblyPath, _fileSystem);
-
-                var assembly = pluginLoadContext.LoadFromAssemblyPath(pluginAssemblyPath);
-                var manifest = _manifestLoader.LoadPluginManifest(assembly);
-
-                if (manifest == null)
-                {
-                    _logger.LogWarning("Can't find manifest in {Assembly} from {AssemblyLocation}, skipping assembly.", assembly, assembly.Location);
-                    continue;
-                }
-
-                _logger.LogDebug("Found manifest in {Assembly} from {AssemblyLocation}", assembly, assembly.Location);
                 manifests.Add(manifest);
-            }
-            catch (Exception ex) when (ex is BadImageFormatException or FileLoadException or FileNotFoundException
-                                          or ReflectionTypeLoadException or TypeLoadException
-                                          or IOException or UnauthorizedAccessException)
-            {
-                _logger.LogError(ex, "Failed to load plugin manifest from {PluginAssemblyPath}, skipping assembly.", pluginAssemblyPath);
             }
         }
 
         return manifests;
+    }
+
+    /// <summary>
+    /// Validates, loads, and extracts the manifest of a single plugin assembly candidate.
+    /// </summary>
+    /// <remarks>
+    /// Kept separate from <see cref="LoadManifests"/> so every "skip this candidate" case can be a plain
+    /// <see langword="return null"/> instead of a <see langword="continue"/> nested inside the loop; that
+    /// nesting is what previously drove this method's cognitive complexity above the analyzer threshold.
+    /// </remarks>
+    private IPluginManifest? LoadManifest(string pluginAssemblyPath)
+    {
+        AssemblyLoadContext? pluginLoadContext = null;
+        try
+        {
+            // FileShare.Read denies every subsequent open that asks for write or delete access, so on
+            // Windows this handle pins the candidate: it cannot be modified or swapped between the
+            // validation below and the load further down. The handle is kept open until both are done.
+            using var assemblyFile = _fileSystem.FileInfo.New(pluginAssemblyPath)
+                .Open(FileMode.Open, FileAccess.Read, FileShare.Read);
+            // Validators are opt-in (AddPluginSystem registers none) and are the only consumers of
+            // this buffer; without one, reading every candidate fully into memory just to throw it
+            // away would put multi-megabyte plugin DLLs on the LOH for nothing.
+            var assemblyBytes = _assemblyValidators.Count > 0 ? ReadAllBytes(assemblyFile) : [];
+
+            if (!TryValidateAssembly(pluginAssemblyPath, assemblyBytes, out var rejectionReason))
+            {
+                _logger.LogWarning("Skip plugin assembly {PluginAssemblyPath}: {Reason}", pluginAssemblyPath, rejectionReason);
+                return null;
+            }
+
+            _logger.LogDebug("Create AssemblyLoadContext for {PluginAssemblyPath}", pluginAssemblyPath);
+
+            if (!IsUnchangedOnDisk(pluginAssemblyPath, assemblyBytes))
+            {
+                _logger.LogWarning("Skip plugin assembly {PluginAssemblyPath}: the file changed after it was validated", pluginAssemblyPath);
+                return null;
+            }
+
+            pluginLoadContext = CreatePluginLoadContext(pluginAssemblyPath);
+
+            var assembly = pluginLoadContext.LoadFromAssemblyPath(pluginAssemblyPath);
+            var manifest = _manifestLoader.LoadPluginManifest(assembly);
+            ThrowIfSharedAssemblyConflict(pluginLoadContext);
+
+            if (manifest == null)
+            {
+                _logger.LogWarning("Can't find manifest in {Assembly} from {AssemblyLocation}, skipping assembly.", assembly, assembly.Location);
+                return null;
+            }
+
+            _logger.LogDebug("Found manifest in {Assembly} from {AssemblyLocation}", assembly, assembly.Location);
+            return manifest;
+        }
+        catch (Exception ex) when (ex is BadImageFormatException or FileLoadException or FileNotFoundException
+                                      or ReflectionTypeLoadException or TypeLoadException
+                                      or IOException or UnauthorizedAccessException)
+        {
+            HandleLoadFailure(pluginAssemblyPath, pluginLoadContext, ex);
+            return null;
+        }
+    }
+
+    /// <summary>
+    /// Determines and creates the <see cref="AssemblyLoadContext"/> a validated candidate is loaded into.
+    /// </summary>
+    /// <remarks>
+    /// A candidate in the application base directory is treated as part of the host deployment rather than
+    /// an isolated plugin: <see cref="AssemblyLoadContext.Default"/> already owns it, so neither isolation
+    /// nor shared assembly conflict handling would apply anyway.
+    /// </remarks>
+    private AssemblyLoadContext CreatePluginLoadContext(string pluginAssemblyPath)
+    {
+        var isInBaseDirectory = string.Compare(
+            _fileSystem.Path.GetDirectoryName(AppContext.BaseDirectory),
+            _fileSystem.Path.GetDirectoryName(pluginAssemblyPath),
+            StringComparison.OrdinalIgnoreCase) == 0;
+
+        if (!isInBaseDirectory)
+        {
+            return new PluginAssemblyLoadContext(loggerFactory, pluginAssemblyPath, sharedAssemblyResolver, sharedAssemblyConflictBehavior);
+        }
+
+        _logger.LogInformation(
+            "Plugin assembly {PluginAssemblyPath} is in the application base directory and will be " +
+            "loaded into AssemblyLoadContext.Default; neither isolation nor shared assembly conflict " +
+            "handling applies to it.", pluginAssemblyPath);
+        return AssemblyLoadContext.Default;
+    }
+
+    /// <summary>
+    /// Logs a candidate that failed to load, after first giving a queued shared-assembly conflict priority.
+    /// </summary>
+    private void HandleLoadFailure(string pluginAssemblyPath, AssemblyLoadContext? pluginLoadContext, Exception ex)
+    {
+        // A conflict can surface here instead of at the call site in LoadManifest: the runtime may wrap it
+        // (or report it through ReflectionTypeLoadException.LoaderExceptions) as a side effect of
+        // whatever else failed. Prefer the queued, unwrapped conflict over the caught exception.
+        ThrowIfSharedAssemblyConflict(pluginLoadContext);
+
+        // Without validators, a native or corrupt DLL never gets the GetAssemblyName pre-filter
+        // (which used to reject it here with a warning); it now reaches LoadFromAssemblyPath
+        // instead. Keep the old, lower severity for that ordinary case instead of a load failure.
+        if (ex is BadImageFormatException)
+        {
+            _logger.LogWarning(ex, "Failed to load plugin manifest from {PluginAssemblyPath}, skipping assembly.", pluginAssemblyPath);
+        }
+        else
+        {
+            _logger.LogError(ex, "Failed to load plugin manifest from {PluginAssemblyPath}, skipping assembly.", pluginAssemblyPath);
+        }
+    }
+
+    private static void ThrowIfSharedAssemblyConflict(AssemblyLoadContext? context)
+    {
+        if (context is not PluginAssemblyLoadContext plc || plc.Conflicts.Count == 0)
+        {
+            return;
+        }
+
+        throw plc.Conflicts.Count == 1 ? plc.Conflicts.First() : new AggregateException(plc.Conflicts);
     }
 
     /// <summary>
@@ -238,12 +317,17 @@ public class PluginAssemblyFolderContainer(
     {
         rejectionReason = string.Empty;
 
+        if (_assemblyValidators.Count == 0)
+        {
+            return true;
+        }
+
         AssemblyName assemblyName;
         try
         {
             assemblyName = GetAssemblyName(assemblyBytes);
         }
-        catch (Exception ex) when (ex is BadImageFormatException or FileLoadException or FileNotFoundException)
+        catch (Exception ex) when (ex is BadImageFormatException or FileLoadException or FileNotFoundException or ArgumentException)
         {
             rejectionReason = $"metadata could not be read ({ex.GetType().Name})";
             return false;
@@ -291,21 +375,9 @@ public class PluginAssemblyFolderContainer(
             throw new BadImageFormatException("Assembly metadata is missing.");
         }
 
-        var metadataReader = peReader.GetMetadataReader();
-        var assemblyDefinition = metadataReader.GetAssemblyDefinition();
-        var assemblyName = new AssemblyName(metadataReader.GetString(assemblyDefinition.Name))
-        {
-            CultureName = assemblyDefinition.Culture.IsNil
-                ? null
-                : metadataReader.GetString(assemblyDefinition.Culture),
-            Version = assemblyDefinition.Version
-        };
-
-        if (!assemblyDefinition.PublicKey.IsNil)
-        {
-            assemblyName.SetPublicKey(metadataReader.GetBlobBytes(assemblyDefinition.PublicKey));
-        }
-
-        return assemblyName;
+        // AssemblyDefinition.GetAssemblyName() also maps AssemblyFlags/HashAlgorithm onto
+        // ContentType/ProcessorArchitecture and picks SetPublicKey vs. SetPublicKeyToken correctly - all of
+        // which a hand-written mapping of the same fields would otherwise have to duplicate.
+        return peReader.GetMetadataReader().GetAssemblyDefinition().GetAssemblyName();
     }
 }
