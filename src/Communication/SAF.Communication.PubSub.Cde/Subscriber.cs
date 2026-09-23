@@ -5,6 +5,7 @@
 
 namespace SAF.Communication.PubSub.Cde;
 using System.Collections.Concurrent;
+using Common;
 using nsCDEngine.BaseClasses;
 using nsCDEngine.Engines.ThingService;
 using nsCDEngine.ViewModels;
@@ -41,7 +42,7 @@ public class Subscriber : ISubscriber, IDisposable
     private RemoteRegistryLifetimeHandler? _registryLifetimeHandler;
     private string? _registryIdentity;
 
-    public event Action<string, string, TheProcessMessage>? MessageEvent;
+    public event Action<string, string, TheProcessMessage, IReadOnlyList<Message>?>? MessageEvent;
 
     public Subscriber(ComLine line, IPublisher publisher)
         : this(line, publisher, new CancellationTokenSource())
@@ -230,7 +231,18 @@ public class Subscriber : ISubscriber, IDisposable
     }
 
     private void OnMessageEvent(string topic, string msgVersion, TheProcessMessage msg)
-        => MessageEvent?.Invoke(topic, msgVersion, msg);
+    {
+        var messageEvent = MessageEvent;
+        if (messageEvent == null) return;
+
+        IReadOnlyList<Message>? batchMessages = null;
+        if (Version.Parse(msgVersion) >= Version.Parse(PubSubVersion.V4) && topic.StartsWith("$$batch"))
+        {
+            batchMessages = TheCommonUtils.DeserializeJSONStringToObject<List<Message>>(msg.Message.PLS);
+        }
+
+        messageEvent(topic, msgVersion, msg, batchMessages);
+    }
 
     private void HandleMessage(ICDEThing sender, object pMsg)
     {
