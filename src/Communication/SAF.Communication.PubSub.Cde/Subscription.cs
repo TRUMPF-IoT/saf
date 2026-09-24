@@ -62,13 +62,12 @@ internal class Subscription : ISubscription
     private bool IsTopicMatch(string topic)
         => Array.Exists(Patterns, p => p == "*" || p == topic) || Array.Exists(Patterns, topic.IsMatch);
 
-    private void OnMessage(string topic, string msgVersion, TheProcessMessage msg)
+    private void OnMessage(string topic, string msgVersion, TheProcessMessage msg, IReadOnlyList<Message>? batchMessages)
     {
         if (_handler == null) return;
         if (!msg.Message.IsRoutingAllowed(RoutingOptions)) return;
-        
-        var messageVersion = Version.Parse(msgVersion);
-        if (messageVersion < Version.Parse(PubSubVersion.V4) || !topic.StartsWith("$$batch"))
+
+        if (batchMessages == null)
         {
             if (!IsTopicMatch(topic)) return;
 
@@ -77,17 +76,27 @@ internal class Subscription : ISubscription
                 : TheCommonUtils.DeserializeJSONStringToObject<Message>(msg.Message.PLS);
 
             _handler.Invoke(msg.Message.TIM, message);
+            return;
         }
-        else
+
+        foreach (var message in batchMessages)
         {
-            var messages = TheCommonUtils.DeserializeJSONStringToObject<List<Message>>(msg.Message.PLS);
-            messages.ForEach(m =>
-            {
-                if (!IsTopicMatch(m.Topic)) return;
-                _handler.Invoke(msg.Message.TIM, m);
-            });
+            if (!IsTopicMatch(message.Topic)) continue;
+            _handler.Invoke(msg.Message.TIM, CopyMessage(message));
         }
     }
+
+    private static Message CopyMessage(Message message)
+        => new()
+        {
+            Topic = message.Topic,
+            Payload = message.Payload,
+            CustomProperties = message.CustomProperties?.Select(property => new MessageCustomProperty
+            {
+                Name = property.Name,
+                Value = property.Value
+            }).ToList()
+        };
 }
 
 
