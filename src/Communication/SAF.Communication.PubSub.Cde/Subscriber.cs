@@ -5,7 +5,7 @@
 
 namespace SAF.Communication.PubSub.Cde;
 using System.Collections.Concurrent;
-using Common;
+using SAF.Messaging.Contracts;
 using nsCDEngine.BaseClasses;
 using nsCDEngine.Engines.ThingService;
 using nsCDEngine.ViewModels;
