@@ -17,6 +17,7 @@ This document describes every breaking change and the steps needed to migrate fr
 | Plugin settings | Single config file | Shared plugin settings file via `IPluginSystemHostContext.PluginConfiguration` (with host-config fallback) |
 | Infrastructure registration | `AddCdeInfrastructure()` etc. on the host `IServiceCollection` | Messaging/storage are **plug-ins**; loaded by DLL discovery and selected via configuration (`Messaging:PrimaryKey`, backend sections) |
 | Messaging namespace | `SAF.Common.IMessagingInfrastructure` | `SAF.Messaging.Contracts.IMessagingInfrastructure` |
+| Programmatic infrastructure configuration | Values passed to `AddCdeInfrastructure(cfg => ...)` on the host | `IPluginOptionsCustomizer<TOptions>` registered on the host and forwarded into the plug-in |
 | Runtime plugin | Not required | `SAF.Messaging.Runtime` must be available to the plugin system; `AddSafHost()` loads it automatically as a built-in plug-in |
 | `IMessagingInfrastructure` registration | Direct `IServiceCollection` singleton | Factory pattern: a messaging plug-in registers a keyed `IMessagingInfrastructureFactory`; `SAF.Messaging.Runtime` resolves the primary via `Messaging:PrimaryKey` |
 | Message handler registration in plug-ins | `IMessageHandler` interface registration often worked implicitly | Typed handlers must be registered via `SAF.Messaging.Extensions` (`AddSingletonMessageHandler<T>()` / `AddTransientMessageHandler<T>()`) and `AddMessageHandlerResolver()` |
@@ -303,6 +304,42 @@ To migrate, for each infrastructure you used:
 
 See [Messaging Infrastructure](./messaging.md) and [Storage Infrastructure](./storage.md) for the exact configuration sections.
 
+### Values the host used to pass programmatically
+
+Step 7 covers configuration you can put into a file. What it does not cover is the other kind: an
+application id compiled into the host, a scope id or proxy password the host decrypts itself. In 10.x those
+went straight into the infrastructure call:
+
+```csharp
+// 10.x
+services.AddCdeInfrastructure(config =>
+{
+    config.ApplicationId = ApplicationIds.MyHost;
+    config.ScopeId = Decrypt(Configuration["Cde:EScopeId"]);
+});
+```
+
+In 11.x the plug-in owns that call, so the host registers an `IPluginOptionsCustomizer<TOptions>` instead.
+It runs after the plug-in bound its own configuration section, which is why the second line below can read
+the bound value and replace it:
+
+```csharp
+// 11.x
+services.AddPluginOptionsCustomizer<CdeConfiguration>(config =>
+{
+    config.ApplicationId = ApplicationIds.MyHost;
+    config.ScopeId = Decrypt(config.ScopeId);
+});
+```
+
+The host references the plug-in package for the options type only (`CdeConfiguration` here), and
+`AddPluginOptionsCustomizer` puts that assembly into the [shared set](./plugin-system.md#the-shared-set),
+so both sides use the same type identity. The plug-in is still discovered, loaded and configured by the plugin
+system, not by the host.
+
+`SAF.Messaging.Cde` supports this today. For the full contract, including how to offer the same seam in
+your own plug-in, see [IPluginOptionsCustomizer](./plugin-system.md#ipluginoptionscustomizer).
+
 ---
 
 ## Step 8 — Package Reference Changes
@@ -412,3 +449,4 @@ The [shared set](./plugin-system.md#the-shared-set) includes `SAF.PluginSystem.H
 - [ ] Deploy messaging/storage as plug-ins (add their DLLs to `IncludePatterns`) instead of calling `Add*Infrastructure()` on the host
 - [ ] Reference `SAF.PluginSystem.Hosting.Extensions` explicitly if you use plugin assembly validation, and check the `RequireValidDigitalSignature = true` default against the signatures your plug-ins actually carry
 - [ ] Forward any additional host service your plug-ins need with `AddHostServiceForwarder<T>()` — v10's single shared container needed no such step
+- [ ] Replace values you passed programmatically to `AddCdeInfrastructure(...)` and friends with `AddPluginOptionsCustomizer<TOptions>` on the host

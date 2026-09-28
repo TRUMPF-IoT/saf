@@ -250,6 +250,14 @@ services.AddHostServiceForwarder<MySharedSingleton>();
 
 Keep it that way: forward the resolved instance, not a factory delegate that resolves from the host provider. A plugin container disposes only the singletons it created itself, so an instance registration stays owned by the host and survives the disposal of a plugin container — for example when the plugin system is [reloaded](./plugin-system.md#live-reload-reconfiguration).
 
+To adjust a value a plug-in binds from configuration — rather than to forward a service of your own — register an options customizer instead. It uses the same forwarding machinery, but aims at the plug-in's options object:
+
+```csharp
+services.AddPluginOptionsCustomizer<CdeConfiguration>(o => o.ApplicationId = ApplicationIds.MyHost);
+```
+
+See [Plugin System — IPluginOptionsCustomizer](./plugin-system.md#ipluginoptionscustomizer).
+
 ---
 
 ## DI Container Layout

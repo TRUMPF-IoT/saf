@@ -239,6 +239,65 @@ services.AddSingleton<ISharedAssemblySource, SharedAssemblySource<IMyContract>>(
 
 > **Forward instances, not factories.** Register the resolved host instance (`AddSingleton(instance)`), never a factory delegate that returns a host service (`AddSingleton(_ => hostProvider.GetRequiredService<T>())`). A plugin container disposes the singletons it created itself, so a factory-forwarded service would be disposed together with the plugin container — for example on a [live reload](#live-reload-reconfiguration) — while the host still uses it. Instance registrations are not owned by the plugin container and survive. The built-in forwarded services (`IPluginServiceProvider`, `IPluginSystemHostEnvironment`, `IFileSystem`) are additionally shielded by a non-owning proxy, so their `Dispose`/`DisposeAsync` calls never reach the host instance.
 
+### IPluginOptionsCustomizer
+
+Some values cannot live in a configuration file: a secret the host decrypts itself, a constant compiled
+into the host, a path only the host knows. In 10.x the host passed them straight to the infrastructure's
+`Add*` extension. In 11.x the plug-in makes that call, so the host contributes an
+`IPluginOptionsCustomizer<TOptions>` instead:
+
+```csharp
+// Host side. TOptions is the plug-in's own options type, so the host references the plug-in package
+// for that type: the plug-in itself is still loaded and configured by the plugin system.
+public sealed class CdeSecretsCustomizer(ISecretDecryptor decryptor) : IPluginOptionsCustomizer<CdeConfiguration>
+{
+    public void Customize(CdeConfiguration options)
+        => options.ScopeId = decryptor.Decrypt(options.ScopeId);
+}
+
+services.AddSingleton<ISecretDecryptor, MyDecryptor>();
+services.AddPluginOptionsCustomizer<CdeConfiguration, CdeSecretsCustomizer>();
+```
+
+For an adjustment that needs no host services, register a delegate instead of a class:
+
+```csharp
+services.AddPluginOptionsCustomizer<CdeConfiguration>(o => o.ApplicationId = ApplicationIds.MyHost);
+```
+
+`AddPluginOptionsCustomizer` registers the customizer in the host container and adds one
+`PluginOptionsCustomizerForwarder<TOptions>` — one, however many customizers you register for the same
+`TOptions`. Like [`AddHostServiceForwarder<T>()`](#ihostserviceforwarder) it also declares the shared
+assemblies, here *both* the one declaring `IPluginOptionsCustomizer<>` and the one declaring `TOptions`.
+Sharing the second one is the point: without it the plug-in would load a private copy of its own options
+type and never resolve the host's customizer.
+
+On the plug-in side, apply the customizers in the factory that creates the options — not in
+`ConfigureServices`, because the forwarded customizers are registrations and can only be resolved once
+the plugin container is built:
+
+```csharp
+public static IServiceCollection AddMyInfrastructure(this IServiceCollection services, Action<MyOptions> configure)
+    => services.AddSingleton(sp =>
+    {
+        var options = new MyOptions();
+        configure(options);                                // bound from configuration
+        return sp.ApplyPluginOptionsCustomizers(options);  // the host has the last word
+    });
+```
+
+**Rules:**
+
+- Customizers run **after** the plug-in's own configuration binding and in host registration order, so for
+  the properties a customizer touches it always wins over the configured value.
+- Several customizers for one `TOptions` are supported; each contributes the part of the options it owns.
+- With no customizer registered, `ApplyPluginOptionsCustomizers` returns the options untouched — a plug-in
+  can offer the seam unconditionally.
+- A customizer registered by type is resolved from the **host** container and can inject host services. The
+  delegate overload cannot; it only closes over what the host captured.
+
+`SAF.Messaging.Cde` applies this in `AddCde` — see [Messaging: C-DEngine](./messaging.md#c-dengine).
+
 ---
 
 ## Cross-Plugin Services
