@@ -122,6 +122,18 @@ Backed by [C-DEngine](https://github.com/TRUMPF-IoT/C-DEngine), a mesh-network f
 }
 ```
 
+Values that do not belong in a configuration file — an application id compiled into the host, a scope id or
+proxy password the host decrypts itself — are contributed by the host through an
+`IPluginOptionsCustomizer<CdeConfiguration>`. `AddCde` applies those after binding the `Cde` section, so a
+customizer overrides what configuration provided:
+
+```csharp
+// in the host, which references SAF.Messaging.Cde for the CdeConfiguration type
+services.AddPluginOptionsCustomizer<CdeConfiguration, MyCdeCustomizer>();
+```
+
+See [Plugin System — IPluginOptionsCustomizer](./plugin-system.md#ipluginoptionscustomizer).
+
 ### Routing (Multiple Brokers)
 
 Routes messages across multiple messaging infrastructures based on topic patterns. Load the routing plug-in **and** each backend plug-in it references (e.g. `SAF.Messaging.InProcess.dll;SAF.Messaging.Redis.dll;SAF.Messaging.Routing.dll`), then configure the routes under `MessageRouting`.

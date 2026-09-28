@@ -9,6 +9,7 @@ using nsCDEngine.Engines;
 using nsCDEngine.Engines.ThingService;
 using SAF.Common;
 using SAF.Messaging.Contracts;
+using SAF.PluginSystem.Hosting.Contracts;
 using SAF.Communication.Cde;
 using SAF.Communication.PubSub.Cde;
 using Communication.PubSub.Interfaces;
@@ -17,12 +18,26 @@ public static class ServiceCollectionExtensions
 {
     private const string InfrastructureEngine = "SAF.Messaging.Cde";
 
+    /// <summary>
+    /// Registers the <see cref="CdeConfiguration"/> and the <see cref="CdeApplication"/> built from it.
+    /// </summary>
+    /// <param name="collection">The container the C-DEngine services are registered in.</param>
+    /// <param name="configure">Fills the configuration, typically by binding the <c>Cde</c> section.</param>
+    /// <remarks>
+    /// The configuration is built when it is first resolved, not when it is registered, and every
+    /// <see cref="IPluginOptionsCustomizer{TOptions}"/> the host forwarded runs over it afterwards. That is
+    /// the seam for values a host cannot put into configuration - an application id compiled into the host,
+    /// a scope id or proxy password it decrypts itself - which in 10.x it passed to this method directly.
+    /// </remarks>
     public static IServiceCollection AddCde(this IServiceCollection collection, Action<CdeConfiguration> configure)
     {
-        var config = new CdeConfiguration();
-        configure?.Invoke(config);
+        return collection.AddSingleton(sp =>
+            {
+                var config = new CdeConfiguration();
+                configure?.Invoke(config);
 
-        return collection.AddSingleton(sp => config)
+                return sp.ApplyPluginOptionsCustomizers(config);
+            })
             .AddSingleton(sp =>
             {
                 var cdeApp = new CdeApplication(sp.GetService<ILogger<CdeApplication>>(), sp.GetRequiredService<CdeConfiguration>());
