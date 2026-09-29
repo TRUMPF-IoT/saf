@@ -672,6 +672,92 @@ Example `pluginsettings.json`:
 >
 > If you use `AddXmlFile(...)`, add the package `Microsoft.Extensions.Configuration.Xml` to the host project.
 
+### Setting plug-in values from the host
+
+A plug-in binds its settings from its own section of `context.PluginConfiguration`. The built-in
+C-DEngine plug-in binds `Cde`, the Redis plug-in binds `Redis`, and so on. To set or override such a
+value from host code, the host adds it to the plugin configuration under the plug-in's section. The
+plug-in needs no code for this, and the host does not reference the plug-in assembly or its options type.
+This replaces what a 10.x host did in the `Add*Infrastructure(...)` callback, such as passing an id
+compiled into the host or a secret it decrypted itself (see the
+[migration guide](./migration-10-to-11.md#values-the-host-passed-in-code)).
+
+Pick the mechanism by where the value comes from:
+
+| Value | Mechanism |
+|---|---|
+| A constant the host knows, e.g. an application id compiled into it | An in-memory source added with `AddPluginConfigurationSource` |
+| A secret, e.g. a password, scope id or connection string | A `secret://` reference in the settings file plus `AddSecretConfigurationResolution()`, see [Transparent configuration resolution](./secret-store.md#transparent-configuration-resolution) |
+| A value the host derives from other configuration, e.g. by decrypting an entry in a legacy format | A [root decorator](#decorating-the-built-configuration-root) |
+
+**A constant from the host:**
+
+```csharp
+builder.AddSafHost()
+    .ConfigurePluginSystem(ps => ps.AddPluginConfigurationSource(source =>
+        source.Builder.AddInMemoryCollection(new Dictionary<string, string?>
+        {
+            ["Cde:ApplicationId"] = MyHostConstants.CdeApplicationId,
+        })));
+```
+
+**A secret:** put the reference under the property's own key and enable resolution.
+
+```json
+{
+  "Cde": {
+    "ScopeId": "secret://cde/scope-id"
+  }
+}
+```
+
+```csharp
+ps.AddSecretConfigurationResolution(o => o.Namespace = "myapp");
+```
+
+**A value the host decrypts itself:** use this only while the secret has not yet moved to the
+[secret store](./secret-store.md).
+
+```csharp
+ps.AddPluginConfigurationSource(source =>
+    source.DecorateConfigurationRoot(root =>
+    {
+        var overrides = new Dictionary<string, string?>();
+        if (root["Cde:EncryptedScopeId"] is { } encrypted)
+        {
+            overrides["Cde:ScopeId"] = MyHostCrypto.Decrypt(encrypted);
+        }
+
+        return new ConfigurationBuilder()
+            .AddConfiguration(root, shouldDisposeConfiguration: true)
+            .AddInMemoryCollection(overrides)
+            .Build();
+    }));
+```
+
+The decorator runs once, when the plugin configuration is built. If the encrypted entry in the file
+changes later, the new value takes effect only after a host restart. The decrypted value is held as
+plaintext in the process's configuration, the same as a resolved secret (see the secret store's
+[security model](./secret-store.md#security-model)).
+
+Rules to keep in mind:
+
+- **The host's value wins.** Sources added with `AddPluginConfigurationSource` come after the plugin
+  settings file and its environment overlay. The decorator above layers its values on top of every source.
+  A value in the file under the same key is therefore overridden.
+- **Keep the plug-in's section in the plugin configuration.** The built-in backend plug-ins (`Cde`,
+  `Redis`, `Nats`, `MessageRouting`, `LiteDb`, `SQLite`) read their section from `PluginConfiguration`
+  if the section exists there, and from `HostConfiguration` only if it does not. The two are not merged. Suppose the `Cde` section lives in the host's `appsettings.json` and the host adds
+  only `Cde:ApplicationId` to the plugin configuration. The plug-in then finds a `Cde` section there that
+  contains nothing but `ApplicationId`, and ignores everything in `appsettings.json`. Secret references are
+  also resolved only in the plugin configuration, not in `HostConfiguration`. Move the section into the
+  plugin settings file, or point `PluginSettingsFilePath` at `appsettings.json` so both are the same file.
+- **Values are addressed by section, not by plug-in.** All plug-ins share one plugin configuration, so a
+  value reaches every plug-in that reads that section. If two plug-ins read the same section, or two copies
+  of one plug-in are loaded, they receive the same value.
+- **Your own plug-ins need nothing extra.** A plug-in that binds from `context.PluginConfiguration`, as in
+  the example above, picks up host values without registering or calling anything.
+
 ### Change tracking
 
 Both settings files are registered with change tracking enabled, using a file provider scoped to the resolved settings directory. `context.PluginConfiguration` therefore reflects edits made to the files while the process runs — a plugin that binds via `IOptionsMonitor<T>` or registers on `IConfiguration.GetReloadToken()` sees new values without a restart.
