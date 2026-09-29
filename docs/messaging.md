@@ -59,7 +59,7 @@ When you use `builder.AddSafHost()`, `SAF.Messaging.Runtime.dll` is loaded autom
 
 ## Available Implementations
 
-For each implementation, add its DLL to your plugin discovery `IncludePatterns` and set `Messaging:PrimaryKey`. The `Add*Infrastructure` extension methods shown are what each plug-in's own `PluginManifest` calls internally — you normally only supply configuration.
+For each implementation, add its DLL to your plugin discovery `IncludePatterns` and set `Messaging:PrimaryKey`. The `Add*Infrastructure` extension methods shown are what each plug-in's own `PluginManifest` calls internally — you normally only supply configuration. To set a value from host code instead of a file, such as an id compiled into the host or a secret, see [Setting plug-in values from the host](./plugin-system.md#setting-plug-in-values-from-the-host).
 
 ### In-Process (Development / Tests)
 

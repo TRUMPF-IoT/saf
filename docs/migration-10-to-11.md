@@ -76,6 +76,8 @@ Infrastructure is **not** registered in host code anymore. Instead you deploy th
 }
 ```
 
+Values the 10.x host set in the `AddCdeInfrastructure` callback, such as `ApplicationId` above, now go into the `Cde` section. If a value must not live in a file, for example an id compiled into the host or a secret, see [Values the host passed in code](#values-the-host-passed-in-code).
+
 ---
 
 ## Step 2 — Rename Plugin Entry Point
@@ -303,6 +305,51 @@ To migrate, for each infrastructure you used:
 
 See [Messaging Infrastructure](./messaging.md) and [Storage Infrastructure](./storage.md) for the exact configuration sections.
 
+### Values the host passed in code
+
+In 10.x the host could fill the infrastructure's options in the `Add*Infrastructure(...)` callback, for example with a value compiled into the host or a secret it decrypted itself. In 11.x the plug-in makes that call and binds its options from its configuration section. The host therefore supplies such values through the plugin configuration.
+
+Before (10.x):
+
+```csharp
+services.AddCdeInfrastructure(cdeConfig =>
+{
+    cdeConfig.ApplicationId = MyHostConstants.CdeApplicationId;
+    cdeConfig.ScopeId = MyHostCrypto.Decrypt(configuration["Cde:EncryptedScopeId"]);
+});
+```
+
+After (11.x):
+
+```csharp
+builder.AddSafHost()
+    .ConfigurePluginSystem(ps =>
+    {
+        ps.AddPluginConfigurationSource(source =>
+            source.Builder.AddInMemoryCollection(new Dictionary<string, string?>
+            {
+                ["Cde:ApplicationId"] = MyHostConstants.CdeApplicationId,
+            }));
+        ps.AddSecretConfigurationResolution(o => o.Namespace = "myapp");
+    });
+```
+
+```json
+{
+  "Cde": {
+    "ScopeId": "secret://cde/scope-id"
+  }
+}
+```
+
+Notes:
+
+- **Use the property's own key.** The plug-in binds only the property names of its options class. It does not read a key that the 10.x host read and decrypted itself, such as `Cde:EncryptedScopeId`. Store the secret in the [secret store](./secret-store.md) and put the reference under the property's key (`Cde:ScopeId`).
+- **Keep the section in the plugin settings file.** If a section exists in the plugin configuration, it hides the host's section of the same name entirely, and secret references are resolved only in the plugin configuration.
+- **If the secret cannot move to the secret store yet,** a root decorator can decrypt it in the meantime.
+
+There is no programmatic hook on a plug-in's options type, so the host does not reference the plug-in assembly. The details, including the decorator for host-decrypted values, are in [Setting plug-in values from the host](./plugin-system.md#setting-plug-in-values-from-the-host).
+
 ---
 
 ## Step 8 — Package Reference Changes
@@ -410,5 +457,6 @@ The [shared set](./plugin-system.md#the-shared-set) includes `SAF.PluginSystem.H
 - [ ] Replace manual lifecycle background tasks with `IServicePlugin` / `ILifecycleServicePlugin` registered via `AddServicePlugin<T>()`
 - [ ] Move plugin configuration into the shared plugin settings file (or host `appsettings.json`) under a per-plugin section
 - [ ] Deploy messaging/storage as plug-ins (add their DLLs to `IncludePatterns`) instead of calling `Add*Infrastructure()` on the host
+- [ ] Move values your host set in `Add*Infrastructure(...)` callbacks into the backend's configuration section: host constants via `AddPluginConfigurationSource`, secrets as `secret://` references (see [Values the host passed in code](#values-the-host-passed-in-code))
 - [ ] Reference `SAF.PluginSystem.Hosting.Extensions` explicitly if you use plugin assembly validation, and check the `RequireValidDigitalSignature = true` default against the signatures your plug-ins actually carry
 - [ ] Forward any additional host service your plug-ins need with `AddHostServiceForwarder<T>()` — v10's single shared container needed no such step
