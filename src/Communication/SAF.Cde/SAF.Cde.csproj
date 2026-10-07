@@ -16,6 +16,7 @@ SPDX-License-Identifier: MPL-2.0
 
   <ItemGroup>
     <InternalsVisibleTo Include="$(AssemblyName).Tests" />
+    <InternalsVisibleTo Include="SAF.Storage.Cde.Tests" />
   </ItemGroup>
 
   <ItemGroup>

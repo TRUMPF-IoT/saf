@@ -11,8 +11,9 @@ using SAF.Common;
 using SAF.PluginSystem.Hosting.Contracts;
 using Xunit;
 
-// Resolving the storage or the lease would start C-DEngine next to the one the CdeFixture runs in this
-// process, so these tests check the registrations and resolve only the configuration.
+// These tests run outside the CdeCollection, so they resolve only the configuration: resolving the lease would
+// start C-DEngine without the lease of the CdeFixture, and disposing the container would then shut it down for
+// the rest of the test process. SharedCdeNodeTests resolve the plug-in on the node.
 public class PluginManifestTests
 {
     [Fact]

@@ -64,6 +64,20 @@ public class CdeNodeTests
     }
 
     [Fact]
+    public void LeaseCount_CountsTheActiveLeases()
+    {
+        var node = CreateNode();
+
+        var first = node.Acquire(new CdeConfiguration(), NullLoggerFactory.Instance);
+        using var second = node.Acquire(new CdeConfiguration(), NullLoggerFactory.Instance);
+        Assert.Equal(2, node.LeaseCount);
+
+        first.Dispose();
+        first.Dispose();
+        Assert.Equal(1, node.LeaseCount);
+    }
+
+    [Fact]
     public void Acquire_Throws_AfterTheLastLeaseShutTheNodeDown()
     {
         var node = CreateNode();

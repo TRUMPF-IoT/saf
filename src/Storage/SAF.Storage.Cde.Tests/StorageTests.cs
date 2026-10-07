@@ -5,7 +5,8 @@
 namespace SAF.Storage.Cde.Tests;
 using Xunit;
 
-public class StorageTests : IClassFixture<CdeFixture>
+[Collection(CdeCollection.Name)]
+public class StorageTests
 {
     private readonly CdeFixture _cde;
 

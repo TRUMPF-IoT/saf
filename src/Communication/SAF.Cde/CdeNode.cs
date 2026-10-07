@@ -34,6 +34,20 @@ internal sealed class CdeNode(
         new AppDomainCdeNodeOwnership(AppDomainCdeNodeOwnership.DefaultMarkerKey),
         new CdeConfigurationComparer());
 
+    /// <summary>
+    /// The number of active leases on the node.
+    /// </summary>
+    internal int LeaseCount
+    {
+        get
+        {
+            lock (_sync)
+            {
+                return _leaseCount;
+            }
+        }
+    }
+
     public CdeNodeLease Acquire(CdeConfiguration configuration, ILoggerFactory loggerFactory)
     {
         ArgumentNullException.ThrowIfNull(configuration);
