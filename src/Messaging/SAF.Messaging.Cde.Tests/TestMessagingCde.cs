@@ -8,6 +8,7 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using NSubstitute;
+using SAF.Cde.Common;
 using SAF.Messaging.Contracts;
 using SAF.Communication.Cde;
 using Communication.PubSub.Interfaces;
@@ -109,7 +110,8 @@ public class TestMessagingCde
         var mainLogger = baseServiceProvider.GetRequiredService<ILogger<TestMessagingCde>>();
         mainLogger.LogInformation("Starting test runner console app...");
         Thread.Sleep(3);
-        applicationServices.AddCdeInfrastructure(cr.GetSection("Cde").Bind);
+        applicationServices.AddCde(cr.GetSection("Cde").Bind)
+            .AddCdeMessagingInfrastructure();
     }
 
     internal class TestConfigurationProvider : ConfigurationProvider

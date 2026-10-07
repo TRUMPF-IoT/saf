@@ -2,11 +2,10 @@
 //
 // SPDX-License-Identifier: MPL-2.0
 
-namespace SAF.Messaging.Cde;
+namespace SAF.Storage.Cde;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using SAF.Cde.Common;
-using SAF.Messaging.Cde.Diagnostics;
 using SAF.PluginSystem.Hosting.Contracts;
 
 public class PluginManifest : IPluginManifest
@@ -16,11 +15,6 @@ public class PluginManifest : IPluginManifest
         var cdeConfig = context.GetCdeConfigurationSection();
 
         pluginServices.AddCde(c => cdeConfig.Bind(c))
-            .AddCdeMessagingInfrastructure();
-
-        if (cdeConfig.GetValue<bool>("EnableDiagnostics"))
-        {
-            pluginServices.AddCdeDiagnostics();
-        }
+            .AddCdeStorageInfrastructure();
     }
 }

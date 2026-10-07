@@ -12,6 +12,8 @@ SPDX-License-Identifier: MPL-2.0
     <Project Path="Configuration/SAF.Configuration.Secrets/SAF.Configuration.Secrets.csproj" />
   </Folder>
   <Folder Name="/Communication/">
+    <Project Path="Communication/SAF.Cde.Common.Tests/SAF.Cde.Common.Tests.csproj" />
+    <Project Path="Communication/SAF.Cde.Common/SAF.Cde.Common.csproj" />
     <Project Path="Communication/SAF.Communication.Cde/SAF.Communication.Cde.csproj" />
     <Project Path="Communication/SAF.Communication.PubSub.Cde.Tests/SAF.Communication.PubSub.Cde.Tests.csproj" />
     <Project Path="Communication/SAF.Communication.PubSub.Cde/SAF.Communication.PubSub.Cde.csproj" />
@@ -75,6 +77,8 @@ SPDX-License-Identifier: MPL-2.0
     <Project Path="Tests/TestRunnerRedis/TestRunnerRedis.csproj" />
   </Folder>
   <Folder Name="/Storage/">
+    <Project Path="Storage/SAF.Storage.Cde.Tests/SAF.Storage.Cde.Tests.csproj" />
+    <Project Path="Storage/SAF.Storage.Cde/SAF.Storage.Cde.csproj" />
     <Project Path="Storage/SAF.Storage.LiteDb.Tests/SAF.Storage.LiteDb.Tests.csproj" />
     <Project Path="Storage/SAF.Storage.LiteDb/SAF.Storage.LiteDb.csproj" />
     <Project Path="Storage/SAF.Storage.SQLite.Tests/SAF.Storage.SQLite.Tests.csproj" />

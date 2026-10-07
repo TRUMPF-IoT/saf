@@ -7,7 +7,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using nsCDEngine.Engines;
 using nsCDEngine.Engines.ThingService;
-using SAF.Common;
+using SAF.Cde.Common;
 using SAF.Messaging.Contracts;
 using SAF.Communication.Cde;
 using SAF.Communication.PubSub.Cde;
@@ -17,40 +17,12 @@ public static class ServiceCollectionExtensions
 {
     private const string InfrastructureEngine = "SAF.Messaging.Cde";
 
-    public static IServiceCollection AddCde(this IServiceCollection collection, Action<CdeConfiguration> configure)
-    {
-        var config = new CdeConfiguration();
-        configure?.Invoke(config);
-
-        return collection.AddSingleton(sp => config)
-            .AddSingleton(sp =>
-            {
-                var cdeApp = new CdeApplication(sp.GetService<ILogger<CdeApplication>>(), sp.GetRequiredService<CdeConfiguration>());
-                cdeApp.Start();
-                return cdeApp;
-            });
-    }
-
     public static IServiceCollection AddCdeMessagingInfrastructure(this IServiceCollection collection)
         => collection.AddCdePubSubServices()
             .AddKeyedSingleton<IMessagingInfrastructureFactory>(MessagingInfrastructureKeys.Cde,
                 (sp, _) => new DelegatingMessagingInfrastructureFactory(
                     MessagingInfrastructureKeys.Cde,
                     cfg => CreateMessagingInfrastructure(sp, cfg)));
-
-    public static IServiceCollection AddCdeStorageInfrastructure(this IServiceCollection collection)
-        => collection.AddSingleton<IStorageInfrastructure, Storage>(sp =>
-        {
-            _ = sp.GetRequiredService<CdeApplication>();
-            return new Storage(sp.GetService<ILogger<Storage>>());
-        });
-
-    public static IServiceCollection AddCdeInfrastructure(this IServiceCollection collection, Action<CdeConfiguration> configure)
-    {
-        return collection.AddCde(configure)
-            .AddCdeMessagingInfrastructure()
-            .AddCdeStorageInfrastructure();
-    }
 
     private static Messaging CreateMessagingInfrastructure(IServiceProvider serviceProvider, MessagingConfiguration config)
         => new Messaging(serviceProvider.GetService<ILogger<Messaging>>(),
@@ -67,7 +39,7 @@ public static class ServiceCollectionExtensions
     {
         collection.AddSingleton(sp =>
         {
-            _ = sp.GetRequiredService<CdeApplication>();
+            _ = sp.GetRequiredService<CdeNodeLease>();
 
             var engines = TheThingRegistry.GetBaseEngines(false);
             var engine = engines.Find(e => e.GetEngineName() == InfrastructureEngine);

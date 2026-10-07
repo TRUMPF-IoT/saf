@@ -865,6 +865,13 @@ StartingAsync → StartAsync → StartedAsync     on the new instances
 > mutable process-wide static state surviving a reload, and any resources opened in `StartAsync` must be
 > released in `StopAsync` so the disposed provider can be reclaimed.
 
+> **C-DEngine plug-ins do not support a reload.** C-DEngine keeps its state in static fields and cannot be
+> started a second time in the same process. The C-DEngine plug-ins (`SAF.Messaging.Cde`, `SAF.Storage.Cde`)
+> share one C-DEngine node per process through `SAF.Cde.Common`, and every plug-in container holds a lease on it. A reload disposes the old containers
+> before the new plug-ins take their leases, which shuts the node down; the new containers then fail with an
+> `InvalidOperationException` that says so. Restart the host instead of calling `ReloadAsync` while a
+> C-DEngine plug-in is loaded.
+
 > **Fresh configuration values:** `PluginConfiguration` tracks changes to the plugin settings file (see
 > [Change tracking](#change-tracking)), so a `ReloadAsync` triggered after a file edit re-runs
 > `ConfigureServices` against the updated values. Plugins that only need to *observe* changed values —

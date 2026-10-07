@@ -2,10 +2,11 @@
 //
 // SPDX-License-Identifier: MPL-2.0
 
-namespace SAF.Messaging.Cde.Tests;
+namespace SAF.Storage.Cde.Tests;
 using Xunit;
 
-public class StorageTests : IClassFixture<CdeFixture>
+[Collection(CdeCollection.Name)]
+public class StorageTests
 {
     private readonly CdeFixture _cde;
 
@@ -315,5 +316,23 @@ public class StorageTests : IClassFixture<CdeFixture>
         storage.RemoveArea("areaDoesNotExist");
 
         Assert.Equal(nameof(keyToStay), storage.GetString(testArea, keyToStay));
+    }
+
+    [Fact]
+    public void ReadAreaPersistedBySaf10Ok()
+    {
+        // SAF 10 kept StorageEntry in the namespace SAF.Messaging.Cde. C-DEngine persists an area as plain JSON
+        // without type names, in ClientBin/cache below its base directory, so the moved type reads what SAF 10 wrote.
+        const string area = "saf10compat";
+        var cacheDirectory = Path.Combine(AppContext.BaseDirectory, "ClientBin", "cache");
+        var cacheFile = Path.Combine(cacheDirectory, $"saf.{area}.storage");
+        Directory.CreateDirectory(cacheDirectory);
+        File.Delete($"{cacheFile}.1");
+        File.Copy(Path.Combine(AppContext.BaseDirectory, "TestData", "saf10.storage.json"), cacheFile, overwrite: true);
+
+        var storage = _cde.Storage;
+
+        Assert.Equal("written by SAF 10", storage.GetString(area, "stringKey"));
+        Assert.Equal(new byte[] { 1, 2, 3 }, storage.GetBytes(area, "bytesKey"));
     }
 }

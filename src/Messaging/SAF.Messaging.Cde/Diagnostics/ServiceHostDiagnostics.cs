@@ -8,6 +8,7 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using nsCDEngine.BaseClasses;
 using Microsoft.Extensions.DependencyInjection;
+using SAF.Cde.Common;
 using SAF.Common;
 using IHostedService = Microsoft.Extensions.Hosting.IHostedService;
 
@@ -33,7 +34,7 @@ internal class ServiceHostDiagnostics : IHostedService
     {
         try
         {
-            _ = _serviceProvider.GetRequiredService<CdeApplication>();
+            _ = _serviceProvider.GetRequiredService<CdeNodeLease>();
 
             var nodeInfo = new CdeNodeInfo(_hostInfo);
 

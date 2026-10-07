@@ -33,9 +33,8 @@ public class PluginManifestTests
         var factory = provider.GetKeyedService<IMessagingInfrastructureFactory>(MessagingInfrastructureKeys.Cde);
         Assert.NotNull(factory);
 
-        // Verify IStorageInfrastructure is registered
-        var storageDescriptor = services.FirstOrDefault(d => d.ServiceType == typeof(IStorageInfrastructure));
-        Assert.NotNull(storageDescriptor);
+        // The storage is a plug-in of its own (SAF.Storage.Cde)
+        Assert.DoesNotContain(services, d => d.ServiceType == typeof(IStorageInfrastructure));
     }
 
     [Fact]
@@ -56,9 +55,8 @@ public class PluginManifestTests
         var factory = provider.GetKeyedService<IMessagingInfrastructureFactory>(MessagingInfrastructureKeys.Cde);
         Assert.NotNull(factory);
 
-        // Verify IStorageInfrastructure is registered
-        var storageDescriptor = services.FirstOrDefault(d => d.ServiceType == typeof(IStorageInfrastructure));
-        Assert.NotNull(storageDescriptor);
+        // The storage is a plug-in of its own (SAF.Storage.Cde)
+        Assert.DoesNotContain(services, d => d.ServiceType == typeof(IStorageInfrastructure));
     }
 
     [Fact]
@@ -77,9 +75,8 @@ public class PluginManifestTests
         var factory = provider.GetKeyedService<IMessagingInfrastructureFactory>(MessagingInfrastructureKeys.Cde);
         Assert.NotNull(factory);
 
-        // Verify IStorageInfrastructure is registered
-        var storageDescriptor = services.FirstOrDefault(d => d.ServiceType == typeof(IStorageInfrastructure));
-        Assert.NotNull(storageDescriptor);
+        // The storage is a plug-in of its own (SAF.Storage.Cde)
+        Assert.DoesNotContain(services, d => d.ServiceType == typeof(IStorageInfrastructure));
     }
 
     [Fact]

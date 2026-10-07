@@ -5,6 +5,8 @@
 namespace SAF.Hosting;
 
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using SAF.Common;
 using SAF.PluginSystem.Hosting;
@@ -29,7 +31,8 @@ internal static class ServiceCollectionExtensions
         services.AddSingleton<IServiceHostInfo>(sp =>
         {
             var options = sp.GetRequiredService<IOptions<ServiceHostOptions>>().Value;
-            return new ServiceHostInfo(options, () => GetOrInitializeHostId(ResolveStorageInfrastructure(sp)));
+            var log = sp.GetService<ILoggerFactory>()?.CreateLogger<ServiceHostInfo>() ?? NullLogger<ServiceHostInfo>.Instance;
+            return new ServiceHostInfo(options, () => GetOrInitializeHostId(ResolveStorageInfrastructure(sp), log));
         });
 
         // Bridge: forward the configured service into every plugin container and share its declaring
@@ -47,13 +50,23 @@ internal static class ServiceCollectionExtensions
             ?? serviceProvider.GetService<IPluginServiceProvider>()?.GetService<IStorageInfrastructure>();
     }
 
-    private static string GetOrInitializeHostId(IStorageInfrastructure? storage)
+    private static string GetOrInitializeHostId(IStorageInfrastructure? storage, ILogger log)
     {
         var id = storage?.GetString(HostIdStorageKey);
         if (string.IsNullOrWhiteSpace(id))
         {
             id = Guid.NewGuid().ToString("N");
-            storage?.Set(HostIdStorageKey, id);
+            if (storage is null)
+            {
+                log.LogWarning(
+                    "No storage plug-in is loaded, so the host id {HostId} is not persisted and changes on every start. " +
+                    "Load a storage plug-in or set ServiceHost:Id.",
+                    id);
+            }
+            else
+            {
+                storage.Set(HostIdStorageKey, id);
+            }
         }
 
         return id;

@@ -298,12 +298,29 @@ To migrate, for each infrastructure you used:
 
 | 10.x host call | 11.x plug-in + configuration |
 |---|---|
-| `services.AddCdeInfrastructure(...)` | Load `SAF.Messaging.Cde.dll`; `Messaging:PrimaryKey = "Cde"`; `Cde` section |
+| `services.AddCdeInfrastructure(...)` | Load `SAF.Messaging.Cde.dll` **and** `SAF.Storage.Cde.dll`; `Messaging:PrimaryKey = "Cde"`; `Cde` section (see [below](#c-dengine-storage-is-a-plug-in-of-its-own)) |
+| `services.AddCde(...)` + `AddCdeMessagingInfrastructure()`, storage from another backend | Load `SAF.Messaging.Cde.dll` and that backend's storage plug-in; `Messaging:PrimaryKey = "Cde"`; `Cde` section |
 | `services.AddRedisInfrastructure(...)` | Load `SAF.Messaging.Redis.dll`; `Messaging:PrimaryKey = "Redis"`; `Redis` section (provides messaging **and** storage) |
 | `services.AddLiteDbStorageInfrastructure(...)` | Load `SAF.Storage.LiteDb.dll`; `LiteDb` section |
 | `services.AddSQLiteStorageInfrastructure(...)` | Load `SAF.Storage.SQLite.dll`; `SQLite` section |
 
 See [Messaging Infrastructure](./messaging.md) and [Storage Infrastructure](./storage.md) for the exact configuration sections.
+
+### C-DEngine storage is a plug-in of its own
+
+`AddCdeInfrastructure` registered C-DEngine messaging **and** a C-DEngine storage. In 11.x these are two
+plug-ins: `SAF.Messaging.Cde.dll` provides messaging only, and `SAF.Storage.Cde.dll` provides the storage.
+Both read the `Cde` section and share one C-DEngine node per process. A host that relied on the C-DEngine
+storage, for example for the host id that `SAF.Hosting` keeps there, loads both. The storage reads the
+cache files that 10.x wrote, so nothing is lost. A host without any storage plug-in gets a new host id on
+every start and logs a warning, see [ServiceHost section](./saf-host.md#servicehost-section).
+
+If you load both, deploy them to the host's base directory, preferably through a `PackageReference` in the
+host; a shared plug-in folder elsewhere is not enough. See [C-DEngine](./messaging.md#c-dengine) for why.
+
+This also breaks hosts that already moved to `11.0.0-alpha.9` or an earlier 11.0 preview, where
+`SAF.Messaging.Cde.dll` still registered the storage and `AddCdeInfrastructure` still existed. Without
+`SAF.Storage.Cde.dll`, such a host has no C-DEngine storage any more.
 
 ### Values the host passed in code
 
@@ -362,6 +379,21 @@ Update your `.csproj` files:
 | `SAF.Hosting` (for `IServiceAssemblyManifest`) | `SAF.PluginSystem.Hosting.Contracts` (for `IPluginManifest`) |
 | `SAF.Hosting` (for host bootstrap) | `SAF.Hosting` (unchanged, but API changed) |
 | `IMessageHandler` plugin registration without extensions | Add package `SAF.Messaging.Extensions` and use `AddSingletonMessageHandler<T>()` / `AddTransientMessageHandler<T>()` + `AddMessageHandlerResolver()` |
+| `SAF.Messaging.Cde` (for `CdeConfiguration`, `CdeCryptoLibConfig`, `AddCde`) | `SAF.Cde.Common`, namespace `SAF.Cde.Common` (see [below](#c-dengine-configuration-moved-to-safcdecommon)) |
+
+### C-DEngine configuration moved to `SAF.Cde.Common`
+
+`CdeConfiguration`, `CdeCryptoLibConfig` and `AddCde` moved from `SAF.Messaging.Cde` to the new package
+`SAF.Cde.Common`, namespace `SAF.Cde.Common`. `SAF.Cde.Common` owns the one C-DEngine node of the process,
+which the C-DEngine plug-ins share instead of each starting its own.
+
+Code that names these types, for example a host that reads the `Cde` section into a `CdeConfiguration`,
+replaces `using SAF.Messaging.Cde;` with `using SAF.Cde.Common;`. The package comes with `SAF.Messaging.Cde`;
+add a `PackageReference` to `SAF.Cde.Common` only if you use the types without the plug-in package. The `Cde`
+configuration section itself is unchanged.
+
+This also breaks hosts that already moved to `11.0.0-alpha.9` or an earlier 11.0 preview, where these
+types still lived in `SAF.Messaging.Cde`.
 
 ### Plugin assembly validation is a separate package
 
@@ -457,6 +489,8 @@ The [shared set](./plugin-system.md#the-shared-set) includes `SAF.PluginSystem.H
 - [ ] Replace manual lifecycle background tasks with `IServicePlugin` / `ILifecycleServicePlugin` registered via `AddServicePlugin<T>()`
 - [ ] Move plugin configuration into the shared plugin settings file (or host `appsettings.json`) under a per-plugin section
 - [ ] Deploy messaging/storage as plug-ins (add their DLLs to `IncludePatterns`) instead of calling `Add*Infrastructure()` on the host
+- [ ] If you used `AddCdeInfrastructure`, load `SAF.Storage.Cde.dll` next to `SAF.Messaging.Cde.dll`, both from the host's base directory
 - [ ] Move values your host set in `Add*Infrastructure(...)` callbacks into the backend's configuration section: host constants via `AddPluginConfigurationSource`, secrets as `secret://` references (see [Values the host passed in code](#values-the-host-passed-in-code))
 - [ ] Reference `SAF.PluginSystem.Hosting.Extensions` explicitly if you use plugin assembly validation, and check the `RequireValidDigitalSignature = true` default against the signatures your plug-ins actually carry
 - [ ] Forward any additional host service your plug-ins need with `AddHostServiceForwarder<T>()` — v10's single shared container needed no such step
+- [ ] Replace `using SAF.Messaging.Cde;` with `using SAF.Cde.Common;` wherever you use `CdeConfiguration` or `CdeCryptoLibConfig`
