@@ -23,6 +23,7 @@ This document describes every breaking change and the steps needed to migrate fr
 | Storage namespace | `SAF.Common.IStorageInfrastructure` | Still `SAF.Common.IStorageInfrastructure` (unchanged) |
 | Cross-plugin services | Not supported | Public contract services imported across plugin containers; `IPluginServiceProvider` for dynamic resolution |
 | NATS server | Any version | **2.2 or newer**, because `CustomProperties` now travel in NATS headers |
+| Received messages | A C-DEngine handler could change a batched message without affecting other subscriptions | Messages are read-only on every transport; see [Messages are read-only](#messages-are-read-only) |
 
 ---
 
@@ -449,6 +450,20 @@ envelope with any other major version is now **dropped** with a warning, logged 
 being read as version 2. No action is required: 9.x, 10.x and 11.x all write version `2.0.0`. See
 [Redis](./messaging.md#redis).
 
+### Messages are read-only
+
+`Message` has new optional members: `BinaryPayload`, `AcceptedReplyFormats` and `GetFormat()` (see
+[The Message Type](./messaging.md#the-message-type)). Existing code compiles and behaves as before.
+
+A message must not be changed after it is published, neither by the publisher nor by a handler. That was already
+necessary for In-Process messaging, which hands the published instance itself to all handlers. The C-DEngine
+transport now does the same for batched messages: all subscriptions of a node get one instance, where 10.x gave
+each subscription its own copy.
+
+**Required:** check handlers that modify the `Message` they receive, for example by rewriting `Topic` or adding a
+custom property before passing it on. Create a new `Message` instead. See
+[Messages Are Read-Only](./messaging.md#messages-are-read-only).
+
 ### Digital-signature validation is secure by default
 
 `DigitalSignaturePluginAssemblyValidatorOptions.RequireValidDigitalSignature` defaults to `true`, so registering the validator without configuration demands a signature that is intact, covers the file and chains to a trusted root. Check that against the signatures your plug-ins actually carry before enabling the validator: unsigned plug-ins, and plug-ins whose signer chains to a root the host does not trust, are skipped with a warning.
@@ -516,3 +531,4 @@ The [shared set](./plugin-system.md#the-shared-set) includes `SAF.PluginSystem.H
 - [ ] Forward any additional host service your plug-ins need with `AddHostServiceForwarder<T>()` — v10's single shared container needed no such step
 - [ ] Replace `using SAF.Messaging.Cde;` with `using SAF.Cde.Common;` wherever you use `CdeConfiguration` or `CdeCryptoLibConfig`
 - [ ] If you use NATS, run NATS Server 2.2 or newer
+- [ ] Make sure no handler changes a `Message` it receives; create a new one instead

@@ -5,10 +5,12 @@
 namespace SAF.Messaging.Nats.Tests.WireFormat;
 
 using System.Threading.Channels;
+using Microsoft.Extensions.Logging;
 using NATS.Client.Core;
 using NSubstitute;
 using SAF.Messaging.Contracts;
 using SAF.Messaging.Nats.WireFormat;
+using TestUtilities;
 using Xunit;
 using INatsSubscriptionManager = SAF.Messaging.Nats.INatsSubscriptionManager;
 
@@ -21,11 +23,12 @@ public class MessagingWireFormatTests
     private readonly INatsClient _client = Substitute.For<INatsClient>();
     private readonly INatsMessageWriter _writer = Substitute.For<INatsMessageWriter>();
     private readonly INatsMessageReader _reader = Substitute.For<INatsMessageReader>();
+    private readonly MockLogger<Messaging> _logger = Substitute.For<MockLogger<Messaging>>();
     private readonly Messaging _messaging;
 
     public MessagingWireFormatTests()
     {
-        _messaging = new Messaging(null, _client, Substitute.For<INatsSubscriptionManager>(),
+        _messaging = new Messaging(_logger, _client, Substitute.For<INatsSubscriptionManager>(),
             new NatsInputRouteTranslator(), new NatsOutputRouteTranslator(), _dispatcher, _writer, _reader);
     }
 
@@ -34,7 +37,12 @@ public class MessagingWireFormatTests
     {
         var message = new Message { Topic = "a/b" };
         var headers = new NatsHeaders { { "h", "v" } };
-        _writer.Write(message).Returns(new NatsWireMessage("body", headers));
+        _writer.TryWrite(message, out Arg.Any<NatsWireMessage>())
+            .Returns(ci =>
+            {
+                ci[1] = new NatsWireMessage("body", headers);
+                return true;
+            });
 
         _messaging.Publish(message);
 
@@ -42,6 +50,17 @@ public class MessagingWireFormatTests
         Assert.Equal("a.b", arguments[0]);
         Assert.Equal("body", arguments[1]);
         Assert.Same(headers, arguments[2]);
+    }
+
+    [Fact]
+    public void Publish_DropsAndLogsAMessageTheWriterCannotWrite()
+    {
+        _writer.TryWrite(Arg.Any<Message>(), out Arg.Any<NatsWireMessage>()).Returns(false);
+
+        _messaging.Publish(new Message { Topic = "a/b", BinaryPayload = [1] });
+
+        Assert.DoesNotContain(_client.ReceivedCalls(), c => c.GetMethodInfo().Name == "PublishAsync");
+        _logger.AssertLogged(LogLevel.Error, m => m.Contains("a/b") && m.Contains("Binary"));
     }
 
     [Fact]

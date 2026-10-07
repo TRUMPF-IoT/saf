@@ -11,8 +11,8 @@ using NATS.Client.Core;
 using SAF.Messaging.Contracts;
 
 /// <summary>
-/// The body is the payload, the custom properties travel in the <see cref="NatsHeaderNames.Metadata"/> header.
-/// Older nodes ignore the headers and still read the payload.
+/// The body is the textual payload, all other message fields travel in the <see cref="NatsHeaderNames.Metadata"/>
+/// header. Older nodes ignore the headers and still read the payload.
 /// </summary>
 internal sealed class NatsV2Format : INatsWireFormat
 {
@@ -28,7 +28,7 @@ internal sealed class NatsV2Format : INatsWireFormat
 
     public int MajorVersion => 2;
 
-    public bool CanWrite(Message message) => true;
+    public bool CanWrite(Message message) => message.BinaryPayload is null;
 
     public NatsWireMessage Write(Message message)
         => new(message.Payload, new NatsHeaders
@@ -45,7 +45,7 @@ internal sealed class NatsV2Format : INatsWireFormat
         try
         {
             var metadata = JsonSerializer.Deserialize<MessageMetadataDtoV2>(json.ToString(), MetadataJsonOptions);
-            return new Message { Topic = topic, Payload = body, CustomProperties = metadata?.ToCustomProperties() };
+            return metadata?.ToMessage(topic, body) ?? new Message { Topic = topic, Payload = body };
         }
         catch (JsonException)
         {

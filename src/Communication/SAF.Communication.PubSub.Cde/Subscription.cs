@@ -77,24 +77,13 @@ internal class Subscription : ISubscription
             return;
         }
 
+        // The batch is decoded once per subscriber; handlers must not change the messages.
         foreach (var message in batchMessages)
         {
             if (!IsTopicMatch(message.Topic)) continue;
-            _handler.Invoke(msg.Message.TIM, CopyMessage(message));
+            _handler.Invoke(msg.Message.TIM, message);
         }
     }
-
-    private static Message CopyMessage(Message message)
-        => new()
-        {
-            Topic = message.Topic,
-            Payload = message.Payload,
-            CustomProperties = message.CustomProperties?.Select(property => new MessageCustomProperty
-            {
-                Name = property.Name,
-                Value = property.Value
-            }).ToList()
-        };
 }
 
 

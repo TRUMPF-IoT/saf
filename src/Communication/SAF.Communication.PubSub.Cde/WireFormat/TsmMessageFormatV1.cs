@@ -14,6 +14,8 @@ internal sealed class TsmMessageFormatV1 : ITsmMessageFormat
 {
     public Version MinimumVersion { get; } = Version.Parse(PubSubVersion.V1);
 
+    public bool CanEncode(Message message) => message.BinaryPayload is null;
+
     public string? Encode(Message message) => message.Payload;
 
     public Message Decode(string channel, string? pls) => new() { Topic = channel, Payload = pls };

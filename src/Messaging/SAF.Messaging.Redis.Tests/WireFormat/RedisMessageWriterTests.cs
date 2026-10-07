@@ -18,7 +18,8 @@ public class RedisMessageWriterTests
         var newer = CreateFormat(3, canWrite: true, "v3");
         var older = CreateFormat(2, canWrite: true, "v2");
 
-        Assert.Equal("v2", new RedisMessageWriter([newer, older]).Write(message));
+        Assert.True(new RedisMessageWriter([newer, older]).TryWrite(message, out var value));
+        Assert.Equal("v2", value);
     }
 
     [Fact]
@@ -28,16 +29,22 @@ public class RedisMessageWriterTests
         var older = CreateFormat(2, canWrite: false, "v2");
         var newer = CreateFormat(3, canWrite: true, "v3");
 
-        Assert.Equal("v3", new RedisMessageWriter([older, newer]).Write(message));
+        Assert.True(new RedisMessageWriter([older, newer]).TryWrite(message, out var value));
+        Assert.Equal("v3", value);
     }
 
     [Fact]
-    public void Write_Throws_WhenNoFormatCanWriteTheMessage()
+    public void Write_Fails_WhenNoFormatCanWriteTheMessage()
     {
         var writer = new RedisMessageWriter([CreateFormat(2, canWrite: false, "v2")]);
 
-        Assert.Throws<InvalidOperationException>(() => writer.Write(new Message { Topic = "t" }));
+        Assert.False(writer.TryWrite(new Message { Topic = "t" }, out var value));
+        Assert.Null(value);
     }
+
+    [Fact]
+    public void Write_FailsForBinaryPayloads()
+        => Assert.False(TestWireFormat.Writer().TryWrite(new Message { Topic = "t", BinaryPayload = [1] }, out _));
 
     private static IRedisEnvelopeFormat CreateFormat(int major, bool canWrite, string output)
     {

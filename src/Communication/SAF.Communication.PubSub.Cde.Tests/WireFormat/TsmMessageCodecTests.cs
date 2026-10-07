@@ -36,6 +36,7 @@ public class TsmMessageCodecTests
         {
             Topic = "t",
             Payload = "p",
+            AcceptedReplyFormats = MessageFormats.Text | MessageFormats.Binary,
             CustomProperties = [new MessageCustomProperty { Name = "n", Value = "v" }]
         };
 
@@ -43,6 +44,7 @@ public class TsmMessageCodecTests
 
         Assert.Equal("t", decoded!.Topic);
         Assert.Equal("p", decoded.Payload);
+        Assert.Equal(MessageFormats.Text | MessageFormats.Binary, decoded.AcceptedReplyFormats);
         Assert.Equal("n", Assert.Single(decoded.CustomProperties!).Name);
         Assert.Equal("v", decoded.CustomProperties![0].Value);
     }
@@ -50,14 +52,49 @@ public class TsmMessageCodecTests
     [Fact]
     public void EncodeAndDecode_V1KeepsThePayloadAndTakesTheTopicFromTheChannel()
     {
-        var message = new Message { Topic = "t", Payload = "p", CustomProperties = [new MessageCustomProperty { Name = "n" }] };
+        var message = new Message
+        {
+            Topic = "t",
+            Payload = "p",
+            AcceptedReplyFormats = MessageFormats.Text,
+            CustomProperties = [new MessageCustomProperty { Name = "n" }]
+        };
 
         var decoded = _codec.Decode("channel", PubSubVersion.V1, _codec.Encode(message, PubSubVersion.V1));
 
         Assert.Equal("channel", decoded!.Topic);
         Assert.Equal("p", decoded.Payload);
+        Assert.Null(decoded.AcceptedReplyFormats);
         Assert.Null(decoded.CustomProperties);
     }
+
+    /// <summary>
+    /// A newer node may accept reply formats this node does not know yet.
+    /// </summary>
+    [Fact]
+    public void Decode_KeepsUnknownReplyFormatFlags()
+        => Assert.Equal((MessageFormats)7,
+            _codec.Decode("t", PubSubVersion.V4, """{"Topic":"t","AcceptedReplyFormats":7}""")!.AcceptedReplyFormats);
+
+    [Theory]
+    [InlineData(PubSubVersion.V1)]
+    [InlineData(PubSubVersion.V2)]
+    [InlineData(PubSubVersion.V3)]
+    [InlineData(PubSubVersion.V4)]
+    public void CanEncode_RejectsBinaryPayloads(string version)
+    {
+        Assert.True(_codec.CanEncode(new Message { Topic = "t", Payload = "p" }, version));
+        Assert.False(_codec.CanEncode(new Message { Topic = "t", Payload = "p", BinaryPayload = [] }, version));
+    }
+
+    [Fact]
+    public void Encode_RefusesAMessageThePeerCannotReceive()
+        => Assert.Throws<InvalidOperationException>(() => _codec.Encode(new Message { Topic = "t", BinaryPayload = [1] }, PubSubVersion.V3));
+
+    [Fact]
+    public void EncodeBatch_RefusesAMessageThePeerCannotReceive()
+        => Assert.Throws<InvalidOperationException>(() =>
+            _codec.EncodeBatch([new Message { Topic = "a" }, new Message { Topic = "b", BinaryPayload = [1] }], PubSubVersion.V4));
 
     [Fact]
     public void EncodeBatchAndDecodeBatch_RoundTripAllMessages()
@@ -86,6 +123,7 @@ public class TsmMessageCodecTests
     {
         var v5 = Substitute.For<ITsmMessageFormat>();
         v5.MinimumVersion.Returns(new Version(5, 0, 0));
+        v5.CanEncode(Arg.Any<Message>()).Returns(true);
         v5.Encode(Arg.Any<Message>()).Returns("v5");
         var codec = new TsmMessageCodec([..TsmWireFormats.All, v5]);
         var message = new Message { Topic = "t", Payload = "p" };

@@ -12,16 +12,29 @@ using Xunit;
 public class NatsMessageWriterTests
 {
     [Fact]
-    public void Write_UsesV1_WithoutCustomProperties()
-        => Assert.Null(TestWireFormat.Writer().Write(new Message { Topic = "t", Payload = "p" }).Headers);
-
-    [Fact]
-    public void Write_UsesV2_WithCustomProperties()
+    public void Write_UsesV1_WithoutMetadata()
     {
-        var wire = TestWireFormat.Writer().Write(new Message { Topic = "t", Payload = "p", CustomProperties = [] });
+        Assert.True(TestWireFormat.Writer().TryWrite(new Message { Topic = "t", Payload = "p" }, out var wire));
+        Assert.Null(wire.Headers);
+    }
 
+    public static TheoryData<Message> MessagesWithMetadata =>
+    [
+        new Message { Topic = "t", Payload = "p", CustomProperties = [] },
+        new Message { Topic = "t", Payload = "p", AcceptedReplyFormats = MessageFormats.Text }
+    ];
+
+    [Theory]
+    [MemberData(nameof(MessagesWithMetadata))]
+    public void Write_UsesV2_WithMetadata(Message message)
+    {
+        Assert.True(TestWireFormat.Writer().TryWrite(message, out var wire));
         Assert.Equal("2.0.0", wire.Headers![NatsHeaderNames.Version].ToString());
     }
+
+    [Fact]
+    public void Write_FailsForBinaryPayloads()
+        => Assert.False(TestWireFormat.Writer().TryWrite(new Message { Topic = "t", BinaryPayload = [1] }, out _));
 
     [Fact]
     public void Write_UsesTheOldestFormatThatCanWriteTheMessage()
@@ -30,15 +43,17 @@ public class NatsMessageWriterTests
         var older = CreateFormat(2, canWrite: true, "v2");
         var skipped = CreateFormat(1, canWrite: false, "v1");
 
-        Assert.Equal("v2", new NatsMessageWriter([newer, skipped, older]).Write(new Message { Topic = "t" }).Body);
+        Assert.True(new NatsMessageWriter([newer, skipped, older]).TryWrite(new Message { Topic = "t" }, out var wire));
+        Assert.Equal("v2", wire.Body);
     }
 
     [Fact]
-    public void Write_Throws_WhenNoFormatCanWriteTheMessage()
+    public void Write_Fails_WhenNoFormatCanWriteTheMessage()
     {
         var writer = new NatsMessageWriter([CreateFormat(1, canWrite: false, "v1")]);
 
-        Assert.Throws<InvalidOperationException>(() => writer.Write(new Message { Topic = "t" }));
+        Assert.False(writer.TryWrite(new Message { Topic = "t" }, out var wire));
+        Assert.Equal(default, wire);
     }
 
     private static INatsWireFormat CreateFormat(int major, bool canWrite, string body)

@@ -16,6 +16,8 @@ internal interface ITsmMessageFormat
     /// </summary>
     Version MinimumVersion { get; }
 
+    bool CanEncode(Message message);
+
     string? Encode(Message message);
 
     Message? Decode(string channel, string? pls);

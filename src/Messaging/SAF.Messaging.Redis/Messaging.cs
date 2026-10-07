@@ -43,7 +43,13 @@ internal sealed class Messaging : IMessagingInfrastructure, IDisposable
         _log.LogTrace("Publishing message for topic {Topic}.", message.Topic);
         try
         {
-            var redisPayload = _writer.Write(message);
+            if (!_writer.TryWrite(message, out var redisPayload))
+            {
+                _log.LogError("Dropped message on {Topic}: Redis messaging cannot transport a message with format {Format}.",
+                    message.Topic, message.GetFormat());
+                return;
+            }
+
             _redis.GetSubscriber().Publish(RedisChannel.Literal(message.Topic), redisPayload, CommandFlags.FireAndForget);
         }
         catch (NullReferenceException nre)

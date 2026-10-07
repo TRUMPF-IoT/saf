@@ -4,10 +4,12 @@
 
 namespace SAF.Messaging.Redis.Tests.WireFormat;
 
+using Microsoft.Extensions.Logging;
 using NSubstitute;
 using SAF.Messaging.Contracts;
 using SAF.Messaging.Redis.WireFormat;
 using StackExchange.Redis;
+using TestUtilities;
 using Xunit;
 
 /// <summary>
@@ -19,24 +21,41 @@ public class MessagingWireFormatTests
     private readonly ISubscriber _subscriber = Substitute.For<ISubscriber>();
     private readonly IRedisMessageWriter _writer = Substitute.For<IRedisMessageWriter>();
     private readonly IRedisMessageReader _reader = Substitute.For<IRedisMessageReader>();
+    private readonly MockLogger<Messaging> _logger = Substitute.For<MockLogger<Messaging>>();
     private readonly Messaging _messaging;
 
     public MessagingWireFormatTests()
     {
         var multiplexer = Substitute.For<IConnectionMultiplexer>();
         multiplexer.GetSubscriber().Returns(_subscriber);
-        _messaging = new Messaging(null, multiplexer, _dispatcher, _writer, _reader);
+        _messaging = new Messaging(_logger, multiplexer, _dispatcher, _writer, _reader);
     }
 
     [Fact]
     public void Publish_SendsWhatTheWriterProduces()
     {
         var message = new Message { Topic = "t" };
-        _writer.Write(message).Returns("written");
+        _writer.TryWrite(message, out Arg.Any<string?>())
+            .Returns(ci =>
+            {
+                ci[1] = "written";
+                return true;
+            });
 
         _messaging.Publish(message);
 
         _subscriber.Received(1).Publish(RedisChannel.Literal("t"), "written", CommandFlags.FireAndForget);
+    }
+
+    [Fact]
+    public void Publish_DropsAndLogsAMessageTheWriterCannotWrite()
+    {
+        _writer.TryWrite(Arg.Any<Message>(), out Arg.Any<string?>()).Returns(false);
+
+        _messaging.Publish(new Message { Topic = "t", BinaryPayload = [1] });
+
+        _subscriber.DidNotReceive().Publish(Arg.Any<RedisChannel>(), Arg.Any<RedisValue>(), Arg.Any<CommandFlags>());
+        _logger.AssertLogged(LogLevel.Error, m => m.Contains("t") && m.Contains("Binary"));
     }
 
     [Fact]

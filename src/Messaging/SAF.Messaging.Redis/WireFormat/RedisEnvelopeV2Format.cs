@@ -16,7 +16,8 @@ internal sealed class RedisEnvelopeV2Format : IRedisEnvelopeFormat
     // V1 was declared together with V2 but never written; both share this shape.
     public IReadOnlyCollection<int> MajorVersions { get; } = [1, 2];
 
-    public bool CanWrite(Message message) => true;
+    // The JSON envelope carries text only.
+    public bool CanWrite(Message message) => message.BinaryPayload is null;
 
     public string Write(Message message)
         => JsonSerializer.Serialize(new RedisEnvelope<MessageDtoV2>

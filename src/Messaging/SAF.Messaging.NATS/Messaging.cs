@@ -46,8 +46,14 @@ internal sealed class Messaging : IMessagingInfrastructure, IDisposable
 
         try
         {
+            if (!_writer.TryWrite(message, out var wireMessage))
+            {
+                _logger.LogError("Dropped message on {Topic}: NATS messaging cannot transport a message with format {Format}.",
+                    message.Topic, message.GetFormat());
+                return;
+            }
+
             var topic = _inputRouteTranslator.TranslateRoute(message.Topic);
-            var wireMessage = _writer.Write(message);
             _natsClient.PublishAsync(topic, wireMessage.Body, headers: wireMessage.Headers);
         }
         catch (NullReferenceException nre)

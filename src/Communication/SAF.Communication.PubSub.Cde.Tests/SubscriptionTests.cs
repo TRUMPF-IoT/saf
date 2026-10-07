@@ -106,32 +106,24 @@ public class SubscriptionTests
         Assert.Same(batches[0], batches[1]);
     }
 
+    /// <summary>
+    /// Handlers must not change a message, so a batch decoded once is shared without copying.
+    /// </summary>
     [Fact]
-    public void OnMessage_Batch_KeepsHandlerMessagesIndependent()
+    public void OnMessage_Batch_SharesTheMessageWithAllHandlers()
     {
         var first = new Subscription(_subscriber, TsmWireFormats.CreateCodec(), "dev/*");
         var second = new Subscription(_subscriber, TsmWireFormats.CreateCodec(), "dev/A");
         Message? firstMessage = null;
         Message? secondMessage = null;
-
-        first.SetHandler((_, message) =>
-        {
-            firstMessage = message;
-            message.Topic = "changed";
-            message.Payload = "changed";
-            message.CustomProperties![0].Value = "changed";
-        });
+        first.SetHandler((_, message) => firstMessage = message);
         second.SetHandler((_, message) => secondMessage = message);
 
-        RaisePublication("$$batch:size=1$$", PubSubVersion.V4,
-            "[{\"Topic\":\"dev/A\",\"Payload\":\"A\",\"CustomProperties\":[{\"Name\":\"source\",\"Value\":\"original\"}]}]");
+        RaisePublication("$$batch:size=1$$", PubSubVersion.V4, "[{\"Topic\":\"dev/A\",\"Payload\":\"A\"}]");
 
         Assert.NotNull(firstMessage);
-        Assert.NotNull(secondMessage);
-        Assert.NotSame(firstMessage, secondMessage);
-        Assert.Equal("dev/A", secondMessage!.Topic);
-        Assert.Equal("A", secondMessage.Payload);
-        Assert.Equal("original", Assert.Single(secondMessage.CustomProperties!).Value);
+        Assert.Same(firstMessage, secondMessage);
+        Assert.Equal("A", firstMessage!.Payload);
     }
 
     [Fact]

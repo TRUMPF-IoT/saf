@@ -4,6 +4,7 @@
 
 namespace SAF.Messaging.Redis.WireFormat;
 
+using System.Diagnostics.CodeAnalysis;
 using SAF.Messaging.Contracts;
 
 /// <summary>
@@ -18,8 +19,9 @@ internal sealed class RedisMessageWriter : IRedisMessageWriter
         _formats = formats.OrderBy(f => f.MajorVersions.Max()).ToList();
     }
 
-    public string Write(Message message)
-        => (_formats.FirstOrDefault(f => f.CanWrite(message))
-            ?? throw new InvalidOperationException($"No Redis wire format can write the message on {message.Topic}."))
-            .Write(message);
+    public bool TryWrite(Message message, [NotNullWhen(true)] out string? value)
+    {
+        value = _formats.FirstOrDefault(f => f.CanWrite(message))?.Write(message);
+        return value != null;
+    }
 }

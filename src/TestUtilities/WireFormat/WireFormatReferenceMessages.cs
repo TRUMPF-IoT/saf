@@ -20,6 +20,11 @@ public static class WireFormatReferenceMessages
     public const string NullPropertyValue = "null-property-value";
 
     /// <summary>
+    /// Accepted reply formats. Not part of the samples old SAF versions produce; old nodes ignore the field.
+    /// </summary>
+    public const string ReplyFormats = "reply-formats";
+
+    /// <summary>
     /// Covers quote, backslash, slash, control characters, non-ASCII and a surrogate pair.
     /// </summary>
     public const string UnicodeAndEscapesPayload =
@@ -32,7 +37,8 @@ public static class WireFormatReferenceMessages
         CustomProperties,
         EmptyPayload,
         UnicodeAndEscapes,
-        NullPropertyValue
+        NullPropertyValue,
+        ReplyFormats
     ];
 
     /// <summary>
@@ -77,6 +83,12 @@ public static class WireFormatReferenceMessages
             [
                 new MessageCustomProperty { Name = "flag", Value = null }
             ]
+        },
+        ReplyFormats => new Message
+        {
+            Topic = "saf/wire/reply-formats",
+            Payload = """{"value":42}""",
+            AcceptedReplyFormats = MessageFormats.Text | MessageFormats.Binary
         },
         _ => throw new ArgumentOutOfRangeException(nameof(id), id, "Unknown reference message id.")
     };

@@ -8,5 +8,6 @@ using SAF.Messaging.Contracts;
 
 internal interface INatsMessageWriter
 {
-    NatsWireMessage Write(Message message);
+    /// <returns><c>false</c> if no format can carry the message.</returns>
+    bool TryWrite(Message message, out NatsWireMessage wireMessage);
 }

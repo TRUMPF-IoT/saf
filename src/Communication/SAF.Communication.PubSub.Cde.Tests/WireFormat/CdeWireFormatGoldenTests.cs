@@ -19,6 +19,7 @@ using Xunit;
 /// V3 matters in practice: a 9.x node announces <see cref="PubSubVersion.V3"/>, while 10.x and 11.x
 /// announce <see cref="PubSubVersion.V4"/>. A failure here means an old peer would read something
 /// different than it does today, which is only allowed together with a new <see cref="PubSubVersion"/>.
+/// Accepted reply formats are an optional addition that old peers ignore.
 /// </summary>
 public class CdeWireFormatGoldenTests
 {
@@ -31,6 +32,7 @@ public class CdeWireFormatGoldenTests
     [InlineData(WireFormatReferenceMessages.EmptyPayload, "saf/wire/empty")]
     [InlineData(WireFormatReferenceMessages.UnicodeAndEscapes, "saf/wire/unicode")]
     [InlineData(WireFormatReferenceMessages.NullPropertyValue, "saf/wire/null-prop")]
+    [InlineData(WireFormatReferenceMessages.ReplyFormats, "saf/wire/reply-formats")]
     public async Task Broadcast_V1_SendsPayloadOnly(string id, string topic)
     {
         var message = WireFormatReferenceMessages.Create(id);
@@ -64,6 +66,7 @@ public class CdeWireFormatGoldenTests
     [InlineData(WireFormatReferenceMessages.EmptyPayload)]
     [InlineData(WireFormatReferenceMessages.UnicodeAndEscapes)]
     [InlineData(WireFormatReferenceMessages.NullPropertyValue)]
+    [InlineData(WireFormatReferenceMessages.ReplyFormats)]
     public async Task Broadcast_V4_SendsABatchArray(string id)
     {
         var message = WireFormatReferenceMessages.Create(id);
@@ -83,6 +86,7 @@ public class CdeWireFormatGoldenTests
     [InlineData(WireFormatReferenceMessages.EmptyPayload)]
     [InlineData(WireFormatReferenceMessages.UnicodeAndEscapes)]
     [InlineData(WireFormatReferenceMessages.NullPropertyValue)]
+    [InlineData(WireFormatReferenceMessages.ReplyFormats)]
     public void DecodeMessages_ReadsV2AndV3Samples(string id)
     {
         var expected = WireFormatReferenceMessages.Create(id);
@@ -102,6 +106,7 @@ public class CdeWireFormatGoldenTests
     [InlineData(WireFormatReferenceMessages.EmptyPayload)]
     [InlineData(WireFormatReferenceMessages.UnicodeAndEscapes)]
     [InlineData(WireFormatReferenceMessages.NullPropertyValue)]
+    [InlineData(WireFormatReferenceMessages.ReplyFormats)]
     public void DecodeMessages_ReadsV4BatchSamples(string id)
     {
         var expected = WireFormatReferenceMessages.Create(id);
@@ -137,6 +142,39 @@ public class CdeWireFormatGoldenTests
     }
 
     /// <summary>
+    /// A node up to 11.0.0-alpha.9 reads the JSON into a type without the accepted reply formats.
+    /// </summary>
+    [Fact]
+    public void OldNodes_IgnoreReplyFormats()
+    {
+        var expected = WireFormatReferenceMessages.Create(WireFormatReferenceMessages.ReplyFormats);
+
+        var old = TheCommonUtils.DeserializeJSONStringToObject<LegacyMessage>(GoldenJson(WireFormatReferenceMessages.ReplyFormats));
+
+        Assert.Equal(expected.Topic, old.Topic);
+        Assert.Equal(expected.Payload, old.Payload);
+    }
+
+    /// <summary>
+    /// No pub/sub version carries binary payloads yet, so such a message is dropped for every peer
+    /// while the next message still goes out - on V4 alone in its batch.
+    /// </summary>
+    [Theory]
+    [InlineData(PubSubVersion.V1, "p")]
+    [InlineData(PubSubVersion.V2, """{"Topic":"saf/wire/text","Payload":"p"}""")]
+    [InlineData(PubSubVersion.V3, """{"Topic":"saf/wire/text","Payload":"p"}""")]
+    [InlineData(PubSubVersion.V4, """[{"Topic":"saf/wire/text","Payload":"p"}]""")]
+    public async Task Broadcast_DropsBinaryPayloads(string version, string expectedPls)
+    {
+        var binary = new Message { Topic = "saf/wire/binary", Payload = "dropped", BinaryPayload = [1, 2, 3] };
+        var text = new Message { Topic = "saf/wire/text", Payload = "p" };
+
+        var tsm = await BroadcastAsync(version, binary, text);
+
+        Assert.Equal(expectedPls, tsm.PLS);
+    }
+
+    /// <summary>
     /// The recorded JSON of the whole message as C-DEngine's serializer writes it: PascalCase, nulls omitted,
     /// every non-ASCII character literal - including astral ones, where SAF's own JSON serializer escapes
     /// them as a surrogate pair. The two serializers are not interchangeable.
@@ -155,10 +193,16 @@ public class CdeWireFormatGoldenTests
             """{"Topic":"saf/wire/unicode","Payload":"\"quote\" \\back\\slash / slash\r\n\ttab äöüß 日本語 😀"}""",
         WireFormatReferenceMessages.NullPropertyValue =>
             """{"Topic":"saf/wire/null-prop","Payload":"plain text","CustomProperties":[{"Name":"flag"}]}""",
+        // The flags travel as a number.
+        WireFormatReferenceMessages.ReplyFormats =>
+            """{"Topic":"saf/wire/reply-formats","Payload":"{\"value\":42}","AcceptedReplyFormats":3}""",
         _ => throw new ArgumentOutOfRangeException(nameof(id), id, "No recorded sample for this reference message.")
     };
 
-    private static async Task<TSM> BroadcastAsync(string version, Message message)
+    /// <summary>
+    /// Broadcasts the messages to one peer and returns the first TSM it is sent.
+    /// </summary>
+    private static async Task<TSM> BroadcastAsync(string version, params Message[] messages)
     {
         var captured = new TaskCompletionSource<TSM>();
         var line = Substitute.For<ComLine>();
@@ -170,7 +214,10 @@ public class CdeWireFormatGoldenTests
         var request = new RegistrySubscriptionRequest { version = version, isRegistry = false };
         var remote = new RemoteSubscriber(line, subscriberTsm, ["*"], request, TsmWireFormats.CreateCodec());
 
-        remote.Broadcast(new BroadcastMessage(new Topic(message.Topic, MsgId, version), message, "user", RoutingOptions.All));
+        foreach (var message in messages)
+        {
+            remote.Broadcast(new BroadcastMessage(new Topic(message.Topic, MsgId, version), message, "user", RoutingOptions.All));
+        }
 
         return await captured.Task.WaitAsync(TimeSpan.FromSeconds(10), TestContext.Current.CancellationToken);
     }
@@ -183,6 +230,7 @@ public class CdeWireFormatGoldenTests
         Assert.Single(actual);
         Assert.Equal(expected.Topic, actual[0].Topic);
         Assert.Equal(expected.Payload, actual[0].Payload);
+        Assert.Equal(expected.AcceptedReplyFormats, actual[0].AcceptedReplyFormats);
 
         if (expected.CustomProperties == null)
         {
@@ -197,5 +245,12 @@ public class CdeWireFormatGoldenTests
             Assert.Equal(expected.CustomProperties[i].Name, actual[0].CustomProperties![i].Name);
             Assert.Equal(expected.CustomProperties[i].Value, actual[0].CustomProperties![i].Value);
         }
+    }
+
+    private sealed class LegacyMessage
+    {
+        public string? Topic { get; set; }
+        public string? Payload { get; set; }
+        public List<MessageCustomProperty>? CustomProperties { get; set; }
     }
 }

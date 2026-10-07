@@ -4,9 +4,11 @@
 
 namespace SAF.Messaging.Redis.WireFormat;
 
+using System.Diagnostics.CodeAnalysis;
 using SAF.Messaging.Contracts;
 
 internal interface IRedisMessageWriter
 {
-    string Write(Message message);
+    /// <returns><c>false</c> if no format can carry the message.</returns>
+    bool TryWrite(Message message, [NotNullWhen(true)] out string? value);
 }

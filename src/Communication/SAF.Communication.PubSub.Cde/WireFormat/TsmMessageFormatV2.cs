@@ -12,9 +12,12 @@ using Interfaces;
 /// The whole message as PascalCase JSON, used from <see cref="PubSubVersion.V2"/> on.
 /// <see cref="PubSubVersion.V4"/> sends the same shape, several messages at once as a JSON array.
 /// </summary>
-internal sealed class TsmMessageFormatV2 : ITsmMessageFormat, ITsmBatchFormat
+internal sealed class TsmMessageFormatV2 : ITsmBatchFormat
 {
     public Version MinimumVersion { get; } = Version.Parse(PubSubVersion.V2);
+
+    // The JSON carries text only.
+    public bool CanEncode(Message message) => message.BinaryPayload is null;
 
     public string Encode(Message message)
         => TheCommonUtils.SerializeObjectToJSONString(MessageDtoV2.FromMessage(message));

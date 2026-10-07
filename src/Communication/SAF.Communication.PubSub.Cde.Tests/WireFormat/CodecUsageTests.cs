@@ -27,6 +27,7 @@ public class CodecUsageTests
         _line.Address.Returns("origin");
         _line.When(l => l.AnswerToSender(Arg.Any<TSM>(), Arg.Any<TSM>()))
             .Do(ci => _sent.TrySetResult(ci.ArgAt<TSM>(1)));
+        _encoder.CanEncode(Arg.Any<Message>(), Arg.Any<string>()).Returns(true);
     }
 
     [Fact]
@@ -49,6 +50,26 @@ public class CodecUsageTests
         CreateRemoteSubscriber(PubSubVersion.V4).Broadcast(Broadcast(message));
 
         Assert.Equal("batch", (await SentAsync()).PLS);
+    }
+
+    [Theory]
+    [InlineData(PubSubVersion.V3)]
+    [InlineData(PubSubVersion.V4)]
+    public async Task Broadcast_DropsAMessageThePeerCannotReceive(string version)
+    {
+        var dropped = new Message { Topic = "dropped" };
+        var sent = new Message { Topic = "sent" };
+        _encoder.CanEncode(dropped, version).Returns(false);
+        _encoder.Encode(sent, version).Returns("encoded");
+        _encoder.EncodeBatch(Arg.Any<IEnumerable<Message>>(), version)
+            .Returns(ci => string.Join(",", ci.Arg<IEnumerable<Message>>().Select(m => m.Topic)));
+        var remote = CreateRemoteSubscriber(version);
+
+        remote.Broadcast(Broadcast(dropped));
+        remote.Broadcast(Broadcast(sent));
+
+        Assert.Equal(version == PubSubVersion.V4 ? "sent" : "encoded", (await SentAsync()).PLS);
+        _encoder.DidNotReceive().Encode(dropped, Arg.Any<string>());
     }
 
     private RemoteSubscriber CreateRemoteSubscriber(string version)

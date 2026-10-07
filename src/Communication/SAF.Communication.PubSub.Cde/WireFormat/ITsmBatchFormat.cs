@@ -9,7 +9,7 @@ using SAF.Messaging.Contracts;
 /// <summary>
 /// A message shape that can also be sent as a batch of several messages in one TSM.
 /// </summary>
-internal interface ITsmBatchFormat
+internal interface ITsmBatchFormat : ITsmMessageFormat
 {
     string EncodeBatch(IEnumerable<Message> messages);
 

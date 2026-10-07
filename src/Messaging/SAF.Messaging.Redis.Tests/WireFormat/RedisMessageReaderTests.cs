@@ -18,10 +18,22 @@ public class RedisMessageReaderTests
     public void Read_ReadsMinorVersionOfV2AndIgnoresUnknownFields()
     {
         var message = TestWireFormat.Reader().Read("channel",
-            """{"version":"2.1.0","message":{"topic":"t","payload":"p","contentType":"text/plain"},"extra":1}""");
+            """{"version":"2.1.0","message":{"topic":"t","payload":"p","futureField":1},"extra":1}""");
 
         Assert.Equal("t", message!.Topic);
         Assert.Equal("p", message.Payload);
+    }
+
+    /// <summary>
+    /// A newer node may accept reply formats this node does not know yet.
+    /// </summary>
+    [Fact]
+    public void Read_KeepsUnknownReplyFormatFlags()
+    {
+        var message = TestWireFormat.Reader().Read("channel",
+            """{"version":"2.0.0","message":{"topic":"t","acceptedReplyFormats":7}}""");
+
+        Assert.Equal((MessageFormats)7, message!.AcceptedReplyFormats);
     }
 
     [Fact]

@@ -11,10 +11,10 @@ using TestUtilities.WireFormat;
 using Xunit;
 
 /// <summary>
-/// Records the Redis wire format as an old SAF node sees it. Verified to be identical in 9.0.1,
-/// 10.0.3 and 11.0.0-alpha.9, so these samples cover every version SAF has to interoperate with.
-/// A failure here means the wire format changed - that is only allowed together with a deliberate
-/// bump of <see cref="RedisMessageVersion"/> and a reader for the old version.
+/// Records the Redis wire format as an old SAF node sees it. The samples without accepted reply formats are
+/// verified to be identical in 9.0.1, 10.0.3 and 11.0.0-alpha.9, so they cover every version SAF has to
+/// interoperate with. A failure here means the wire format changed - that is only allowed together with
+/// a deliberate bump of <see cref="RedisMessageVersion"/> and a reader for the old version.
 /// </summary>
 public class RedisWireFormatGoldenTests
 {
@@ -81,6 +81,34 @@ public class RedisWireFormatGoldenTests
         dispatcher.DidNotReceive().DispatchMessage(Arg.Any<Action<Message>>(), Arg.Any<Message>());
     }
 
+    /// <summary>
+    /// A node up to 11.0.0-alpha.9 reads the envelope into a type without the accepted reply formats.
+    /// </summary>
+    [Fact]
+    public void OldNodes_IgnoreReplyFormats()
+    {
+        var expected = WireFormatReferenceMessages.Create(WireFormatReferenceMessages.ReplyFormats);
+
+        var old = Toolbox.Serialization.JsonSerializer.Deserialize<LegacyEnvelope>(Golden(WireFormatReferenceMessages.ReplyFormats));
+
+        Assert.Equal(RedisMessageVersion.V2, old!.Version);
+        Assert.Equal(expected.Topic, old.Message!.Topic);
+        Assert.Equal(expected.Payload, old.Message.Payload);
+    }
+
+    /// <summary>
+    /// The envelope is text only. Up to now no Redis format carries binary payloads, so they are not sent.
+    /// </summary>
+    [Fact]
+    public void Publish_SendsNothingForBinaryPayloads()
+    {
+        var (messaging, subscriber, _) = CreateMessaging();
+
+        messaging.Publish(new Message { Topic = "saf/wire/binary", Payload = "p", BinaryPayload = [1, 2, 3] });
+
+        subscriber.DidNotReceive().Publish(Arg.Any<RedisChannel>(), Arg.Any<RedisValue>(), Arg.Any<CommandFlags>());
+    }
+
     [Theory]
     [InlineData("not json at all")]
     [InlineData("""{"foo":1}""")]
@@ -111,6 +139,9 @@ public class RedisWireFormatGoldenTests
             + """ \uD83D\uDE00"}}""",
         WireFormatReferenceMessages.NullPropertyValue =>
             """{"version":"2.0.0","message":{"topic":"saf/wire/null-prop","payload":"plain text","customProperties":[{"name":"flag"}]}}""",
+        // Optional fields within version 2: older nodes ignore them, the flags travel as a number.
+        WireFormatReferenceMessages.ReplyFormats =>
+            """{"version":"2.0.0","message":{"topic":"saf/wire/reply-formats","payload":"{\"value\":42}","acceptedReplyFormats":3}}""",
         _ => throw new ArgumentOutOfRangeException(nameof(id), id, "No recorded sample for this reference message.")
     };
 
@@ -171,6 +202,7 @@ public class RedisWireFormatGoldenTests
     {
         Assert.Equal(expected.Topic, actual.Topic);
         Assert.Equal(expected.Payload, actual.Payload);
+        Assert.Equal(expected.AcceptedReplyFormats, actual.AcceptedReplyFormats);
 
         if (expected.CustomProperties == null)
         {
@@ -185,5 +217,18 @@ public class RedisWireFormatGoldenTests
             Assert.Equal(expected.CustomProperties[i].Name, actual.CustomProperties[i].Name);
             Assert.Equal(expected.CustomProperties[i].Value, actual.CustomProperties[i].Value);
         }
+    }
+
+    private sealed class LegacyEnvelope
+    {
+        public string? Version { get; set; }
+        public LegacyMessage? Message { get; set; }
+    }
+
+    private sealed class LegacyMessage
+    {
+        public string? Topic { get; set; }
+        public string? Payload { get; set; }
+        public List<MessageCustomProperty>? CustomProperties { get; set; }
     }
 }

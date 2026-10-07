@@ -18,8 +18,10 @@ internal sealed class NatsMessageWriter : INatsMessageWriter
         _formats = formats.OrderBy(f => f.MajorVersion).ToList();
     }
 
-    public NatsWireMessage Write(Message message)
-        => (_formats.FirstOrDefault(f => f.CanWrite(message))
-            ?? throw new InvalidOperationException($"No NATS wire format can write the message on {message.Topic}."))
-            .Write(message);
+    public bool TryWrite(Message message, out NatsWireMessage wireMessage)
+    {
+        var format = _formats.FirstOrDefault(f => f.CanWrite(message));
+        wireMessage = format?.Write(message) ?? default;
+        return format != null;
+    }
 }

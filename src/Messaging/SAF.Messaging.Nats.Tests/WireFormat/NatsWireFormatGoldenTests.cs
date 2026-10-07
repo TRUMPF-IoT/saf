@@ -16,8 +16,8 @@ using INatsSubscriptionManager = SAF.Messaging.Nats.INatsSubscriptionManager;
 /// <summary>
 /// Records the NATS wire format. 9.0.1, 10.0.3 and 11.0.0-alpha.9 send the payload string as body,
 /// without envelope and without headers, and ignore headers on receipt. Since then custom properties
-/// travel in SAF headers, while the body stays the payload. A failure here means an old node would
-/// read something different than it does today.
+/// and accepted reply formats travel in SAF headers, while the body stays the payload. A failure here means
+/// an old node would read something different than it does today.
 /// </summary>
 public class NatsWireFormatGoldenTests
 {
@@ -38,6 +38,7 @@ public class NatsWireFormatGoldenTests
     [InlineData(WireFormatReferenceMessages.EmptyPayload, "saf.wire.empty")]
     [InlineData(WireFormatReferenceMessages.UnicodeAndEscapes, "saf.wire.unicode")]
     [InlineData(WireFormatReferenceMessages.NullPropertyValue, "saf.wire.null-prop")]
+    [InlineData(WireFormatReferenceMessages.ReplyFormats, "saf.wire.reply-formats")]
     public void Publish_MapsTopicToSubject(string id, string expectedSubject)
     {
         var (subject, _, _) = Publish(WireFormatReferenceMessages.Create(id));
@@ -60,14 +61,14 @@ public class NatsWireFormatGoldenTests
     }
 
     /// <summary>
-    /// Without custom properties nothing changes on the wire, which also keeps NATS servers before 2.2 working.
+    /// Without metadata nothing changes on the wire, which also keeps NATS servers before 2.2 working.
     /// </summary>
     [Theory]
     [InlineData(WireFormatReferenceMessages.TopicOnly)]
     [InlineData(WireFormatReferenceMessages.TextPayload)]
     [InlineData(WireFormatReferenceMessages.EmptyPayload)]
     [InlineData(WireFormatReferenceMessages.UnicodeAndEscapes)]
-    public void Publish_SendsNoHeaders_WithoutCustomProperties(string id)
+    public void Publish_SendsNoHeaders_WithoutMetadata(string id)
     {
         var (_, _, headers) = Publish(WireFormatReferenceMessages.Create(id));
 
@@ -75,15 +76,17 @@ public class NatsWireFormatGoldenTests
     }
 
     /// <summary>
-    /// Up to 11.0.0-alpha.9 custom properties never reached the wire. Now they travel in headers, which
-    /// older nodes ignore, so the body they read stays the same.
+    /// Up to 11.0.0-alpha.9 custom properties never reached the wire. Now they travel in headers together
+    /// with the accepted reply formats. Older nodes ignore the headers, so the body they read stays the same.
     /// </summary>
     [Theory]
     [InlineData(WireFormatReferenceMessages.CustomProperties,
         """{"customProperties":[{"name":"replyTo","value":"saf/wire/reply"},{"name":"correlationId","value":"c3f1a0"}]}""")]
     [InlineData(WireFormatReferenceMessages.NullPropertyValue,
         """{"customProperties":[{"name":"flag"}]}""")]
-    public void Publish_SendsCustomPropertiesAsHeaders(string id, string expectedMetadata)
+    [InlineData(WireFormatReferenceMessages.ReplyFormats,
+        """{"acceptedReplyFormats":3}""")]
+    public void Publish_SendsMetadataAsHeaders(string id, string expectedMetadata)
     {
         var message = WireFormatReferenceMessages.Create(id);
 
@@ -108,18 +111,33 @@ public class NatsWireFormatGoldenTests
         Assert.Null(received.CustomProperties);
     }
 
-    [Fact]
-    public async Task Subscribe_ReadsCustomPropertiesFromHeaders()
+    [Theory]
+    [MemberData(nameof(ReferenceIds))]
+    public async Task Subscribe_ReadsWhatPublishSends(string id)
     {
-        var expected = WireFormatReferenceMessages.Create(WireFormatReferenceMessages.CustomProperties);
-        var (_, body, headers) = Publish(expected);
+        var expected = WireFormatReferenceMessages.Create(id);
+        var (subject, body, headers) = Publish(expected);
 
-        var received = await ReceiveAsync(Msg("saf.wire.props", body, headers));
+        var received = await ReceiveAsync(Msg(subject!, body, headers));
 
         Assert.Equal(expected.Topic, received.Topic);
         Assert.Equal(expected.Payload, received.Payload);
-        Assert.Equal(["replyTo", "correlationId"], received.CustomProperties!.Select(p => p.Name));
-        Assert.Equal(["saf/wire/reply", "c3f1a0"], received.CustomProperties!.Select(p => p.Value));
+        Assert.Equal(expected.AcceptedReplyFormats, received.AcceptedReplyFormats);
+        Assert.Equal(expected.CustomProperties?.Select(p => (p.Name, p.Value)), received.CustomProperties?.Select(p => (p.Name, p.Value)));
+    }
+
+    /// <summary>
+    /// The body is text only. Up to now no NATS format carries binary payloads, so they are not sent.
+    /// </summary>
+    [Fact]
+    public void Publish_SendsNothingForBinaryPayloads()
+    {
+        var client = Substitute.For<INatsClient>();
+
+        CreateMessaging(client, Substitute.For<INatsSubscriptionManager>(), Substitute.For<IServiceMessageDispatcher>())
+            .Publish(new Message { Topic = "saf/wire/binary", Payload = "p", BinaryPayload = [1, 2, 3] });
+
+        Assert.DoesNotContain(client.ReceivedCalls(), c => c.GetMethodInfo().Name == "PublishAsync");
     }
 
     [Fact]

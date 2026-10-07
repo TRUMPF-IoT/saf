@@ -9,6 +9,11 @@ using SAF.Messaging.Contracts;
 internal interface ITsmMessageEncoder
 {
     /// <summary>
+    /// Whether a peer of the given pub/sub version can receive the message. Messages it cannot are not encoded.
+    /// </summary>
+    bool CanEncode(Message message, string peerVersion);
+
+    /// <summary>
     /// The TSM payload for one message to a peer of the given pub/sub version.
     /// </summary>
     string? Encode(Message message, string peerVersion);

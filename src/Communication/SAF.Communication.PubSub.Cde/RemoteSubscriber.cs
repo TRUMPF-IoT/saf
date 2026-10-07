@@ -87,6 +87,12 @@ internal class RemoteSubscriber : IRemoteSubscriber
             return;
         }
 
+        if (!_encoder.CanEncode(message.Message, Version))
+        {
+            _logger.LogWarning($"Dropped message on {message.Topic.Channel} for {Tsm.ORG}: pub/sub version {Version} cannot transport a message with format {message.Message.GetFormat()}.");
+            return;
+        }
+
         if (System.Version.Parse(Version) >= System.Version.Parse(PubSubVersion.V4))
         {
             _broadcastMessageQueue.Enqueue(message);
