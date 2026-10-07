@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: MPL-2.0
 
-namespace SAF.Cde;
+namespace SAF.Cde.Common;
 using Microsoft.Extensions.Logging;
 
 /// <summary>
@@ -26,7 +26,7 @@ internal sealed class CdeNode(
     private bool _shutDown;
 
     /// <summary>
-    /// The node of this copy of SAF.Cde. Plug-in containers are built independently of each other, so this
+    /// The node of this copy of SAF.Cde.Common. Plug-in containers are built independently of each other, so this
     /// anchor is the one place they can share the node through; it is also the only static state.
     /// </summary>
     public static ICdeNode Shared { get; } = new CdeNode(

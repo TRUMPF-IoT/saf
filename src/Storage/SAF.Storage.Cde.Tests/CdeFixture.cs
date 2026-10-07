@@ -5,7 +5,7 @@
 namespace SAF.Storage.Cde.Tests;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
-using SAF.Cde;
+using SAF.Cde.Common;
 
 /// <summary>
 /// Holds a lease on the C-DEngine node of the test process for the tests of the <see cref="CdeCollection"/>.

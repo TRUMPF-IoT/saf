@@ -122,7 +122,8 @@ Backed by [C-DEngine](https://github.com/TRUMPF-IoT/C-DEngine), a mesh-network f
 }
 ```
 
-The `Cde` section binds to `SAF.Cde.CdeConfiguration` (package `SAF.Cde`, which comes with the plug-in).
+The `Cde` section binds to `SAF.Cde.Common.CdeConfiguration` (package `SAF.Cde.Common`, which comes with the
+plug-in).
 
 The plug-in provides messaging only. For the C-DEngine storage, load `SAF.Storage.Cde.dll` as well (see
 [Storage Infrastructure](./storage.md#c-dengine)); it reads the same `Cde` section.
@@ -134,14 +135,14 @@ effect at host start only. C-DEngine cannot be started a second time in the same
 loaded: restart the host instead.
 
 If you load both C-DEngine plug-ins, deploy them to the **host's base directory** (`AppContext.BaseDirectory`),
-preferably through a `PackageReference` in the host, so that `SAF.Cde` and C-DEngine are in the host's
-`deps.json` and both plug-ins share one copy of them. A shared plug-in folder outside the base directory is
-**not** enough: the plugin system loads every plug-in assembly there into its own `AssemblyLoadContext` (see
+preferably through a `PackageReference` in the host, so that `SAF.Cde.Common` and C-DEngine are in the
+host's `deps.json` and both plug-ins share one copy of them. A shared plug-in folder outside the base directory
+is **not** enough: the plugin system loads every plug-in assembly there into its own `AssemblyLoadContext` (see
 [Assembly Loading and Shared Assemblies](./plugin-system.md#assembly-loading-and-shared-assemblies)), each
-with its own copy of `SAF.Cde` and C-DEngine. The second copy then does not start a second node; it fails with
-an `InvalidOperationException` that names both copies and says where the plug-ins belong.
+with its own copy of `SAF.Cde.Common` and C-DEngine. The second copy then does not start a second node; it
+fails with an `InvalidOperationException` that names both copies and says where the plug-ins belong.
 
-Do not add `SAF.Cde.dll` to `PluginContractsSearchPattern`. The plugin system would then import each
+Do not add `SAF.Cde.Common.dll` to `PluginContractsSearchPattern`. The plugin system would then import each
 C-DEngine plug-in's `CdeConfiguration` and `CdeNodeLease` into every other plug-in container, next to that
 container's own.
 

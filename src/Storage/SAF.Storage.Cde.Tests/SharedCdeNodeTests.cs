@@ -7,7 +7,7 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using nsCDEngine.BaseClasses;
 using NSubstitute;
-using SAF.Cde;
+using SAF.Cde.Common;
 using SAF.Common;
 using SAF.Messaging.Contracts;
 using SAF.PluginSystem.Hosting.Contracts;

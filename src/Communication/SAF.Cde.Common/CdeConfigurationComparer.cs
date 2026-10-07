@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: MPL-2.0
 
-namespace SAF.Cde;
+namespace SAF.Cde.Common;
 using System.Text.Json;
 
 /// <summary>

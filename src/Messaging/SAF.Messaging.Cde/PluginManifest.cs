@@ -5,7 +5,7 @@
 namespace SAF.Messaging.Cde;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
-using SAF.Cde;
+using SAF.Cde.Common;
 using SAF.Messaging.Cde.Diagnostics;
 using SAF.PluginSystem.Hosting.Contracts;
 

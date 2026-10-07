@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: MPL-2.0
 
-namespace SAF.Cde;
+namespace SAF.Cde.Common;
 using Microsoft.Extensions.Logging;
 
 /// <summary>
@@ -14,7 +14,7 @@ internal interface ICdeNode
     /// Returns a lease on the node and starts the node if this is the first lease.
     /// </summary>
     /// <exception cref="InvalidOperationException">
-    /// The node was already shut down, or another copy of SAF.Cde already runs C-DEngine in this process.
+    /// The node was already shut down, or another copy of SAF.Cde.Common already runs C-DEngine in this process.
     /// </exception>
     CdeNodeLease Acquire(CdeConfiguration configuration, ILoggerFactory loggerFactory);
 }

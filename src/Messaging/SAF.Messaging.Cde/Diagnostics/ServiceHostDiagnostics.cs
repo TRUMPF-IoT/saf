@@ -8,7 +8,7 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using nsCDEngine.BaseClasses;
 using Microsoft.Extensions.DependencyInjection;
-using SAF.Cde;
+using SAF.Cde.Common;
 using SAF.Common;
 using IHostedService = Microsoft.Extensions.Hosting.IHostedService;
 

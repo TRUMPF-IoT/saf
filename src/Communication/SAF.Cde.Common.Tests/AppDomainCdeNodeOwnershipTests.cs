@@ -2,13 +2,13 @@
 //
 // SPDX-License-Identifier: MPL-2.0
 
-namespace SAF.Cde.Tests;
+namespace SAF.Cde.Common.Tests;
 using Xunit;
 
 public class AppDomainCdeNodeOwnershipTests
 {
     // Each test gets its own marker key, so the tests never see each other's claims.
-    private readonly string _markerKey = $"SAF.Cde.Tests.{Guid.NewGuid():N}";
+    private readonly string _markerKey = $"SAF.Cde.Common.Tests.{Guid.NewGuid():N}";
 
     [Fact]
     public void Claim_Succeeds_WhenNoCopyRunsCde()
@@ -32,7 +32,7 @@ public class AppDomainCdeNodeOwnershipTests
     [Fact]
     public void Claim_Throws_WhenAnotherCopyRunsCde()
     {
-        // A second instance on the same marker key stands in for a copy of SAF.Cde in another load context.
+        // A second instance on the same marker key stands in for a copy of SAF.Cde.Common in another load context.
         new AppDomainCdeNodeOwnership(_markerKey).Claim();
         var otherCopy = new AppDomainCdeNodeOwnership(_markerKey);
 

@@ -867,7 +867,7 @@ StartingAsync → StartAsync → StartedAsync     on the new instances
 
 > **C-DEngine plug-ins do not support a reload.** C-DEngine keeps its state in static fields and cannot be
 > started a second time in the same process. The C-DEngine plug-ins (`SAF.Messaging.Cde`, `SAF.Storage.Cde`)
-> share one C-DEngine node per process through `SAF.Cde`, and every plug-in container holds a lease on it. A reload disposes the old containers
+> share one C-DEngine node per process through `SAF.Cde.Common`, and every plug-in container holds a lease on it. A reload disposes the old containers
 > before the new plug-ins take their leases, which shuts the node down; the new containers then fail with an
 > `InvalidOperationException` that says so. Restart the host instead of calling `ReloadAsync` while a
 > C-DEngine plug-in is loaded.

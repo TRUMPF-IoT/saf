@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: MPL-2.0
 
-namespace SAF.Cde.Tests;
+namespace SAF.Cde.Common.Tests;
 using Xunit;
 
 public class CdeNodeLeaseTests

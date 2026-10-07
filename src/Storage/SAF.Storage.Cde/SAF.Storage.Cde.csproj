@@ -12,7 +12,7 @@ SPDX-License-Identifier: MPL-2.0
   </PropertyGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\..\Communication\SAF.Cde\SAF.Cde.csproj" />
+    <ProjectReference Include="..\..\Communication\SAF.Cde.Common\SAF.Cde.Common.csproj" />
     <ProjectReference Include="..\..\PluginSystem\SAF.PluginSystem.Hosting.Contracts\SAF.PluginSystem.Hosting.Contracts.csproj">
       <Private>False</Private>
       <ExcludeAssets>runtime</ExcludeAssets>

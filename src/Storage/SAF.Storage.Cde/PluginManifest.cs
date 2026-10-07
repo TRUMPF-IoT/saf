@@ -5,7 +5,7 @@
 namespace SAF.Storage.Cde;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
-using SAF.Cde;
+using SAF.Cde.Common;
 using SAF.PluginSystem.Hosting.Contracts;
 
 public class PluginManifest : IPluginManifest

@@ -5,7 +5,7 @@
 namespace SAF.Storage.Cde;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
-using SAF.Cde;
+using SAF.Cde.Common;
 using SAF.Common;
 
 public static class ServiceCollectionExtensions

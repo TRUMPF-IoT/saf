@@ -7,7 +7,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using nsCDEngine.Engines;
 using nsCDEngine.Engines.ThingService;
-using SAF.Cde;
+using SAF.Cde.Common;
 using SAF.Messaging.Contracts;
 using SAF.Communication.Cde;
 using SAF.Communication.PubSub.Cde;

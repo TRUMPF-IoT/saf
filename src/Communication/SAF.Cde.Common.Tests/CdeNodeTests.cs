@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: MPL-2.0
 
-namespace SAF.Cde.Tests;
+namespace SAF.Cde.Common.Tests;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using NSubstitute;
@@ -169,7 +169,7 @@ public class CdeNodeTests
             ClaimCount++;
             if (OwnedByAnotherCopy)
             {
-                throw new InvalidOperationException("Another copy of SAF.Cde runs C-DEngine.");
+                throw new InvalidOperationException("Another copy of SAF.Cde.Common runs C-DEngine.");
             }
         }
     }

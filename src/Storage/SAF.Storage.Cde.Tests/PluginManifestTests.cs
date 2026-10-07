@@ -6,7 +6,7 @@ namespace SAF.Storage.Cde.Tests;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using NSubstitute;
-using SAF.Cde;
+using SAF.Cde.Common;
 using SAF.Common;
 using SAF.PluginSystem.Hosting.Contracts;
 using Xunit;

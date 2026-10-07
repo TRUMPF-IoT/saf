@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: MPL-2.0
 
-namespace SAF.Cde;
+namespace SAF.Cde.Common;
 
 /// <summary>
 /// A plug-in container's hold on the C-DEngine node of the process.
