@@ -312,7 +312,8 @@ See [Messaging Infrastructure](./messaging.md) and [Storage Infrastructure](./st
 plug-ins: `SAF.Messaging.Cde.dll` provides messaging only, and `SAF.Storage.Cde.dll` provides the storage.
 Both read the `Cde` section and share one C-DEngine node per process. A host that relied on the C-DEngine
 storage, for example for the host id that `SAF.Hosting` keeps there, loads both. The storage reads the
-cache files that 10.x wrote, so nothing is lost.
+cache files that 10.x wrote, so nothing is lost. A host without any storage plug-in gets a new host id on
+every start and logs a warning, see [ServiceHost section](./saf-host.md#servicehost-section).
 
 If you load both, deploy them to the host's base directory, preferably through a `PackageReference` in the
 host; a shared plug-in folder elsewhere is not enough. See [C-DEngine](./messaging.md#c-dengine) for why.

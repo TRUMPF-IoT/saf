@@ -97,6 +97,11 @@ Controls host identity and file system paths:
 | `FileSystemInstallationPath` | `AppContext.BaseDirectory` | Installation root directory |
 | `EnableDiagnostics` | `false` | Write diagnostic node-info to disk on startup |
 
+Without `Id`, the host generates a GUID the first time the id is read and persists it under the key
+`saf/hostid` in the storage (`IStorageInfrastructure`), so it stays the same across restarts. That needs a
+storage plug-in such as `SAF.Storage.SQLite` or `SAF.Storage.LiteDb`. Without one, the host logs a warning
+and gets a new id on every start; set `Id` in that case.
+
 ### Messaging section
 
 Required by `SAF.Messaging.Runtime` to select which messaging factory to expose as the primary `IMessagingInfrastructure`:

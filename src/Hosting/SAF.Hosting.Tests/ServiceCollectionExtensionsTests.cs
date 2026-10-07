@@ -6,10 +6,12 @@ namespace SAF.Hosting.Tests;
 
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
 using NSubstitute;
 using SAF.Common;
 using SAF.PluginSystem.Hosting;
 using SAF.PluginSystem.Hosting.Contracts;
+using TestUtilities;
 using Xunit;
 
 public class ServiceCollectionExtensionsTests
@@ -112,6 +114,51 @@ public class ServiceCollectionExtensionsTests
 
         Assert.False(string.IsNullOrWhiteSpace(hostInfo.Id));
         storage.Received(1).Set("saf/hostid", Arg.Is<string>(value => !string.IsNullOrWhiteSpace(value)));
+    }
+
+    [Fact]
+    public void AddServiceHostInfo_WhenStorageMissing_WarnsOnceThatTheIdIsNotPersisted()
+    {
+        var logger = Substitute.For<MockLogger>();
+        var services = new ServiceCollection();
+        services.AddSingleton<ILoggerFactory>(new SingleLoggerFactory(logger));
+        services.AddServiceHostInfo(static _ => { });
+
+        var provider = services.BuildServiceProvider();
+        var hostInfo = provider.GetRequiredService<IServiceHostInfo>();
+
+        Assert.Equal(hostInfo.Id, hostInfo.Id);
+        logger.AssertLoggedOnce(LogLevel.Warning);
+        logger.AssertLogged(LogLevel.Warning, message => message.Contains($"host id {hostInfo.Id} is not persisted", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public void AddServiceHostInfo_WhenStorageAvailable_DoesNotWarn()
+    {
+        var logger = Substitute.For<MockLogger>();
+        var services = new ServiceCollection();
+        services.AddSingleton<ILoggerFactory>(new SingleLoggerFactory(logger));
+        services.AddSingleton(Substitute.For<IStorageInfrastructure>());
+        services.AddServiceHostInfo(static _ => { });
+
+        var provider = services.BuildServiceProvider();
+        _ = provider.GetRequiredService<IServiceHostInfo>().Id;
+
+        logger.AssertNotLogged(LogLevel.Warning);
+    }
+
+    [Fact]
+    public void AddServiceHostInfo_WhenIdConfigured_DoesNotWarnWithoutStorage()
+    {
+        var logger = Substitute.For<MockLogger>();
+        var services = new ServiceCollection();
+        services.AddSingleton<ILoggerFactory>(new SingleLoggerFactory(logger));
+        services.AddServiceHostInfo(static opts => opts.Id = "configured-id");
+
+        var provider = services.BuildServiceProvider();
+
+        Assert.Equal("configured-id", provider.GetRequiredService<IServiceHostInfo>().Id);
+        logger.AssertNotLogged(LogLevel.Warning);
     }
 
     [Fact]
