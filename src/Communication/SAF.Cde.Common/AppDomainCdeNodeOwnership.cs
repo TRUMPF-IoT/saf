@@ -11,8 +11,9 @@ using System.Runtime.Loader;
 /// <remarks>
 /// AppDomain data is one store for the whole process, across all assembly load contexts, so a second copy
 /// of SAF.Cde.Common in another context sees the marker. Each copy also has its own copy of C-DEngine and would
-/// start a second node next to the first. The check is a diagnostic, not a lock: two copies claiming at
-/// the very same moment can both pass it.
+/// start a second node next to the first. A lock in this assembly cannot guard the check, because every copy
+/// has its own; the claim locks on the named data slot of the marker key instead. Named data slots live in
+/// System.Private.CoreLib, which is loaded once per process, so all copies get the same slot for the same key.
 /// </remarks>
 internal sealed class AppDomainCdeNodeOwnership(string markerKey) : ICdeNodeOwnership
 {
@@ -22,19 +23,22 @@ internal sealed class AppDomainCdeNodeOwnership(string markerKey) : ICdeNodeOwne
 
     public void Claim()
     {
-        var domain = AppDomain.CurrentDomain;
-        if (domain.GetData(markerKey) is string owner && owner != _owner)
+        lock (Thread.GetNamedDataSlot(markerKey))
         {
-            throw new InvalidOperationException(
-                $"C-DEngine is already running in this process, started by another copy of SAF.Cde.Common ({owner}). " +
-                $"This copy ({_owner}) cannot start a second node. Load every plug-in that uses C-DEngine, such as " +
-                "SAF.Messaging.Cde and SAF.Storage.Cde, from the host's base directory (AppContext.BaseDirectory), preferably through a " +
-                "PackageReference in the host. A shared plug-in folder outside the base directory is not enough: " +
-                "the plugin system loads every plug-in assembly there into its own AssemblyLoadContext, each with its " +
-                "own copy of SAF.Cde.Common and C-DEngine.");
-        }
+            var domain = AppDomain.CurrentDomain;
+            if (domain.GetData(markerKey) is string owner && owner != _owner)
+            {
+                throw new InvalidOperationException(
+                    $"C-DEngine is already running in this process, started by another copy of SAF.Cde.Common ({owner}). " +
+                    $"This copy ({_owner}) cannot start a second node. Load every plug-in that uses C-DEngine, such as " +
+                    "SAF.Messaging.Cde and SAF.Storage.Cde, from the host's base directory (AppContext.BaseDirectory), preferably through a " +
+                    "PackageReference in the host. A shared plug-in folder outside the base directory is not enough: " +
+                    "the plugin system loads every plug-in assembly there into its own AssemblyLoadContext, each with its " +
+                    "own copy of SAF.Cde.Common and C-DEngine.");
+            }
 
-        domain.SetData(markerKey, _owner);
+            domain.SetData(markerKey, _owner);
+        }
     }
 
     private static string DescribeOwner()
