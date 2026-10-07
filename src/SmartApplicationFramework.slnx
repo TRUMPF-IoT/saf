@@ -12,6 +12,8 @@ SPDX-License-Identifier: MPL-2.0
     <Project Path="Configuration/SAF.Configuration.Secrets/SAF.Configuration.Secrets.csproj" />
   </Folder>
   <Folder Name="/Communication/">
+    <Project Path="Communication/SAF.Cde.Tests/SAF.Cde.Tests.csproj" />
+    <Project Path="Communication/SAF.Cde/SAF.Cde.csproj" />
     <Project Path="Communication/SAF.Communication.Cde/SAF.Communication.Cde.csproj" />
     <Project Path="Communication/SAF.Communication.PubSub.Cde.Tests/SAF.Communication.PubSub.Cde.Tests.csproj" />
     <Project Path="Communication/SAF.Communication.PubSub.Cde/SAF.Communication.PubSub.Cde.csproj" />

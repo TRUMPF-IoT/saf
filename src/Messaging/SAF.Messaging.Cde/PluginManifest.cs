@@ -5,6 +5,7 @@
 namespace SAF.Messaging.Cde;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using SAF.Cde;
 using SAF.Messaging.Cde.Diagnostics;
 using SAF.PluginSystem.Hosting.Contracts;
 
@@ -12,11 +13,7 @@ public class PluginManifest : IPluginManifest
 {
     public void ConfigureServices(IPluginSystemHostContext context, IServiceCollection pluginServices)
     {
-        var cdeConfig = context.PluginConfiguration.GetSection("Cde");
-        if (!cdeConfig.Exists())
-        {
-            cdeConfig = context.HostConfiguration.GetSection("Cde");
-        }
+        var cdeConfig = context.GetCdeConfigurationSection();
 
         pluginServices.AddCdeInfrastructure(c => cdeConfig.Bind(c));
 

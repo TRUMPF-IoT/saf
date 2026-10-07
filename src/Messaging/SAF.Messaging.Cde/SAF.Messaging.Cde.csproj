@@ -12,6 +12,7 @@ SPDX-License-Identifier: MPL-2.0
   </PropertyGroup>
 
   <ItemGroup>
+    <ProjectReference Include="..\..\Communication\SAF.Cde\SAF.Cde.csproj" />
     <ProjectReference Include="..\..\Communication\SAF.Communication.PubSub.Cde\SAF.Communication.PubSub.Cde.csproj" />
     <ProjectReference Include="..\SAF.Messaging.Contracts\SAF.Messaging.Contracts.csproj">
       <Private>False</Private>

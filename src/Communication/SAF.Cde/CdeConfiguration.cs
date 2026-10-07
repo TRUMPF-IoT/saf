@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: MPL-2.0
 
-namespace SAF.Messaging.Cde;
+namespace SAF.Cde;
 
 public class CdeCryptoLibConfig
 {

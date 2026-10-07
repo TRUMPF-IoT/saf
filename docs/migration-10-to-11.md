@@ -362,6 +362,21 @@ Update your `.csproj` files:
 | `SAF.Hosting` (for `IServiceAssemblyManifest`) | `SAF.PluginSystem.Hosting.Contracts` (for `IPluginManifest`) |
 | `SAF.Hosting` (for host bootstrap) | `SAF.Hosting` (unchanged, but API changed) |
 | `IMessageHandler` plugin registration without extensions | Add package `SAF.Messaging.Extensions` and use `AddSingletonMessageHandler<T>()` / `AddTransientMessageHandler<T>()` + `AddMessageHandlerResolver()` |
+| `SAF.Messaging.Cde` (for `CdeConfiguration`, `CdeCryptoLibConfig`, `AddCde`) | `SAF.Cde`, namespace `SAF.Cde` (see [below](#c-dengine-configuration-moved-to-safcde)) |
+
+### C-DEngine configuration moved to `SAF.Cde`
+
+`CdeConfiguration`, `CdeCryptoLibConfig` and `AddCde` moved from `SAF.Messaging.Cde` to the new package
+`SAF.Cde`, namespace `SAF.Cde`. `SAF.Cde` owns the one C-DEngine node of the process, which the C-DEngine
+plug-ins share instead of each starting its own.
+
+Code that names these types, for example a host that reads the `Cde` section into a `CdeConfiguration`,
+replaces `using SAF.Messaging.Cde;` with `using SAF.Cde;`. The package comes with `SAF.Messaging.Cde`; add a
+`PackageReference` to `SAF.Cde` only if you use the types without the plug-in package. The `Cde`
+configuration section itself is unchanged.
+
+This also breaks hosts that already moved to `11.0.0-alpha.9` or an earlier 11.0 preview, where these
+types still lived in `SAF.Messaging.Cde`.
 
 ### Plugin assembly validation is a separate package
 
@@ -460,3 +475,4 @@ The [shared set](./plugin-system.md#the-shared-set) includes `SAF.PluginSystem.H
 - [ ] Move values your host set in `Add*Infrastructure(...)` callbacks into the backend's configuration section: host constants via `AddPluginConfigurationSource`, secrets as `secret://` references (see [Values the host passed in code](#values-the-host-passed-in-code))
 - [ ] Reference `SAF.PluginSystem.Hosting.Extensions` explicitly if you use plugin assembly validation, and check the `RequireValidDigitalSignature = true` default against the signatures your plug-ins actually carry
 - [ ] Forward any additional host service your plug-ins need with `AddHostServiceForwarder<T>()` — v10's single shared container needed no such step
+- [ ] Replace `using SAF.Messaging.Cde;` with `using SAF.Cde;` wherever you use `CdeConfiguration` or `CdeCryptoLibConfig`

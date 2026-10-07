@@ -122,6 +122,14 @@ Backed by [C-DEngine](https://github.com/TRUMPF-IoT/C-DEngine), a mesh-network f
 }
 ```
 
+The `Cde` section binds to `SAF.Cde.CdeConfiguration` (package `SAF.Cde`, which comes with the plug-in).
+
+C-DEngine runs **once per process**. The plug-in starts it the first time one of its services is used and
+shuts it down when the host disposes the plug-in, so the `Cde` settings take effect at host start only.
+C-DEngine cannot be started a second time in the same process, so a
+[live reload](./plugin-system.md#live-reload-reconfiguration) is not supported while this plug-in is loaded:
+restart the host instead.
+
 ### Routing (Multiple Brokers)
 
 Routes messages across multiple messaging infrastructures based on topic patterns. Load the routing plug-in **and** each backend plug-in it references (e.g. `SAF.Messaging.InProcess.dll;SAF.Messaging.Redis.dll;SAF.Messaging.Routing.dll`), then configure the routes under `MessageRouting`.
