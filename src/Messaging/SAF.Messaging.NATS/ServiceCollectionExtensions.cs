@@ -11,6 +11,7 @@ using NATS.Client.Core;
 using NATS.Net;
 using SAF.Common;
 using SAF.Messaging.Contracts;
+using SAF.Messaging.Nats.WireFormat;
 
 [assembly: InternalsVisibleTo("SAF.Messaging.Nats.Tests")]
 [assembly: InternalsVisibleTo("DynamicProxyGenAssembly2")]
@@ -190,12 +191,17 @@ public static class ServiceCollectionExtensions
     }
 
     private static Messaging CreateMessagingInfrastructure(IServiceProvider serviceProvider, NatsConfiguration config)
-        => new Messaging(serviceProvider.GetRequiredService<ILogger<Messaging>>(),
-            CreateNatsClient(config, serviceProvider.GetRequiredService<ILogger<Messaging>>()),
+    {
+        var logger = serviceProvider.GetRequiredService<ILogger<Messaging>>();
+        return new Messaging(logger,
+            CreateNatsClient(config, logger),
             new NatsSubscriptionManager(),
             serviceProvider.GetService<IInputRouteTranslator>() ?? new NatsInputRouteTranslator(),
             serviceProvider.GetService<IOutputRouteTranslator>() ?? new NatsOutputRouteTranslator(),
-            ResolveMessageDispatcher(serviceProvider));
+            ResolveMessageDispatcher(serviceProvider),
+            new NatsMessageWriter(NatsWireFormats.All),
+            new NatsMessageReader(NatsWireFormats.All, new UnknownVersionWarning(logger), logger));
+    }
 
     private static IServiceMessageDispatcher ResolveMessageDispatcher(IServiceProvider serviceProvider)
         => serviceProvider.GetService<IServiceMessageDispatcher>() ??

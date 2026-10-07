@@ -4,12 +4,12 @@
 
 namespace SAF.Communication.PubSub.Cde.Tests.WireFormat;
 
-using System.Reflection;
 using Communication.Cde;
 using Interfaces;
 using nsCDEngine.BaseClasses;
 using NSubstitute;
 using SAF.Communication.PubSub.Cde.MessageProcessing;
+using SAF.Communication.PubSub.Cde.WireFormat;
 using SAF.Messaging.Contracts;
 using TestUtilities.WireFormat;
 using Xunit;
@@ -83,13 +83,13 @@ public class CdeWireFormatGoldenTests
     [InlineData(WireFormatReferenceMessages.EmptyPayload)]
     [InlineData(WireFormatReferenceMessages.UnicodeAndEscapes)]
     [InlineData(WireFormatReferenceMessages.NullPropertyValue)]
-    public void ExtractMessagesFromTsm_ReadsV2AndV3Samples(string id)
+    public void DecodeMessages_ReadsV2AndV3Samples(string id)
     {
         var expected = WireFormatReferenceMessages.Create(id);
 
         foreach (var version in new[] { PubSubVersion.V2, PubSubVersion.V3 })
         {
-            var messages = ExtractMessagesFromTsm(expected.Topic, version, GoldenJson(id));
+            var messages = DecodeMessages(expected.Topic, version, GoldenJson(id));
 
             AssertSingle(expected, messages);
         }
@@ -102,19 +102,19 @@ public class CdeWireFormatGoldenTests
     [InlineData(WireFormatReferenceMessages.EmptyPayload)]
     [InlineData(WireFormatReferenceMessages.UnicodeAndEscapes)]
     [InlineData(WireFormatReferenceMessages.NullPropertyValue)]
-    public void ExtractMessagesFromTsm_ReadsV4BatchSamples(string id)
+    public void DecodeMessages_ReadsV4BatchSamples(string id)
     {
         var expected = WireFormatReferenceMessages.Create(id);
 
-        var messages = ExtractMessagesFromTsm("$$batch:size=1$$", PubSubVersion.V4, $"[{GoldenJson(id)}]");
+        var messages = DecodeMessages("$$batch:size=1$$", PubSubVersion.V4, $"[{GoldenJson(id)}]");
 
         AssertSingle(expected, messages);
     }
 
     [Fact]
-    public void ExtractMessagesFromTsm_ReadsV1AsPayloadOnly()
+    public void DecodeMessages_ReadsV1AsPayloadOnly()
     {
-        var messages = ExtractMessagesFromTsm("saf/wire/text", PubSubVersion.V1, "just the payload");
+        var messages = DecodeMessages("saf/wire/text", PubSubVersion.V1, "just the payload");
 
         Assert.Single(messages);
         Assert.Equal("saf/wire/text", messages[0].Topic);
@@ -126,11 +126,11 @@ public class CdeWireFormatGoldenTests
     /// sender produces when it talks to a V4 peer without batching.
     /// </summary>
     [Fact]
-    public void ExtractMessagesFromTsm_ReadsNonBatchV4AsSingleMessage()
+    public void DecodeMessages_ReadsNonBatchV4AsSingleMessage()
     {
         var expected = WireFormatReferenceMessages.Create(WireFormatReferenceMessages.TextPayload);
 
-        var messages = ExtractMessagesFromTsm(expected.Topic, PubSubVersion.V4,
+        var messages = DecodeMessages(expected.Topic, PubSubVersion.V4,
             GoldenJson(WireFormatReferenceMessages.TextPayload));
 
         AssertSingle(expected, messages);
@@ -168,22 +168,15 @@ public class CdeWireFormatGoldenTests
 
         var subscriberTsm = new TSM(Engines.PubSub, MessageToken.SubscribeRequest) { ORG = line.Address };
         var request = new RegistrySubscriptionRequest { version = version, isRegistry = false };
-        var remote = new RemoteSubscriber(line, subscriberTsm, ["*"], request);
+        var remote = new RemoteSubscriber(line, subscriberTsm, ["*"], request, TsmWireFormats.CreateCodec());
 
         remote.Broadcast(new BroadcastMessage(new Topic(message.Topic, MsgId, version), message, "user", RoutingOptions.All));
 
         return await captured.Task.WaitAsync(TimeSpan.FromSeconds(10), TestContext.Current.CancellationToken);
     }
 
-    private static List<Message> ExtractMessagesFromTsm(string channel, string version, string pls)
-    {
-        var method = typeof(SubscriptionRegistry)
-            .GetMethod("ExtractMessagesFromTsm", BindingFlags.Static | BindingFlags.NonPublic)!;
-        var topic = new Topic(channel, MsgId, version);
-        var tsm = new TSM(Engines.PubSub, $"{MessageToken.Publish}:{topic.ToTsmTxt()}", pls);
-
-        return (List<Message>)method.Invoke(null, [topic, tsm])!;
-    }
+    private static List<Message> DecodeMessages(string channel, string version, string pls)
+        => TsmWireFormats.CreateCodec().DecodeMessages(new Topic(channel, MsgId, version), pls);
 
     private static void AssertSingle(Message expected, List<Message> actual)
     {

@@ -3,11 +3,11 @@
 // SPDX-License-Identifier: MPL-2.0
 
 namespace SAF.Communication.PubSub.Cde;
-using nsCDEngine.BaseClasses;
 using nsCDEngine.ViewModels;
 using SAF.Common;
 using SAF.Messaging.Contracts;
 using Interfaces;
+using WireFormat;
 
 /// <summary>
 /// Defines the pattern and the handler to be executed for a subscription. 
@@ -15,15 +15,17 @@ using Interfaces;
 internal class Subscription : ISubscription
 {
     private readonly Subscriber _subscriber;
+    private readonly ITsmMessageDecoder _decoder;
     private Action<DateTimeOffset, Message>? _handler;
 
-    public Subscription(Subscriber subscriber, params string[] patterns)
-        : this(subscriber, RoutingOptions.All, patterns)
+    public Subscription(Subscriber subscriber, ITsmMessageDecoder decoder, params string[] patterns)
+        : this(subscriber, decoder, RoutingOptions.All, patterns)
     { }
 
-    public Subscription(Subscriber subscriber, RoutingOptions routingOptions, params string[] patterns)
+    public Subscription(Subscriber subscriber, ITsmMessageDecoder decoder, RoutingOptions routingOptions, params string[] patterns)
     {
         _subscriber = subscriber;
+        _decoder = decoder;
         RoutingOptions = routingOptions;
         Patterns = patterns;
 
@@ -71,11 +73,7 @@ internal class Subscription : ISubscription
         {
             if (!IsTopicMatch(topic)) return;
 
-            var message = msgVersion == PubSubVersion.V1
-                ? new Message {Topic = topic, Payload = msg.Message.PLS}
-                : TheCommonUtils.DeserializeJSONStringToObject<Message>(msg.Message.PLS);
-
-            _handler.Invoke(msg.Message.TIM, message);
+            _handler.Invoke(msg.Message.TIM, _decoder.Decode(topic, msgVersion, msg.Message.PLS)!);
             return;
         }
 

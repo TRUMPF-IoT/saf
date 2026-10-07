@@ -7,6 +7,7 @@ using Microsoft.Extensions.Logging.Abstractions;
 using NATS.Client.Core;
 using SAF.Common;
 using SAF.Messaging.Contracts;
+using SAF.Messaging.Nats.WireFormat;
 
 namespace SAF.Messaging.Nats;
 
@@ -18,14 +19,20 @@ internal sealed class Messaging : IMessagingInfrastructure, IDisposable
     private readonly IOutputRouteTranslator _outputRouteTranslator;
     private readonly IServiceMessageDispatcher _serviceMessageDispatcher;
     private readonly ILogger<Messaging> _logger;
+    private readonly INatsMessageWriter _writer;
+    private readonly INatsMessageReader _reader;
 
     public Messaging(ILogger<Messaging>? logger, INatsClient natsClient,
         INatsSubscriptionManager subscriptionManager,
         IInputRouteTranslator inputRouteTranslator,
         IOutputRouteTranslator outputRouteTranslator,
-        IServiceMessageDispatcher serviceMessageDispatcher)
+        IServiceMessageDispatcher serviceMessageDispatcher,
+        INatsMessageWriter writer,
+        INatsMessageReader reader)
     {
         _logger = logger ?? NullLogger<Messaging>.Instance;
+        _writer = writer;
+        _reader = reader;
         _natsClient = natsClient;
         _subscriptionManager = subscriptionManager;
         _inputRouteTranslator = inputRouteTranslator;
@@ -40,7 +47,8 @@ internal sealed class Messaging : IMessagingInfrastructure, IDisposable
         try
         {
             var topic = _inputRouteTranslator.TranslateRoute(message.Topic);
-            _natsClient.PublishAsync(topic, message.Payload);
+            var wireMessage = _writer.Write(message);
+            _natsClient.PublishAsync(topic, wireMessage.Body, headers: wireMessage.Headers);
         }
         catch (NullReferenceException nre)
         {
@@ -158,13 +166,8 @@ internal sealed class Messaging : IMessagingInfrastructure, IDisposable
                 {
                     try
                     {
-                        var message = new Message
-                        {
-                            Topic = _outputRouteTranslator.TranslateRoute(msg.Subject),
-                            Payload = msg.Data
-                        };
-
-                        handler(message);
+                        var message = _reader.Read(_outputRouteTranslator.TranslateRoute(msg.Subject), msg.Data, msg.Headers);
+                        if (message != null) handler(message);
                     }
                     catch (Exception)
                     {

@@ -10,6 +10,7 @@ using Interfaces;
 using nsCDEngine.BaseClasses;
 using NSubstitute;
 using SAF.Communication.PubSub.Cde.MessageProcessing;
+using SAF.Communication.PubSub.Cde.WireFormat;
 using System.Reflection;
 using Xunit;
 
@@ -137,7 +138,7 @@ public class RemoteSubscriberTests
     {
         var tsm = new TSM(Engines.PubSub, MessageToken.SubscribeRequest) { ORG = localHost ? _line.Address : "remote" };
         var req = new RegistrySubscriptionRequest { version = version, isRegistry = false };
-        return new RemoteSubscriber(_line, tsm, patterns ?? ["sensor/*"], req);
+        return new RemoteSubscriber(_line, tsm, patterns ?? ["sensor/*"], req, TsmWireFormats.CreateCodec());
     }
 
     private static BroadcastMessage CreateBroadcastMessage(string channel = "sensor/1", string payload = "data", string userId = "user", string version = PubSubVersion.V4)

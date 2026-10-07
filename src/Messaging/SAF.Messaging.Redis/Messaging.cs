@@ -9,7 +9,7 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using StackExchange.Redis;
 using SAF.Messaging.Contracts;
-using JsonSerializer = Toolbox.Serialization.JsonSerializer;
+using WireFormat;
 
 public static class RedisMessageVersion
 {
@@ -18,23 +18,22 @@ public static class RedisMessageVersion
     public static readonly string Latest = V2;
 }
 
-internal class RedisMessage
-{
-    public string? Version { get; set; }
-    public Message? Message { get; set; }
-}
-
 internal sealed class Messaging : IMessagingInfrastructure, IDisposable
 {
     private readonly IConnectionMultiplexer _redis;
     private readonly IServiceMessageDispatcher _serviceMessageDispatcher;
     private readonly ILogger<Messaging> _log;
+    private readonly IRedisMessageWriter _writer;
+    private readonly IRedisMessageReader _reader;
 
     private readonly ConcurrentDictionary<Guid, (string routeFilterPattern, Action<RedisChannel, RedisValue> handler)> _subscriptions = new();
 
-    public Messaging(ILogger<Messaging>? log, IConnectionMultiplexer redis, IServiceMessageDispatcher serviceMessageDispatcher)
+    public Messaging(ILogger<Messaging>? log, IConnectionMultiplexer redis, IServiceMessageDispatcher serviceMessageDispatcher,
+        IRedisMessageWriter writer, IRedisMessageReader reader)
     {
         _log = log ?? NullLogger<Messaging>.Instance;
+        _writer = writer;
+        _reader = reader;
         _redis = redis;
         _serviceMessageDispatcher = serviceMessageDispatcher;
     }
@@ -44,7 +43,7 @@ internal sealed class Messaging : IMessagingInfrastructure, IDisposable
         _log.LogTrace("Publishing message for topic {Topic}.", message.Topic);
         try
         {
-            var redisPayload = JsonSerializer.Serialize(new RedisMessage {Message = message, Version = RedisMessageVersion.Latest});
+            var redisPayload = _writer.Write(message);
             _redis.GetSubscriber().Publish(RedisChannel.Literal(message.Topic), redisPayload, CommandFlags.FireAndForget);
         }
         catch (NullReferenceException nre)
@@ -147,23 +146,8 @@ internal sealed class Messaging : IMessagingInfrastructure, IDisposable
         {
             void InternalHandler(RedisChannel channel, RedisValue message)
             {
-                RedisMessage? redisMessage;
-                try
-                {
-                    redisMessage = JsonSerializer.Deserialize<RedisMessage>(message.ToString());
-                    if (string.IsNullOrEmpty(redisMessage?.Version) && redisMessage?.Message == null)
-                        redisMessage = null;
-                }
-                catch (Exception)
-                {
-                    redisMessage = null;
-                }
-
-                handler(redisMessage?.Message ?? new Message
-                {
-                    Topic = channel.ToString(),
-                    Payload = message.ToString()
-                });
+                var decoded = _reader.Read(channel.ToString(), message.ToString());
+                if (decoded != null) handler(decoded);
             }
 
             var subscriptionId = Guid.NewGuid();

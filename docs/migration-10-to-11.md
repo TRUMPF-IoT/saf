@@ -22,6 +22,7 @@ This document describes every breaking change and the steps needed to migrate fr
 | Message handler registration in plug-ins | `IMessageHandler` interface registration often worked implicitly | Typed handlers must be registered via `SAF.Messaging.Extensions` (`AddSingletonMessageHandler<T>()` / `AddTransientMessageHandler<T>()`) and `AddMessageHandlerResolver()` |
 | Storage namespace | `SAF.Common.IStorageInfrastructure` | Still `SAF.Common.IStorageInfrastructure` (unchanged) |
 | Cross-plugin services | Not supported | Public contract services imported across plugin containers; `IPluginServiceProvider` for dynamic resolution |
+| NATS server | Any version | **2.2 or newer**, because `CustomProperties` now travel in NATS headers |
 
 ---
 
@@ -428,6 +429,26 @@ is slower than the publish rate still applies backpressure to the reader instead
 messages — the 10.x behaviour. No action is required; the note is here because the underlying default
 inverted, so a host that builds its own `NatsOpts` has to set the mode itself.
 
+### NATS transports custom properties and requires NATS Server 2.2
+
+SAF 10.x sent only topic and payload over NATS; `Message.CustomProperties` were lost on the way. SAF 11.x sends
+them in the NATS headers `saf-v` and `saf-meta`, which NATS supports since server version **2.2**. The message
+body is still the payload, and a message without custom properties carries no headers, so it looks exactly as
+in 10.x.
+
+**Required:** run NATS Server 2.2 or newer. An older server rejects every message with custom properties and
+closes the publishing connection; the message is lost.
+
+In mixed operation, 9.x and 10.x nodes keep working with 11.x nodes: they ignore the headers and receive topic
+and payload, as before, but no custom properties. See [NATS](./messaging.md#nats) for the details.
+
+### Redis drops messages of unknown wire format versions
+
+A Redis receiver in 11.x reads the envelope versions `1.x` and `2.x` that all SAF versions since 9.x write. An
+envelope with any other major version is now **dropped** with a warning, logged once per version, instead of
+being read as version 2. No action is required: 9.x, 10.x and 11.x all write version `2.0.0`. See
+[Redis](./messaging.md#redis).
+
 ### Digital-signature validation is secure by default
 
 `DigitalSignaturePluginAssemblyValidatorOptions.RequireValidDigitalSignature` defaults to `true`, so registering the validator without configuration demands a signature that is intact, covers the file and chains to a trusted root. Check that against the signatures your plug-ins actually carry before enabling the validator: unsigned plug-ins, and plug-ins whose signer chains to a root the host does not trust, are skipped with a warning.
@@ -494,3 +515,4 @@ The [shared set](./plugin-system.md#the-shared-set) includes `SAF.PluginSystem.H
 - [ ] Reference `SAF.PluginSystem.Hosting.Extensions` explicitly if you use plugin assembly validation, and check the `RequireValidDigitalSignature = true` default against the signatures your plug-ins actually carry
 - [ ] Forward any additional host service your plug-ins need with `AddHostServiceForwarder<T>()` — v10's single shared container needed no such step
 - [ ] Replace `using SAF.Messaging.Cde;` with `using SAF.Cde.Common;` wherever you use `CdeConfiguration` or `CdeCryptoLibConfig`
+- [ ] If you use NATS, run NATS Server 2.2 or newer

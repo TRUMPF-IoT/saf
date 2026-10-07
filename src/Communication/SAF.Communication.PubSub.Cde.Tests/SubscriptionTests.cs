@@ -9,6 +9,7 @@ using nsCDEngine.ViewModels;
 using NSubstitute;
 using SAF.Communication.Cde;
 using SAF.Communication.PubSub.Interfaces;
+using SAF.Communication.PubSub.Cde.WireFormat;
 using SAF.Messaging.Contracts;
 using Xunit;
 using System.Collections.Concurrent;
@@ -44,7 +45,7 @@ public class SubscriptionTests
     [InlineData(PubSubVersion.V4, "{\"topic\":\"sensor/1\",\"payload\":\"payload\"}")]
     public void OnMessage_NonBatch_InvokesHandlers(string pubSubVersion, string payload)
     {
-        var subscription = new Subscription(_subscriber, "sensor/*");
+        var subscription = new Subscription(_subscriber, TsmWireFormats.CreateCodec(), "sensor/*");
         DateTimeOffset? receivedTs = null;
         Message? receivedMsg = null;
 
@@ -61,7 +62,7 @@ public class SubscriptionTests
     [Fact]
     public void OnMessage_NonBatch_IgnoresUnmatchedPayload()
     {
-        var subscription = new Subscription(_subscriber, "sensor/*");
+        var subscription = new Subscription(_subscriber, TsmWireFormats.CreateCodec(), "sensor/*");
         var invokeCount = 0;
         subscription.SetHandler((_, _) => invokeCount++);
 
@@ -74,7 +75,7 @@ public class SubscriptionTests
     [Fact]
     public void OnMessage_Batch_InvokesHandlerForMatchingTopicsOnly()
     {
-        var subscription = new Subscription(_subscriber, "dev/*");
+        var subscription = new Subscription(_subscriber, TsmWireFormats.CreateCodec(), "dev/*");
 
         var handled = new List<string>();
         subscription.SetHandler((_, m) => handled.Add(m.Topic));
@@ -89,7 +90,7 @@ public class SubscriptionTests
     [Fact]
     public void OnMessage_Batch_DispatchesSameParsedBatchToAllSubscriptions()
     {
-        var subscription = new Subscription(_subscriber, "dev/*");
+        var subscription = new Subscription(_subscriber, TsmWireFormats.CreateCodec(), "dev/*");
         var handled = new List<string>();
         subscription.SetHandler((_, message) => handled.Add(message.Topic));
 
@@ -108,8 +109,8 @@ public class SubscriptionTests
     [Fact]
     public void OnMessage_Batch_KeepsHandlerMessagesIndependent()
     {
-        var first = new Subscription(_subscriber, "dev/*");
-        var second = new Subscription(_subscriber, "dev/A");
+        var first = new Subscription(_subscriber, TsmWireFormats.CreateCodec(), "dev/*");
+        var second = new Subscription(_subscriber, TsmWireFormats.CreateCodec(), "dev/A");
         Message? firstMessage = null;
         Message? secondMessage = null;
 
@@ -136,7 +137,7 @@ public class SubscriptionTests
     [Fact]
     public void OnMessage_NoHandlers_EarlyReturn()
     {
-        _ = new Subscription(_subscriber, "sensor/*");
+        _ = new Subscription(_subscriber, TsmWireFormats.CreateCodec(), "sensor/*");
 
         var ex = Record.Exception(() => RaisePublication("sensor/3", PubSubVersion.V1, "payload"));
         Assert.Null(ex);

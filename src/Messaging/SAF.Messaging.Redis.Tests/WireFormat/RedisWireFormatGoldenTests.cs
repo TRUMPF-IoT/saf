@@ -53,10 +53,10 @@ public class RedisWireFormatGoldenTests
     }
 
     /// <summary>
-    /// The envelope version is written but never evaluated today - a V1 envelope is read exactly like a V2 one.
+    /// V1 was declared together with V2 but never written; both versions share the same message shape.
     /// </summary>
     [Fact]
-    public void Subscribe_IgnoresEnvelopeVersion_V1IsReadLikeV2()
+    public void Subscribe_ReadsV1EnvelopeLikeV2()
     {
         var received = Receive("saf/wire/text",
             """{"version":"1.0.0","message":{"topic":"saf/wire/text","payload":"p"}}""");
@@ -66,17 +66,19 @@ public class RedisWireFormatGoldenTests
     }
 
     /// <summary>
-    /// Today an unknown major version is accepted instead of being rejected. This is the concrete gap that
-    /// makes future format changes indistinguishable from a corrupt old message.
+    /// Up to 11.0.0-alpha.9 an unknown version was read like V2. Since then it is dropped, so a future format
+    /// can no longer be mistaken for a corrupt old message.
     /// </summary>
     [Fact]
-    public void Subscribe_AcceptsUnknownEnvelopeVersion()
+    public void Subscribe_DropsUnknownEnvelopeVersion()
     {
-        var received = Receive("saf/wire/text",
+        var (messaging, subscriber, dispatcher) = CreateMessaging();
+        var internalHandler = CaptureInternalHandler(messaging, subscriber);
+
+        internalHandler(RedisChannel.Literal("saf/wire/text"),
             """{"version":"99.0.0","message":{"topic":"saf/wire/text","payload":"p"}}""");
 
-        Assert.Equal("saf/wire/text", received.Topic);
-        Assert.Equal("p", received.Payload);
+        dispatcher.DidNotReceive().DispatchMessage(Arg.Any<Action<Message>>(), Arg.Any<Message>());
     }
 
     [Theory]
@@ -134,21 +136,26 @@ public class RedisWireFormatGoldenTests
     private static Message Receive(string channel, string wireValue)
     {
         var (messaging, subscriber, dispatcher) = CreateMessaging();
-        Action<RedisChannel, RedisValue>? internalHandler = null;
-        subscriber.When(s => s.Subscribe(Arg.Any<RedisChannel>(), Arg.Any<Action<RedisChannel, RedisValue>>(), Arg.Any<CommandFlags>()))
-            .Do(ci => internalHandler = ci.ArgAt<Action<RedisChannel, RedisValue>>(1));
-
         Message? received = null;
         dispatcher.When(d => d.DispatchMessage(Arg.Any<Action<Message>>(), Arg.Any<Message>()))
             .Do(ci => received = ci.ArgAt<Message>(1));
 
-        messaging.Subscribe("*", _ => { });
-
-        Assert.NotNull(internalHandler);
-        internalHandler!(RedisChannel.Literal(channel), wireValue);
+        CaptureInternalHandler(messaging, subscriber)(RedisChannel.Literal(channel), wireValue);
 
         Assert.NotNull(received);
         return received!;
+    }
+
+    private static Action<RedisChannel, RedisValue> CaptureInternalHandler(Messaging messaging, ISubscriber subscriber)
+    {
+        Action<RedisChannel, RedisValue>? internalHandler = null;
+        subscriber.When(s => s.Subscribe(Arg.Any<RedisChannel>(), Arg.Any<Action<RedisChannel, RedisValue>>(), Arg.Any<CommandFlags>()))
+            .Do(ci => internalHandler = ci.ArgAt<Action<RedisChannel, RedisValue>>(1));
+
+        messaging.Subscribe("*", _ => { });
+
+        Assert.NotNull(internalHandler);
+        return internalHandler!;
     }
 
     private static (Messaging Messaging, ISubscriber Subscriber, IServiceMessageDispatcher Dispatcher) CreateMessaging()
@@ -157,7 +164,7 @@ public class RedisWireFormatGoldenTests
         var multiplexer = Substitute.For<IConnectionMultiplexer>();
         var subscriber = Substitute.For<ISubscriber>();
         multiplexer.GetSubscriber().Returns(subscriber);
-        return (new Messaging(null, multiplexer, dispatcher), subscriber, dispatcher);
+        return (new Messaging(null, multiplexer, dispatcher, TestWireFormat.Writer(), TestWireFormat.Reader()), subscriber, dispatcher);
     }
 
     private static void AssertMessage(Message expected, Message actual)

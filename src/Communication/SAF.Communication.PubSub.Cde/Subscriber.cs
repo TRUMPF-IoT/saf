@@ -12,6 +12,7 @@ using nsCDEngine.ViewModels;
 using SAF.Communication.Cde;
 using SAF.Communication.Cde.Utils;
 using Interfaces;
+using WireFormat;
 
 /// <summary>
 /// Manages all subscribers (which are implemented as <see cref="Subscription"/>) 
@@ -30,6 +31,7 @@ public class Subscriber : ISubscriber, IDisposable
     private readonly Logger _log;
     private readonly ComLine _line;
     private readonly CancellationTokenSource _tokenSource;
+    private readonly ITsmMessageDecoder _decoder;
     private bool _disposed;
 
     private readonly Dictionary<string, CountdownEvent> _subscriptions = new(); // Temporarily used to broadcast a subscribe request to all known registered nodes.
@@ -53,10 +55,15 @@ public class Subscriber : ISubscriber, IDisposable
     { }
 
     public Subscriber(ComLine line, IPublisher _, CancellationTokenSource tokenSource)
+        : this(line, tokenSource, TsmWireFormats.CreateCodec())
+    { }
+
+    internal Subscriber(ComLine line, CancellationTokenSource tokenSource, ITsmMessageDecoder decoder)
     {
         _log = new Logger(typeof(Subscriber));
         _line = line;
         _tokenSource = tokenSource;
+        _decoder = decoder;
 
         InitAsync().Wait(_tokenSource.Token);
     }
@@ -68,7 +75,7 @@ public class Subscriber : ISubscriber, IDisposable
     {
         if (patterns.Length == 0) patterns = ["*"];
 
-        var subscription = new Subscription(this, routingOptions, patterns);
+        var subscription = new Subscription(this, _decoder, routingOptions, patterns);
         RemoteSubscribe(subscription.Id, routingOptions, patterns);
 
         _subscribers.TryAdd(subscription.Id, subscription);
@@ -235,11 +242,9 @@ public class Subscriber : ISubscriber, IDisposable
         var messageEvent = MessageEvent;
         if (messageEvent == null) return;
 
-        IReadOnlyList<Message>? batchMessages = null;
-        if (Version.Parse(msgVersion) >= Version.Parse(PubSubVersion.V4) && topic.StartsWith("$$batch"))
-        {
-            batchMessages = TheCommonUtils.DeserializeJSONStringToObject<List<Message>>(msg.Message.PLS);
-        }
+        IReadOnlyList<Message>? batchMessages = _decoder.IsBatch(topic, msgVersion)
+            ? _decoder.DecodeBatch(msgVersion, msg.Message.PLS)
+            : null;
 
         messageEvent(topic, msgVersion, msg, batchMessages);
     }

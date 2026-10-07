@@ -8,6 +8,7 @@ using StackExchange.Redis;
 using SAF.Common;
 using SAF.Messaging.Contracts;
 using System.Runtime.CompilerServices;
+using SAF.Messaging.Redis.WireFormat;
 
 [assembly: InternalsVisibleTo("SAF.Messaging.Redis.Tests")]
 [assembly: InternalsVisibleTo("DynamicProxyGenAssembly2")]
@@ -132,9 +133,14 @@ public static class ServiceCollectionExtensions
     }
 
     private static Messaging CreateMessagingInfrastructure(IServiceProvider serviceProvider, RedisConfiguration config)
-        => new Messaging(serviceProvider.GetRequiredService<ILogger<Messaging>>(),
-            CreateRedisConnection(config, serviceProvider.GetRequiredService<ILogger<Messaging>>()).multiplexer,
-            ResolveMessageDispatcher(serviceProvider));
+    {
+        var logger = serviceProvider.GetRequiredService<ILogger<Messaging>>();
+        return new Messaging(logger,
+            CreateRedisConnection(config, logger).multiplexer,
+            ResolveMessageDispatcher(serviceProvider),
+            new RedisMessageWriter(RedisWireFormats.All),
+            new RedisMessageReader(RedisWireFormats.All, new UnknownVersionWarning(logger)));
+    }
 
     private static IServiceMessageDispatcher ResolveMessageDispatcher(IServiceProvider serviceProvider)
         => serviceProvider.GetService<IServiceMessageDispatcher>() ??

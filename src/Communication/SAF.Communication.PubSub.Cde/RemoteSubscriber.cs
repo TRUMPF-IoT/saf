@@ -12,6 +12,7 @@ using Interfaces;
 using SAF.Communication.Cde.Utils;
 using MessageProcessing;
 using System.Text;
+using WireFormat;
 
 /// <summary>
 /// Contains the information about a subscriber running on another node.
@@ -23,6 +24,7 @@ internal class RemoteSubscriber : IRemoteSubscriber
 
     private readonly ComLine _line;
     private readonly RegistrySubscriptionRequest _registryRequest;
+    private readonly ITsmMessageEncoder _encoder;
     private readonly HashSet<string> _patterns;
     private DateTimeOffset _lastActivity = DateTimeOffset.UtcNow;
 
@@ -31,15 +33,13 @@ internal class RemoteSubscriber : IRemoteSubscriber
     private const int MaxMessagesPerBlock = 100;
     private const int MaxPayloadBytesPerBlock = 200 * 1024; //200 kB
 
-    public RemoteSubscriber(ComLine line, TSM tsm)
-        : this(line, tsm, new List<string>(), new RegistrySubscriptionRequest())
-    { }
-    public RemoteSubscriber(ComLine line, TSM tsm, IList<string> patterns, RegistrySubscriptionRequest request)
+    public RemoteSubscriber(ComLine line, TSM tsm, IList<string> patterns, RegistrySubscriptionRequest request, ITsmMessageEncoder encoder)
     {
         Tsm = tsm;
 
         _line = line;
         _registryRequest = request;
+        _encoder = encoder;
         _patterns = [..patterns.Distinct()];
         IsLocalHost = tsm.IsLocalHost();
 
@@ -110,24 +110,11 @@ internal class RemoteSubscriber : IRemoteSubscriber
 
     private TSM CreateBroadcastTsm(BroadcastMessage message)
     {
-        TSM tsm;
         var messageTxt = $"{MessageToken.Publish}:{new Topic(message.Topic.Channel, message.Topic.MsgId, Version).ToTsmTxt()}";
-        if (Version == PubSubVersion.V1)
+        return new TSM(TargetEngine, messageTxt, _encoder.Encode(message.Message, Version))
         {
-            tsm = new TSM(TargetEngine, messageTxt, message.Message.Payload)
-            {
-                UID = message.UserId
-            };
-        }
-        else
-        {
-            tsm = new TSM(TargetEngine, messageTxt, TheCommonUtils.SerializeObjectToJSONString(message.Message))
-            {
-                UID = message.UserId
-            };
-        }
-
-        return tsm;
+            UID = message.UserId
+        };
     }
 
     private void BroadcastQueueProcessing(string userId, IEnumerable<BroadcastMessage> broadcastMessages)
@@ -136,10 +123,10 @@ internal class RemoteSubscriber : IRemoteSubscriber
 
         foreach (var block in CreateMessageBlocks(messagesToSend))
         {
-            var serializedMessages = TheCommonUtils.SerializeObjectToJSONString(block);
+            var serializedMessages = _encoder.EncodeBatch(block, Version);
 
             var msgId = Guid.NewGuid().ToString("N");
-            var messageTxt = $"{MessageToken.Publish}:{new Topic($"$$batch:size={block.Count}$$", msgId, PubSubVersion.V4).ToTsmTxt()}";
+            var messageTxt = $"{MessageToken.Publish}:{new Topic(TsmBatchChannel.Create(block.Count), msgId, PubSubVersion.V4).ToTsmTxt()}";
             var tsm = new TSM(TargetEngine, messageTxt, serializedMessages)
             {
                 UID = userId

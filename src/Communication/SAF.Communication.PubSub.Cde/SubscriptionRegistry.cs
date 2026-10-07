@@ -12,6 +12,7 @@ using SAF.Communication.Cde;
 using SAF.Communication.Cde.Utils;
 using MessageProcessing;
 using Interfaces;
+using WireFormat;
 
 /// <summary>
 /// Contains the data required for the registration of a subscriber.
@@ -47,6 +48,8 @@ internal class SubscriptionRegistry : ISubscriptionRegistry
 
     private readonly Logger _log;
     private readonly ComLine _line;
+    private readonly ITsmMessageEncoder _encoder;
+    private readonly ITsmMessageDecoder _decoder;
 
     private Timer? _subscriberLifetimeTimer;
     private int _checkingLifeTimes;
@@ -55,10 +58,12 @@ internal class SubscriptionRegistry : ISubscriptionRegistry
 
     private readonly string _registryIdentity;
 
-    public SubscriptionRegistry(ComLine line)
+    public SubscriptionRegistry(ComLine line, ITsmMessageEncoder encoder, ITsmMessageDecoder decoder)
     {
         _log = new Logger(typeof(SubscriptionRegistry));
         _line = line;
+        _encoder = encoder;
+        _decoder = decoder;
         _registryIdentity = TheCommonUtils.SerializeObjectToJSONString(new RegistryIdentity(line.Address, _instanceId));
     }
 
@@ -110,7 +115,7 @@ internal class SubscriptionRegistry : ISubscriptionRegistry
         {
             if (!_subscribers.TryGetValue(message.ORG, out var subscriber))
             {
-                subscriber = new RemoteSubscriber(_line, message, newPatterns, request);
+                subscriber = new RemoteSubscriber(_line, message, newPatterns, request, _encoder);
                 _subscribers.Add(message.ORG, subscriber);
                 _log.LogDebug($"HandleSubscribe: new {message.ORG}, topics {string.Join(",", topics)}");
             }
@@ -208,28 +213,12 @@ internal class SubscriptionRegistry : ISubscriptionRegistry
             return;
         }
 
-        var messages = ExtractMessagesFromTsm(topic, message);
+        var messages = _decoder.DecodeMessages(topic, message.PLS);
         messages.ForEach(m =>
         {
             var t = new Topic { Channel = m.Topic, MsgId = Guid.NewGuid().ToString("N") };
             Broadcast(t, m, message.UID, RoutingOptions.All);
         });
-    }
-
-    private static List<Message> ExtractMessagesFromTsm(Topic topic, TSM message)
-    {
-        var messageVersion = Version.Parse(topic.Version);
-        if (messageVersion < Version.Parse(PubSubVersion.V4) || !topic.Channel.StartsWith("$$batch"))
-        {
-            return
-            [
-                topic.Version == PubSubVersion.V1
-                    ? new Message {Topic = topic.Channel, Payload = message.PLS}
-                    : TheCommonUtils.DeserializeJSONStringToObject<Message>(message.PLS)
-            ];
-        }
-        
-        return TheCommonUtils.DeserializeJSONStringToObject<List<Message>>(message.PLS);
     }
 
     private void HandleDiscoveryRequest(TheProcessMessage message)

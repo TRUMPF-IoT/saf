@@ -31,6 +31,9 @@ public class Message
 }
 ```
 
+`CustomProperties` are string key/value pairs for metadata, such as a reply topic or a correlation id. Every
+network transport delivers them to the receiver. On NATS this needs SAF 11.x on both sides; see [NATS](#nats).
+
 ---
 
 ## Architecture: Two-Layer Registration
@@ -91,6 +94,14 @@ Backed by [StackExchange.Redis](https://github.com/StackExchange/StackExchange.R
 
 > The plug-in reads the `Redis` section from the plugin settings file, falling back to host configuration.
 
+Every message goes to the channel as a versioned JSON envelope, `{"version":"2.0.0","message":{…}}`. A receiver
+reads every `1.x` and `2.x` envelope. A value that is no SAF envelope at all, for example one published by
+another application, is delivered with the raw value as `Payload` and the channel as `Topic`.
+
+An envelope with an **unknown major version** comes from a newer SAF version that this node cannot read. It is
+**dropped**, and a warning is logged once per unknown version. Up to 11.0.0-alpha.9 such an envelope was read as
+if it were version 2, which could hand handlers a wrong message.
+
 ### NATS
 
 Backed by [NATS.Net](https://nats.io). High-performance, cloud-native messaging. Also provides NATS-backed storage.
@@ -108,6 +119,25 @@ A subscription buffers incoming messages in a bounded channel. SAF configures th
 when it is full (`SubPendingChannelFullMode = BoundedChannelFullMode.Wait`), so a handler that is slower
 than the publish rate applies backpressure to the reader rather than having messages dropped
 silently — NATS.Net's own default is to drop the newest message instead.
+
+**Requires NATS Server 2.2 or newer.** SAF sends `CustomProperties` in NATS message headers, which the server
+supports since version 2.2. The message body is always the payload, exactly as in earlier SAF versions:
+
+| Message | Body | Headers |
+|---|---|---|
+| Without `CustomProperties` | `Payload` | none — identical on the wire to SAF 9.x and 10.x |
+| With `CustomProperties` (an empty list included) | `Payload` | `saf-v: 2.0.0` and `saf-meta: {"customProperties":[{"name":…,"value":…}]}` |
+
+NATS header values are ASCII, so `saf-meta` escapes every other character as a JSON `\u` sequence. A non-SAF
+client that reads the header gets the original text back with any JSON parser.
+
+- **Older SAF nodes** (9.x, 10.x and 11.0.0-alpha.9 or earlier) ignore the headers. They receive topic and
+  payload as before, but no custom properties: those versions never transported custom properties over NATS.
+- **A NATS server before 2.2** rejects a message with headers and closes the publisher's connection. The
+  message is lost, and the client reconnects. Messages without custom properties are not affected.
+- A message whose `saf-v` header has an **unknown major version** comes from a newer SAF version. It is
+  **dropped**, and a warning is logged once per unknown version. A message whose `saf-meta` header cannot be
+  read is dropped with a warning, too. Headers of other publishers are ignored.
 
 ### C-DEngine
 
@@ -172,6 +202,20 @@ Routes messages across multiple messaging infrastructures based on topic pattern
   "Redis": { "ConnectionString": "localhost:6379" }
 }
 ```
+
+---
+
+## Compatibility Between SAF Versions
+
+SAF nodes of 9.x, 10.x and 11.x can share one broker. Each transport versions its wire format and keeps reading
+the formats of older versions:
+
+| Transport | Mixed operation with 9.x and 10.x | Changed in 11.x |
+|---|---|---|
+| Redis | Supported | An envelope with an unknown major version is dropped with a warning instead of being read as version 2 ([details](#redis)). |
+| NATS | Supported; older nodes receive no `CustomProperties` | `CustomProperties` travel in headers; NATS Server 2.2 or newer is required ([details](#nats)). |
+| C-DEngine | Supported; the format is negotiated per peer (9.x announces version `3.0.0`, 10.x and 11.x announce `4.0.0`) | Nothing on the wire. |
+| In-Process | Not applicable (single process) | Nothing. |
 
 ---
 
