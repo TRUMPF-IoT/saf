@@ -28,5 +28,14 @@ internal sealed class CdeConfigurationComparer : IEqualityComparer<CdeConfigurat
         return StringComparer.Ordinal.GetHashCode(Serialize(obj));
     }
 
-    private static string Serialize(CdeConfiguration configuration) => JsonSerializer.Serialize(configuration);
+    private static string Serialize(CdeConfiguration configuration)
+    {
+        var json = JsonSerializer.SerializeToNode(configuration)!;
+
+        // A dictionary serializes in insertion order, which says nothing about its content.
+        json[nameof(CdeConfiguration.AdditionalArguments)] = JsonSerializer.SerializeToNode(
+            new SortedDictionary<string, string>(configuration.AdditionalArguments, StringComparer.Ordinal));
+
+        return json.ToJsonString();
+    }
 }

@@ -44,6 +44,18 @@ public class CdeConfigurationComparerTests
     }
 
     [Fact]
+    public void Equals_ReturnsTrue_ForAdditionalArgumentsInAnotherOrder()
+    {
+        var configuration = CreateConfiguration();
+        configuration.AdditionalArguments = new Dictionary<string, string> { ["alpha"] = "1", ["beta"] = "2" };
+        var reordered = CreateConfiguration();
+        reordered.AdditionalArguments = new Dictionary<string, string> { ["beta"] = "2", ["alpha"] = "1" };
+
+        Assert.True(_comparer.Equals(configuration, reordered));
+        Assert.Equal(_comparer.GetHashCode(configuration), _comparer.GetHashCode(reordered));
+    }
+
+    [Fact]
     public void Equals_ReturnsFalse_WhenOnlyOneIsNull()
     {
         Assert.False(_comparer.Equals(CreateConfiguration(), null));
