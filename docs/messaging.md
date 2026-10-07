@@ -124,11 +124,26 @@ Backed by [C-DEngine](https://github.com/TRUMPF-IoT/C-DEngine), a mesh-network f
 
 The `Cde` section binds to `SAF.Cde.CdeConfiguration` (package `SAF.Cde`, which comes with the plug-in).
 
-C-DEngine runs **once per process**. The plug-in starts it the first time one of its services is used and
-shuts it down when the host disposes the plug-in, so the `Cde` settings take effect at host start only.
-C-DEngine cannot be started a second time in the same process, so a
-[live reload](./plugin-system.md#live-reload-reconfiguration) is not supported while this plug-in is loaded:
-restart the host instead.
+The plug-in provides messaging only. For the C-DEngine storage, load `SAF.Storage.Cde.dll` as well (see
+[Storage Infrastructure](./storage.md#c-dengine)); it reads the same `Cde` section.
+
+C-DEngine runs **once per process**, shared by both C-DEngine plug-ins. Whichever of them first uses one of
+its services starts it, and it shuts down when the host disposes the last of them, so the `Cde` settings take
+effect at host start only. C-DEngine cannot be started a second time in the same process, so a
+[live reload](./plugin-system.md#live-reload-reconfiguration) is not supported while a C-DEngine plug-in is
+loaded: restart the host instead.
+
+If you load both C-DEngine plug-ins, deploy them to the **host's base directory** (`AppContext.BaseDirectory`),
+preferably through a `PackageReference` in the host, so that `SAF.Cde` and C-DEngine are in the host's
+`deps.json` and both plug-ins share one copy of them. A shared plug-in folder outside the base directory is
+**not** enough: the plugin system loads every plug-in assembly there into its own `AssemblyLoadContext` (see
+[Assembly Loading and Shared Assemblies](./plugin-system.md#assembly-loading-and-shared-assemblies)), each
+with its own copy of `SAF.Cde` and C-DEngine. The second copy then does not start a second node; it fails with
+an `InvalidOperationException` that names both copies and says where the plug-ins belong.
+
+Do not add `SAF.Cde.dll` to `PluginContractsSearchPattern`. The plugin system would then import each
+C-DEngine plug-in's `CdeConfiguration` and `CdeNodeLease` into every other plug-in container, next to that
+container's own.
 
 ### Routing (Multiple Brokers)
 

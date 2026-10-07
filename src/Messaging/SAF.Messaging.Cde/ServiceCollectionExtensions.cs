@@ -8,7 +8,6 @@ using Microsoft.Extensions.Logging;
 using nsCDEngine.Engines;
 using nsCDEngine.Engines.ThingService;
 using SAF.Cde;
-using SAF.Common;
 using SAF.Messaging.Contracts;
 using SAF.Communication.Cde;
 using SAF.Communication.PubSub.Cde;
@@ -24,20 +23,6 @@ public static class ServiceCollectionExtensions
                 (sp, _) => new DelegatingMessagingInfrastructureFactory(
                     MessagingInfrastructureKeys.Cde,
                     cfg => CreateMessagingInfrastructure(sp, cfg)));
-
-    public static IServiceCollection AddCdeStorageInfrastructure(this IServiceCollection collection)
-        => collection.AddSingleton<IStorageInfrastructure, Storage>(sp =>
-        {
-            _ = sp.GetRequiredService<CdeNodeLease>();
-            return new Storage(sp.GetService<ILogger<Storage>>());
-        });
-
-    public static IServiceCollection AddCdeInfrastructure(this IServiceCollection collection, Action<CdeConfiguration> configure)
-    {
-        return collection.AddCde(configure)
-            .AddCdeMessagingInfrastructure()
-            .AddCdeStorageInfrastructure();
-    }
 
     private static Messaging CreateMessagingInfrastructure(IServiceProvider serviceProvider, MessagingConfiguration config)
         => new Messaging(serviceProvider.GetService<ILogger<Messaging>>(),

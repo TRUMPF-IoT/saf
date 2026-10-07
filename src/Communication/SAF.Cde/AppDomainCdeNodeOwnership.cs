@@ -28,7 +28,7 @@ internal sealed class AppDomainCdeNodeOwnership(string markerKey) : ICdeNodeOwne
             throw new InvalidOperationException(
                 $"C-DEngine is already running in this process, started by another copy of SAF.Cde ({owner}). " +
                 $"This copy ({_owner}) cannot start a second node. Load every plug-in that uses C-DEngine, such as " +
-                "SAF.Messaging.Cde, from the host's base directory (AppContext.BaseDirectory), preferably through a " +
+                "SAF.Messaging.Cde and SAF.Storage.Cde, from the host's base directory (AppContext.BaseDirectory), preferably through a " +
                 "PackageReference in the host. A shared plug-in folder outside the base directory is not enough: " +
                 "the plugin system loads every plug-in assembly there into its own AssemblyLoadContext, each with its " +
                 "own copy of SAF.Cde and C-DEngine.");

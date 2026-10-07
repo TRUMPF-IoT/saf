@@ -36,7 +36,7 @@ The **area** parameter acts as a namespace. Two entries with the same key but di
 
 Like messaging, each storage backend is a **plug-in**: its `PluginManifest` reads a configuration section and registers `IStorageInfrastructure`. You do not register storage in host code — you deploy the plug-in DLL (add it to your plugin discovery `IncludePatterns`) and provide its configuration section. `IStorageInfrastructure` lives in `SAF.Common.dll` (a public contract assembly, added to `PluginContractsSearchPattern` automatically by `AddSafHost()`), so it is imported into every plugin container.
 
-> Load **one** storage plug-in per host. Loading several would register competing `IStorageInfrastructure` implementations.
+> Load **one** storage plug-in per host. Loading several would register competing `IStorageInfrastructure` implementations. The Redis and NATS messaging plug-ins register a storage as well, so a host that uses one of them for messaging already has its storage plug-in. The C-DEngine messaging plug-in does not; its storage is the separate `SAF.Storage.Cde` plug-in.
 
 ### LiteDB
 
@@ -65,6 +65,22 @@ Embedded relational database, using `System.Data.SQLite`.
 ```
 
 The plug-in also accepts the legacy section name `SQLiteConfiguration`.
+
+### C-DEngine
+
+Keeps each area in the persistent storage cache of [C-DEngine](https://github.com/TRUMPF-IoT/C-DEngine), as the file `ClientBin/cache/saf.<area>.storage` below C-DEngine's base directory (by default the host's base directory). Entries are held in memory and written to the file every few seconds and when the host shuts down.
+
+**Package / plug-in DLL:** `SAF.Storage.Cde` (`SAF.Storage.Cde.dll`)
+
+```json
+{
+  "Cde": { /* C-DEngine options */ }
+}
+```
+
+The plug-in reads the same `Cde` section as the C-DEngine messaging plug-in `SAF.Messaging.Cde`, from the plugin settings file with a fallback to the host configuration, and runs on the same C-DEngine node: there is one node per process, started by whichever of the two plug-ins needs it first. The storage plug-in also works on its own, for example next to Redis messaging. As with the messaging plug-in, a live reload is not supported while it is loaded.
+
+If you load both C-DEngine plug-ins, deploy them to the **host's base directory** (`AppContext.BaseDirectory`), preferably through a `PackageReference` in the host. A shared plug-in folder outside the base directory is **not** enough, because every plug-in assembly there gets its own `AssemblyLoadContext` with its own copy of C-DEngine. See [C-DEngine](./messaging.md#c-dengine) in the messaging documentation for the details and the error you get otherwise.
 
 ### Redis
 
