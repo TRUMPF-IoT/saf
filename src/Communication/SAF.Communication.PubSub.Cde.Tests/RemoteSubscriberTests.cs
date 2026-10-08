@@ -134,6 +134,22 @@ public class RemoteSubscriberTests
         Assert.Equal(expectedBlocks, messageBlocks.Count);
     }
 
+    /// <summary>
+    /// Binary bytes count against the block size like text: two messages of 120 kB each do not share a block.
+    /// </summary>
+    [Theory]
+    [InlineData(2, 0, 150 * 1024, 2)]
+    [InlineData(2, 60 * 1024, 60 * 1024, 2)]
+    [InlineData(4, 0, 50 * 1024, 1)]
+    [InlineData(3, 10, 10, 1)]
+    public void CreateMessageBlocks_CountsBinaryPayloads(int messageCount, int textSize, int binarySize, int expectedBlocks)
+    {
+        var messages = Enumerable.Range(0, messageCount)
+            .Select(i => new Message { Topic = $"sensor/{i}", Payload = new string('0', textSize), BinaryPayload = new byte[binarySize] }).ToList();
+
+        Assert.Equal(expectedBlocks, CallCreateMessageBlocks(messages).Count());
+    }
+
     private RemoteSubscriber Create(string version, IList<string>? patterns = null, bool localHost = true)
     {
         var tsm = new TSM(Engines.PubSub, MessageToken.SubscribeRequest) { ORG = localHost ? _line.Address : "remote" };

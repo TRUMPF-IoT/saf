@@ -11,7 +11,10 @@ using SAF.Messaging.Contracts;
 /// </summary>
 internal interface ITsmBatchFormat : ITsmMessageFormat
 {
-    string EncodeBatch(IEnumerable<Message> messages);
+    TsmPayload EncodeBatch(IEnumerable<Message> messages);
 
-    List<Message>? DecodeBatch(string? pls);
+    /// <summary>
+    /// Reads all messages of a batch, or returns <c>null</c> if the payload is not of this shape.
+    /// </summary>
+    List<Message>? DecodeBatch(TsmPayload payload);
 }

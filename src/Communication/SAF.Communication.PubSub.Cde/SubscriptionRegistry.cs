@@ -213,7 +213,13 @@ internal class SubscriptionRegistry : ISubscriptionRegistry
             return;
         }
 
-        var messages = _decoder.DecodeMessages(topic, message.PLS);
+        var messages = _decoder.DecodeMessages(topic, TsmPayload.Of(message));
+        if (messages == null)
+        {
+            _log.LogWarning($"Dropped unreadable publication '{topicTxt}' from {message.ORG}.");
+            return;
+        }
+
         messages.ForEach(m =>
         {
             var t = new Topic { Channel = m.Topic, MsgId = Guid.NewGuid().ToString("N") };

@@ -464,6 +464,13 @@ each subscription its own copy.
 custom property before passing it on. Create a new `Message` instead. See
 [Messages Are Read-Only](./messaging.md#messages-are-read-only).
 
+### C-DEngine nodes announce pub/sub version 5.0.0
+
+An 11.x node announces the C-DEngine pub/sub version `5.0.0`, which carries binary payloads (see
+[C-DEngine](./messaging.md#c-dengine)). 9.x and 10.x nodes keep exchanging text messages with it as before.
+A message with a `BinaryPayload` is not sent to them; the sender logs a warning per such peer. No action is
+required, but a feature that sends binary payloads works only between 11.x nodes.
+
 ### Digital-signature validation is secure by default
 
 `DigitalSignaturePluginAssemblyValidatorOptions.RequireValidDigitalSignature` defaults to `true`, so registering the validator without configuration demands a signature that is intact, covers the file and chains to a trusted root. Check that against the signatures your plug-ins actually carry before enabling the validator: unsigned plug-ins, and plug-ins whose signer chains to a root the host does not trust, are skipped with a warning.

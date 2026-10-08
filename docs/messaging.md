@@ -57,9 +57,14 @@ one topic carries different kinds of content, mark them with a custom property.
 `BinaryPayload` carries bytes without Base64 encoding them into `Payload`. A message can carry both, for example
 a JSON description in `Payload` and the data in `BinaryPayload`.
 
-Only the **In-Process** transport delivers binary payloads so far. Redis, NATS and C-DEngine cannot carry them
-yet and **do not send** such a message: Redis and NATS log an error and drop it, C-DEngine drops it for every peer
-and logs a warning per peer. With [Routing](#routing-multiple-brokers), each route's transport decides on its own.
+Which transports deliver binary payloads:
+
+- **In-Process** delivers them.
+- **C-DEngine** delivers them to peers on SAF 11.x (pub/sub version `5.0.0`). It **does not send** such a message
+  to a 9.x or 10.x peer and logs a warning per peer; see [C-DEngine](#c-dengine).
+- **Redis** and **NATS** cannot carry them yet and **do not send** such a message: they log an error and drop it.
+
+With [Routing](#routing-multiple-brokers), each route's transport decides on its own.
 
 ### Messages Are Read-Only
 
@@ -69,7 +74,8 @@ transport, including the arrays in `BinaryPayload`:
 - **In-Process** hands the published instance itself to every handler, and the handlers run in parallel. A change
   made by the publisher after `Publish`, or by one handler, is seen by all others.
 - **C-DEngine** hands one instance of a batched message to all subscriptions of a node.
-- SAF never copies `BinaryPayload`. A publisher that reuses a buffer must put a new array into each message.
+- A transport may still read the `BinaryPayload` array after `Publish` has returned, and receivers on one node
+  may share one array. A publisher that reuses a buffer must put a new array into each message.
 
 To pass on changed data, create a new `Message`.
 
@@ -205,9 +211,25 @@ plug-in).
 
 Each peer announces its pub/sub version, and messages to it go out in the format of that version. From version
 `2.0.0` on, the whole message travels as JSON, including `AcceptedReplyFormats` when it is set;
-older peers ignore that field. A peer on version `1.0.0` receives the payload only. No version carries
-binary payloads yet, so a message with a `BinaryPayload` is dropped for every peer, with a warning per peer in
-the C-DEngine log.
+older peers ignore that field. A peer on version `1.0.0` receives the payload only. From `4.0.0` on, several
+messages travel together in one batch.
+
+Version `5.0.0`, announced by SAF 11.x, adds binary payloads:
+
+- The bytes travel in the binary field (`PLB`) of the C-DEngine message, not in the JSON. The JSON names their
+  length in `BinaryPayloadLength`; a batch carries the binary payloads of its messages one after the other.
+  SAF pads `PLB` to an odd length with one trailing byte: C-DEngine 6.112.2 and older loses a binary field whose
+  length is a whole multiple of its chunk size, and those sizes are even. A receiver relies on the announced
+  lengths and ignores the padding.
+- C-DEngine splits a large binary field into chunks and joins them again at the next node, relays included.
+  It still sends the field Base64-encoded inside its own frames, so the gain is in SAF, which encodes nothing,
+  not in bandwidth.
+- A peer before `5.0.0` (9.x announces `3.0.0`, 10.x `4.0.0`) cannot receive binary payloads. A message with a
+  `BinaryPayload` is not sent to such a peer, with a warning per peer in the C-DEngine log; other peers still
+  receive it.
+
+A received message that cannot be read, for example because its binary payload does not have the announced
+length, is dropped with a warning in the C-DEngine log.
 
 The plug-in provides messaging only. For the C-DEngine storage, load `SAF.Storage.Cde.dll` as well (see
 [Storage Infrastructure](./storage.md#c-dengine)); it reads the same `Cde` section.
@@ -268,10 +290,11 @@ the formats of older versions:
 |---|---|---|
 | Redis | Supported; older nodes ignore `AcceptedReplyFormats` | An envelope with an unknown major version is dropped with a warning instead of being read as version 2. `AcceptedReplyFormats` is an optional envelope field ([details](#redis)). |
 | NATS | Supported; older nodes receive no `CustomProperties` or `AcceptedReplyFormats` | The metadata travels in headers; NATS Server 2.2 or newer is required ([details](#nats)). |
-| C-DEngine | Supported; the format is negotiated per peer (9.x announces version `3.0.0`, 10.x and 11.x announce `4.0.0`); older nodes ignore `AcceptedReplyFormats` | `AcceptedReplyFormats` is an optional JSON field ([details](#c-dengine)). |
+| C-DEngine | Supported; the format is negotiated per peer (9.x announces version `3.0.0`, 10.x `4.0.0`, 11.x `5.0.0`); older nodes ignore `AcceptedReplyFormats` and receive no binary payloads | Version `5.0.0` carries binary payloads; `AcceptedReplyFormats` is an optional JSON field ([details](#c-dengine)). |
 | In-Process | Not applicable (single process) | Nothing. |
 
-Messages with a `BinaryPayload` are delivered by In-Process only; see [Binary Payloads](#binary-payloads).
+Messages with a `BinaryPayload` are delivered by In-Process, and by C-DEngine between 11.x nodes; see
+[Binary Payloads](#binary-payloads).
 
 ---
 

@@ -242,9 +242,16 @@ public class Subscriber : ISubscriber, IDisposable
         var messageEvent = MessageEvent;
         if (messageEvent == null) return;
 
-        IReadOnlyList<Message>? batchMessages = _decoder.IsBatch(topic, msgVersion)
-            ? _decoder.DecodeBatch(msgVersion, msg.Message.PLS)
-            : null;
+        IReadOnlyList<Message>? batchMessages = null;
+        if (_decoder.IsBatch(topic, msgVersion))
+        {
+            batchMessages = _decoder.DecodeBatch(msgVersion, TsmPayload.Of(msg.Message));
+            if (batchMessages == null)
+            {
+                _log.LogWarning($"Dropped unreadable batch from {msg.Message.ORG}, pub/sub version {msgVersion}.");
+                return;
+            }
+        }
 
         messageEvent(topic, msgVersion, msg, batchMessages);
     }

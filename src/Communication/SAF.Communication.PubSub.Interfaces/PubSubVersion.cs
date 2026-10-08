@@ -10,6 +10,7 @@ public static class PubSubVersion
     public const string V2 = "2.0.0"; // send whole SAF message not only its payload
     public const string V3 = "3.0.0";
     public const string V4 = "4.0.0"; // batch processing
+    public const string V5 = "5.0.0"; // binary payloads in TSM.PLB
 
-    public static readonly string Latest = V4;
+    public static readonly string Latest = V5;
 }

@@ -7,9 +7,9 @@ namespace SAF.Communication.PubSub.Cde.WireFormat;
 using SAF.Messaging.Contracts;
 
 /// <summary>
-/// Wire shape of a message for peers from <see cref="Interfaces.PubSubVersion.V2"/> up to
-/// <see cref="Interfaces.PubSubVersion.V4"/>. Old nodes ignore fields they do not know, so only optional
-/// fields may be added - anything else needs a new <see cref="Interfaces.PubSubVersion"/>.
+/// Wire shape of a message for peers from <see cref="Interfaces.PubSubVersion.V2"/> on. Old nodes ignore fields
+/// they do not know, so only optional fields may be added - anything else needs a new
+/// <see cref="Interfaces.PubSubVersion"/>.
 /// </summary>
 internal sealed class MessageDtoV2
 {
@@ -17,6 +17,12 @@ internal sealed class MessageDtoV2
     public string? Payload { get; set; }
     public int? AcceptedReplyFormats { get; set; }
     public List<MessageCustomPropertyDtoV2>? CustomProperties { get; set; }
+
+    /// <summary>
+    /// From <see cref="Interfaces.PubSubVersion.V5"/> on: the length of the message's binary payload in the TSM's
+    /// <c>PLB</c>; <c>null</c> if it has none.
+    /// </summary>
+    public int? BinaryPayloadLength { get; set; }
 
     public static MessageDtoV2 FromMessage(Message message)
         => new()
@@ -26,7 +32,8 @@ internal sealed class MessageDtoV2
             AcceptedReplyFormats = (int?)message.AcceptedReplyFormats,
             CustomProperties = message.CustomProperties?
                 .Select(p => new MessageCustomPropertyDtoV2 { Name = p.Name, Value = p.Value })
-                .ToList()
+                .ToList(),
+            BinaryPayloadLength = message.BinaryPayload?.Length
         };
 
     public Message ToMessage()

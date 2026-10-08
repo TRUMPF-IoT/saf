@@ -16,7 +16,7 @@ internal sealed class TsmMessageFormatV1 : ITsmMessageFormat
 
     public bool CanEncode(Message message) => message.BinaryPayload is null;
 
-    public string? Encode(Message message) => message.Payload;
+    public TsmPayload Encode(Message message) => new(message.Payload);
 
-    public Message Decode(string channel, string? pls) => new() { Topic = channel, Payload = pls };
+    public Message Decode(string channel, TsmPayload payload) => new() { Topic = channel, Payload = payload.Pls };
 }

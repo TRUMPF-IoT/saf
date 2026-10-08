@@ -43,6 +43,7 @@ public class SubscriptionTests
     [InlineData(PubSubVersion.V2, "{\"topic\":\"sensor/1\",\"payload\":\"payload\"}")]
     [InlineData(PubSubVersion.V3, "{\"topic\":\"sensor/1\",\"payload\":\"payload\"}")]
     [InlineData(PubSubVersion.V4, "{\"topic\":\"sensor/1\",\"payload\":\"payload\"}")]
+    [InlineData(PubSubVersion.V5, "{\"topic\":\"sensor/1\",\"payload\":\"payload\"}")]
     public void OnMessage_NonBatch_InvokesHandlers(string pubSubVersion, string payload)
     {
         var subscription = new Subscription(_subscriber, TsmWireFormats.CreateCodec(), "sensor/*");
@@ -127,6 +128,59 @@ public class SubscriptionTests
     }
 
     [Fact]
+    public void OnMessage_V5_DeliversTheBinaryPayload()
+    {
+        var subscription = new Subscription(_subscriber, TsmWireFormats.CreateCodec(), "dev/*");
+        Message? received = null;
+        subscription.SetHandler((_, message) => received = message);
+
+        RaisePublication("dev/A", PubSubVersion.V5, """{"Topic":"dev/A","BinaryPayloadLength":3}""", [1, 2, 3]);
+
+        Assert.Equal(new byte[] { 1, 2, 3 }, received!.BinaryPayload);
+    }
+
+    [Fact]
+    public void OnMessage_V5Batch_CutsTheBinaryPayloadsApart()
+    {
+        var subscription = new Subscription(_subscriber, TsmWireFormats.CreateCodec(), "dev/*");
+        var received = new Dictionary<string, byte[]?>();
+        subscription.SetHandler((_, message) => received[message.Topic] = message.BinaryPayload);
+
+        RaisePublication("$$batch:size=2$$", PubSubVersion.V5,
+            """[{"Topic":"dev/A","BinaryPayloadLength":1},{"Topic":"dev/B","BinaryPayloadLength":2}]""", [1, 2, 3]);
+
+        Assert.Equal(new byte[] { 1 }, received["dev/A"]);
+        Assert.Equal(new byte[] { 2, 3 }, received["dev/B"]);
+    }
+
+    [Fact]
+    public void OnMessage_NonBatch_DropsAnUnreadableMessage()
+    {
+        var subscription = new Subscription(_subscriber, TsmWireFormats.CreateCodec(), "dev/*");
+        var invokeCount = 0;
+        subscription.SetHandler((_, _) => invokeCount++);
+
+        RaisePublication("dev/A", PubSubVersion.V5, """{"Topic":"dev/A","BinaryPayloadLength":3}""");
+
+        Assert.Equal(0, invokeCount);
+    }
+
+    [Fact]
+    public void OnMessage_Batch_DropsAnUnreadableBatch()
+    {
+        var subscription = new Subscription(_subscriber, TsmWireFormats.CreateCodec(), "*");
+        var invokeCount = 0;
+        subscription.SetHandler((_, _) => invokeCount++);
+        var events = 0;
+        _subscriber.MessageEvent += (_, _, _, _) => events++;
+
+        RaisePublication("$$batch:size=1$$", PubSubVersion.V5, """[{"Topic":"dev/A","BinaryPayloadLength":3}]""");
+
+        Assert.Equal(0, invokeCount);
+        Assert.Equal(0, events);
+    }
+
+    [Fact]
     public void OnMessage_NoHandlers_EarlyReturn()
     {
         _ = new Subscription(_subscriber, TsmWireFormats.CreateCodec(), "sensor/*");
@@ -181,10 +235,10 @@ public class SubscriptionTests
         Assert.False(dict.ContainsKey(subscription.Id));
     }
 
-    private void RaisePublication(string topic, string version, string payload)
+    private void RaisePublication(string topic, string version, string payload, byte[]? plb = null)
     {
         var messageTxt = $"{MessageToken.Publish}:{new Topic(topic, Guid.NewGuid().ToString("N"), version).ToTsmTxt()}";
-        var tsm = new TSM(Engines.PubSub, messageTxt, payload) { TIM = DateTimeOffset.UtcNow };
+        var tsm = new TSM(Engines.PubSub, messageTxt, payload) { TIM = DateTimeOffset.UtcNow, PLB = plb };
         _comLine.MessageReceived += Raise.Event<MessageReceivedHandler>(Substitute.For<ICDEThing>(), new TheProcessMessage(tsm));
     }
 }

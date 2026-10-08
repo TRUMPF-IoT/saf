@@ -18,7 +18,10 @@ internal interface ITsmMessageFormat
 
     bool CanEncode(Message message);
 
-    string? Encode(Message message);
+    TsmPayload Encode(Message message);
 
-    Message? Decode(string channel, string? pls);
+    /// <summary>
+    /// Reads one message, or returns <c>null</c> if the payload is not of this shape.
+    /// </summary>
+    Message? Decode(string channel, TsmPayload payload);
 }

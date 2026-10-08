@@ -5,6 +5,7 @@
 namespace SAF.Communication.PubSub.Cde;
 using nsCDEngine.ViewModels;
 using SAF.Common;
+using SAF.Communication.Cde.Utils;
 using SAF.Messaging.Contracts;
 using Interfaces;
 using WireFormat;
@@ -14,6 +15,7 @@ using WireFormat;
 /// </summary>
 internal class Subscription : ISubscription
 {
+    private readonly Logger _log = new(typeof(Subscription));
     private readonly Subscriber _subscriber;
     private readonly ITsmMessageDecoder _decoder;
     private Action<DateTimeOffset, Message>? _handler;
@@ -73,7 +75,14 @@ internal class Subscription : ISubscription
         {
             if (!IsTopicMatch(topic)) return;
 
-            _handler.Invoke(msg.Message.TIM, _decoder.Decode(topic, msgVersion, msg.Message.PLS)!);
+            var message = _decoder.Decode(topic, msgVersion, TsmPayload.Of(msg.Message));
+            if (message == null)
+            {
+                _log.LogWarning($"Dropped unreadable message on {topic} from {msg.Message.ORG}, pub/sub version {msgVersion}.");
+                return;
+            }
+
+            _handler.Invoke(msg.Message.TIM, message);
             return;
         }
 

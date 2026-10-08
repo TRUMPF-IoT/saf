@@ -25,6 +25,13 @@ public static class WireFormatReferenceMessages
     public const string ReplyFormats = "reply-formats";
 
     /// <summary>
+    /// Binary payloads, not part of <see cref="Ids"/>: only transports that carry binary payloads record them.
+    /// </summary>
+    public const string Binary = "binary";
+    public const string TextAndBinary = "text-and-binary";
+    public const string EmptyBinary = "empty-binary";
+
+    /// <summary>
     /// Covers quote, backslash, slash, control characters, non-ASCII and a surrogate pair.
     /// </summary>
     public const string UnicodeAndEscapesPayload =
@@ -40,6 +47,8 @@ public static class WireFormatReferenceMessages
         NullPropertyValue,
         ReplyFormats
     ];
+
+    public static IReadOnlyList<string> BinaryIds => [Binary, TextAndBinary, EmptyBinary];
 
     /// <summary>
     /// Creates a fresh instance so a test can never observe mutations made by another test.
@@ -89,6 +98,24 @@ public static class WireFormatReferenceMessages
             Topic = "saf/wire/reply-formats",
             Payload = """{"value":42}""",
             AcceptedReplyFormats = MessageFormats.Text | MessageFormats.Binary
+        },
+        // Includes bytes that are no valid UTF-8.
+        Binary => new Message
+        {
+            Topic = "saf/wire/binary",
+            BinaryPayload = [0x00, 0x01, 0x7F, 0x80, 0xFE, 0xFF]
+        },
+        TextAndBinary => new Message
+        {
+            Topic = "saf/wire/text-and-binary",
+            Payload = """{"name":"chunk"}""",
+            BinaryPayload = [0x53, 0x41, 0x46, 0x00, 0xFF],
+            CustomProperties = [new MessageCustomProperty { Name = "index", Value = "3" }]
+        },
+        EmptyBinary => new Message
+        {
+            Topic = "saf/wire/empty-binary",
+            BinaryPayload = []
         },
         _ => throw new ArgumentOutOfRangeException(nameof(id), id, "Unknown reference message id.")
     };

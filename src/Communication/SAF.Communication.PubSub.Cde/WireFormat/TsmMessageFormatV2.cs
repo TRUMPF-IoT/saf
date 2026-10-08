@@ -19,17 +19,17 @@ internal sealed class TsmMessageFormatV2 : ITsmBatchFormat
     // The JSON carries text only.
     public bool CanEncode(Message message) => message.BinaryPayload is null;
 
-    public string Encode(Message message)
-        => TheCommonUtils.SerializeObjectToJSONString(MessageDtoV2.FromMessage(message));
+    public TsmPayload Encode(Message message)
+        => new(TheCommonUtils.SerializeObjectToJSONString(MessageDtoV2.FromMessage(message)));
 
-    public Message? Decode(string channel, string? pls)
-        => TheCommonUtils.DeserializeJSONStringToObject<MessageDtoV2>(pls)?.ToMessage();
+    public Message? Decode(string channel, TsmPayload payload)
+        => TheCommonUtils.DeserializeJSONStringToObject<MessageDtoV2>(payload.Pls)?.ToMessage();
 
-    public string EncodeBatch(IEnumerable<Message> messages)
-        => TheCommonUtils.SerializeObjectToJSONString(messages.Select(MessageDtoV2.FromMessage).ToList());
+    public TsmPayload EncodeBatch(IEnumerable<Message> messages)
+        => new(TheCommonUtils.SerializeObjectToJSONString(messages.Select(MessageDtoV2.FromMessage).ToList()));
 
-    public List<Message>? DecodeBatch(string? pls)
-        => TheCommonUtils.DeserializeJSONStringToObject<List<MessageDtoV2>>(pls)?
+    public List<Message>? DecodeBatch(TsmPayload payload)
+        => TheCommonUtils.DeserializeJSONStringToObject<List<MessageDtoV2>>(payload.Pls)?
             .Select(m => m.ToMessage())
             .ToList();
 }

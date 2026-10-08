@@ -16,10 +16,10 @@ internal interface ITsmMessageEncoder
     /// <summary>
     /// The TSM payload for one message to a peer of the given pub/sub version.
     /// </summary>
-    string? Encode(Message message, string peerVersion);
+    TsmPayload Encode(Message message, string peerVersion);
 
     /// <summary>
     /// The TSM payload for several messages at once to a peer of the given pub/sub version.
     /// </summary>
-    string EncodeBatch(IEnumerable<Message> messages, string peerVersion);
+    TsmPayload EncodeBatch(IEnumerable<Message> messages, string peerVersion);
 }

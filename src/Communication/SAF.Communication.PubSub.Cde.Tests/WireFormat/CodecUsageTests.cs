@@ -34,7 +34,7 @@ public class CodecUsageTests
     public async Task Broadcast_SendsWhatTheEncoderProducesForThePeerVersion()
     {
         var message = new Message { Topic = "t" };
-        _encoder.Encode(message, PubSubVersion.V3).Returns("encoded");
+        _encoder.Encode(message, PubSubVersion.V3).Returns(new TsmPayload("encoded"));
 
         CreateRemoteSubscriber(PubSubVersion.V3).Broadcast(Broadcast(message));
 
@@ -45,11 +45,40 @@ public class CodecUsageTests
     public async Task Broadcast_SendsWhatTheBatchEncoderProducesForThePeerVersion()
     {
         var message = new Message { Topic = "t" };
-        _encoder.EncodeBatch(Arg.Any<IEnumerable<Message>>(), PubSubVersion.V4).Returns("batch");
+        _encoder.EncodeBatch(Arg.Any<IEnumerable<Message>>(), PubSubVersion.V4).Returns(new TsmPayload("batch"));
 
         CreateRemoteSubscriber(PubSubVersion.V4).Broadcast(Broadcast(message));
 
         Assert.Equal("batch", (await SentAsync()).PLS);
+    }
+
+    [Fact]
+    public async Task Broadcast_SendsThePlbTheEncoderProduces()
+    {
+        byte[] plb = [1, 2, 3];
+        _encoder.EncodeBatch(Arg.Any<IEnumerable<Message>>(), PubSubVersion.V5).Returns(new TsmPayload("batch", plb));
+
+        CreateRemoteSubscriber(PubSubVersion.V5).Broadcast(Broadcast(new Message { Topic = "t" }));
+
+        var sent = await SentAsync();
+        Assert.EndsWith($"|{PubSubVersion.V5}", sent.TXT);
+        Assert.Same(plb, sent.PLB);
+    }
+
+    [Theory]
+    [InlineData(PubSubVersion.V3)]
+    [InlineData("7.1.0")]
+    public async Task Broadcast_EncodesForTheNewestVersionBothSidesKnow(string peerVersion)
+    {
+        var expected = peerVersion == PubSubVersion.V3 ? PubSubVersion.V3 : PubSubVersion.Latest;
+        _encoder.Encode(Arg.Any<Message>(), expected).Returns(new TsmPayload("single"));
+        _encoder.EncodeBatch(Arg.Any<IEnumerable<Message>>(), expected).Returns(new TsmPayload("batch"));
+
+        CreateRemoteSubscriber(peerVersion).Broadcast(Broadcast(new Message { Topic = "t" }));
+
+        var sent = await SentAsync();
+        Assert.EndsWith($"|{expected}", sent.TXT);
+        _encoder.Received().CanEncode(Arg.Any<Message>(), expected);
     }
 
     [Theory]
@@ -60,9 +89,9 @@ public class CodecUsageTests
         var dropped = new Message { Topic = "dropped" };
         var sent = new Message { Topic = "sent" };
         _encoder.CanEncode(dropped, version).Returns(false);
-        _encoder.Encode(sent, version).Returns("encoded");
+        _encoder.Encode(sent, version).Returns(new TsmPayload("encoded"));
         _encoder.EncodeBatch(Arg.Any<IEnumerable<Message>>(), version)
-            .Returns(ci => string.Join(",", ci.Arg<IEnumerable<Message>>().Select(m => m.Topic)));
+            .Returns(ci => new TsmPayload(string.Join(",", ci.Arg<IEnumerable<Message>>().Select(m => m.Topic))));
         var remote = CreateRemoteSubscriber(version);
 
         remote.Broadcast(Broadcast(dropped));

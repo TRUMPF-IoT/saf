@@ -19,11 +19,32 @@ using Xunit;
 /// V3 matters in practice: a 9.x node announces <see cref="PubSubVersion.V3"/>, while 10.x and 11.x
 /// announce <see cref="PubSubVersion.V4"/>. A failure here means an old peer would read something
 /// different than it does today, which is only allowed together with a new <see cref="PubSubVersion"/>.
-/// Accepted reply formats are an optional addition that old peers ignore.
+/// Accepted reply formats are an optional addition that old peers ignore. <see cref="PubSubVersion.V5"/> adds
+/// binary payloads, which only 11.x peers receive.
 /// </summary>
 public class CdeWireFormatGoldenTests
 {
     private const string MsgId = "00000000000000000000000000000001";
+
+    public static TheoryData<string> AllIds
+    {
+        get
+        {
+            var data = new TheoryData<string>();
+            foreach (var id in WireFormatReferenceMessages.Ids.Concat(WireFormatReferenceMessages.BinaryIds)) data.Add(id);
+            return data;
+        }
+    }
+
+    public static TheoryData<string> TextIds
+    {
+        get
+        {
+            var data = new TheoryData<string>();
+            foreach (var id in WireFormatReferenceMessages.Ids) data.Add(id);
+            return data;
+        }
+    }
 
     [Theory]
     [InlineData(WireFormatReferenceMessages.TopicOnly, "saf/wire/topic-only")]
@@ -80,6 +101,35 @@ public class CdeWireFormatGoldenTests
     }
 
     [Theory]
+    [MemberData(nameof(AllIds))]
+    public async Task Broadcast_V5_SendsABatchWithTheBinaryPayloadInPlb(string id)
+    {
+        var message = WireFormatReferenceMessages.Create(id);
+
+        var tsm = await BroadcastAsync(PubSubVersion.V5, message);
+
+        Assert.StartsWith($"{MessageToken.Publish}:$$batch:size=1$$|", tsm.TXT);
+        Assert.EndsWith($"|{PubSubVersion.V5}", tsm.TXT);
+        Assert.Equal($"[{GoldenJson(id)}]", tsm.PLS);
+        Assert.Equal(ExpectedPlb(message), tsm.PLB);
+    }
+
+    /// <summary>
+    /// A peer newer than this node is sent the newest format this node knows, marked with that version.
+    /// </summary>
+    [Fact]
+    public async Task Broadcast_ToANewerPeer_WritesTheLatestVersion()
+    {
+        var message = WireFormatReferenceMessages.Create(WireFormatReferenceMessages.Binary);
+
+        var tsm = await BroadcastAsync("6.0.0", message);
+
+        Assert.EndsWith($"|{PubSubVersion.Latest}", tsm.TXT);
+        Assert.Equal($"[{GoldenJson(WireFormatReferenceMessages.Binary)}]", tsm.PLS);
+        Assert.Equal(ExpectedPlb(message), tsm.PLB);
+    }
+
+    [Theory]
     [InlineData(WireFormatReferenceMessages.TopicOnly)]
     [InlineData(WireFormatReferenceMessages.TextPayload)]
     [InlineData(WireFormatReferenceMessages.CustomProperties)]
@@ -112,6 +162,31 @@ public class CdeWireFormatGoldenTests
         var expected = WireFormatReferenceMessages.Create(id);
 
         var messages = DecodeMessages("$$batch:size=1$$", PubSubVersion.V4, $"[{GoldenJson(id)}]");
+
+        AssertSingle(expected, messages);
+    }
+
+    [Theory]
+    [MemberData(nameof(AllIds))]
+    public void DecodeMessages_ReadsV5BatchSamples(string id)
+    {
+        var expected = WireFormatReferenceMessages.Create(id);
+
+        var messages = DecodeMessages("$$batch:size=1$$", PubSubVersion.V5, $"[{GoldenJson(id)}]", ExpectedPlb(expected));
+
+        AssertSingle(expected, messages);
+    }
+
+    /// <summary>
+    /// A 9.x registry marks a message to an 11.x subscriber with the subscriber's version 5.0.0, but sends the V2 JSON.
+    /// </summary>
+    [Theory]
+    [MemberData(nameof(TextIds))]
+    public void DecodeMessages_ReadsV2JsonMarkedAsV5(string id)
+    {
+        var expected = WireFormatReferenceMessages.Create(id);
+
+        var messages = DecodeMessages(expected.Topic, PubSubVersion.V5, GoldenJson(id));
 
         AssertSingle(expected, messages);
     }
@@ -156,7 +231,7 @@ public class CdeWireFormatGoldenTests
     }
 
     /// <summary>
-    /// No pub/sub version carries binary payloads yet, so such a message is dropped for every peer
+    /// Peers before V5 cannot receive binary payloads, so such a message is dropped for them
     /// while the next message still goes out - on V4 alone in its batch.
     /// </summary>
     [Theory]
@@ -196,6 +271,13 @@ public class CdeWireFormatGoldenTests
         // The flags travel as a number.
         WireFormatReferenceMessages.ReplyFormats =>
             """{"Topic":"saf/wire/reply-formats","Payload":"{\"value\":42}","AcceptedReplyFormats":3}""",
+        // From V5 on: the bytes travel in PLB, the JSON names their length.
+        WireFormatReferenceMessages.Binary =>
+            """{"Topic":"saf/wire/binary","BinaryPayloadLength":6}""",
+        WireFormatReferenceMessages.TextAndBinary =>
+            """{"Topic":"saf/wire/text-and-binary","Payload":"{\"name\":\"chunk\"}","CustomProperties":[{"Name":"index","Value":"3"}],"BinaryPayloadLength":5}""",
+        WireFormatReferenceMessages.EmptyBinary =>
+            """{"Topic":"saf/wire/empty-binary","BinaryPayloadLength":0}""",
         _ => throw new ArgumentOutOfRangeException(nameof(id), id, "No recorded sample for this reference message.")
     };
 
@@ -222,8 +304,16 @@ public class CdeWireFormatGoldenTests
         return await captured.Task.WaitAsync(TimeSpan.FromSeconds(10), TestContext.Current.CancellationToken);
     }
 
-    private static List<Message> DecodeMessages(string channel, string version, string pls)
-        => TsmWireFormats.CreateCodec().DecodeMessages(new Topic(channel, MsgId, version), pls);
+    // C-DEngine drops an empty PLB; an even length is padded to an odd one.
+    private static byte[]? ExpectedPlb(Message message) => message.BinaryPayload switch
+    {
+        null or [] => null,
+        { Length: var length } bytes when length % 2 == 0 => [..bytes, 0],
+        var bytes => bytes
+    };
+
+    private static List<Message> DecodeMessages(string channel, string version, string pls, byte[]? plb = null)
+        => TsmWireFormats.CreateCodec().DecodeMessages(new Topic(channel, MsgId, version), new TsmPayload(pls, plb))!;
 
     private static void AssertSingle(Message expected, List<Message> actual)
     {
@@ -231,6 +321,7 @@ public class CdeWireFormatGoldenTests
         Assert.Equal(expected.Topic, actual[0].Topic);
         Assert.Equal(expected.Payload, actual[0].Payload);
         Assert.Equal(expected.AcceptedReplyFormats, actual[0].AcceptedReplyFormats);
+        Assert.Equal(expected.BinaryPayload, actual[0].BinaryPayload);
 
         if (expected.CustomProperties == null)
         {
