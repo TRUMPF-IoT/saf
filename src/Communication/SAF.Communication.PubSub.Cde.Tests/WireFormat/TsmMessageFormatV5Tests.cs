@@ -11,7 +11,7 @@ using Xunit;
 
 public class TsmMessageFormatV5Tests
 {
-    private readonly TsmMessageFormatV5 _v5 = new();
+    private readonly TsmMessageFormatV5 _v5 = new(new TsmPlbLayout());
 
     [Fact]
     public void Encode_PutsTheBinaryPayloadIntoPlbWithoutCopying()

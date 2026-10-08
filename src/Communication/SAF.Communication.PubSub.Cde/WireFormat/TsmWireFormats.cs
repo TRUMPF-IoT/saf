@@ -9,7 +9,7 @@ namespace SAF.Communication.PubSub.Cde.WireFormat;
 /// </summary>
 internal static class TsmWireFormats
 {
-    public static IReadOnlyList<ITsmMessageFormat> All { get; } = [new TsmMessageFormatV1(), new TsmMessageFormatV2(), new TsmMessageFormatV5()];
+    public static IReadOnlyList<ITsmMessageFormat> All { get; } = [new TsmMessageFormatV1(), new TsmMessageFormatV2(), new TsmMessageFormatV5(new TsmPlbLayout())];
 
     public static TsmMessageCodec CreateCodec() => new(All);
 }
