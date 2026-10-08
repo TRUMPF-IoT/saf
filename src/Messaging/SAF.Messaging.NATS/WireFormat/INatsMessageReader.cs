@@ -10,5 +10,5 @@ using SAF.Messaging.Contracts;
 internal interface INatsMessageReader
 {
     /// <returns><c>null</c> if the message has to be dropped.</returns>
-    Message? Read(string topic, string? body, NatsHeaders? headers);
+    Message? Read(string topic, NatsBody body, NatsHeaders? headers);
 }

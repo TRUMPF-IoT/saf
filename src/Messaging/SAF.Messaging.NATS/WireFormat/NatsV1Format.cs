@@ -18,7 +18,7 @@ internal sealed class NatsV1Format : INatsWireFormat
     public bool CanWrite(Message message)
         => message is { BinaryPayload: null, AcceptedReplyFormats: null, CustomProperties: null };
 
-    public NatsWireMessage Write(Message message) => new(message.Payload, null);
+    public NatsWireMessage Write(Message message) => NatsWireMessage.Text(message.Payload, null);
 
-    public Message Read(string topic, string? body, NatsHeaders? headers) => new() { Topic = topic, Payload = body };
+    public Message Read(string topic, NatsBody body, NatsHeaders? headers) => new() { Topic = topic, Payload = body.ReadText() };
 }

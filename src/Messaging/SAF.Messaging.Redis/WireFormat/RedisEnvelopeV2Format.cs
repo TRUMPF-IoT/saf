@@ -4,14 +4,12 @@
 
 namespace SAF.Messaging.Redis.WireFormat;
 
-using System.Text.Json;
 using SAF.Messaging.Contracts;
-using JsonSerializer = Toolbox.Serialization.JsonSerializer;
 
 /// <summary>
 /// The envelope every SAF node since 9.x writes: <c>{"version":"2.0.0","message":{...}}</c>.
 /// </summary>
-internal sealed class RedisEnvelopeV2Format : IRedisEnvelopeFormat
+internal sealed class RedisEnvelopeV2Format(IRedisEnvelopeSerializer serializer) : IRedisEnvelopeFormat
 {
     // V1 was declared together with V2 but never written; both share this shape.
     public IReadOnlyCollection<int> MajorVersions { get; } = [1, 2];
@@ -19,22 +17,8 @@ internal sealed class RedisEnvelopeV2Format : IRedisEnvelopeFormat
     // The JSON envelope carries text only.
     public bool CanWrite(Message message) => message.BinaryPayload is null;
 
-    public string Write(Message message)
-        => JsonSerializer.Serialize(new RedisEnvelope<MessageDtoV2>
-        {
-            Version = RedisMessageVersion.V2,
-            Message = MessageDtoV2.FromMessage(message)
-        });
+    public RedisWireValue Write(Message message) => new(serializer.Serialize(RedisMessageVersion.V2, message));
 
-    public Message? Read(string envelopeJson)
-    {
-        try
-        {
-            return JsonSerializer.Deserialize<RedisEnvelope<MessageDtoV2>>(envelopeJson)?.Message?.ToMessage();
-        }
-        catch (JsonException)
-        {
-            return null;
-        }
-    }
+    public Message? Read(RedisWireValue value)
+        => value.BinaryPayload is null ? serializer.Deserialize(value.Envelope) : null;
 }

@@ -19,5 +19,5 @@ internal interface INatsWireFormat
     NatsWireMessage Write(Message message);
 
     /// <returns><c>null</c> if the SAF headers cannot be read.</returns>
-    Message? Read(string topic, string? body, NatsHeaders? headers);
+    Message? Read(string topic, NatsBody body, NatsHeaders? headers);
 }

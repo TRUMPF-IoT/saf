@@ -58,6 +58,10 @@ public class TestMessagingRedis
         mc.Config.Add("connectionString", "aConnectionString");
         rmc = new(mc);
         Assert.Equal("aConnectionString", rmc.ConnectionString);
+        Assert.Null(rmc.EnableBinaryPayloads);
+
+        mc.Config.Add("enableBinaryPayloads", "false");
+        Assert.False(new RedisMessagingConfiguration(mc).EnableBinaryPayloads);
     }
 
     [Fact]

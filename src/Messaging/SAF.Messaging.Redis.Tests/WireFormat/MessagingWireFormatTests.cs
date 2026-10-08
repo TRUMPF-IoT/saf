@@ -35,10 +35,10 @@ public class MessagingWireFormatTests
     public void Publish_SendsWhatTheWriterProduces()
     {
         var message = new Message { Topic = "t" };
-        _writer.TryWrite(message, out Arg.Any<string?>())
+        _writer.TryWrite(message, out Arg.Any<RedisValue>(), out Arg.Any<string?>())
             .Returns(ci =>
             {
-                ci[1] = "written";
+                ci[1] = (RedisValue)"written";
                 return true;
             });
 
@@ -50,12 +50,17 @@ public class MessagingWireFormatTests
     [Fact]
     public void Publish_DropsAndLogsAMessageTheWriterCannotWrite()
     {
-        _writer.TryWrite(Arg.Any<Message>(), out Arg.Any<string?>()).Returns(false);
+        _writer.TryWrite(Arg.Any<Message>(), out Arg.Any<RedisValue>(), out Arg.Any<string?>())
+            .Returns(ci =>
+            {
+                ci[2] = "the writer's reason";
+                return false;
+            });
 
-        _messaging.Publish(new Message { Topic = "t", BinaryPayload = [1] });
+        _messaging.Publish(new Message { Topic = "a/b", BinaryPayload = [1] });
 
         _subscriber.DidNotReceive().Publish(Arg.Any<RedisChannel>(), Arg.Any<RedisValue>(), Arg.Any<CommandFlags>());
-        _logger.AssertLogged(LogLevel.Error, m => m.Contains("t") && m.Contains("Binary"));
+        _logger.AssertLogged(LogLevel.Error, m => m.Contains("a/b") && m.Contains("the writer's reason"));
     }
 
     [Fact]
@@ -72,7 +77,7 @@ public class MessagingWireFormatTests
     [Fact]
     public void Subscribe_DispatchesNothing_WhenTheReaderDropsTheValue()
     {
-        _reader.Read(Arg.Any<string>(), Arg.Any<string>()).Returns((Message?)null);
+        _reader.Read(Arg.Any<string>(), Arg.Any<RedisValue>()).Returns((Message?)null);
 
         CaptureInternalHandler()(RedisChannel.Literal("channel"), "value");
 

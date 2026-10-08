@@ -7,7 +7,7 @@ namespace SAF.Messaging.Redis.WireFormat;
 using SAF.Messaging.Contracts;
 
 /// <summary>
-/// One shape of the Redis JSON envelope. A new shape is added as a new implementation.
+/// One shape of the Redis envelope. A new shape is added as a new implementation.
 /// </summary>
 internal interface IRedisEnvelopeFormat
 {
@@ -18,8 +18,8 @@ internal interface IRedisEnvelopeFormat
 
     bool CanWrite(Message message);
 
-    string Write(Message message);
+    RedisWireValue Write(Message message);
 
-    /// <returns><c>null</c> if the envelope carries no readable message.</returns>
-    Message? Read(string envelopeJson);
+    /// <returns><c>null</c> if the value carries no readable message.</returns>
+    Message? Read(RedisWireValue value);
 }

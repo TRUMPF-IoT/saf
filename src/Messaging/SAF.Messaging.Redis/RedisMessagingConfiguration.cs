@@ -25,6 +25,9 @@ internal class RedisMessagingConfiguration
 
     public string? ConnectionString
         => _config.TryGetValue("connectionString", out var connString) ? connString : null;
+
+    public bool? EnableBinaryPayloads
+        => _config.TryGetValue("enableBinaryPayloads", out var enable) ? bool.Parse(enable) : null;
 }
 
 

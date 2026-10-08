@@ -13,8 +13,9 @@ using SAF.Messaging.Redis.WireFormat;
 /// </summary>
 internal static class TestWireFormat
 {
-    public static IRedisMessageWriter Writer() => new RedisMessageWriter(RedisWireFormats.All);
+    public static IRedisMessageWriter Writer(bool enableBinaryPayloads = true)
+        => ServiceCollectionExtensions.CreateWriter(new RedisConfiguration { EnableBinaryPayloads = enableBinaryPayloads });
 
     public static IRedisMessageReader Reader(ILogger? logger = null)
-        => new RedisMessageReader(RedisWireFormats.All, new UnknownVersionWarning(logger ?? NullLogger.Instance));
+        => ServiceCollectionExtensions.CreateReader(logger ?? NullLogger.Instance);
 }

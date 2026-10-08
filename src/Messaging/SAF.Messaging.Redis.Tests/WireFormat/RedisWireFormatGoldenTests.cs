@@ -4,17 +4,22 @@
 
 namespace SAF.Messaging.Redis.Tests.WireFormat;
 
+using System.Buffers.Binary;
+using System.Text;
+using Microsoft.Extensions.Logging;
 using NSubstitute;
 using SAF.Messaging.Contracts;
 using StackExchange.Redis;
+using TestUtilities;
 using TestUtilities.WireFormat;
 using Xunit;
 
 /// <summary>
 /// Records the Redis wire format as an old SAF node sees it. The samples without accepted reply formats are
 /// verified to be identical in 9.0.1, 10.0.3 and 11.0.0-alpha.9, so they cover every version SAF has to
-/// interoperate with. A failure here means the wire format changed - that is only allowed together with
-/// a deliberate bump of <see cref="RedisMessageVersion"/> and a reader for the old version.
+/// interoperate with. Binary payloads travel in a binary frame since 11.x. A failure here means the wire format
+/// changed - that is only allowed together with a deliberate bump of <see cref="RedisMessageVersion"/> and a reader
+/// for the old version.
 /// </summary>
 public class RedisWireFormatGoldenTests
 {
@@ -31,6 +36,16 @@ public class RedisWireFormatGoldenTests
         }
     }
 
+    public static TheoryData<string> BinaryIds
+    {
+        get
+        {
+            var data = new TheoryData<string>();
+            foreach (var id in WireFormatReferenceMessages.BinaryIds) data.Add(id);
+            return data;
+        }
+    }
+
     [Theory]
     [MemberData(nameof(ReferenceIds))]
     public void Publish_ProducesRecordedWireFormat(string id)
@@ -38,7 +53,19 @@ public class RedisWireFormatGoldenTests
         var (channel, wireValue) = Publish(WireFormatReferenceMessages.Create(id));
 
         Assert.Equal(WireFormatReferenceMessages.Create(id).Topic, channel);
-        Assert.Equal(Golden(id), wireValue);
+        Assert.Equal(Golden(id), wireValue.ToString());
+    }
+
+    /// <summary>
+    /// Switching binary payloads off leaves text messages unchanged.
+    /// </summary>
+    [Theory]
+    [MemberData(nameof(ReferenceIds))]
+    public void Publish_ProducesRecordedWireFormat_WhenBinaryPayloadsAreDisabled(string id)
+    {
+        var (_, wireValue) = Publish(WireFormatReferenceMessages.Create(id), enableBinaryPayloads: false);
+
+        Assert.Equal(Golden(id), wireValue.ToString());
     }
 
     [Theory]
@@ -50,6 +77,80 @@ public class RedisWireFormatGoldenTests
         var received = Receive(expected.Topic, Golden(id));
 
         AssertMessage(expected, received);
+    }
+
+    [Theory]
+    [MemberData(nameof(BinaryIds))]
+    public void Publish_WritesBinaryFrame(string id)
+    {
+        var message = WireFormatReferenceMessages.Create(id);
+
+        var (channel, wireValue) = Publish(message);
+
+        Assert.Equal(message.Topic, channel);
+        Assert.Equal(GoldenFrame(id), (byte[])wireValue!);
+    }
+
+    [Fact]
+    public void Latest_IsTheBinaryFrameVersion()
+        => Assert.Equal(RedisMessageVersion.V3, RedisMessageVersion.Latest);
+
+    /// <summary>
+    /// Magic <c>SAFB</c>, layout version 1, envelope length 57 as little-endian uint32, the envelope, the binary payload.
+    /// </summary>
+    [Fact]
+    public void Publish_WritesBinaryFrameLayout()
+    {
+        var (_, wireValue) = Publish(WireFormatReferenceMessages.Create(WireFormatReferenceMessages.Binary));
+
+        Assert.Equal(
+            "534146420139000000"
+            + "7B2276657273696F6E223A22332E302E30222C226D657373616765223A7B22746F706963223A227361662F776972652F62696E617279227D7D"
+            + "00017F80FEFF",
+            Convert.ToHexString((byte[])wireValue!));
+    }
+
+    [Theory]
+    [MemberData(nameof(BinaryIds))]
+    public void Subscribe_ReadsBinaryFrame(string id)
+    {
+        var expected = WireFormatReferenceMessages.Create(id);
+
+        var received = Receive(expected.Topic, GoldenFrame(id));
+
+        AssertMessage(expected, received);
+    }
+
+    /// <summary>
+    /// Nodes before SAF 11 read a binary frame as corrupt text, so the operator can switch binary payloads off.
+    /// </summary>
+    [Theory]
+    [MemberData(nameof(BinaryIds))]
+    public void Publish_DropsBinaryPayloadsAndLogsAnError_WhenDisabled(string id)
+    {
+        var logger = Substitute.For<MockLogger<Messaging>>();
+        var (messaging, subscriber, _) = CreateMessaging(enableBinaryPayloads: false, logger);
+
+        messaging.Publish(WireFormatReferenceMessages.Create(id));
+
+        subscriber.DidNotReceive().Publish(Arg.Any<RedisChannel>(), Arg.Any<RedisValue>(), Arg.Any<CommandFlags>());
+        logger.AssertLogged(LogLevel.Error, m => m.Contains("saf/wire/") && m.Contains("EnableBinaryPayloads"));
+    }
+
+    /// <summary>
+    /// A node before SAF 11 reads the frame as text. That text is no JSON envelope, so the node hands it to its
+    /// handlers as payload, with every byte that is no valid UTF-8 replaced.
+    /// </summary>
+    [Fact]
+    public void OldNodes_ReadABinaryFrameAsCorruptText()
+    {
+        RedisValue frame = GoldenFrame(WireFormatReferenceMessages.Binary);
+
+        var text = frame.ToString();
+
+        Assert.ThrowsAny<Exception>(() => Toolbox.Serialization.JsonSerializer.Deserialize<LegacyEnvelope>(text));
+        Assert.StartsWith("SAFB", text);
+        Assert.Contains('\uFFFD', text);
     }
 
     /// <summary>
@@ -96,19 +197,6 @@ public class RedisWireFormatGoldenTests
         Assert.Equal(expected.Payload, old.Message.Payload);
     }
 
-    /// <summary>
-    /// The envelope is text only. Up to now no Redis format carries binary payloads, so they are not sent.
-    /// </summary>
-    [Fact]
-    public void Publish_SendsNothingForBinaryPayloads()
-    {
-        var (messaging, subscriber, _) = CreateMessaging();
-
-        messaging.Publish(new Message { Topic = "saf/wire/binary", Payload = "p", BinaryPayload = [1, 2, 3] });
-
-        subscriber.DidNotReceive().Publish(Arg.Any<RedisChannel>(), Arg.Any<RedisValue>(), Arg.Any<CommandFlags>());
-    }
-
     [Theory]
     [InlineData("not json at all")]
     [InlineData("""{"foo":1}""")]
@@ -145,26 +233,48 @@ public class RedisWireFormatGoldenTests
         _ => throw new ArgumentOutOfRangeException(nameof(id), id, "No recorded sample for this reference message.")
     };
 
-    private static (string Channel, string WireValue) Publish(Message message)
+    /// <summary>
+    /// The envelope inside the binary frame; the binary payload follows it.
+    /// </summary>
+    private static string GoldenEnvelope(string id) => id switch
     {
-        var (messaging, subscriber, _) = CreateMessaging();
+        WireFormatReferenceMessages.Binary =>
+            """{"version":"3.0.0","message":{"topic":"saf/wire/binary"}}""",
+        WireFormatReferenceMessages.TextAndBinary =>
+            """{"version":"3.0.0","message":{"topic":"saf/wire/text-and-binary","payload":"{\"name\":\"chunk\"}","customProperties":[{"name":"index","value":"3"}]}}""",
+        WireFormatReferenceMessages.EmptyBinary =>
+            """{"version":"3.0.0","message":{"topic":"saf/wire/empty-binary"}}""",
+        _ => throw new ArgumentOutOfRangeException(nameof(id), id, "No recorded sample for this reference message.")
+    };
+
+    private static byte[] GoldenFrame(string id)
+    {
+        var envelope = Encoding.UTF8.GetBytes(GoldenEnvelope(id));
+        var envelopeLength = new byte[4];
+        BinaryPrimitives.WriteUInt32LittleEndian(envelopeLength, (uint)envelope.Length);
+        return [.."SAFB"u8, 1, ..envelopeLength, ..envelope, ..WireFormatReferenceMessages.Create(id).BinaryPayload!];
+    }
+
+    private static (string Channel, RedisValue WireValue) Publish(Message message, bool enableBinaryPayloads = true)
+    {
+        var (messaging, subscriber, _) = CreateMessaging(enableBinaryPayloads);
         string? channel = null;
-        string? wireValue = null;
+        var wireValue = RedisValue.Null;
         subscriber.When(s => s.Publish(Arg.Any<RedisChannel>(), Arg.Any<RedisValue>(), Arg.Any<CommandFlags>()))
             .Do(ci =>
             {
                 channel = ci.ArgAt<RedisChannel>(0).ToString();
-                wireValue = ci.ArgAt<RedisValue>(1).ToString();
+                wireValue = ci.ArgAt<RedisValue>(1);
             });
 
         messaging.Publish(message);
 
         Assert.NotNull(channel);
-        Assert.NotNull(wireValue);
-        return (channel!, wireValue!);
+        Assert.False(wireValue.IsNull);
+        return (channel!, wireValue);
     }
 
-    private static Message Receive(string channel, string wireValue)
+    private static Message Receive(string channel, RedisValue wireValue)
     {
         var (messaging, subscriber, dispatcher) = CreateMessaging();
         Message? received = null;
@@ -189,19 +299,22 @@ public class RedisWireFormatGoldenTests
         return internalHandler!;
     }
 
-    private static (Messaging Messaging, ISubscriber Subscriber, IServiceMessageDispatcher Dispatcher) CreateMessaging()
+    private static (Messaging Messaging, ISubscriber Subscriber, IServiceMessageDispatcher Dispatcher) CreateMessaging(
+        bool enableBinaryPayloads = true, ILogger<Messaging>? logger = null)
     {
         var dispatcher = Substitute.For<IServiceMessageDispatcher>();
         var multiplexer = Substitute.For<IConnectionMultiplexer>();
         var subscriber = Substitute.For<ISubscriber>();
         multiplexer.GetSubscriber().Returns(subscriber);
-        return (new Messaging(null, multiplexer, dispatcher, TestWireFormat.Writer(), TestWireFormat.Reader()), subscriber, dispatcher);
+        var messaging = new Messaging(logger, multiplexer, dispatcher, TestWireFormat.Writer(enableBinaryPayloads), TestWireFormat.Reader());
+        return (messaging, subscriber, dispatcher);
     }
 
     private static void AssertMessage(Message expected, Message actual)
     {
         Assert.Equal(expected.Topic, actual.Topic);
         Assert.Equal(expected.Payload, actual.Payload);
+        Assert.Equal(expected.BinaryPayload, actual.BinaryPayload);
         Assert.Equal(expected.AcceptedReplyFormats, actual.AcceptedReplyFormats);
 
         if (expected.CustomProperties == null)

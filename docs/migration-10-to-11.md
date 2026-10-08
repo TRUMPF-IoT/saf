@@ -23,6 +23,7 @@ This document describes every breaking change and the steps needed to migrate fr
 | Storage namespace | `SAF.Common.IStorageInfrastructure` | Still `SAF.Common.IStorageInfrastructure` (unchanged) |
 | Cross-plugin services | Not supported | Public contract services imported across plugin containers; `IPluginServiceProvider` for dynamic resolution |
 | NATS server | Any version | **2.2 or newer**, because `CustomProperties` now travel in NATS headers |
+| Binary payloads on Redis and NATS | Not available | Sent by default; 9.x and 10.x nodes read them as corrupt text, so set `EnableBinaryPayloads` to `false` while they share the server; see [Redis and NATS send binary payloads](#redis-and-nats-send-binary-payloads) |
 | Received messages | A C-DEngine handler could change a batched message without affecting other subscriptions | Messages are read-only on every transport; see [Messages are read-only](#messages-are-read-only) |
 
 ---
@@ -471,6 +472,30 @@ An 11.x node announces the C-DEngine pub/sub version `5.0.0`, which carries bina
 A message with a `BinaryPayload` is not sent to them; the sender logs a warning per such peer. No action is
 required, but a feature that sends binary payloads works only between 11.x nodes.
 
+### Redis and NATS send binary payloads
+
+SAF 11.x sends a message with a `BinaryPayload` over Redis and NATS without Base64: on Redis in a binary frame,
+on NATS as the message body (see [Redis](./messaging.md#redis) and [NATS](./messaging.md#nats)). Text messages
+look on the wire as in 10.x.
+
+A 9.x or 10.x node cannot read such a message and cannot tell: it receives the bytes as the `Payload` of a
+message, as corrupt text, and logs no error. Redis and NATS have no per-node negotiation like C-DEngine, so the
+sender cannot leave older nodes out.
+
+**Required in mixed operation:** while 9.x or 10.x nodes use the same Redis or NATS server, set
+`EnableBinaryPayloads` to `false` in the `Redis` or `Nats` section of every 11.x node:
+
+```json
+{
+  "Redis": { "ConnectionString": "localhost:6379", "EnableBinaryPayloads": false },
+  "Nats": { "Url": "nats://localhost:4222", "EnableBinaryPayloads": false }
+}
+```
+
+A message with a `BinaryPayload` is then not sent, and the sender logs an error; text messages are not affected.
+Remove the setting once all nodes run 11.x. Without older nodes, no action is required. See
+[Binary Payloads With Older Nodes on Redis or NATS](./messaging.md#binary-payloads-with-older-nodes-on-redis-or-nats).
+
 ### Digital-signature validation is secure by default
 
 `DigitalSignaturePluginAssemblyValidatorOptions.RequireValidDigitalSignature` defaults to `true`, so registering the validator without configuration demands a signature that is intact, covers the file and chains to a trusted root. Check that against the signatures your plug-ins actually carry before enabling the validator: unsigned plug-ins, and plug-ins whose signer chains to a root the host does not trust, are skipped with a warning.
@@ -538,4 +563,5 @@ The [shared set](./plugin-system.md#the-shared-set) includes `SAF.PluginSystem.H
 - [ ] Forward any additional host service your plug-ins need with `AddHostServiceForwarder<T>()` — v10's single shared container needed no such step
 - [ ] Replace `using SAF.Messaging.Cde;` with `using SAF.Cde.Common;` wherever you use `CdeConfiguration` or `CdeCryptoLibConfig`
 - [ ] If you use NATS, run NATS Server 2.2 or newer
+- [ ] If 9.x or 10.x nodes share a Redis or NATS server with 11.x nodes, set `EnableBinaryPayloads` to `false` on the 11.x nodes until all nodes run 11.x
 - [ ] Make sure no handler changes a `Message` it receives; create a new one instead

@@ -116,21 +116,35 @@ public static class ServiceCollectionExtensions
                     cfg => CreateMessagingInfrastructure(sp, cfg, config)));
 
     private static Messaging CreateMessagingInfrastructure(IServiceProvider serviceProvider, MessagingConfiguration config, RedisConfiguration defaultConfiguration)
+        => CreateMessagingInfrastructure(serviceProvider, ResolveConfiguration(config, defaultConfiguration));
+
+    /// <summary>
+    /// A route's own values take precedence over the <c>Redis</c> section.
+    /// </summary>
+    internal static RedisConfiguration ResolveConfiguration(MessagingConfiguration config, RedisConfiguration defaultConfiguration)
     {
         if (config.Config is null || config.Config.Count == 0)
         {
-            return CreateMessagingInfrastructure(serviceProvider, defaultConfiguration);
+            return defaultConfiguration;
         }
 
         var msgCfg = new RedisMessagingConfiguration(config);
-        var redisCfg = new RedisConfiguration
+        return new RedisConfiguration
         {
             ConnectionString = msgCfg.ConnectionString ?? defaultConfiguration.ConnectionString,
-            Timeout = defaultConfiguration.Timeout
+            Timeout = defaultConfiguration.Timeout,
+            EnableBinaryPayloads = msgCfg.EnableBinaryPayloads ?? defaultConfiguration.EnableBinaryPayloads
         };
-
-        return CreateMessagingInfrastructure(serviceProvider, redisCfg);
     }
+
+    internal static IRedisMessageWriter CreateWriter(RedisConfiguration config)
+    {
+        IRedisMessageWriter writer = new RedisMessageWriter(RedisWireFormats.All, new RedisBinaryFrame());
+        return config.EnableBinaryPayloads ? writer : new BinaryPayloadsDisabledWriter(writer);
+    }
+
+    internal static IRedisMessageReader CreateReader(ILogger logger)
+        => new RedisMessageReader(RedisWireFormats.All, new RedisBinaryFrame(), new UnknownVersionWarning(logger), logger);
 
     private static Messaging CreateMessagingInfrastructure(IServiceProvider serviceProvider, RedisConfiguration config)
     {
@@ -138,8 +152,8 @@ public static class ServiceCollectionExtensions
         return new Messaging(logger,
             CreateRedisConnection(config, logger).multiplexer,
             ResolveMessageDispatcher(serviceProvider),
-            new RedisMessageWriter(RedisWireFormats.All),
-            new RedisMessageReader(RedisWireFormats.All, new UnknownVersionWarning(logger)));
+            CreateWriter(config),
+            CreateReader(logger));
     }
 
     private static IServiceMessageDispatcher ResolveMessageDispatcher(IServiceProvider serviceProvider)

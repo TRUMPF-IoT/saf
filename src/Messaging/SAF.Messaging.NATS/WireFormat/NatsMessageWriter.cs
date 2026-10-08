@@ -4,6 +4,7 @@
 
 namespace SAF.Messaging.Nats.WireFormat;
 
+using System.Diagnostics.CodeAnalysis;
 using SAF.Messaging.Contracts;
 
 /// <summary>
@@ -18,10 +19,18 @@ internal sealed class NatsMessageWriter : INatsMessageWriter
         _formats = formats.OrderBy(f => f.MajorVersion).ToList();
     }
 
-    public bool TryWrite(Message message, out NatsWireMessage wireMessage)
+    public bool TryWrite(Message message, out NatsWireMessage wireMessage, [NotNullWhen(false)] out string? dropReason)
     {
         var format = _formats.FirstOrDefault(f => f.CanWrite(message));
-        wireMessage = format?.Write(message) ?? default;
-        return format != null;
+        if (format == null)
+        {
+            wireMessage = default;
+            dropReason = $"NATS messaging has no wire format for a message with format {message.GetFormat()}.";
+            return false;
+        }
+
+        wireMessage = format.Write(message);
+        dropReason = null;
+        return true;
     }
 }

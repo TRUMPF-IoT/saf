@@ -5,9 +5,10 @@
 namespace SAF.Messaging.Redis.WireFormat;
 
 using SAF.Messaging.Contracts;
+using StackExchange.Redis;
 
 internal interface IRedisMessageReader
 {
     /// <returns><c>null</c> if the value has to be dropped.</returns>
-    Message? Read(string channel, string value);
+    Message? Read(string channel, RedisValue value);
 }

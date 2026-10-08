@@ -54,8 +54,17 @@ public static class ServiceCollectionExtensions
             .AddNatsStorageInfrastructure(config);
     }
 
-    private static NatsConfiguration CreateNatsConfiguration(MessagingConfiguration config)
+    /// <summary>
+    /// A route's own values replace the <c>Nats</c> section, except for <see cref="NatsConfiguration.EnableBinaryPayloads"/>,
+    /// which the route inherits unless it sets it.
+    /// </summary>
+    internal static NatsConfiguration ResolveConfiguration(MessagingConfiguration config, NatsConfiguration defaultConfiguration)
     {
+        if (config.Config is null || config.Config.Count == 0)
+        {
+            return defaultConfiguration;
+        }
+
         var msgCfg = new NatsMessagingConfiguration(config);
         var natsCfg = new NatsConfiguration()
         {
@@ -89,11 +98,21 @@ public static class ServiceCollectionExtensions
             },
             ProxyUrl = msgCfg.ProxyUrl,
             ProxyUser = msgCfg.ProxyUser,
-            ProxyPassword = msgCfg.ProxyPassword
+            ProxyPassword = msgCfg.ProxyPassword,
+            EnableBinaryPayloads = msgCfg.EnableBinaryPayloads ?? defaultConfiguration.EnableBinaryPayloads
         };
 
         return natsCfg;
     }
+
+    internal static INatsMessageWriter CreateWriter(NatsConfiguration config)
+    {
+        INatsMessageWriter writer = new NatsMessageWriter(NatsWireFormats.All);
+        return config.EnableBinaryPayloads ? writer : new BinaryPayloadsDisabledWriter(writer);
+    }
+
+    internal static INatsMessageReader CreateReader(ILogger logger)
+        => new NatsMessageReader(NatsWireFormats.All, new UnknownVersionWarning(logger), logger);
 
     private static INatsClient CreateNatsClient(NatsConfiguration config, ILogger logger)
     {
@@ -181,14 +200,7 @@ public static class ServiceCollectionExtensions
                     cfg => CreateMessagingInfrastructure(sp, cfg, config)));
 
     private static Messaging CreateMessagingInfrastructure(IServiceProvider serviceProvider, MessagingConfiguration config, NatsConfiguration defaultConfiguration)
-    {
-        if (config.Config is null || config.Config.Count == 0)
-        {
-            return CreateMessagingInfrastructure(serviceProvider, defaultConfiguration);
-        }
-
-        return CreateMessagingInfrastructure(serviceProvider, CreateNatsConfiguration(config));
-    }
+        => CreateMessagingInfrastructure(serviceProvider, ResolveConfiguration(config, defaultConfiguration));
 
     private static Messaging CreateMessagingInfrastructure(IServiceProvider serviceProvider, NatsConfiguration config)
     {
@@ -199,8 +211,8 @@ public static class ServiceCollectionExtensions
             serviceProvider.GetService<IInputRouteTranslator>() ?? new NatsInputRouteTranslator(),
             serviceProvider.GetService<IOutputRouteTranslator>() ?? new NatsOutputRouteTranslator(),
             ResolveMessageDispatcher(serviceProvider),
-            new NatsMessageWriter(NatsWireFormats.All),
-            new NatsMessageReader(NatsWireFormats.All, new UnknownVersionWarning(logger), logger));
+            CreateWriter(config),
+            CreateReader(logger));
     }
 
     private static IServiceMessageDispatcher ResolveMessageDispatcher(IServiceProvider serviceProvider)

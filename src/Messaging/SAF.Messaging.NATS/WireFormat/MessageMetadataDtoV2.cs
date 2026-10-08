@@ -7,14 +7,22 @@ namespace SAF.Messaging.Nats.WireFormat;
 using SAF.Messaging.Contracts;
 
 /// <summary>
-/// Wire shape of the <see cref="NatsHeaderNames.Metadata"/> header in version 2.
+/// Wire shape of the <see cref="NatsHeaderNames.Metadata"/> header from version 2 on.
 /// Older nodes ignore fields they do not know, so only optional fields may be added - anything else
 /// needs a new major version.
 /// </summary>
 internal sealed class MessageMetadataDtoV2
 {
+    /// <summary>
+    /// From version 3 on: the text payload, because the body carries the binary payload.
+    /// </summary>
+    public string? Payload { get; set; }
+
     public int? AcceptedReplyFormats { get; set; }
     public List<MessageCustomPropertyDtoV2>? CustomProperties { get; set; }
+
+    // A method, so the serializer does not write it.
+    public bool IsEmpty() => Payload is null && AcceptedReplyFormats is null && CustomProperties is null;
 
     public static MessageMetadataDtoV2 FromMessage(Message message)
         => new()

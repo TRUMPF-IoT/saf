@@ -9,5 +9,8 @@ namespace SAF.Messaging.Nats.WireFormat;
 /// </summary>
 internal static class NatsWireFormats
 {
-    public static IReadOnlyList<INatsWireFormat> All { get; } = [new NatsV1Format(), new NatsV2Format()];
+    private static readonly INatsMetadataHeader MetadataHeader = new NatsMetadataHeader();
+
+    public static IReadOnlyList<INatsWireFormat> All { get; } =
+        [new NatsV1Format(), new NatsV2Format(MetadataHeader), new NatsV3Format(MetadataHeader)];
 }

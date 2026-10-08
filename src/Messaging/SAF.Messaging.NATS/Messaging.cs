@@ -46,15 +46,13 @@ internal sealed class Messaging : IMessagingInfrastructure, IDisposable
 
         try
         {
-            if (!_writer.TryWrite(message, out var wireMessage))
+            if (!_writer.TryWrite(message, out var wireMessage, out var dropReason))
             {
-                _logger.LogError("Dropped message on {Topic}: NATS messaging cannot transport a message with format {Format}.",
-                    message.Topic, message.GetFormat());
+                _logger.LogError("Dropped message on {Topic}: {Reason}", message.Topic, dropReason);
                 return;
             }
 
-            var topic = _inputRouteTranslator.TranslateRoute(message.Topic);
-            _natsClient.PublishAsync(topic, wireMessage.Body, headers: wireMessage.Headers);
+            wireMessage.PublishAsync(_natsClient, _inputRouteTranslator.TranslateRoute(message.Topic));
         }
         catch (NullReferenceException nre)
         {
@@ -166,13 +164,15 @@ internal sealed class Messaging : IMessagingInfrastructure, IDisposable
             var cts = new CancellationTokenSource();
             var subscriptionTask = Task.Run(async () =>
             {
-                var subscription = await _natsClient.Connection.SubscribeCoreAsync<string>(subject: subject, cancellationToken: cts.Token);
+                var subscription = await _natsClient.Connection.SubscribeCoreAsync<NatsMemoryOwner<byte>>(subject: subject, cancellationToken: cts.Token);
                 isSynchronized = true;
                 await foreach (var msg in subscription.Msgs.ReadAllAsync(cts.Token))
                 {
+                    // A pooled buffer: the reader copies what the message keeps.
+                    using var body = msg.Data;
                     try
                     {
-                        var message = _reader.Read(_outputRouteTranslator.TranslateRoute(msg.Subject), msg.Data, msg.Headers);
+                        var message = _reader.Read(_outputRouteTranslator.TranslateRoute(msg.Subject), new NatsBody(body.Memory), msg.Headers);
                         if (message != null) handler(message);
                     }
                     catch (Exception)

@@ -62,7 +62,10 @@ Which transports deliver binary payloads:
 - **In-Process** delivers them.
 - **C-DEngine** delivers them to peers on SAF 11.x (pub/sub version `5.0.0`). It **does not send** such a message
   to a 9.x or 10.x peer and logs a warning per peer; see [C-DEngine](#c-dengine).
-- **Redis** and **NATS** cannot carry them yet and **do not send** such a message: they log an error and drop it.
+- **Redis** and **NATS** deliver them between SAF 11.x nodes. They cannot tell which nodes listen: a 9.x or 10.x
+  node on the same channel or subject **receives the bytes as corrupt text** in `Payload`, without an error. While
+  such nodes use the same server, set `EnableBinaryPayloads` to `false`; see
+  [Binary Payloads With Older Nodes on Redis or NATS](#binary-payloads-with-older-nodes-on-redis-or-nats).
 
 With [Routing](#routing-multiple-brokers), each route's transport decides on its own.
 
@@ -134,20 +137,40 @@ Backed by [StackExchange.Redis](https://github.com/StackExchange/StackExchange.R
   "Messaging": { "PrimaryKey": "Redis" },
   "Redis": {
     "ConnectionString": "localhost:6379",
-    "Timeout": 60000
+    "Timeout": 60000,
+    "EnableBinaryPayloads": true
   }
 }
 ```
 
 > The plug-in reads the `Redis` section from the plugin settings file, falling back to host configuration.
 
-Every message goes to the channel as a versioned JSON envelope, `{"version":"2.0.0","message":{…}}`. A receiver
+| Setting | Default | Meaning |
+|---|---|---|
+| `EnableBinaryPayloads` | `true` | Sends messages with a `BinaryPayload`. Set it to `false` while nodes before SAF 11 use the same Redis server; see [Binary Payloads With Older Nodes on Redis or NATS](#binary-payloads-with-older-nodes-on-redis-or-nats). |
+
+A text message goes to the channel as a versioned JSON envelope, `{"version":"2.0.0","message":{…}}`. A receiver
 reads every `1.x` and `2.x` envelope. A value that is no SAF envelope at all, for example one published by
-another application, is delivered with the raw value as `Payload` and the channel as `Topic`.
+another application, is delivered with the raw value as `Payload` and the channel as `Topic`, unless it starts with
+the bytes `SAFB`.
 
 `AcceptedReplyFormats` is an optional field of the envelope's `message`, written only when set, with the flags
-as a number: `"acceptedReplyFormats":3`. Older SAF nodes ignore it. The envelope carries text only, so a message with a `BinaryPayload` is not sent: Redis messaging logs an error and
-drops it.
+as a number: `"acceptedReplyFormats":3`. Older SAF nodes ignore it.
+
+A message with a `BinaryPayload` goes to the channel as a binary frame, without Base64:
+
+| Bytes | Content |
+|---|---|
+| 4 | `SAFB` |
+| 1 | Layout version of the frame, `1` |
+| 4 | Length of the envelope in bytes, as an unsigned little-endian integer |
+| length of the envelope | The envelope `{"version":"3.0.0","message":{…}}` in UTF-8, with topic, `Payload` and the other fields |
+| rest of the value | The binary payload |
+
+A JSON envelope never starts with `SAFB`, so the receiver tells the two apart by the first bytes. A frame that
+cannot be read, or that has an unknown layout version, is dropped with a warning. Nodes before SAF 11 receive the
+frame as corrupt text; with `EnableBinaryPayloads` set to `false`, a message with a `BinaryPayload` is not sent,
+and Redis messaging logs an error.
 
 An envelope with an **unknown major version** comes from a newer SAF version that this node cannot read. It is
 **dropped**, and a warning is logged once per unknown version. Up to 11.0.0-alpha.9 such an envelope was read as
@@ -162,9 +185,13 @@ Backed by [NATS.Net](https://nats.io). High-performance, cloud-native messaging.
 ```json
 {
   "Messaging": { "PrimaryKey": "Nats" },
-  "Nats": { "Url": "nats://localhost:4222" }
+  "Nats": { "Url": "nats://localhost:4222", "EnableBinaryPayloads": true }
 }
 ```
+
+| Setting | Default | Meaning |
+|---|---|---|
+| `EnableBinaryPayloads` | `true` | Sends messages with a `BinaryPayload`. Set it to `false` while nodes before SAF 11 use the same NATS server; see [Binary Payloads With Older Nodes on Redis or NATS](#binary-payloads-with-older-nodes-on-redis-or-nats). |
 
 A subscription buffers incoming messages in a bounded channel. SAF configures that channel to **wait**
 when it is full (`SubPendingChannelFullMode = BoundedChannelFullMode.Wait`), so a handler that is slower
@@ -172,13 +199,14 @@ than the publish rate applies backpressure to the reader rather than having mess
 silently — NATS.Net's own default is to drop the newest message instead.
 
 **Requires NATS Server 2.2 or newer.** SAF sends the message metadata — `CustomProperties` and `AcceptedReplyFormats` —
-in NATS message headers, which the server supports since version 2.2. The message body
+in NATS message headers, which the server supports since version 2.2. The body of a text message
 is always the payload, exactly as in earlier SAF versions:
 
 | Message | Body | Headers |
 |---|---|---|
 | Without metadata (both `null`) | `Payload` | none — identical on the wire to SAF 9.x and 10.x |
 | With metadata (an empty `CustomProperties` list included) | `Payload` | `saf-v: 2.0.0` and `saf-meta: {"acceptedReplyFormats":3,"customProperties":[{"name":…,"value":…}]}`, with the fields that are set; the flags as a number |
+| With a `BinaryPayload` | The binary payload, without Base64 | `saf-v: 3.0.0`, and `saf-meta` if any other field is set; a `Payload` travels there as `"payload":"…"` |
 
 NATS header values are ASCII, so `saf-meta` escapes every other character as a JSON `\u` sequence. A non-SAF
 client that reads the header gets the original text back with any JSON parser.
@@ -187,8 +215,14 @@ client that reads the header gets the original text back with any JSON parser.
   payload as before, but no metadata: those versions never transported custom properties over NATS.
 - **A NATS server before 2.2** rejects a message with headers and closes the publisher's connection. The
   message is lost, and the client reconnects. Messages without metadata are not affected.
-- The body carries text only, so a message with a `BinaryPayload` is not sent: NATS messaging logs an error and
-  drops it.
+- In a message with both payloads, the text payload travels in the `saf-meta` header, where every non-ASCII
+  character, every quote and a few other characters are escaped, which can make the text several times longer.
+  Keep such text short, for example a small JSON description of the binary data.
+- The server's maximum message size (`max_payload`, 1 MB by default) counts body and headers, binary payloads
+  included.
+- **Older SAF nodes** receive a binary payload as corrupt text in `Payload`, without an error. With
+  `EnableBinaryPayloads` set to `false`, a message with a `BinaryPayload` is not sent, and NATS messaging logs an
+  error.
 - A message whose `saf-v` header has an **unknown major version** comes from a newer SAF version. It is
   **dropped**, and a warning is logged once per unknown version. A message whose `saf-meta` header cannot be
   read is dropped with a warning, too. Headers of other publishers are ignored.
@@ -288,13 +322,39 @@ the formats of older versions:
 
 | Transport | Mixed operation with 9.x and 10.x | Changed in 11.x |
 |---|---|---|
-| Redis | Supported; older nodes ignore `AcceptedReplyFormats` | An envelope with an unknown major version is dropped with a warning instead of being read as version 2. `AcceptedReplyFormats` is an optional envelope field ([details](#redis)). |
-| NATS | Supported; older nodes receive no `CustomProperties` or `AcceptedReplyFormats` | The metadata travels in headers; NATS Server 2.2 or newer is required ([details](#nats)). |
+| Redis | Supported; older nodes ignore `AcceptedReplyFormats`. **Set `EnableBinaryPayloads` to `false`**: older nodes read binary payloads as corrupt text | An envelope with an unknown major version is dropped with a warning instead of being read as version 2. `AcceptedReplyFormats` is an optional envelope field. Binary payloads travel in a binary frame, version `3.0.0` ([details](#redis)). |
+| NATS | Supported; older nodes receive no `CustomProperties` or `AcceptedReplyFormats`. **Set `EnableBinaryPayloads` to `false`**: older nodes read binary payloads as corrupt text | The metadata travels in headers; NATS Server 2.2 or newer is required. Binary payloads are the body of version `3.0.0` messages ([details](#nats)). |
 | C-DEngine | Supported; the format is negotiated per peer (9.x announces version `3.0.0`, 10.x `4.0.0`, 11.x `5.0.0`); older nodes ignore `AcceptedReplyFormats` and receive no binary payloads | Version `5.0.0` carries binary payloads; `AcceptedReplyFormats` is an optional JSON field ([details](#c-dengine)). |
 | In-Process | Not applicable (single process) | Nothing. |
 
-Messages with a `BinaryPayload` are delivered by In-Process, and by C-DEngine between 11.x nodes; see
-[Binary Payloads](#binary-payloads).
+Messages with a `BinaryPayload` are delivered by In-Process, and by C-DEngine, Redis and NATS between 11.x nodes;
+see [Binary Payloads](#binary-payloads).
+
+### Binary Payloads With Older Nodes on Redis or NATS
+
+C-DEngine negotiates the format with each peer. Redis and NATS cannot: every node subscribed to a channel or
+subject receives what is published there. A 9.x or 10.x node receives a binary payload as the `Payload` of a
+message, with the bytes turned into corrupt text, and logs no error. Its handlers then work with that text.
+
+While 9.x or 10.x nodes use the same Redis or NATS server, set `EnableBinaryPayloads` to `false` on every 11.x
+node:
+
+```json
+{
+  "Redis": { "ConnectionString": "localhost:6379", "EnableBinaryPayloads": false },
+  "Nats": { "Url": "nats://localhost:4222", "EnableBinaryPayloads": false }
+}
+```
+
+- A message with a `BinaryPayload` is then not sent. The sender logs an error, so a feature that needs binary
+  payloads fails visibly instead of feeding older nodes corrupt data.
+- Text messages are not affected; they look on the wire exactly as with the setting on.
+- A node still reads binary payloads that other 11.x nodes send; the setting covers sending only.
+- A [route](#routing-multiple-brokers) with its own `Config` uses the value of the `Redis` or `Nats` section
+  unless it sets the key itself: `enableBinaryPayloads` for Redis, `EnableBinaryPayloads` for NATS, like the
+  other keys of each transport.
+
+Remove the setting, or set it to `true`, once all nodes run SAF 11.x.
 
 ---
 

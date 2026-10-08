@@ -14,7 +14,7 @@ public class NatsMessageWriterTests
     [Fact]
     public void Write_UsesV1_WithoutMetadata()
     {
-        Assert.True(TestWireFormat.Writer().TryWrite(new Message { Topic = "t", Payload = "p" }, out var wire));
+        Assert.True(TestWireFormat.Writer().TryWrite(new Message { Topic = "t", Payload = "p" }, out var wire, out _));
         Assert.Null(wire.Headers);
     }
 
@@ -28,13 +28,16 @@ public class NatsMessageWriterTests
     [MemberData(nameof(MessagesWithMetadata))]
     public void Write_UsesV2_WithMetadata(Message message)
     {
-        Assert.True(TestWireFormat.Writer().TryWrite(message, out var wire));
+        Assert.True(TestWireFormat.Writer().TryWrite(message, out var wire, out _));
         Assert.Equal("2.0.0", wire.Headers![NatsHeaderNames.Version].ToString());
     }
 
     [Fact]
-    public void Write_FailsForBinaryPayloads()
-        => Assert.False(TestWireFormat.Writer().TryWrite(new Message { Topic = "t", BinaryPayload = [1] }, out _));
+    public void Write_UsesV3_ForBinaryPayloads()
+    {
+        Assert.True(TestWireFormat.Writer().TryWrite(new Message { Topic = "t", BinaryPayload = [1] }, out var wire, out _));
+        Assert.Equal("3.0.0", wire.Headers![NatsHeaderNames.Version].ToString());
+    }
 
     [Fact]
     public void Write_UsesTheOldestFormatThatCanWriteTheMessage()
@@ -43,17 +46,19 @@ public class NatsMessageWriterTests
         var older = CreateFormat(2, canWrite: true, "v2");
         var skipped = CreateFormat(1, canWrite: false, "v1");
 
-        Assert.True(new NatsMessageWriter([newer, skipped, older]).TryWrite(new Message { Topic = "t" }, out var wire));
-        Assert.Equal("v2", wire.Body);
+        Assert.True(new NatsMessageWriter([newer, skipped, older]).TryWrite(new Message { Topic = "t" }, out var wire, out var dropReason));
+        Assert.Equal("v2", wire.TextBody);
+        Assert.Null(dropReason);
     }
 
     [Fact]
-    public void Write_Fails_WhenNoFormatCanWriteTheMessage()
+    public void Write_FailsWithAReason_WhenNoFormatCanWriteTheMessage()
     {
         var writer = new NatsMessageWriter([CreateFormat(1, canWrite: false, "v1")]);
 
-        Assert.False(writer.TryWrite(new Message { Topic = "t" }, out var wire));
+        Assert.False(writer.TryWrite(new Message { Topic = "t", BinaryPayload = [] }, out var wire, out var dropReason));
         Assert.Equal(default, wire);
+        Assert.Contains("Binary", dropReason);
     }
 
     private static INatsWireFormat CreateFormat(int major, bool canWrite, string body)
@@ -61,7 +66,7 @@ public class NatsMessageWriterTests
         var format = Substitute.For<INatsWireFormat>();
         format.MajorVersion.Returns(major);
         format.CanWrite(Arg.Any<Message>()).Returns(canWrite);
-        format.Write(Arg.Any<Message>()).Returns(new NatsWireMessage(body, null));
+        format.Write(Arg.Any<Message>()).Returns(NatsWireMessage.Text(body, null));
         return format;
     }
 }

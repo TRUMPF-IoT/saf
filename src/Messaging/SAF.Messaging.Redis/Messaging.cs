@@ -15,7 +15,8 @@ public static class RedisMessageVersion
 {
     public const string V1 = "1.0.0";
     public const string V2 = "2.0.0";
-    public static readonly string Latest = V2;
+    public const string V3 = "3.0.0"; // binary payloads in a binary frame
+    public static readonly string Latest = V3;
 }
 
 internal sealed class Messaging : IMessagingInfrastructure, IDisposable
@@ -43,10 +44,9 @@ internal sealed class Messaging : IMessagingInfrastructure, IDisposable
         _log.LogTrace("Publishing message for topic {Topic}.", message.Topic);
         try
         {
-            if (!_writer.TryWrite(message, out var redisPayload))
+            if (!_writer.TryWrite(message, out var redisPayload, out var dropReason))
             {
-                _log.LogError("Dropped message on {Topic}: Redis messaging cannot transport a message with format {Format}.",
-                    message.Topic, message.GetFormat());
+                _log.LogError("Dropped message on {Topic}: {Reason}", message.Topic, dropReason);
                 return;
             }
 
@@ -152,7 +152,7 @@ internal sealed class Messaging : IMessagingInfrastructure, IDisposable
         {
             void InternalHandler(RedisChannel channel, RedisValue message)
             {
-                var decoded = _reader.Read(channel.ToString(), message.ToString());
+                var decoded = _reader.Read(channel.ToString(), message);
                 if (decoded != null) handler(decoded);
             }
 

@@ -9,5 +9,7 @@ namespace SAF.Messaging.Redis.WireFormat;
 /// </summary>
 internal static class RedisWireFormats
 {
-    public static IReadOnlyList<IRedisEnvelopeFormat> All { get; } = [new RedisEnvelopeV2Format()];
+    private static readonly IRedisEnvelopeSerializer Serializer = new RedisEnvelopeSerializer();
+
+    public static IReadOnlyList<IRedisEnvelopeFormat> All { get; } = [new RedisEnvelopeV2Format(Serializer), new RedisEnvelopeV3Format(Serializer)];
 }

@@ -17,4 +17,10 @@ public class NatsConfiguration
     public string? ProxyUrl { get; set; }
     public string? ProxyUser { get; set; }
     public string? ProxyPassword { get; set; }
+
+    /// <summary>
+    /// Sends messages with a binary payload. Set it to <c>false</c> while nodes before SAF 11 use the same server:
+    /// they read such a message as corrupt text.
+    /// </summary>
+    public bool EnableBinaryPayloads { get; set; } = true;
 }

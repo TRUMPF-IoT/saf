@@ -25,7 +25,7 @@ internal sealed class NatsMessageReader : INatsMessageReader
         _logger = logger;
     }
 
-    public Message? Read(string topic, string? body, NatsHeaders? headers)
+    public Message? Read(string topic, NatsBody body, NatsHeaders? headers)
     {
         var version = headers != null && headers.TryGetValue(NatsHeaderNames.Version, out var values)
             ? values.ToString()
