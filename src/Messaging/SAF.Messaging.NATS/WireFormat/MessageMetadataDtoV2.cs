@@ -18,15 +18,17 @@ internal sealed class MessageMetadataDtoV2
     /// </summary>
     public string? Payload { get; set; }
 
+    public string? ReplyTo { get; set; }
     public int? AcceptedReplyFormats { get; set; }
     public List<MessageCustomPropertyDtoV2>? CustomProperties { get; set; }
 
     // A method, so the serializer does not write it.
-    public bool IsEmpty() => Payload is null && AcceptedReplyFormats is null && CustomProperties is null;
+    public bool IsEmpty() => Payload is null && ReplyTo is null && AcceptedReplyFormats is null && CustomProperties is null;
 
     public static MessageMetadataDtoV2 FromMessage(Message message)
         => new()
         {
+            ReplyTo = message.ReplyTo,
             AcceptedReplyFormats = (int?)message.AcceptedReplyFormats,
             CustomProperties = message.CustomProperties?
                 .Select(p => new MessageCustomPropertyDtoV2 { Name = p.Name, Value = p.Value })
@@ -38,6 +40,7 @@ internal sealed class MessageMetadataDtoV2
         {
             Topic = topic,
             Payload = payload,
+            ReplyTo = ReplyTo,
             AcceptedReplyFormats = (MessageFormats?)AcceptedReplyFormats,
             CustomProperties = CustomProperties?
                 .Select(p => new MessageCustomProperty { Name = p.Name!, Value = p.Value })

@@ -134,15 +134,79 @@ public class OrderResponder(IMessagingInfrastructure messaging) : IMessageHandle
             Status  = "Confirmed"
         };
 
-        // Reply to the reply channel carried in the request
+        // SAF 10.x requesters carry the reply topic only in the request object
         messaging.Publish(new Message
         {
-            Topic   = request.ReplyTo!,
+            Topic   = message.ReplyTo ?? request.ReplyTo!,
             Payload = JsonSerializer.Serialize(response)
         });
     }
 }
 ```
+
+`SendRequestAwaitFirstAnswer` writes the reply topic into the request object (`MessageRequestBase.ReplyTo`), where
+SAF 10.x responders read it, and into `Message.ReplyTo`. Its requests carry no `AcceptedReplyFormats`, so
+responders answer them with text, and it reads only the reply's `Payload`.
+
+### Binary Payloads in Requests and Replies
+
+`SendRequestAwaitFirstReply` sends a request message with the payloads you pass — text, binary, both or none — and
+returns the first reply as a whole `Message`, including its `BinaryPayload`, or `null` if no reply arrives in time:
+
+```csharp
+Task<Message?> SendRequestAwaitFirstReply(
+    string topic, string? payload = null, byte[]? binaryPayload = null, RequestOptions? options = null);
+```
+
+It does not serialize or deserialize anything, and the request needs no `MessageRequestBase`: the reply topic
+travels in `Message.ReplyTo` only. The binary payload is sent without a copy; do not change the array afterwards.
+`RequestOptions` holds the settings:
+
+| `RequestOptions` member | Meaning | Default |
+|---|---|---|
+| `AcceptedReplyFormats` | Payload formats you read in the reply, sent as the request message's `AcceptedReplyFormats`. Set `MessageFormats.Text \| MessageFormats.Binary` to allow a binary reply. | `null`: text only |
+| `ReplyTopicPrefix` | Prefix of the reply topic | the default prefix (`SetDefaultPrefix`, initially `private/reply`) |
+| `MillisecondsTimeoutTarget` | Time to wait for the reply | 5000 ms |
+
+```csharp
+public class ThumbnailClient(IRequestClient client)
+{
+    public async Task<byte[]?> GetThumbnailAsync(string imageId, byte[] image)
+    {
+        var reply = await client.SendRequestAwaitFirstReply(
+            "images/thumbnail",
+            payload: JsonSerializer.Serialize(new GetThumbnailRequest { ImageId = imageId }),
+            binaryPayload: image,
+            options: new RequestOptions { AcceptedReplyFormats = MessageFormats.Text | MessageFormats.Binary });
+
+        return reply?.BinaryPayload;
+    }
+}
+```
+
+When responding, decide on the request **message**. `Message.AcceptsReplyFormat` treats a missing
+`AcceptedReplyFormats` as text only, which covers requests from `SendRequestAwaitFirstAnswer` and from SAF 10.x or
+older:
+
+```csharp
+public void Handle(Message message)
+{
+    var request   = JsonSerializer.Deserialize<GetThumbnailRequest>(message.Payload!)!;
+    var thumbnail = CreateThumbnail(request.ImageId, message.BinaryPayload);
+
+    messaging.Publish(message.AcceptsReplyFormat(MessageFormats.Binary)
+        ? new Message { Topic = message.ReplyTo!, BinaryPayload = thumbnail }
+        : new Message { Topic = message.ReplyTo!, Payload = JsonSerializer.Serialize(new GetThumbnailResponse { Thumbnail = thumbnail }) });
+}
+```
+
+A reply in a format the request did not accept is still returned; the request client logs a warning, and the
+`SendRequestAwaitFirstAnswer` methods return `null` if the reply has no `Payload`.
+
+`SendRequestAwaitFirstReply` needs a responder on SAF 11.x: older nodes do not know `Message.ReplyTo` and cannot
+reply, so the request times out. Binary payloads in addition only reach nodes whose transport carries them; see
+[Binary Payloads](./messaging.md#binary-payloads). If older responders are possible, ask first with
+`SendRequestAwaitFirstAnswer`, for example for the responder's capabilities.
 
 ---
 

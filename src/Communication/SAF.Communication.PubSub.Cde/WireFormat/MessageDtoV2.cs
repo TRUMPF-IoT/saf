@@ -15,6 +15,7 @@ internal sealed class MessageDtoV2
 {
     public string? Topic { get; set; }
     public string? Payload { get; set; }
+    public string? ReplyTo { get; set; }
     public int? AcceptedReplyFormats { get; set; }
     public List<MessageCustomPropertyDtoV2>? CustomProperties { get; set; }
 
@@ -29,6 +30,7 @@ internal sealed class MessageDtoV2
         {
             Topic = message.Topic,
             Payload = message.Payload,
+            ReplyTo = message.ReplyTo,
             AcceptedReplyFormats = (int?)message.AcceptedReplyFormats,
             CustomProperties = message.CustomProperties?
                 .Select(p => new MessageCustomPropertyDtoV2 { Name = p.Name, Value = p.Value })
@@ -41,6 +43,7 @@ internal sealed class MessageDtoV2
         {
             Topic = Topic!,
             Payload = Payload,
+            ReplyTo = ReplyTo,
             AcceptedReplyFormats = (MessageFormats?)AcceptedReplyFormats,
             CustomProperties = CustomProperties?
                 .Select(p => new MessageCustomProperty { Name = p.Name!, Value = p.Value })

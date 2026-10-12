@@ -15,6 +15,7 @@ public class MessageTests
 
         Assert.Null(message.Payload);
         Assert.Null(message.BinaryPayload);
+        Assert.Null(message.ReplyTo);
         Assert.Null(message.AcceptedReplyFormats);
         Assert.Null(message.CustomProperties);
     }
@@ -30,6 +31,26 @@ public class MessageTests
         var message = new Message { Topic = "t", Payload = payload, BinaryPayload = hasBinaryPayload ? [] : null };
 
         Assert.Equal(expected, message.GetFormat());
+    }
+
+    [Theory]
+    [InlineData(null, MessageFormats.None, true)]
+    [InlineData(null, MessageFormats.Text, true)]
+    [InlineData(null, MessageFormats.Binary, false)]
+    [InlineData(null, MessageFormats.Text | MessageFormats.Binary, false)]
+    [InlineData(MessageFormats.Text, MessageFormats.Binary, false)]
+    [InlineData(MessageFormats.Binary, MessageFormats.Binary, true)]
+    [InlineData(MessageFormats.Binary, MessageFormats.Text, false)]
+    [InlineData(MessageFormats.Text | MessageFormats.Binary, MessageFormats.Text, true)]
+    [InlineData(MessageFormats.Text | MessageFormats.Binary, MessageFormats.Binary, true)]
+    [InlineData(MessageFormats.Text | MessageFormats.Binary, MessageFormats.Text | MessageFormats.Binary, true)]
+    [InlineData(MessageFormats.None, MessageFormats.Text, false)]
+    [InlineData(MessageFormats.None, MessageFormats.None, true)]
+    public void AcceptsReplyFormat_AcceptsTextOnly_WithoutAcceptedReplyFormats(MessageFormats? accepted, MessageFormats reply, bool expected)
+    {
+        var request = new Message { Topic = "t", AcceptedReplyFormats = accepted };
+
+        Assert.Equal(expected, request.AcceptsReplyFormat(reply));
     }
 
     /// <summary>

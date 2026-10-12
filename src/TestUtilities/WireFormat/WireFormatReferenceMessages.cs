@@ -25,6 +25,11 @@ public static class WireFormatReferenceMessages
     public const string ReplyFormats = "reply-formats";
 
     /// <summary>
+    /// A request with its reply topic, as IRequestClient sends it. Old nodes ignore the field.
+    /// </summary>
+    public const string Request = "request";
+
+    /// <summary>
     /// Binary payloads, not part of <see cref="Ids"/>: only transports that carry binary payloads record them.
     /// </summary>
     public const string Binary = "binary";
@@ -45,7 +50,8 @@ public static class WireFormatReferenceMessages
         EmptyPayload,
         UnicodeAndEscapes,
         NullPropertyValue,
-        ReplyFormats
+        ReplyFormats,
+        Request
     ];
 
     public static IReadOnlyList<string> BinaryIds => [Binary, TextAndBinary, EmptyBinary];
@@ -97,6 +103,13 @@ public static class WireFormatReferenceMessages
         {
             Topic = "saf/wire/reply-formats",
             Payload = """{"value":42}""",
+            AcceptedReplyFormats = MessageFormats.Text | MessageFormats.Binary
+        },
+        Request => new Message
+        {
+            Topic = "saf/wire/request",
+            Payload = """{"replyTo":"saf/wire/reply/1"}""",
+            ReplyTo = "saf/wire/reply/1",
             AcceptedReplyFormats = MessageFormats.Text | MessageFormats.Binary
         },
         // Includes bytes that are no valid UTF-8.

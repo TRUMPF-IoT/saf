@@ -25,6 +25,7 @@ This document describes every breaking change and the steps needed to migrate fr
 | NATS server | Any version | **2.2 or newer**, because `CustomProperties` now travel in NATS headers |
 | Binary payloads on Redis and NATS | Not available | Sent by default; 9.x and 10.x nodes read them as corrupt text, so set `EnableBinaryPayloads` to `false` while they share the server; see [Redis and NATS send binary payloads](#redis-and-nats-send-binary-payloads) |
 | Received messages | A C-DEngine handler could change a batched message without affecting other subscriptions | Messages are read-only on every transport; see [Messages are read-only](#messages-are-read-only) |
+| `IRequestClient` | Three `SendRequestAwaitFirstAnswer` methods; the reply topic only in the request object | Additional member `SendRequestAwaitFirstReply`, which only your own implementations of the interface must add; every request also carries `Message.ReplyTo`; see [Requests carry their reply topic in `Message.ReplyTo`](#requests-carry-their-reply-topic-in-messagereplyto) |
 
 ---
 
@@ -453,7 +454,7 @@ being read as version 2. No action is required: 9.x, 10.x and 11.x all write ver
 
 ### Messages are read-only
 
-`Message` has new optional members: `BinaryPayload`, `AcceptedReplyFormats` and `GetFormat()` (see
+`Message` has new optional members: `BinaryPayload`, `ReplyTo`, `AcceptedReplyFormats`, `GetFormat()` and `AcceptsReplyFormat()` (see
 [The Message Type](./messaging.md#the-message-type)). Existing code compiles and behaves as before.
 
 A message must not be changed after it is published, neither by the publisher nor by a handler. That was already
@@ -495,6 +496,29 @@ sender cannot leave older nodes out.
 A message with a `BinaryPayload` is then not sent, and the sender logs an error; text messages are not affected.
 Remove the setting once all nodes run 11.x. Without older nodes, no action is required. See
 [Binary Payloads With Older Nodes on Redis or NATS](./messaging.md#binary-payloads-with-older-nodes-on-redis-or-nats).
+
+### Requests carry their reply topic in `Message.ReplyTo`
+
+`Message` has a new optional member, `ReplyTo`: the topic a reply is expected on. `IRequestClient` sets it on every
+request. `SendRequestAwaitFirstAnswer` also still writes the reply topic into the request object
+(`MessageRequestBase.ReplyTo`), so 10.x responders keep working.
+
+Every request from an 11.x node therefore carries the field on the wire: on Redis as `"replyTo"` in the envelope, on
+C-DEngine in the JSON, on NATS in the `saf-meta` header. Older nodes ignore it. On NATS every request thus has
+headers, which needs NATS Server 2.2 or newer (see
+[NATS transports custom properties and requires NATS Server 2.2](#nats-transports-custom-properties-and-requires-nats-server-22)).
+
+`IRequestClient` has a new member, `SendRequestAwaitFirstReply`. It sends a request with a text payload, a binary
+payload, both or none, and returns the whole reply message, including a binary reply if the request accepts one
+(see [Binary Payloads in Requests and Replies](./toolbox.md#binary-payloads-in-requests-and-replies)). Its requests
+carry the reply topic only in `Message.ReplyTo`, so only 11.x responders can answer them.
+
+**Required:** only if you implement `IRequestClient` yourself, for example as a hand-written test double: add
+`SendRequestAwaitFirstReply`. Substitutes from a mocking library need no change.
+
+**Recommended for responders:** read the reply topic as `message.ReplyTo ?? request.ReplyTo`, so the responder
+answers `SendRequestAwaitFirstReply` requests as well as requests from 10.x nodes. Before replying with a binary
+payload, check `message.AcceptsReplyFormat(MessageFormats.Binary)`; requests from 10.x nodes accept text only.
 
 ### Digital-signature validation is secure by default
 
@@ -565,3 +589,5 @@ The [shared set](./plugin-system.md#the-shared-set) includes `SAF.PluginSystem.H
 - [ ] If you use NATS, run NATS Server 2.2 or newer
 - [ ] If 9.x or 10.x nodes share a Redis or NATS server with 11.x nodes, set `EnableBinaryPayloads` to `false` on the 11.x nodes until all nodes run 11.x
 - [ ] Make sure no handler changes a `Message` it receives; create a new one instead
+- [ ] If you implement `IRequestClient` yourself, add `SendRequestAwaitFirstReply`
+- [ ] Let responders read the reply topic as `message.ReplyTo ?? request.ReplyTo`

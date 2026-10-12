@@ -54,6 +54,7 @@ public class CdeWireFormatGoldenTests
     [InlineData(WireFormatReferenceMessages.UnicodeAndEscapes, "saf/wire/unicode")]
     [InlineData(WireFormatReferenceMessages.NullPropertyValue, "saf/wire/null-prop")]
     [InlineData(WireFormatReferenceMessages.ReplyFormats, "saf/wire/reply-formats")]
+    [InlineData(WireFormatReferenceMessages.Request, "saf/wire/request")]
     public async Task Broadcast_V1_SendsPayloadOnly(string id, string topic)
     {
         var message = WireFormatReferenceMessages.Create(id);
@@ -88,6 +89,7 @@ public class CdeWireFormatGoldenTests
     [InlineData(WireFormatReferenceMessages.UnicodeAndEscapes)]
     [InlineData(WireFormatReferenceMessages.NullPropertyValue)]
     [InlineData(WireFormatReferenceMessages.ReplyFormats)]
+    [InlineData(WireFormatReferenceMessages.Request)]
     public async Task Broadcast_V4_SendsABatchArray(string id)
     {
         var message = WireFormatReferenceMessages.Create(id);
@@ -137,6 +139,7 @@ public class CdeWireFormatGoldenTests
     [InlineData(WireFormatReferenceMessages.UnicodeAndEscapes)]
     [InlineData(WireFormatReferenceMessages.NullPropertyValue)]
     [InlineData(WireFormatReferenceMessages.ReplyFormats)]
+    [InlineData(WireFormatReferenceMessages.Request)]
     public void DecodeMessages_ReadsV2AndV3Samples(string id)
     {
         var expected = WireFormatReferenceMessages.Create(id);
@@ -157,6 +160,7 @@ public class CdeWireFormatGoldenTests
     [InlineData(WireFormatReferenceMessages.UnicodeAndEscapes)]
     [InlineData(WireFormatReferenceMessages.NullPropertyValue)]
     [InlineData(WireFormatReferenceMessages.ReplyFormats)]
+    [InlineData(WireFormatReferenceMessages.Request)]
     public void DecodeMessages_ReadsV4BatchSamples(string id)
     {
         var expected = WireFormatReferenceMessages.Create(id);
@@ -217,14 +221,16 @@ public class CdeWireFormatGoldenTests
     }
 
     /// <summary>
-    /// A node up to 11.0.0-alpha.9 reads the JSON into a type without the accepted reply formats.
+    /// A node up to 11.0.0-alpha.9 reads the JSON into a type without the reply topic and the accepted reply formats.
     /// </summary>
-    [Fact]
-    public void OldNodes_IgnoreReplyFormats()
+    [Theory]
+    [InlineData(WireFormatReferenceMessages.ReplyFormats)]
+    [InlineData(WireFormatReferenceMessages.Request)]
+    public void OldNodes_IgnoreRequestMetadata(string id)
     {
-        var expected = WireFormatReferenceMessages.Create(WireFormatReferenceMessages.ReplyFormats);
+        var expected = WireFormatReferenceMessages.Create(id);
 
-        var old = TheCommonUtils.DeserializeJSONStringToObject<LegacyMessage>(GoldenJson(WireFormatReferenceMessages.ReplyFormats));
+        var old = TheCommonUtils.DeserializeJSONStringToObject<LegacyMessage>(GoldenJson(id));
 
         Assert.Equal(expected.Topic, old.Topic);
         Assert.Equal(expected.Payload, old.Payload);
@@ -271,6 +277,8 @@ public class CdeWireFormatGoldenTests
         // The flags travel as a number.
         WireFormatReferenceMessages.ReplyFormats =>
             """{"Topic":"saf/wire/reply-formats","Payload":"{\"value\":42}","AcceptedReplyFormats":3}""",
+        WireFormatReferenceMessages.Request =>
+            """{"Topic":"saf/wire/request","Payload":"{\"replyTo\":\"saf/wire/reply/1\"}","ReplyTo":"saf/wire/reply/1","AcceptedReplyFormats":3}""",
         // From V5 on: the bytes travel in PLB, the JSON names their length.
         WireFormatReferenceMessages.Binary =>
             """{"Topic":"saf/wire/binary","BinaryPayloadLength":6}""",
@@ -320,6 +328,7 @@ public class CdeWireFormatGoldenTests
         Assert.Single(actual);
         Assert.Equal(expected.Topic, actual[0].Topic);
         Assert.Equal(expected.Payload, actual[0].Payload);
+        Assert.Equal(expected.ReplyTo, actual[0].ReplyTo);
         Assert.Equal(expected.AcceptedReplyFormats, actual[0].AcceptedReplyFormats);
         Assert.Equal(expected.BinaryPayload, actual[0].BinaryPayload);
 

@@ -20,6 +20,7 @@ public class NatsWireFormatTests
     public static TheoryData<Message> MessagesBeyondV1 =>
     [
         new Message { Topic = "t", CustomProperties = [] },
+        new Message { Topic = "t", ReplyTo = "r" },
         new Message { Topic = "t", AcceptedReplyFormats = MessageFormats.None },
         new Message { Topic = "t", BinaryPayload = [] }
     ];

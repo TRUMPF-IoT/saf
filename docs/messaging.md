@@ -28,25 +28,34 @@ public class Message
     public string  Topic          { get; set; }   // routing key / topic
     public string? Payload        { get; set; }   // textual payload, usually JSON
     public byte[]? BinaryPayload  { get; set; }   // binary payload
+    public string? ReplyTo        { get; set; }   // topic a reply is expected on
     public MessageFormats? AcceptedReplyFormats { get; set; }   // payload formats the sender reads in a reply
     public List<MessageCustomProperty>? CustomProperties { get; set; }
 
     public MessageFormats GetFormat();   // payload formats present in this message
+    public bool AcceptsReplyFormat(MessageFormats formats);   // whether a reply may carry these formats
 }
 
 [Flags]
 public enum MessageFormats { None = 0, Text = 1, Binary = 2 }
 ```
 
-`CustomProperties` are string key/value pairs for metadata, such as a reply topic or a correlation id. Every
-network transport delivers them to the receiver. On NATS this needs SAF 11.x on both sides; see [NATS](#nats).
+`CustomProperties` are string key/value pairs for metadata, such as a correlation id. Every network transport
+delivers them to the receiver. On NATS this needs SAF 11.x on both sides; see [NATS](#nats).
+
+`ReplyTo` is the topic a responder publishes its reply on. The [Request Client](./toolbox.md#request-client) sets
+it on every request. Requests from SAF 10.x or older carry the reply topic only in their JSON payload, as
+`MessageRequestBase.ReplyTo`, so a responder that serves them as well reads `message.ReplyTo ?? request.ReplyTo`.
 
 `AcceptedReplyFormats` tells a responder which payload formats the requester can read in the reply. `null` means
 the requester stated nothing and reads text only, which is what every request from SAF 10.x or older looks like.
-Reply with a binary payload only if the request allows `MessageFormats.Binary`.
+Reply with a binary payload only if the request allows `MessageFormats.Binary`:
+`message.AcceptsReplyFormat(MessageFormats.Binary)` checks that and treats `null` as text only. The
+[Request Client](./toolbox.md#binary-payloads-in-requests-and-replies) sets `AcceptedReplyFormats` and returns
+binary replies.
 
-`AcceptedReplyFormats` reaches every SAF 11.x receiver on every network transport. Older SAF nodes ignore it, and
-so do C-DEngine peers that negotiated version `1.0.0`; see
+`ReplyTo` and `AcceptedReplyFormats` reach every SAF 11.x receiver on every network transport. Older SAF nodes
+ignore them, and so do C-DEngine peers that negotiated version `1.0.0`; see
 [Compatibility Between SAF Versions](#compatibility-between-saf-versions).
 
 A message does not describe what its payloads contain: the topic defines that, and the handler interprets them. If
@@ -154,8 +163,8 @@ reads every `1.x` and `2.x` envelope. A value that is no SAF envelope at all, fo
 another application, is delivered with the raw value as `Payload` and the channel as `Topic`, unless it starts with
 the bytes `SAFB`.
 
-`AcceptedReplyFormats` is an optional field of the envelope's `message`, written only when set, with the flags
-as a number: `"acceptedReplyFormats":3`. Older SAF nodes ignore it.
+`ReplyTo` and `AcceptedReplyFormats` are optional fields of the envelope's `message`, written only when set, the
+flags as a number: `"replyTo":"…","acceptedReplyFormats":3`. Older SAF nodes ignore them.
 
 A message with a `BinaryPayload` goes to the channel as a binary frame, without Base64:
 
@@ -198,14 +207,15 @@ when it is full (`SubPendingChannelFullMode = BoundedChannelFullMode.Wait`), so 
 than the publish rate applies backpressure to the reader rather than having messages dropped
 silently — NATS.Net's own default is to drop the newest message instead.
 
-**Requires NATS Server 2.2 or newer.** SAF sends the message metadata — `CustomProperties` and `AcceptedReplyFormats` —
-in NATS message headers, which the server supports since version 2.2. The body of a text message
-is always the payload, exactly as in earlier SAF versions:
+**Requires NATS Server 2.2 or newer.** SAF sends the message metadata — `CustomProperties`, `ReplyTo` and
+`AcceptedReplyFormats` — in NATS message headers, which the server supports since version 2.2. Every request sent
+with `IRequestClient` carries `ReplyTo` and therefore headers. The body of a text message is always the payload,
+exactly as in earlier SAF versions:
 
 | Message | Body | Headers |
 |---|---|---|
-| Without metadata (both `null`) | `Payload` | none — identical on the wire to SAF 9.x and 10.x |
-| With metadata (an empty `CustomProperties` list included) | `Payload` | `saf-v: 2.0.0` and `saf-meta: {"acceptedReplyFormats":3,"customProperties":[{"name":…,"value":…}]}`, with the fields that are set; the flags as a number |
+| Without metadata (all `null`) | `Payload` | none — identical on the wire to SAF 9.x and 10.x |
+| With metadata (an empty `CustomProperties` list included) | `Payload` | `saf-v: 2.0.0` and `saf-meta: {"replyTo":"…","acceptedReplyFormats":3,"customProperties":[{"name":…,"value":…}]}`, with the fields that are set; the flags as a number |
 | With a `BinaryPayload` | The binary payload, without Base64 | `saf-v: 3.0.0`, and `saf-meta` if any other field is set; a `Payload` travels there as `"payload":"…"` |
 
 NATS header values are ASCII, so `saf-meta` escapes every other character as a JSON `\u` sequence. A non-SAF
@@ -244,8 +254,8 @@ The `Cde` section binds to `SAF.Cde.Common.CdeConfiguration` (package `SAF.Cde.C
 plug-in).
 
 Each peer announces its pub/sub version, and messages to it go out in the format of that version. From version
-`2.0.0` on, the whole message travels as JSON, including `AcceptedReplyFormats` when it is set;
-older peers ignore that field. A peer on version `1.0.0` receives the payload only. From `4.0.0` on, several
+`2.0.0` on, the whole message travels as JSON, including `ReplyTo` and `AcceptedReplyFormats` when they are set;
+older peers ignore those fields. A peer on version `1.0.0` receives the payload only. From `4.0.0` on, several
 messages travel together in one batch.
 
 Version `5.0.0`, announced by SAF 11.x, adds binary payloads:
@@ -322,9 +332,9 @@ the formats of older versions:
 
 | Transport | Mixed operation with 9.x and 10.x | Changed in 11.x |
 |---|---|---|
-| Redis | Supported; older nodes ignore `AcceptedReplyFormats`. **Set `EnableBinaryPayloads` to `false`**: older nodes read binary payloads as corrupt text | An envelope with an unknown major version is dropped with a warning instead of being read as version 2. `AcceptedReplyFormats` is an optional envelope field. Binary payloads travel in a binary frame, version `3.0.0` ([details](#redis)). |
-| NATS | Supported; older nodes receive no `CustomProperties` or `AcceptedReplyFormats`. **Set `EnableBinaryPayloads` to `false`**: older nodes read binary payloads as corrupt text | The metadata travels in headers; NATS Server 2.2 or newer is required. Binary payloads are the body of version `3.0.0` messages ([details](#nats)). |
-| C-DEngine | Supported; the format is negotiated per peer (9.x announces version `3.0.0`, 10.x `4.0.0`, 11.x `5.0.0`); older nodes ignore `AcceptedReplyFormats` and receive no binary payloads | Version `5.0.0` carries binary payloads; `AcceptedReplyFormats` is an optional JSON field ([details](#c-dengine)). |
+| Redis | Supported; older nodes ignore `ReplyTo` and `AcceptedReplyFormats`. **Set `EnableBinaryPayloads` to `false`**: older nodes read binary payloads as corrupt text | An envelope with an unknown major version is dropped with a warning instead of being read as version 2. `ReplyTo` and `AcceptedReplyFormats` are optional envelope fields. Binary payloads travel in a binary frame, version `3.0.0` ([details](#redis)). |
+| NATS | Supported; older nodes receive no `CustomProperties`, `ReplyTo` or `AcceptedReplyFormats`. **Set `EnableBinaryPayloads` to `false`**: older nodes read binary payloads as corrupt text | The metadata travels in headers; NATS Server 2.2 or newer is required. Binary payloads are the body of version `3.0.0` messages ([details](#nats)). |
+| C-DEngine | Supported; the format is negotiated per peer (9.x announces version `3.0.0`, 10.x `4.0.0`, 11.x `5.0.0`); older nodes ignore `ReplyTo` and `AcceptedReplyFormats` and receive no binary payloads | Version `5.0.0` carries binary payloads; `ReplyTo` and `AcceptedReplyFormats` are optional JSON fields ([details](#c-dengine)). |
 | In-Process | Not applicable (single process) | Nothing. |
 
 Messages with a `BinaryPayload` are delivered by In-Process, and by C-DEngine, Redis and NATS between 11.x nodes;
@@ -440,7 +450,8 @@ _subscription = messaging.Subscribe<OrderMessageHandler>(@"orders/.*");
 
 ## How-To: Request / Reply Pattern
 
-Use the `IRequestClient` from `SAF.Toolbox` for request/reply over messaging. See [Toolbox Services → Request Client](./toolbox.md#request-client).
+Use the `IRequestClient` from `SAF.Toolbox` for request/reply over messaging. See [Toolbox Services → Request Client](./toolbox.md#request-client),
+and [Binary Payloads in Requests and Replies](./toolbox.md#binary-payloads-in-requests-and-replies) for requests and replies with a `BinaryPayload`.
 
 ---
 

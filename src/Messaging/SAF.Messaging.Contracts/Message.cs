@@ -30,6 +30,14 @@ public class Message
     public byte[]? BinaryPayload { get; set; }
 
     /// <summary>
+    /// Gets or sets the topic a reply to this message is expected on. <c>null</c> if the sender expects no reply.
+    /// </summary>
+    /// <remarks>
+    /// Requests from SAF 10.x or older carry the reply topic only in their payload, see <see cref="MessageRequestBase.ReplyTo"/>.
+    /// </remarks>
+    public string? ReplyTo { get; set; }
+
+    /// <summary>
     /// Gets or sets the payload formats the sender accepts for a reply.
     /// <c>null</c> means the sender stated no capability and understands text only.
     /// </summary>
@@ -47,6 +55,13 @@ public class Message
     public MessageFormats GetFormat()
         => (Payload is not null ? MessageFormats.Text : MessageFormats.None)
            | (BinaryPayload is not null ? MessageFormats.Binary : MessageFormats.None);
+
+    /// <summary>
+    /// Gets whether a reply to this message may carry all of the given payload formats.
+    /// Without <see cref="AcceptedReplyFormats"/>, only text is accepted.
+    /// </summary>
+    public bool AcceptsReplyFormat(MessageFormats formats)
+        => ((AcceptedReplyFormats ?? MessageFormats.Text) & formats) == formats;
 }
 
 public class MessageCustomProperty

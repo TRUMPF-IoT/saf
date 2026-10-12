@@ -53,6 +53,7 @@ public class NatsWireFormatGoldenTests
     [InlineData(WireFormatReferenceMessages.UnicodeAndEscapes, "saf.wire.unicode")]
     [InlineData(WireFormatReferenceMessages.NullPropertyValue, "saf.wire.null-prop")]
     [InlineData(WireFormatReferenceMessages.ReplyFormats, "saf.wire.reply-formats")]
+    [InlineData(WireFormatReferenceMessages.Request, "saf.wire.request")]
     [InlineData(WireFormatReferenceMessages.Binary, "saf.wire.binary")]
     public void Publish_MapsTopicToSubject(string id, string expectedSubject)
     {
@@ -118,6 +119,8 @@ public class NatsWireFormatGoldenTests
         """{"customProperties":[{"name":"flag"}]}""")]
     [InlineData(WireFormatReferenceMessages.ReplyFormats,
         """{"acceptedReplyFormats":3}""")]
+    [InlineData(WireFormatReferenceMessages.Request,
+        """{"replyTo":"saf/wire/reply/1","acceptedReplyFormats":3}""")]
     public void Publish_SendsMetadataAsHeaders(string id, string expectedMetadata)
     {
         var message = WireFormatReferenceMessages.Create(id);
@@ -207,6 +210,7 @@ public class NatsWireFormatGoldenTests
         // NATS delivers an empty body as no body: an empty text payload arrives as null, in every SAF version.
         Assert.Equal(expected.Payload == "" ? null : expected.Payload, received.Payload);
         Assert.Equal(expected.BinaryPayload, received.BinaryPayload);
+        Assert.Equal(expected.ReplyTo, received.ReplyTo);
         Assert.Equal(expected.AcceptedReplyFormats, received.AcceptedReplyFormats);
         Assert.Equal(expected.CustomProperties?.Select(p => (p.Name, p.Value)), received.CustomProperties?.Select(p => (p.Name, p.Value)));
     }

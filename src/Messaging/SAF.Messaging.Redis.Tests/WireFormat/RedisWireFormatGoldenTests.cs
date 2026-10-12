@@ -183,14 +183,16 @@ public class RedisWireFormatGoldenTests
     }
 
     /// <summary>
-    /// A node up to 11.0.0-alpha.9 reads the envelope into a type without the accepted reply formats.
+    /// A node up to 11.0.0-alpha.9 reads the envelope into a type without the reply topic and the accepted reply formats.
     /// </summary>
-    [Fact]
-    public void OldNodes_IgnoreReplyFormats()
+    [Theory]
+    [InlineData(WireFormatReferenceMessages.ReplyFormats)]
+    [InlineData(WireFormatReferenceMessages.Request)]
+    public void OldNodes_IgnoreRequestMetadata(string id)
     {
-        var expected = WireFormatReferenceMessages.Create(WireFormatReferenceMessages.ReplyFormats);
+        var expected = WireFormatReferenceMessages.Create(id);
 
-        var old = Toolbox.Serialization.JsonSerializer.Deserialize<LegacyEnvelope>(Golden(WireFormatReferenceMessages.ReplyFormats));
+        var old = Toolbox.Serialization.JsonSerializer.Deserialize<LegacyEnvelope>(Golden(id));
 
         Assert.Equal(RedisMessageVersion.V2, old!.Version);
         Assert.Equal(expected.Topic, old.Message!.Topic);
@@ -230,6 +232,8 @@ public class RedisWireFormatGoldenTests
         // Optional fields within version 2: older nodes ignore them, the flags travel as a number.
         WireFormatReferenceMessages.ReplyFormats =>
             """{"version":"2.0.0","message":{"topic":"saf/wire/reply-formats","payload":"{\"value\":42}","acceptedReplyFormats":3}}""",
+        WireFormatReferenceMessages.Request =>
+            """{"version":"2.0.0","message":{"topic":"saf/wire/request","payload":"{\"replyTo\":\"saf/wire/reply/1\"}","replyTo":"saf/wire/reply/1","acceptedReplyFormats":3}}""",
         _ => throw new ArgumentOutOfRangeException(nameof(id), id, "No recorded sample for this reference message.")
     };
 
@@ -315,6 +319,7 @@ public class RedisWireFormatGoldenTests
         Assert.Equal(expected.Topic, actual.Topic);
         Assert.Equal(expected.Payload, actual.Payload);
         Assert.Equal(expected.BinaryPayload, actual.BinaryPayload);
+        Assert.Equal(expected.ReplyTo, actual.ReplyTo);
         Assert.Equal(expected.AcceptedReplyFormats, actual.AcceptedReplyFormats);
 
         if (expected.CustomProperties == null)
