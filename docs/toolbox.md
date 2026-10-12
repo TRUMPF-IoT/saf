@@ -148,6 +148,12 @@ public class OrderResponder(IMessagingInfrastructure messaging) : IMessageHandle
 SAF 10.x responders read it, and into `Message.ReplyTo`. Its requests carry no `AcceptedReplyFormats`, so
 responders answer them with text, and it reads only the reply's `Payload`.
 
+Replies arrive on `{prefix}/{request id}/requestclient/{client id}`, where the prefix is `replyTopicPrefix` or the
+default prefix. The request client subscribes `{prefix}/*/requestclient/{client id}` once per prefix, at the first
+request with that prefix, and sends that request only once the subscription is in place. With
+[Routing](./messaging.md#routing-multiple-brokers), a route that has subscription patterns receives replies only if
+one of them covers the prefix, for example `private/*`.
+
 ### Binary Payloads in Requests and Replies
 
 `SendRequestAwaitFirstReply` sends a request message with the payloads you pass — text, binary, both or none — and

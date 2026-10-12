@@ -520,6 +520,17 @@ carry the reply topic only in `Message.ReplyTo`, so only 11.x responders can ans
 answers `SendRequestAwaitFirstReply` requests as well as requests from 10.x nodes. Before replying with a binary
 payload, check `message.AcceptsReplyFormat(MessageFormats.Binary)`; requests from 10.x nodes accept text only.
 
+### The request client receives replies on NATS
+
+In 10.x, a request client that used NATS without [Routing](./messaging.md#routing-multiple-brokers) never received a
+reply, and every request timed out: it subscribed `*/requestclient/{client id}`, and on NATS `*` matches exactly one
+topic level, while reply topics have several. 11.x subscribes `{prefix}/*/requestclient/{client id}` once per reply
+topic prefix, which every transport matches. The reply topics themselves are unchanged.
+
+With Routing, the request client now subscribes only this pattern, on the routes whose subscription patterns cover
+the prefix, instead of every route pattern that ends in `*`. No action is required. See
+[Request Client](./toolbox.md#request-client).
+
 ### Digital-signature validation is secure by default
 
 `DigitalSignaturePluginAssemblyValidatorOptions.RequireValidDigitalSignature` defaults to `true`, so registering the validator without configuration demands a signature that is intact, covers the file and chains to a trusted root. Check that against the signatures your plug-ins actually carry before enabling the validator: unsigned plug-ins, and plug-ins whose signer chains to a root the host does not trust, are skipped with a warning.

@@ -11,6 +11,7 @@ using Heartbeat;
 using SAF.Toolbox.Serialization;
 using TestUtilities;
 using Xunit;
+using IReplyTopics = SAF.Toolbox.RequestClient.IReplyTopics;
 using RequestOptions = SAF.Toolbox.RequestClient.RequestOptions;
 
 public class RequestClientTests
@@ -274,6 +275,58 @@ public class RequestClientTests
 
         Assert.Equal(1, response!.MyDummyValue);
         _logger.AssertLogged(LogLevel.Warning, m => m.Contains("test") && m.Contains("Text, Binary"));
+    }
+
+    [Fact]
+    public async Task SendRequest_SubscribesTheReplyTopicsOfItsPrefixBeforePublishing()
+    {
+        Action<Message>? subscribed = null;
+        _messaging.Subscribe(Arg.Any<string>(), Arg.Do<Action<Message>>(h => subscribed = h));
+        var sut = CreateSut();
+
+        var task = sut.SendRequestAwaitFirstReply("test");
+        var reply = new Message { Topic = _published!.ReplyTo! };
+        subscribed!(reply);
+
+        Received.InOrder(() =>
+        {
+            _messaging.Subscribe(Arg.Is<string>(p => p.StartsWith("private/reply/*/requestclient/")), Arg.Any<Action<Message>>());
+            _messaging.Publish(Arg.Any<Message>());
+        });
+        Assert.Same(reply, await task);
+    }
+
+    [Fact]
+    public async Task SendRequest_UsesTheInjectedReplyTopics()
+    {
+        var replyTopics = Substitute.For<IReplyTopics>();
+        replyTopics.Create("private/reply").Returns("reply/1");
+        Action<Message>? handleReply = null;
+        var sut = new RequestClient.RequestClient(_messaging, _heartbeat, _logger, h => { handleReply = h; return replyTopics; });
+        _messaging.When(m => m.Publish(Arg.Any<Message>())).Do(ci => _published = ci.Arg<Message>());
+
+        var task = sut.SendRequestAwaitFirstReply("test");
+        var reply = new Message { Topic = "reply/1" };
+        handleReply!(reply);
+        sut.Dispose();
+
+        Assert.Equal("reply/1", _published!.ReplyTo);
+        Assert.Same(reply, await task);
+        replyTopics.Received(1).Dispose();
+    }
+
+    [Fact]
+    public async Task SendRequest_ReturnsNull_WhenTheReplyTopicCannotBeCreated()
+    {
+        var replyTopics = Substitute.For<IReplyTopics>();
+        replyTopics.Create(Arg.Any<string>()).Returns(_ => throw new InvalidOperationException("subscribe failed"));
+        var sut = new RequestClient.RequestClient(_messaging, _heartbeat, _logger, _ => replyTopics);
+
+        var reply = await sut.SendRequestAwaitFirstReply("test");
+
+        Assert.Null(reply);
+        _messaging.DidNotReceive().Publish(Arg.Any<Message>());
+        _logger.AssertLogged(LogLevel.Error, m => m.Contains("test"));
     }
 
     private static readonly byte[] ReplyBytes = [4, 5];

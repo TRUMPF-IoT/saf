@@ -21,19 +21,24 @@ internal sealed class RequestClient : IRequestClient, IDisposable
 
     private readonly ConcurrentDictionary<string, OpenRequest> _openRequests = new();
         
+    private readonly IReplyTopics _replyTopics;
+
     private string _defaultPrefix = "private/reply";
-    private readonly string _postfix = $"requestclient/{Guid.NewGuid()}";
-    private object? _subscriptionHandle;
 
     public RequestClient(IMessagingInfrastructure messaging, IHeartbeat heartbeat, ILogger<RequestClient>? log)
+        : this(messaging, heartbeat, log, handleReply => new ReplyTopics(messaging, handleReply))
+    {
+    }
+
+    internal RequestClient(IMessagingInfrastructure messaging, IHeartbeat heartbeat, ILogger<RequestClient>? log,
+        Func<Action<Message>, IReplyTopics> createReplyTopics)
     {
         _messaging = messaging;
         _heartbeat = heartbeat;
         _log = log ?? NullLogger<RequestClient>.Instance;
+        _replyTopics = createReplyTopics(Handle);
 
         _heartbeat.Beat += CheckExpiringSubscriptions;
-
-        _subscriptionHandle = _messaging.Subscribe($"*/{_postfix}", Handle);
     }
 
     public void SetDefaultPrefix(string prefix) => _defaultPrefix = prefix.TrimEnd('/');
@@ -86,13 +91,13 @@ internal sealed class RequestClient : IRequestClient, IDisposable
         if (string.IsNullOrEmpty(replyTopicPrefix))
             replyTopicPrefix = _defaultPrefix;
 
-        var replyTo = string.Join("/", replyTopicPrefix.TrimEnd('/'), Guid.NewGuid().ToString(), _postfix);
-
         var heartbeatsUntilExpiry =
             (long)Math.Ceiling((millisecondsTimeoutTarget ?? DefaultMillisecondsTimeoutTarget) / _heartbeat.BeatCycleTimeMillis);
 
+        string? replyTo = null;
         try
         {
+            replyTo = _replyTopics.Create(replyTopicPrefix);
             var message = createRequest(replyTo);
             var currentBeat = _heartbeat.CurrentBeat;
             var openRequest = new OpenRequest(message, replyTo, currentBeat, currentBeat + heartbeatsUntilExpiry);
@@ -108,7 +113,7 @@ internal sealed class RequestClient : IRequestClient, IDisposable
         }
         catch (Exception ex)
         {
-            _openRequests.TryRemove(replyTo, out _);
+            if (replyTo != null) _openRequests.TryRemove(replyTo, out _);
             _log.LogError(ex, "Unexpected exception processing request {Topic}!", topic);
             return Task.FromResult<Message?>(null);
         }
@@ -161,13 +166,9 @@ internal sealed class RequestClient : IRequestClient, IDisposable
 
     public void Dispose()
     {
-        _log.LogInformation("Disposing RequestClient {RequestClientPostfix}.", _postfix);
+        _log.LogInformation("Disposing RequestClient.");
 
-        if (_subscriptionHandle != null)
-        {
-            _messaging.Unsubscribe(_subscriptionHandle);
-            _subscriptionHandle = null;
-        }
+        _replyTopics.Dispose();
 
         var requests = _openRequests.Values.ToList();
         requests.ForEach(request =>

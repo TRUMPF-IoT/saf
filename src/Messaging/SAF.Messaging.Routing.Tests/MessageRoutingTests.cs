@@ -161,6 +161,30 @@ public class MessageRoutingTest
         messaging.Received().Unsubscribe(subId);
     }
 
+    /// <summary>
+    /// The request client subscribes "{prefix}/*/requestclient/{id}" per reply prefix. A route covering the prefix
+    /// subscribes exactly that pattern, which every transport can express, and none of its other patterns.
+    /// </summary>
+    [Theory]
+    [InlineData("*")]
+    [InlineData("private/*")]
+    [InlineData("private/reply/*")]
+    public void RequestClientReplyPatternIsSubscribedAsIs(string routingPattern)
+    {
+        const string pattern = "private/reply/*/requestclient/3f2a";
+        var testHandler = (Message msg) => { };
+
+        var messaging = Substitute.For<IMessagingInfrastructure>();
+        var routing = new MessageRouting(messaging)
+        {
+            SubscriptionPatterns = [routingPattern, "sensors/*"]
+        };
+        routing.Subscribe(pattern, testHandler);
+
+        messaging.Received(1).Subscribe(pattern, testHandler);
+        messaging.Received(1).Subscribe(Arg.Any<string>(), Arg.Any<Action<Message>>());
+    }
+
     [Theory]
     [InlineData("*", "*")]
     [InlineData("test/this/subtopic/*", "test/this/subtopic/*")]
