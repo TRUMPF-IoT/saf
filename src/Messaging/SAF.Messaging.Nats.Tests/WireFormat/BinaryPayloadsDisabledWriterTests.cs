@@ -31,6 +31,25 @@ public class BinaryPayloadsDisabledWriterTests
         _inner.DidNotReceiveWithAnyArgs().TryWrite(default!, out _, out _);
     }
 
+    [Fact]
+    public void CanWrite_IsFalseForBinaryPayloads()
+    {
+        _inner.CanWrite(Arg.Any<Message>()).Returns(true);
+
+        Assert.False(_writer.CanWrite(new Message { Topic = "t", BinaryPayload = [] }));
+    }
+
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public void CanWrite_AsksTheWriterForTextMessages(bool canWrite)
+    {
+        var message = new Message { Topic = "t", Payload = "p" };
+        _inner.CanWrite(message).Returns(canWrite);
+
+        Assert.Equal(canWrite, _writer.CanWrite(message));
+    }
+
     [Theory]
     [InlineData(true, null)]
     [InlineData(false, "inner reason")]

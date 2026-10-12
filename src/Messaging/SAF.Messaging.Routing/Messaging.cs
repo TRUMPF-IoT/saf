@@ -41,6 +41,8 @@ internal sealed class Messaging : IMessagingInfrastructure, IDisposable
             routing.Publish(message);
     }
 
+    public bool CanPublish(Message message) => _messageRoutings.All(routing => routing.CanPublish(message));
+
     public object Subscribe<TMessageHandler>() where TMessageHandler : IMessageHandler => Subscribe<TMessageHandler>("*");
 
     public object Subscribe<TMessageHandler>(string routeFilterPattern) where TMessageHandler : IMessageHandler

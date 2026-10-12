@@ -518,7 +518,9 @@ carry the reply topic only in `Message.ReplyTo`, so only 11.x responders can ans
 
 **Recommended for responders:** read the reply topic as `message.ReplyTo ?? request.ReplyTo`, so the responder
 answers `SendRequestAwaitFirstReply` requests as well as requests from 10.x nodes. Before replying with a binary
-payload, check `message.AcceptsReplyFormat(MessageFormats.Binary)`; requests from 10.x nodes accept text only.
+payload, check `message.AcceptsReplyFormat(MessageFormats.Binary)`, because requests from 10.x nodes accept text
+only, and `messaging.CanPublish(reply)`, because your own transport may not send binary payloads (see
+[Messaging infrastructures report whether they can publish a message](#messaging-infrastructures-report-whether-they-can-publish-a-message)).
 
 ### The request client receives replies on NATS
 
@@ -530,6 +532,28 @@ topic prefix, which every transport matches. The reply topics themselves are unc
 With Routing, the request client now subscribes only this pattern, on the routes whose subscription patterns cover
 the prefix, instead of every route pattern that ends in `*`. No action is required. See
 [Request Client](./toolbox.md#request-client).
+
+### Messaging infrastructures report whether they can publish a message
+
+`IMessagingInfrastructure` has a new member, `bool CanPublish(Message message)`. It tells whether `Publish` sends
+the message rather than dropping it, for example a binary payload on Redis or NATS while `EnableBinaryPayloads` is
+`false`. See [Interface](./messaging.md#interface).
+
+The member has a default implementation that returns `true`, so your own implementations keep compiling. Implement it
+if your infrastructure drops messages it cannot carry. Substitutes from mocking libraries return `false` unless
+configured.
+
+### File transfers send binary chunks between 11.x nodes
+
+An 11.x file sender puts the chunk data into `Message.BinaryPayload` instead of Base64-encoding it into the JSON
+payload, if the receiver runs 11.x and the sender's transport can publish binary payloads. That saves a quarter of the
+bytes on the wire. Transfers with 10.x or older nodes, and transfers while `EnableBinaryPayloads` is `false`, use text
+chunks as before. See [Binary Chunks](./toolbox.md#binary-chunks).
+
+`GetReceiverStateResponse` has a new optional member, `AcceptedChunkFormats`, the chunk formats the receiver reads.
+
+No action is required. If you implement `IStatefulFileReceiver` yourself, do not change `FileChunk.Data`: for a binary
+chunk it is the message's binary payload (see [Messages are read-only](#messages-are-read-only)).
 
 ### Resumed file transfers and files of 4 GiB or more arrive intact
 
@@ -613,4 +637,5 @@ The [shared set](./plugin-system.md#the-shared-set) includes `SAF.PluginSystem.H
 - [ ] Make sure no handler changes a `Message` it receives; create a new one instead
 - [ ] If you implement `IRequestClient` yourself, add `SendRequestAwaitFirstReply`
 - [ ] Let responders read the reply topic as `message.ReplyTo ?? request.ReplyTo`
+- [ ] Before a responder replies with a binary payload, check `message.AcceptsReplyFormat(MessageFormats.Binary)` and `messaging.CanPublish(reply)`
 - [ ] While 10.x nodes send files, or receive files of 4 GiB or more, check received files against `FileReceivedEventArgs.File.ContentHash`

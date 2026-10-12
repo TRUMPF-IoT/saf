@@ -6,7 +6,9 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using NSubstitute;
 using NSubstitute.ExceptionExtensions;
+using SAF.Messaging.Contracts;
 using SAF.Toolbox.FileTransfer;
+using SAF.Toolbox.FileTransfer.Chunks;
 using SAF.Toolbox.FileTransfer.Messages;
 using SAF.Toolbox.RequestClient;
 using Testably.Abstractions.Testing;
@@ -20,6 +22,8 @@ public class FileSenderTests
     private readonly ILogger<FileSender> _logger;
     private readonly MockFileSystem _fileSystem = new();
     private readonly IRequestClient _requestClient = Substitute.For<IRequestClient>();
+    // Cannot publish binary payloads unless a test says otherwise.
+    private readonly IMessagingInfrastructure _messaging = Substitute.For<IMessagingInfrastructure>();
     private readonly IOptions<FileSenderOptions> _defaultOptions = Options.Create(new FileSenderOptions());
 
     public FileSenderTests(ITestOutputHelper outputHelper)
@@ -31,10 +35,13 @@ public class FileSenderTests
     private void AddFile(string path, byte[] content)
         => _fileSystem.Initialize().WithFile(path).Which(f => f.HasBytesContent(content));
 
+    private FileSender CreateSender(IOptions<FileSenderOptions> options, IFileSystem fileSystem)
+        => ServiceCollectionExtensions.CreateFileSender(_logger, options, fileSystem, _requestClient, _messaging);
+
     [Fact]
     public async Task SendAsync_ReturnsFileNotFound_WhenFileDoesNotExist()
     {
-        var sender = new FileSender(_logger, _defaultOptions, _fileSystem, _requestClient);
+        var sender = CreateSender(_defaultOptions, _fileSystem);
 
         var result = await sender.SendAsync("topic", "nofile.txt", 1000);
 
@@ -49,7 +56,7 @@ public class FileSenderTests
     {
         AddFile("empty.txt", []);
 
-        var sender = new FileSender(_logger, _defaultOptions, _fileSystem, _requestClient);
+        var sender = CreateSender(_defaultOptions, _fileSystem);
 
         var result = await sender.SendAsync("topic", "empty.txt", 1000);
 
@@ -65,7 +72,7 @@ public class FileSenderTests
         var options = Options.Create(new FileSenderOptions { MaxChunkSizeInBytes = 0 });
         AddFile("test.txt", [0, 1, 2, 3]);
 
-        var sender = new FileSender(_logger, options, _fileSystem, _requestClient);
+        var sender = CreateSender(options, _fileSystem);
 
         var result = await sender.SendAsync("topic", "test.txt", 1000);
 
@@ -84,7 +91,7 @@ public class FileSenderTests
         fileSystem.FileInfo.Returns(fileInfoFactory);
         fileInfoFactory.New("file.txt").Throws(new IOException("File access error"));
 
-        var sender = new FileSender(_logger, _defaultOptions, fileSystem, _requestClient);
+        var sender = CreateSender(_defaultOptions, fileSystem);
 
         var result = await sender.SendAsync("topic", "file.txt", 1000);
 
@@ -100,7 +107,7 @@ public class FileSenderTests
         fileSystem.FileInfo.Returns(fileInfoFactory);
         fileInfoFactory.New("file.txt").Throws(new Exception("File access error"));
 
-        var sender = new FileSender(_logger, _defaultOptions, fileSystem, _requestClient);
+        var sender = CreateSender(_defaultOptions, fileSystem);
 
         var result = await sender.SendAsync("topic", "file.txt", 1000);
 
@@ -116,7 +123,7 @@ public class FileSenderTests
                 null!, null!, null!, null!, null!)
             .ReturnsForAnyArgs((GetReceiverStateResponse?)null);
 
-        var sender = new FileSender(_logger, _defaultOptions, _fileSystem, _requestClient);
+        var sender = CreateSender(_defaultOptions, _fileSystem);
 
         var result = await sender.SendAsync("topic", "file.txt", 1000);
 
@@ -132,7 +139,7 @@ public class FileSenderTests
                 null!, null!, null!, null!, null!)
             .ReturnsForAnyArgs(new GetReceiverStateResponse { State = new FileReceiverState { FileExists = true } });
 
-        var sender = new FileSender(_logger, _defaultOptions, _fileSystem, _requestClient);
+        var sender = CreateSender(_defaultOptions, _fileSystem);
 
         var result = await sender.SendAsync("topic", "file.txt", 1000);
 
@@ -148,7 +155,7 @@ public class FileSenderTests
                 null!, null!, null!, null!, null!)
             .ReturnsForAnyArgs(new GetReceiverStateResponse { State = new FileReceiverState { TransmittedChunks = [0] } });
 
-        var sender = new FileSender(_logger, _defaultOptions, _fileSystem, _requestClient);
+        var sender = CreateSender(_defaultOptions, _fileSystem);
 
         var result = await sender.SendAsync("topic", "file.txt", 1000);
 
@@ -189,7 +196,7 @@ public class FileSenderTests
                 return new SendFileChunkResponse {Status = FileReceiverStatus.Ok};
             });
 
-        var sender = new FileSender(_logger, _defaultOptions, _fileSystem, _requestClient);
+        var sender = CreateSender(_defaultOptions, _fileSystem);
 
         var result = await sender.SendAsync("topic", "file.txt", 1000);
 
@@ -223,7 +230,7 @@ public class FileSenderTests
                 return new SendFileChunkResponse { Status = FileReceiverStatus.Ok };
             });
 
-        var sender = new FileSender(_logger, _defaultOptions, _fileSystem, _requestClient);
+        var sender = CreateSender(_defaultOptions, _fileSystem);
 
         var result = await sender.SendAsync("topic", "file.txt", 1000);
 
@@ -251,7 +258,7 @@ public class FileSenderTests
             .ReturnsForAnyArgs((SendFileChunkResponse?)null);
 
         var options = Options.Create(new FileSenderOptions {RetryAttemptsForFailedChunks = expectedCalls - 1});
-        var sender = new FileSender(_logger, options, _fileSystem, _requestClient);
+        var sender = CreateSender(options, _fileSystem);
 
         var result = await sender.SendAsync("topic", "file.txt", 1000);
 
@@ -275,7 +282,7 @@ public class FileSenderTests
         var sentChunks = CaptureSentChunks();
 
         var options = Options.Create(new FileSenderOptions { MaxChunkSizeInBytes = 4 });
-        var sender = new FileSender(_logger, options, _fileSystem, _requestClient);
+        var sender = CreateSender(options, _fileSystem);
 
         var result = await sender.SendAsync("topic", "file.txt", 1000);
 
@@ -303,12 +310,84 @@ public class FileSenderTests
         var sentChunks = CaptureSentChunks();
 
         var options = Options.Create(new FileSenderOptions { MaxChunkSizeInBytes = 4 });
-        var sender = new FileSender(_logger, options, fileSystem, _requestClient);
+        var sender = CreateSender(options, fileSystem);
 
         var result = await sender.SendAsync("topic", "file.bin", 1000);
 
         Assert.Equal(FileTransferStatus.Delivered, result);
         Assert.Equal([[0, 1, 2, 3], [4, 5, 6, 7], [8, 9]], sentChunks.Select(c => c.Data));
+    }
+
+    [Theory]
+    [InlineData(null, true, MessageFormats.Text)]
+    [InlineData(MessageFormats.Text, true, MessageFormats.Text)]
+    [InlineData(MessageFormats.Text | MessageFormats.Binary, true, MessageFormats.Binary)]
+    [InlineData(MessageFormats.Text | MessageFormats.Binary, false, MessageFormats.Text)]
+    public async Task SendAsync_SendsInTheFirstFormatTheReceiverAcceptsAndTheMessagingCanPublish(
+        MessageFormats? acceptedChunkFormats, bool canSendBinary, MessageFormats expected)
+    {
+        AddFile("file.txt", [0, 1, 2, 3]);
+        ReturnReceiverState(new FileReceiverState(), acceptedChunkFormats);
+        var binary = CreateChunkSender(MessageFormats.Binary, canSendBinary);
+        var text = CreateChunkSender(MessageFormats.Text, true);
+        var sender = new FileSender(_logger, _defaultOptions, _fileSystem, _requestClient, [binary, text]);
+
+        Assert.Equal(FileTransferStatus.Delivered, await sender.SendAsync("topic", "file.txt", 1000));
+
+        var (used, unused) = expected == MessageFormats.Binary ? (binary, text) : (text, binary);
+        await used.Received(1).SendAsync("topic", Arg.Is<TransportFile>(f => f.FileName == "file.txt"), Arg.Is<FileChunk>(c => c.Index == 0), 1000);
+        await unused.DidNotReceiveWithAnyArgs().SendAsync(default!, default!, default!, default);
+    }
+
+    [Fact]
+    public async Task SendAsync_ReadsEachChunkIntoItsOwnBuffer()
+    {
+        AddFile("file.txt", Enumerable.Range(0, 10).Select(i => (byte)i).ToArray());
+        ReturnReceiverState(new FileReceiverState(), MessageFormats.Text | MessageFormats.Binary);
+        var sentChunks = new List<FileChunk>();
+        var binary = CreateChunkSender(MessageFormats.Binary, true);
+        binary.SendAsync(default!, default!, default!, default).ReturnsForAnyArgs(ci =>
+        {
+            sentChunks.Add(ci.Arg<FileChunk>());
+            return FileReceiverStatus.Ok;
+        });
+        var options = Options.Create(new FileSenderOptions { MaxChunkSizeInBytes = 4 });
+        var sender = new FileSender(_logger, options, _fileSystem, _requestClient, [binary]);
+
+        await sender.SendAsync("topic", "file.txt", 1000);
+
+        // A binary payload travels by reference, so reading a chunk must not change an earlier one.
+        Assert.Equal([[0, 1, 2, 3], [4, 5, 6, 7], [8, 9]], sentChunks.Select(c => c.Data));
+    }
+
+    [Theory]
+    [InlineData(null, FileTransferStatus.TimedOut)]
+    [InlineData(FileReceiverStatus.Failed, FileTransferStatus.Error)]
+    public async Task SendAsync_StopsAtAChunkTheReceiverDoesNotConfirm(FileReceiverStatus? receiverStatus, FileTransferStatus expected)
+    {
+        AddFile("file.txt", new byte[10]);
+        ReturnReceiverState(new FileReceiverState(), null);
+        var text = CreateChunkSender(MessageFormats.Text, true);
+        text.SendAsync(default!, default!, default!, default).ReturnsForAnyArgs(receiverStatus);
+        var options = Options.Create(new FileSenderOptions { MaxChunkSizeInBytes = 4 });
+        var sender = new FileSender(_logger, options, _fileSystem, _requestClient, [text]);
+
+        Assert.Equal(expected, await sender.SendAsync("topic", "file.txt", 1000));
+        await text.ReceivedWithAnyArgs(1).SendAsync(default!, default!, default!, default);
+    }
+
+    private void ReturnReceiverState(FileReceiverState state, MessageFormats? acceptedChunkFormats)
+        => _requestClient.SendRequestAwaitFirstAnswer<GetReceiverStateRequest, GetReceiverStateResponse>(
+                null!, null!, null!, null!, null!)
+            .ReturnsForAnyArgs(new GetReceiverStateResponse { State = state, AcceptedChunkFormats = acceptedChunkFormats });
+
+    private static IFileChunkSender CreateChunkSender(MessageFormats format, bool canSend)
+    {
+        var sender = Substitute.For<IFileChunkSender>();
+        sender.Format.Returns(format);
+        sender.CanSend(Arg.Any<string>()).Returns(canSend);
+        sender.SendAsync(default!, default!, default!, default).ReturnsForAnyArgs(FileReceiverStatus.Ok);
+        return sender;
     }
 
     private List<FileChunk> CaptureSentChunks()

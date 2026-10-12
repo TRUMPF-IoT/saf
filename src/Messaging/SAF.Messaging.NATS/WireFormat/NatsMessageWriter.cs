@@ -19,6 +19,8 @@ internal sealed class NatsMessageWriter : INatsMessageWriter
         _formats = formats.OrderBy(f => f.MajorVersion).ToList();
     }
 
+    public bool CanWrite(Message message) => _formats.Any(f => f.CanWrite(message));
+
     public bool TryWrite(Message message, out NatsWireMessage wireMessage, [NotNullWhen(false)] out string? dropReason)
     {
         var format = _formats.FirstOrDefault(f => f.CanWrite(message));

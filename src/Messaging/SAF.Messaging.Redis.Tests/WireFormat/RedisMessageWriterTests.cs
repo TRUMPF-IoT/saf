@@ -37,6 +37,17 @@ public class RedisMessageWriterTests
         Assert.Equal("v3", value);
     }
 
+    [Theory]
+    [InlineData(false, false, false)]
+    [InlineData(true, false, true)]
+    [InlineData(false, true, true)]
+    public void CanWrite_IsTrue_WhenAnyFormatCanWriteTheMessage(bool olderCanWrite, bool newerCanWrite, bool expected)
+    {
+        var writer = new RedisMessageWriter([CreateFormat(2, olderCanWrite, "v2"), CreateFormat(3, newerCanWrite, "v3")], _binaryFrame);
+
+        Assert.Equal(expected, writer.CanWrite(new Message { Topic = "t" }));
+    }
+
     [Fact]
     public void Write_FailsWithAReason_WhenNoFormatCanWriteTheMessage()
     {

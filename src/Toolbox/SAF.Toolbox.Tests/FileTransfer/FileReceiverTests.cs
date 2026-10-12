@@ -7,6 +7,7 @@ namespace SAF.Toolbox.Tests.FileTransfer;
 using Microsoft.Extensions.Logging;
 using NSubstitute;
 using SAF.Toolbox.FileTransfer;
+using SAF.Toolbox.FileTransfer.Chunks;
 using SAF.Toolbox.FileTransfer.Messages;
 using SAF.Toolbox.Serialization;
 using SAF.Messaging.Contracts;
@@ -27,21 +28,21 @@ public class FileReceiverTests
     [Fact]
     public void Subscribe_ThrowsArgumentNullException_WhenTopicIsNull()
     {
-        var receiver = new FileReceiver(_logger, _messaging);
+        var receiver = ServiceCollectionExtensions.CreateFileReceiver(_logger, _messaging);
         Assert.Throws<ArgumentNullException>(() => receiver.Subscribe(null!, _statefulReceiver));
     }
 
     [Fact]
     public void Subscribe_ThrowsArgumentNullException_WhenReceiverIsNull()
     {
-        var receiver = new FileReceiver(_logger, _messaging);
+        var receiver = ServiceCollectionExtensions.CreateFileReceiver(_logger, _messaging);
         Assert.Throws<ArgumentNullException>(() => receiver.Subscribe("topic", null!));
     }
 
     [Fact]
     public void Subscribe_ThrowsArgumentException_WhenTopicAlreadySubscribed()
     {
-        var receiver = new FileReceiver(_logger, _messaging);
+        var receiver = ServiceCollectionExtensions.CreateFileReceiver(_logger, _messaging);
         _messaging.Subscribe(Arg.Any<string>(), Arg.Any<Action<Message>>()).Returns(new object());
         receiver.Subscribe("topic", _statefulReceiver);
         Assert.Throws<ArgumentException>(() => receiver.Subscribe("topic", _statefulReceiver));
@@ -50,7 +51,7 @@ public class FileReceiverTests
     [Fact]
     public void Unsubscribe_RemovesSubscription()
     {
-        var receiver = new FileReceiver(_logger, _messaging);
+        var receiver = ServiceCollectionExtensions.CreateFileReceiver(_logger, _messaging);
         var sub1 = new object();
         var sub2 = new object();
         _messaging.Subscribe(Arg.Any<string>(), Arg.Any<Action<Message>>()).Returns(sub1, sub2);
@@ -67,7 +68,7 @@ public class FileReceiverTests
     [Fact]
     public void UnsubscribeAll_RemovesAllSubscriptions()
     {
-        var receiver = new FileReceiver(_logger, _messaging);
+        var receiver = ServiceCollectionExtensions.CreateFileReceiver(_logger, _messaging);
         var sub1 = new object();
         var sub2 = new object();
         _messaging.Subscribe(Arg.Any<string>(), Arg.Any<Action<Message>>()).Returns(sub1, sub2, sub1, sub2);
@@ -107,7 +108,7 @@ public class FileReceiverTests
                 return new object();
             });
 
-        var receiver = new FileReceiver(_logger, _messaging);
+        var receiver = ServiceCollectionExtensions.CreateFileReceiver(_logger, _messaging);
         receiver.Subscribe(topic, _statefulReceiver);
 
         Assert.NotNull(getStateHandler);
@@ -116,7 +117,7 @@ public class FileReceiverTests
         _messaging.Received().Publish(Arg.Is<Message>(m =>
             m.Topic == replyTo &&
             m.Payload != null &&
-            m.Payload == JsonSerializer.Serialize(new GetReceiverStateResponse { State = state })
+            m.Payload == JsonSerializer.Serialize(new GetReceiverStateResponse { State = state, AcceptedChunkFormats = MessageFormats.Text | MessageFormats.Binary })
         ));
     }
 
@@ -135,7 +136,7 @@ public class FileReceiverTests
                 return new object();
             });
 
-        var receiver = new FileReceiver(_logger, _messaging);
+        var receiver = ServiceCollectionExtensions.CreateFileReceiver(_logger, _messaging);
         receiver.Subscribe(topic, _statefulReceiver);
 
         Assert.NotNull(getStateHandler);
@@ -172,7 +173,7 @@ public class FileReceiverTests
                 return new object();
             });
 
-        var receiver = new FileReceiver(_logger, _messaging);
+        var receiver = ServiceCollectionExtensions.CreateFileReceiver(_logger, _messaging);
         receiver.Subscribe(topic, _statefulReceiver);
 
         Assert.NotNull(sendFileChunkHandler);
@@ -200,7 +201,7 @@ public class FileReceiverTests
                 return new object();
             });
 
-        var receiver = new FileReceiver(_logger, _messaging);
+        var receiver = ServiceCollectionExtensions.CreateFileReceiver(_logger, _messaging);
         receiver.Subscribe(topic, _statefulReceiver);
 
         Assert.NotNull(sendFileChunkHandler);
@@ -208,6 +209,80 @@ public class FileReceiverTests
         sendFileChunkHandler.Invoke(message);
 
         _messaging.DidNotReceive().Publish(Arg.Any<Message>());
+    }
+
+    [Fact]
+    public void HandleGetReceiverState_AnnouncesTheFormatsOfItsChunkReaders()
+    {
+        var reader = Substitute.For<IFileChunkReader>();
+        reader.Format.Returns(MessageFormats.Text);
+        _statefulReceiver.GetState(Arg.Any<TransportFile>()).Returns(new FileReceiverState());
+        var handler = CaptureHandler("topic/state/get", new FileReceiver(_logger, _messaging, [reader]));
+
+        handler(new Message { Topic = "topic/state/get", Payload = FileTransferGolden.StateRequest });
+
+        _messaging.Received(1).Publish(Arg.Is<Message>(m => m.Topic == "reply/1" && m.Payload!.EndsWith(",\"acceptedChunkFormats\":1}")));
+    }
+
+    [Fact]
+    public void HandleGetReceiverState_PrefersTheReplyTopicOfTheMessage()
+    {
+        _statefulReceiver.GetState(Arg.Any<TransportFile>()).Returns(new FileReceiverState());
+        var handler = CaptureHandler("topic/state/get", ServiceCollectionExtensions.CreateFileReceiver(_logger, _messaging));
+
+        handler(new Message { Topic = "topic/state/get", Payload = FileTransferGolden.StateRequest, ReplyTo = "reply/2" });
+
+        _messaging.Received(1).Publish(Arg.Is<Message>(m => m.Topic == "reply/2"));
+    }
+
+    [Fact]
+    public void HandleSendFileChunks_WritesTheChunkOfTheReaderThatCanReadTheMessage()
+    {
+        var message = new Message { Topic = "topic" };
+        var request = new ReceivedFileChunk(FileTransferGolden.File, new FileChunk { Index = 1, Data = [1] }, "reply/1");
+        var other = Substitute.For<IFileChunkReader>();
+        var reader = Substitute.For<IFileChunkReader>();
+        reader.CanRead(message).Returns(true);
+        reader.Read(message).Returns(request);
+        _statefulReceiver.WriteFile(request.File, request.Chunk).Returns(FileReceiverStatus.Ok);
+        var handler = CaptureHandler("topic", new FileReceiver(_logger, _messaging, [other, reader]));
+
+        handler(message);
+
+        other.DidNotReceive().Read(Arg.Any<Message>());
+        _statefulReceiver.Received(1).WriteFile(request.File, request.Chunk);
+        _messaging.Received(1).Publish(Arg.Is<Message>(m => m.Topic == "reply/1" && m.Payload == FileTransferGolden.ChunkResponse));
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void HandleSendFileChunks_DropsAMessageNoReaderReads(bool canRead)
+    {
+        var reader = Substitute.For<IFileChunkReader>();
+        reader.CanRead(Arg.Any<Message>()).Returns(canRead);
+        reader.Read(Arg.Any<Message>()).Returns((ReceivedFileChunk?)null);
+        var handler = CaptureHandler("topic", new FileReceiver(_logger, _messaging, [reader]));
+
+        handler(new Message { Topic = "topic", Payload = "{}" });
+
+        _statefulReceiver.DidNotReceiveWithAnyArgs().WriteFile(default!, default!);
+        _messaging.DidNotReceive().Publish(Arg.Any<Message>());
+    }
+
+    private Action<Message> CaptureHandler(string topic, FileReceiver receiver)
+    {
+        Action<Message>? handler = null;
+        _messaging.Subscribe(Arg.Any<string>(), Arg.Any<Action<Message>>()).Returns(ci =>
+        {
+            if (ci.ArgAt<string>(0) == topic) handler = ci.ArgAt<Action<Message>>(1);
+            return new object();
+        });
+
+        receiver.Subscribe("topic", _statefulReceiver);
+
+        Assert.NotNull(handler);
+        return handler;
     }
 }
 

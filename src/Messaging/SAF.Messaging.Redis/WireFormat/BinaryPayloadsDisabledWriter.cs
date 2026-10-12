@@ -13,6 +13,8 @@ using StackExchange.Redis;
 /// </summary>
 internal sealed class BinaryPayloadsDisabledWriter(IRedisMessageWriter writer) : IRedisMessageWriter
 {
+    public bool CanWrite(Message message) => message.BinaryPayload is null && writer.CanWrite(message);
+
     public bool TryWrite(Message message, out RedisValue value, [NotNullWhen(false)] out string? dropReason)
     {
         if (message.BinaryPayload is null) return writer.TryWrite(message, out value, out dropReason);

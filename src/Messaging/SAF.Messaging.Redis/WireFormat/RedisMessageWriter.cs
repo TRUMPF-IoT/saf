@@ -22,6 +22,8 @@ internal sealed class RedisMessageWriter : IRedisMessageWriter
         _binaryFrame = binaryFrame;
     }
 
+    public bool CanWrite(Message message) => _formats.Any(f => f.CanWrite(message));
+
     public bool TryWrite(Message message, out RedisValue value, [NotNullWhen(false)] out string? dropReason)
     {
         var format = _formats.FirstOrDefault(f => f.CanWrite(message));

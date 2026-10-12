@@ -31,6 +31,17 @@ public class MessagingWireFormatTests
         _messaging = new Messaging(_logger, multiplexer, _dispatcher, _writer, _reader);
     }
 
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public void CanPublish_AsksTheWriter(bool canWrite)
+    {
+        var message = new Message { Topic = "t", BinaryPayload = [1] };
+        _writer.CanWrite(message).Returns(canWrite);
+
+        Assert.Equal(canWrite, _messaging.CanPublish(message));
+    }
+
     [Fact]
     public void Publish_SendsWhatTheWriterProduces()
     {

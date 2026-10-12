@@ -16,6 +16,17 @@ public interface IMessagingInfrastructure
     void Publish(Message message);
 
     /// <summary>
+    ///     Returns whether <see cref="Publish"/> sends the message, rather than dropping it because this infrastructure
+    ///     cannot transport it, for example a binary payload while sending binary payloads is disabled.
+    /// </summary>
+    /// <remarks>
+    ///     Says nothing about single subscribers: C-DEngine still skips subscribers on SAF 10.x or older for a binary payload.
+    ///     Infrastructures that can send every message need not implement it.
+    /// </remarks>
+    /// <param name="message">The message to check.</param>
+    bool CanPublish(Message message) => true;
+
+    /// <summary>
     ///     Subscribes to all received routes in the mesh.
     /// </summary>
     /// <typeparam name="TMessageHandler">The type of the message handler.</typeparam>

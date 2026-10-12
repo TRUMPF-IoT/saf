@@ -66,6 +66,8 @@ internal sealed class Messaging : IMessagingInfrastructure, IDisposable
         }
     }
 
+    public bool CanPublish(Message message) => _writer.CanWrite(message);
+
     public object Subscribe<TMessageHandler>() where TMessageHandler : IMessageHandler
         => Subscribe<TMessageHandler>(">");
 

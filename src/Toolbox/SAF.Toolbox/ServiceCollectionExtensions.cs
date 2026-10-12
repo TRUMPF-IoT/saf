@@ -17,6 +17,7 @@ using SAF.Toolbox.RequestClient;
 namespace SAF.Toolbox;
 
 using FileTransfer;
+using FileTransfer.Chunks;
 
 public static class ServiceCollectionExtensions
 {
@@ -84,8 +85,24 @@ public static class ServiceCollectionExtensions
         services.AddRequestClient();
 
         services.Configure(configure);
-        services.TryAddTransient<IFileSender, FileSender>();
+        services.TryAddTransient<IFileSender>(sp => CreateFileSender(
+            sp.GetRequiredService<ILogger<FileSender>>(),
+            sp.GetRequiredService<IOptions<FileSenderOptions>>(),
+            sp.GetRequiredService<IFileSystem>(),
+            sp.GetRequiredService<IRequestClient>(),
+            sp.GetRequiredService<IMessagingInfrastructure>()));
         return services;
+    }
+
+    internal static FileSender CreateFileSender(ILogger<FileSender> log, IOptions<FileSenderOptions> options, IFileSystem fileSystem,
+        IRequestClient requestClient, IMessagingInfrastructure messaging)
+    {
+        IFileChunkSender WithRetries(IFileChunkSender sender) => new RetryingFileChunkSender(sender,
+            options.Value.RetryAttemptsForFailedChunks, attempt => TimeSpan.FromSeconds(Math.Pow(2, attempt)), log);
+
+        // In order of preference.
+        return new FileSender(log, options, fileSystem, requestClient,
+            [WithRetries(new BinaryFileChunkSender(requestClient, messaging)), WithRetries(new TextFileChunkSender(requestClient))]);
     }
 
     public static IServiceCollection AddFileReceiver(this IServiceCollection services)
@@ -98,7 +115,9 @@ public static class ServiceCollectionExtensions
     {
         services.Configure(configure);
 
-        services.TryAddTransient<IFileReceiver, FileReceiver>();
+        services.TryAddTransient<IFileReceiver>(sp => CreateFileReceiver(
+            sp.GetRequiredService<ILogger<FileReceiver>>(),
+            sp.GetRequiredService<IMessagingInfrastructure>()));
 
         services.TryAddTransient<IFileSystem, RealFileSystem>();
         services.TryAddTransient<IStatefulFileReceiverFactory, StatefulFileReceiverFactory>();
@@ -106,6 +125,9 @@ public static class ServiceCollectionExtensions
         services.AddHeartbeatPool();
         return services;
     }
+
+    internal static FileReceiver CreateFileReceiver(ILogger<FileReceiver> log, IMessagingInfrastructure messaging)
+        => new(log, messaging, [new BinaryFileChunkReader(), new TextFileChunkReader()]);
 
     public static IServiceCollection AddServiceConfiguration<TServiceConfiguration>(this IServiceCollection services, IConfiguration hostConfig, string configName)
         where TServiceConfiguration : class, new()

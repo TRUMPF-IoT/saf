@@ -200,11 +200,15 @@ public void Handle(Message message)
     var request   = JsonSerializer.Deserialize<GetThumbnailRequest>(message.Payload!)!;
     var thumbnail = CreateThumbnail(request.ImageId, message.BinaryPayload);
 
-    messaging.Publish(message.AcceptsReplyFormat(MessageFormats.Binary)
-        ? new Message { Topic = message.ReplyTo!, BinaryPayload = thumbnail }
+    var binaryReply = new Message { Topic = message.ReplyTo!, BinaryPayload = thumbnail };
+    messaging.Publish(message.AcceptsReplyFormat(MessageFormats.Binary) && messaging.CanPublish(binaryReply)
+        ? binaryReply
         : new Message { Topic = message.ReplyTo!, Payload = JsonSerializer.Serialize(new GetThumbnailResponse { Thumbnail = thumbnail }) });
 }
 ```
+
+`messaging.CanPublish` is `false` if the responder's own transport does not send binary payloads, for example on Redis
+or NATS with `EnableBinaryPayloads` set to `false`; see [Interface](./messaging.md#interface).
 
 A reply in a format the request did not accept is still returned; the request client logs a warning, and the
 `SendRequestAwaitFirstAnswer` methods return `null` if the reply has no `Payload`.
@@ -311,6 +315,34 @@ public class FirmwareReceiver(
     }
 }
 ```
+
+### Binary Chunks
+
+Between SAF 11.x nodes, the sender puts the data of each chunk into the binary payload of the request message (see
+[Binary Payloads](./messaging.md#binary-payloads)) instead of Base64-encoding it into the JSON payload. No
+configuration is needed:
+
+1. Before the first chunk, the sender asks the receiver for its state, as before. A receiver on SAF 11.x also reports
+   the chunk formats it reads; a receiver on SAF 10.x or older reports none.
+2. The sender sends binary chunks if the receiver reads them and its own messaging can publish them
+   (`IMessagingInfrastructure.CanPublish`), otherwise text chunks as in SAF 10.x.
+
+| Sender | Receiver | Chunks |
+|---|---|---|
+| 11.x | 11.x | binary; text if the sender's transport does not send binary payloads, for example with `EnableBinaryPayloads` set to `false` |
+| 11.x | 10.x or older | text |
+| 10.x or older | 11.x | text |
+
+Base64 makes text chunks a third larger than the data. A 5,000,000-byte file with the default chunk size took
+5.01 MB on the wire as binary chunks and 6.68 MB as text chunks, over Redis and NATS alike. The receiver's reply to
+each chunk stays text.
+
+While you set `EnableBinaryPayloads` to `false` because 9.x or 10.x nodes share the Redis or NATS server, transfers
+between 11.x nodes use text chunks and keep working, without the error a dropped message would log.
+
+A binary chunk reaches `IStatefulFileReceiver.WriteFile` with the message's binary payload itself as
+`FileChunk.Data`. An own implementation must not change that array; see
+[Messages Are Read-Only](./messaging.md#messages-are-read-only).
 
 ### Resuming an Interrupted Transfer
 

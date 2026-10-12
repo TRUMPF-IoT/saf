@@ -263,6 +263,47 @@ public class MessageRoutingTest
         messaging.Received().Publish(Arg.Is(message));
     }
 
+    [Theory]
+    [InlineData(true, true, true)]
+    [InlineData(true, false, false)]
+    [InlineData(false, false, false)]
+    public void CanPublishOnlyWhenEveryRoutingCan(bool firstCan, bool secondCan, bool expected)
+    {
+        var message = CreateTestMessage("test/topic");
+        var first = Substitute.For<IMessageRouting>();
+        var second = Substitute.For<IMessageRouting>();
+        first.CanPublish(message).Returns(firstCan);
+        second.CanPublish(message).Returns(secondCan);
+        Messaging messaging = new(null, [first, second]);
+
+        Assert.Equal(expected, messaging.CanPublish(message));
+    }
+
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public void RouteCanPublish_AsksItsMessaging_ForAMatchingTopic(bool canPublish)
+    {
+        var message = CreateTestMessage("test/topic");
+        var messaging = Substitute.For<IMessagingInfrastructure>();
+        messaging.CanPublish(message).Returns(canPublish);
+        var routing = new MessageRouting(messaging) { PublishPatterns = ["test/*"] };
+
+        Assert.Equal(canPublish, routing.CanPublish(message));
+    }
+
+    [Fact]
+    public void RouteCanPublish_IsTrue_ForATopicItDoesNotPublish()
+    {
+        var message = CreateTestMessage("other/topic");
+        var messaging = Substitute.For<IMessagingInfrastructure>();
+        messaging.CanPublish(Arg.Any<Message>()).Returns(false);
+        var routing = new MessageRouting(messaging) { PublishPatterns = ["test/*"] };
+
+        Assert.True(routing.CanPublish(message));
+        messaging.DidNotReceive().CanPublish(Arg.Any<Message>());
+    }
+
     private static Message CreateTestMessage(string topic)
         => new()
         {
