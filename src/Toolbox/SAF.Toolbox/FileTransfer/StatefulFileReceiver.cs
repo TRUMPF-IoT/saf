@@ -228,7 +228,7 @@ public class StatefulFileReceiver : IStatefulFileReceiver
         }
 
         using var tempFileStream = tempTargetFile.Open(FileMode.OpenOrCreate, FileAccess.Write, FileShare.None);
-        tempFileStream.Seek(fileChunk.Index * chunkSize, SeekOrigin.Begin);
+        tempFileStream.Seek((long)fileChunk.Index * chunkSize, SeekOrigin.Begin);
         tempFileStream.Write(fileChunk.Data);
     }
 

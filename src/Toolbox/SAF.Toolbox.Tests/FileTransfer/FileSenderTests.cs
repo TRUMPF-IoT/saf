@@ -259,4 +259,76 @@ public class FileSenderTests
         await _requestClient.ReceivedWithAnyArgs(expectedCalls).
             SendRequestAwaitFirstAnswer<SendFileChunkRequest, SendFileChunkResponse>(null!, null!, null!, null!, null!);
     }
+
+    [Theory]
+    [InlineData(new uint[] { 0, 1 })]
+    [InlineData(new uint[] { 1, 3 })]
+    [InlineData(new uint[] { 0, 2 })]
+    public async Task SendAsync_SendsTheDataOfEachChunk_WhenResumingATransfer(uint[] transmittedChunks)
+    {
+        var content = Enumerable.Range(0, 14).Select(i => (byte)i).ToArray();
+        AddFile("file.txt", content);
+
+        _requestClient.SendRequestAwaitFirstAnswer<GetReceiverStateRequest, GetReceiverStateResponse>(
+                null!, null!, null!, null!, null!)
+            .ReturnsForAnyArgs(new GetReceiverStateResponse { State = new FileReceiverState { TransmittedChunks = [.. transmittedChunks] } });
+        var sentChunks = CaptureSentChunks();
+
+        var options = Options.Create(new FileSenderOptions { MaxChunkSizeInBytes = 4 });
+        var sender = new FileSender(_logger, options, _fileSystem, _requestClient);
+
+        var result = await sender.SendAsync("topic", "file.txt", 1000);
+
+        Assert.Equal(FileTransferStatus.Delivered, result);
+        Assert.Equal(new uint[] { 0, 1, 2, 3 }.Except(transmittedChunks), sentChunks.Select(c => c.Index));
+        Assert.All(sentChunks, c => Assert.Equal(content.Skip((int)c.Index * 4).Take(4), c.Data));
+    }
+
+    [Fact]
+    public async Task SendAsync_SendsWholeChunks_WhenTheStreamReturnsFewerBytesThanRequested()
+    {
+        var content = Enumerable.Range(0, 10).Select(i => (byte)i).ToArray();
+        var fileSystem = Substitute.For<IFileSystem>();
+        var fileInfo = Substitute.For<IFileInfo>();
+        fileSystem.FileInfo.New("file.bin").Returns(fileInfo);
+        fileInfo.Exists.Returns(true);
+        fileInfo.Name.Returns("file.bin");
+        fileInfo.Length.Returns(content.Length);
+        fileInfo.OpenRead().Returns(_ => new TricklingStream(content));
+        fileInfo.Open(FileMode.Open, FileAccess.Read, FileShare.Read).Returns(_ => new TricklingStream(content));
+
+        _requestClient.SendRequestAwaitFirstAnswer<GetReceiverStateRequest, GetReceiverStateResponse>(
+                null!, null!, null!, null!, null!)
+            .ReturnsForAnyArgs(new GetReceiverStateResponse { State = new FileReceiverState() });
+        var sentChunks = CaptureSentChunks();
+
+        var options = Options.Create(new FileSenderOptions { MaxChunkSizeInBytes = 4 });
+        var sender = new FileSender(_logger, options, fileSystem, _requestClient);
+
+        var result = await sender.SendAsync("topic", "file.bin", 1000);
+
+        Assert.Equal(FileTransferStatus.Delivered, result);
+        Assert.Equal([[0, 1, 2, 3], [4, 5, 6, 7], [8, 9]], sentChunks.Select(c => c.Data));
+    }
+
+    private List<FileChunk> CaptureSentChunks()
+    {
+        var sentChunks = new List<FileChunk>();
+        _requestClient.SendRequestAwaitFirstAnswer<SendFileChunkRequest, SendFileChunkResponse>(
+                null!, null!, null!, null!, null!)
+            .ReturnsForAnyArgs(ci =>
+            {
+                var chunk = ci.Arg<SendFileChunkRequest>().FileChunk!;
+                sentChunks.Add(new FileChunk { Index = chunk.Index, Data = chunk.Data.ToArray() });
+                return new SendFileChunkResponse { Status = FileReceiverStatus.Ok };
+            });
+        return sentChunks;
+    }
+
+    // Returns at most two bytes per read, which streams are allowed to do.
+    private sealed class TricklingStream(byte[] content) : FileSystemStream(new MemoryStream(content), "file.bin", false)
+    {
+        public override ValueTask<int> ReadAsync(Memory<byte> buffer, CancellationToken cancellationToken = default)
+            => base.ReadAsync(buffer[..Math.Min(2, buffer.Length)], cancellationToken);
+    }
 }

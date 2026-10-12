@@ -115,7 +115,9 @@ internal class FileSender(
 
     private static async Task<FileChunk> ReadFileChunkAsync(uint chunkIndex, FileSystemStream fileStream, byte[] buffer)
     {
-        var bytesRead = await fileStream.ReadAsync(buffer, CancellationToken.None);
+        // Chunks the receiver already has are skipped, so each chunk is read at its own offset.
+        fileStream.Position = (long)chunkIndex * buffer.Length;
+        var bytesRead = await fileStream.ReadAtLeastAsync(buffer, buffer.Length, throwOnEndOfStream: false, CancellationToken.None);
         if (bytesRead == 0)
         {
             throw new EndOfStreamException("Reached unexpected EOF");

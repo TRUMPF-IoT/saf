@@ -312,6 +312,28 @@ public class FirmwareReceiver(
 }
 ```
 
+### Resuming an Interrupted Transfer
+
+Until a file is complete, the receiver keeps the chunks it has received in two state files next to the target file,
+with the extensions `.{file id}.temp` and `.{file id}.meta`. They expire after
+`FileReceiverOptions.StateExpirationAfterHours` (default 72). To resume an interrupted transfer, call `SendAsync`
+again for the same file: the sender first asks the receiver for its state and then sends only the missing chunks,
+each read completely from its own position in the file. The file id covers the file name, the chunk size and the
+content, so a changed file starts a new transfer.
+
+Before 11.x, a resumed transfer sent each missing chunk with the data of another chunk, and the receiver completed a
+corrupt file. Receivers also wrote chunks of files of 4 GiB and more to wrong positions. 11.x fixes the first on the
+sending side and the second on the receiving side, so transfers with older nodes can still be affected:
+
+| Sender | Receiver | Resumed transfer | File of 4 GiB or more |
+|---|---|---|---|
+| 11.x | 11.x | intact | intact |
+| 11.x | 10.x or older | intact | corrupt |
+| 10.x or older | 11.x | corrupt | intact |
+
+To detect a corrupt file, compare the Base64-encoded SHA-256 hash of the received file with
+`FileReceivedEventArgs.File.ContentHash`.
+
 ---
 
 ## Serialization Helpers

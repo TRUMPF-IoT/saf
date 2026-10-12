@@ -531,6 +531,17 @@ With Routing, the request client now subscribes only this pattern, on the routes
 the prefix, instead of every route pattern that ends in `*`. No action is required. See
 [Request Client](./toolbox.md#request-client).
 
+### Resumed file transfers and files of 4 GiB or more arrive intact
+
+In 10.x, a resumed file transfer delivered a corrupt file: the sender skipped the chunks the receiver already had but
+kept reading the file from where it was, so it sent each missing chunk with the data of another chunk. Receivers also
+wrote chunks of files of 4 GiB and more to wrong positions. 11.x fixes the first on the sending side and the second on
+the receiving side, so a transfer between an 11.x node and an older node can still be affected; see
+[Resuming an Interrupted Transfer](./toolbox.md#resuming-an-interrupted-transfer).
+
+No action is required. While older nodes send or receive files, compare the hash of a received file with
+`FileReceivedEventArgs.File.ContentHash` if you need to detect a corrupt file.
+
 ### Digital-signature validation is secure by default
 
 `DigitalSignaturePluginAssemblyValidatorOptions.RequireValidDigitalSignature` defaults to `true`, so registering the validator without configuration demands a signature that is intact, covers the file and chains to a trusted root. Check that against the signatures your plug-ins actually carry before enabling the validator: unsigned plug-ins, and plug-ins whose signer chains to a root the host does not trust, are skipped with a warning.
@@ -602,3 +613,4 @@ The [shared set](./plugin-system.md#the-shared-set) includes `SAF.PluginSystem.H
 - [ ] Make sure no handler changes a `Message` it receives; create a new one instead
 - [ ] If you implement `IRequestClient` yourself, add `SendRequestAwaitFirstReply`
 - [ ] Let responders read the reply topic as `message.ReplyTo ?? request.ReplyTo`
+- [ ] While 10.x nodes send files, or receive files of 4 GiB or more, check received files against `FileReceivedEventArgs.File.ContentHash`

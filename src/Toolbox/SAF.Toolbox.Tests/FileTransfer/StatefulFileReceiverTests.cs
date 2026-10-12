@@ -517,6 +517,40 @@ public class StatefulFileReceiverTests
     }
 
     [Fact]
+    public void WriteFile_WritesTheChunkAtItsOffset_BeyondFourGibibytes()
+    {
+        var fileSystem = Substitute.For<IFileSystem>();
+        var fileInfo = Substitute.For<IFileInfo>();
+        var stream = new SeekRecordingStream();
+        fileSystem.FileInfo.New(Arg.Any<string>()).Returns(fileInfo);
+        fileInfo.Open(FileMode.OpenOrCreate, FileAccess.Write, FileShare.None).Returns(stream);
+
+        var file = new TransportFile
+        {
+            FileName = "file.txt",
+            FileId = "fileId",
+            ContentHash = "contentHash",
+            ChunkSize = DefaultChunkSize,
+            ContentLength = 30_000L * DefaultChunkSize,
+            TotalChunks = 30_000
+        };
+        using var receiver = new StatefulFileReceiver(_logger, fileSystem, _options.Value, _heartbeatPool, DefaultFolderPath);
+
+        var status = receiver.WriteFile(file, new FileChunk { Index = 21_475, Data = [1] });
+
+        Assert.Equal(FileReceiverStatus.Ok, status);
+        Assert.Equal(21_475L * DefaultChunkSize, stream.Offset);
+    }
+
+    // Records the offset instead of seeking, so the test needs no 4 GiB file.
+    private sealed class SeekRecordingStream() : FileSystemStream(new MemoryStream(), "temp", false)
+    {
+        public long? Offset { get; private set; }
+
+        public override long Seek(long offset, SeekOrigin origin) => (Offset = offset).Value;
+    }
+
+    [Fact]
     public void StatefulReceiver_PerformsCleanup_AfterStateFileExpiration()
     {
         AddFile(_defaultTestFilePath, "content");
