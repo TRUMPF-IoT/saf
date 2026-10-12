@@ -353,17 +353,33 @@ again for the same file: the sender first asks the receiver for its state and th
 each read completely from its own position in the file. The file id covers the file name, the chunk size and the
 content, so a changed file starts a new transfer.
 
+### Content Check
+
+Before the receiver completes a file, it compares the file's length and SHA-256 hash with the values the sender
+reported (`TransportFile.ContentLength` and `TransportFile.ContentHash`); this reads the file once more. If they
+differ, the receiver:
+
+- answers the last chunk with `FileReceiverStatus.Failed`, so `SendAsync` returns `FileTransferStatus.Error`, also
+  after retries of that chunk;
+- raises neither `BeforeFileReceived` nor `FileReceived`;
+- keeps the received chunks until the sender asks for the state again, then discards them, so the next `SendAsync`
+  transfers the whole file.
+
+To recover, call `SendAsync` again.
+
+### Transfers With Older Nodes
+
 Before 11.x, a resumed transfer sent each missing chunk with the data of another chunk, and the receiver completed a
-corrupt file. Receivers also wrote chunks of files of 4 GiB and more to wrong positions. 11.x fixes the first on the
-sending side and the second on the receiving side, so transfers with older nodes can still be affected:
+corrupt file. Receivers also wrote chunks of files of 4 GiB and more to wrong positions, and they do not check the
+content. With older nodes, transfers can therefore still be affected:
 
 | Sender | Receiver | Resumed transfer | File of 4 GiB or more |
 |---|---|---|---|
 | 11.x | 11.x | intact | intact |
 | 11.x | 10.x or older | intact | corrupt |
-| 10.x or older | 11.x | corrupt | intact |
+| 10.x or older | 11.x | rejected; the next `SendAsync` transfers the whole file | intact |
 
-To detect a corrupt file, compare the Base64-encoded SHA-256 hash of the received file with
+To detect a corrupt file on a receiver before 11.x, compare the Base64-encoded SHA-256 hash of the received file with
 `FileReceivedEventArgs.File.ContentHash`.
 
 ---

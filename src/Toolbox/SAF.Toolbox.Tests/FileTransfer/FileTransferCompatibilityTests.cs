@@ -73,6 +73,21 @@ public sealed class FileTransferCompatibilityTests : IDisposable
         Assert.All(chunkRequests, m => Assert.Equal(expectBinaryChunks, m.BinaryPayload != null));
     }
 
+    [Fact]
+    public async Task Saf11Receiver_RejectsAFileASaf10SenderResumedWithWrongData_AndGetsItWithTheNextAttempt()
+    {
+        var messaging = new RecordingMessaging(_transport, canPublishBinary: true);
+        SubscribeReceiver(Node.Saf11, messaging);
+        var target = _receiverFileSystem.Path.Combine("received", "file.bin");
+
+        Assert.False(await SendAsSaf10Async(messaging, interruptAfter: 4));
+        Assert.False(await SendAsSaf10Async(messaging));
+        Assert.False(_receiverFileSystem.File.Exists(target));
+
+        Assert.True(await SendAsSaf10Async(messaging));
+        Assert.Equal(_content, _receiverFileSystem.File.ReadAllBytes(target));
+    }
+
     private void SubscribeReceiver(Node node, IMessagingInfrastructure messaging)
     {
         var statefulReceiver = new StatefulFileReceiver(NullLogger<StatefulFileReceiver>.Instance, _receiverFileSystem,
@@ -118,6 +133,11 @@ public sealed class FileTransferCompatibilityTests : IDisposable
             return await sender.SendAsync(Topic, "file.bin", 5000) == FileTransferStatus.Delivered;
         }
 
+        return await SendAsSaf10Async(messaging);
+    }
+
+    private async Task<bool> SendAsSaf10Async(IMessagingInfrastructure messaging, int? interruptAfter = null)
+    {
         var fileInfo = _senderFileSystem.FileInfo.New("file.bin");
         var file = new TransportFile
         {
@@ -129,11 +149,14 @@ public sealed class FileTransferCompatibilityTests : IDisposable
             TotalChunks = TotalChunks
         };
         var state = await RequestAsSaf10<GetReceiverStateResponse>(messaging, $"{Topic}/state/get", new GetReceiverStateRequest { File = file });
+        // Like SAF 10.x, read the file chunk by chunk without moving past the chunks the receiver already has.
+        var chunksRead = 0;
         for (uint index = 0; index < TotalChunks; index++)
         {
             if (state.State.TransmittedChunks.Contains(index)) continue;
+            if (chunksRead == interruptAfter) return false;
 
-            var data = _content.Skip((int)(index * ChunkSize)).Take((int)ChunkSize).ToArray();
+            var data = _content.Skip(chunksRead++ * (int)ChunkSize).Take((int)ChunkSize).ToArray();
             var response = await RequestAsSaf10<SendFileChunkResponse>(messaging, Topic,
                 new SendFileChunkRequest { File = file, FileChunk = new FileChunk { Index = index, Data = data } });
             if (response.Status != FileReceiverStatus.Ok) return false;

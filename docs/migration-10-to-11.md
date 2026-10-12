@@ -560,11 +560,16 @@ chunk it is the message's binary payload (see [Messages are read-only](#messages
 In 10.x, a resumed file transfer delivered a corrupt file: the sender skipped the chunks the receiver already had but
 kept reading the file from where it was, so it sent each missing chunk with the data of another chunk. Receivers also
 wrote chunks of files of 4 GiB and more to wrong positions. 11.x fixes the first on the sending side and the second on
-the receiving side, so a transfer between an 11.x node and an older node can still be affected; see
-[Resuming an Interrupted Transfer](./toolbox.md#resuming-an-interrupted-transfer).
+the receiving side.
 
-No action is required. While older nodes send or receive files, compare the hash of a received file with
-`FileReceivedEventArgs.File.ContentHash` if you need to detect a corrupt file.
+An 11.x receiver also checks every completed file against the length and the content hash the sender reported. A file
+that does not match, for example from a 10.x sender that resumed a transfer, is not completed: the last chunk fails,
+so the sender reports an error, and the next attempt transfers the whole file. See
+[Content Check](./toolbox.md#content-check). If you call `StatefulFileReceiver.WriteFile` yourself, it now returns
+`FileReceiverStatus.Failed` for the last chunk of such a file.
+
+Files of 4 GiB or more sent to a 10.x receiver can still arrive corrupt; see
+[Transfers With Older Nodes](./toolbox.md#transfers-with-older-nodes). No action is required otherwise.
 
 ### Digital-signature validation is secure by default
 
@@ -638,4 +643,4 @@ The [shared set](./plugin-system.md#the-shared-set) includes `SAF.PluginSystem.H
 - [ ] If you implement `IRequestClient` yourself, add `SendRequestAwaitFirstReply`
 - [ ] Let responders read the reply topic as `message.ReplyTo ?? request.ReplyTo`
 - [ ] Before a responder replies with a binary payload, check `message.AcceptsReplyFormat(MessageFormats.Binary)` and `messaging.CanPublish(reply)`
-- [ ] While 10.x nodes send files, or receive files of 4 GiB or more, check received files against `FileReceivedEventArgs.File.ContentHash`
+- [ ] While 10.x nodes receive files of 4 GiB or more, check those files against `FileReceivedEventArgs.File.ContentHash`

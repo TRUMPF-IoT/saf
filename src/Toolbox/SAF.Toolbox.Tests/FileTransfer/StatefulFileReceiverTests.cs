@@ -516,6 +516,72 @@ public class StatefulFileReceiverTests
         Assert.Equal(FileReceiverStatus.Failed, status);
     }
 
+    [Theory]
+    [InlineData("c0ntent", 7)]
+    [InlineData("content", 8)]
+    public void WriteFile_ReturnsFailed_AndKeepsTheState_WhenTheFileDoesNotMatchTheSender(string received, long contentLength)
+    {
+        AddFile(_defaultTestFilePath, "content");
+        var fileInfo = _fileSystem.FileInfo.New(_defaultTestFilePath);
+        var file = new TransportFile
+        {
+            FileName = "file.txt",
+            FileId = fileInfo.GetFileId(DefaultChunkSize),
+            ContentHash = fileInfo.GetContentHash(),
+            ChunkSize = DefaultChunkSize,
+            ContentLength = contentLength,
+            TotalChunks = 1
+        };
+        fileInfo.Delete();
+
+        using var receiver = new StatefulFileReceiver(_logger, _fileSystem, _options.Value, _heartbeatPool, DefaultFolderPath);
+        FileReceivedEventArgs? fileReceived = null;
+        receiver.FileReceived += (_, fr) => fileReceived = fr;
+        var chunk = new FileChunk { Index = 0, Data = System.Text.Encoding.UTF8.GetBytes(received) };
+
+        Assert.Equal(FileReceiverStatus.Failed, receiver.WriteFile(file, chunk));
+        // A retry of the last chunk fails as well instead of reporting success.
+        Assert.Equal(FileReceiverStatus.Failed, receiver.WriteFile(file, chunk));
+
+        Assert.Null(fileReceived);
+        Assert.False(_fileSystem.File.Exists(_defaultTestFilePath));
+        Assert.True(_fileSystem.File.Exists(file.GetTempTargetFilePath(_fileSystem, DefaultFolderPath)));
+        Assert.True(_fileSystem.File.Exists(file.GetMetadataTargetFilePath(_fileSystem, DefaultFolderPath)));
+    }
+
+    [Fact]
+    public void GetState_StartsOver_WhenTheReceivedFileDoesNotMatchTheSender()
+    {
+        AddFile(_defaultTestFilePath, "content");
+        var fileInfo = _fileSystem.FileInfo.New(_defaultTestFilePath);
+        var file = new TransportFile
+        {
+            FileName = "file.txt",
+            FileId = fileInfo.GetFileId(DefaultChunkSize),
+            ContentHash = fileInfo.GetContentHash(),
+            ChunkSize = DefaultChunkSize,
+            ContentLength = fileInfo.Length,
+            TotalChunks = 5
+        };
+        AddFile(file.GetTempTargetFilePath(_fileSystem, DefaultFolderPath), "c0ntent");
+        HashSet<uint> hashSet = [0, 1, 2, 3, 4];
+        AddFile(file.GetMetadataTargetFilePath(_fileSystem, DefaultFolderPath), JsonSerializer.Serialize(new { ReceivedChunks = hashSet }));
+        fileInfo.Delete();
+
+        using var receiver = new StatefulFileReceiver(_logger, _fileSystem, _options.Value, _heartbeatPool, DefaultFolderPath);
+        FileReceivedEventArgs? fileReceived = null;
+        receiver.FileReceived += (_, fr) => fileReceived = fr;
+
+        var state = receiver.GetState(file);
+
+        Assert.False(state.FileExists);
+        Assert.Empty(state.TransmittedChunks);
+        Assert.Null(fileReceived);
+        Assert.False(_fileSystem.File.Exists(_defaultTestFilePath));
+        Assert.False(_fileSystem.File.Exists(file.GetTempTargetFilePath(_fileSystem, DefaultFolderPath)));
+        Assert.False(_fileSystem.File.Exists(file.GetMetadataTargetFilePath(_fileSystem, DefaultFolderPath)));
+    }
+
     [Fact]
     public void WriteFile_WritesTheChunkAtItsOffset_BeyondFourGibibytes()
     {
