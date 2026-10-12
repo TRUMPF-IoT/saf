@@ -115,9 +115,6 @@ public static class ServiceCollectionExtensions
                     MessagingInfrastructureKeys.Redis,
                     cfg => CreateMessagingInfrastructure(sp, cfg, config)));
 
-    private static Messaging CreateMessagingInfrastructure(IServiceProvider serviceProvider, MessagingConfiguration config, RedisConfiguration defaultConfiguration)
-        => CreateMessagingInfrastructure(serviceProvider, ResolveConfiguration(config, defaultConfiguration));
-
     /// <summary>
     /// A route's own values take precedence over the <c>Redis</c> section.
     /// </summary>
@@ -145,6 +142,9 @@ public static class ServiceCollectionExtensions
 
     internal static IRedisMessageReader CreateReader(ILogger logger)
         => new RedisMessageReader(RedisWireFormats.All, new RedisBinaryFrame(), new UnknownVersionWarning(logger), logger);
+
+    private static Messaging CreateMessagingInfrastructure(IServiceProvider serviceProvider, MessagingConfiguration config, RedisConfiguration defaultConfiguration)
+        => CreateMessagingInfrastructure(serviceProvider, ResolveConfiguration(config, defaultConfiguration));
 
     private static Messaging CreateMessagingInfrastructure(IServiceProvider serviceProvider, RedisConfiguration config)
     {

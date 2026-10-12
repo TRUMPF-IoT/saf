@@ -310,6 +310,6 @@ public class NatsWireFormatGoldenTests
 
     private static Messaging CreateMessaging(INatsClient client, INatsSubscriptionManager subscriptionManager,
         IServiceMessageDispatcher dispatcher, bool enableBinaryPayloads = true, ILogger<Messaging>? logger = null)
-        => new(logger, client, subscriptionManager, new NatsInputRouteTranslator(), new NatsOutputRouteTranslator(), dispatcher,
+        => new(logger, client, subscriptionManager, new NatsRouteTranslation(new NatsInputRouteTranslator(), new NatsOutputRouteTranslator()), dispatcher,
             Writer(enableBinaryPayloads), Reader());
 }

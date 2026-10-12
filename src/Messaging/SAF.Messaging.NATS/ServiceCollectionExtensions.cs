@@ -208,8 +208,9 @@ public static class ServiceCollectionExtensions
         return new Messaging(logger,
             CreateNatsClient(config, logger),
             new NatsSubscriptionManager(),
-            serviceProvider.GetService<IInputRouteTranslator>() ?? new NatsInputRouteTranslator(),
-            serviceProvider.GetService<IOutputRouteTranslator>() ?? new NatsOutputRouteTranslator(),
+            new NatsRouteTranslation(
+                serviceProvider.GetService<IInputRouteTranslator>() ?? new NatsInputRouteTranslator(),
+                serviceProvider.GetService<IOutputRouteTranslator>() ?? new NatsOutputRouteTranslator()),
             ResolveMessageDispatcher(serviceProvider),
             CreateWriter(config),
             CreateReader(logger));

@@ -14,7 +14,7 @@ using SAF.Messaging.Contracts;
 /// </summary>
 internal sealed class NatsMessageReader : INatsMessageReader
 {
-    private readonly IReadOnlyDictionary<int, INatsWireFormat> _formatsByMajorVersion;
+    private readonly Dictionary<int, INatsWireFormat> _formatsByMajorVersion;
     private readonly UnknownVersionWarning _unknownVersionWarning;
     private readonly ILogger _logger;
 

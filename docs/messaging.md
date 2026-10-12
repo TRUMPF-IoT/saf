@@ -223,6 +223,10 @@ when it is full (`SubPendingChannelFullMode = BoundedChannelFullMode.Wait`), so 
 than the publish rate applies backpressure to the reader rather than having messages dropped
 silently — NATS.Net's own default is to drop the newest message instead.
 
+`Publish` returns before NATS.Net has sent the message. If sending fails afterwards, NATS messaging logs an error
+with the topic, and the message is lost; SAF 10.x did not report such failures. A failure because the connection
+was disposed, for example at shutdown, is logged as information.
+
 **Requires NATS Server 2.2 or newer.** SAF sends the message metadata — `CustomProperties`, `ReplyTo` and
 `AcceptedReplyFormats` — in NATS message headers, which the server supports since version 2.2. Every request sent
 with `IRequestClient` carries `ReplyTo` and therefore headers. The body of a text message is always the payload,

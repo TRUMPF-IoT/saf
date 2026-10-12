@@ -45,11 +45,11 @@ internal sealed class TsmMessageFormatV5(ITsmPlbLayout plbLayout) : ITsmBatchFor
         return dtos == null ? null : Read(dtos, payload.Plb);
     }
 
-    private static IReadOnlyList<byte[]> BinaryPayloadsOf(IEnumerable<Message> messages)
+    private static List<byte[]> BinaryPayloadsOf(IEnumerable<Message> messages)
         => messages.Select(m => m.BinaryPayload).OfType<byte[]>().ToList();
 
     // Returns null if the announced lengths do not match PLB.
-    private List<Message>? Read(IReadOnlyList<MessageDtoV2> dtos, byte[]? plb)
+    private List<Message>? Read(List<MessageDtoV2> dtos, byte[]? plb)
     {
         var binaryPayloads = plbLayout.Unpack(plb, dtos.Select(d => d.BinaryPayloadLength).OfType<int>().ToList());
         if (binaryPayloads == null) return null;

@@ -46,9 +46,11 @@ internal sealed class TsmMessageCodec : ITsmMessageEncoder, ITsmMessageDecoder
     public List<Message>? DecodeBatch(string version, TsmPayload payload) => BatchFormatFor(version).DecodeBatch(payload);
 
     public List<Message>? DecodeMessages(Topic topic, TsmPayload payload)
-        => IsBatch(topic.Channel, topic.Version)
-            ? DecodeBatch(topic.Version, payload)
-            : Decode(topic.Channel, topic.Version, payload) is { } message ? [message] : null;
+    {
+        if (IsBatch(topic.Channel, topic.Version)) return DecodeBatch(topic.Version, payload);
+
+        return Decode(topic.Channel, topic.Version, payload) is { } message ? [message] : null;
+    }
 
     private ITsmMessageFormat FormatFor(string version)
     {

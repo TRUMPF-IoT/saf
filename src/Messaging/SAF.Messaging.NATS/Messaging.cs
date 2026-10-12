@@ -15,8 +15,7 @@ internal sealed class Messaging : IMessagingInfrastructure, IDisposable
 {
     private readonly INatsClient _natsClient;
     private readonly INatsSubscriptionManager _subscriptionManager;
-    private readonly IInputRouteTranslator _inputRouteTranslator;
-    private readonly IOutputRouteTranslator _outputRouteTranslator;
+    private readonly NatsRouteTranslation _routes;
     private readonly IServiceMessageDispatcher _serviceMessageDispatcher;
     private readonly ILogger<Messaging> _logger;
     private readonly INatsMessageWriter _writer;
@@ -24,8 +23,7 @@ internal sealed class Messaging : IMessagingInfrastructure, IDisposable
 
     public Messaging(ILogger<Messaging>? logger, INatsClient natsClient,
         INatsSubscriptionManager subscriptionManager,
-        IInputRouteTranslator inputRouteTranslator,
-        IOutputRouteTranslator outputRouteTranslator,
+        NatsRouteTranslation routes,
         IServiceMessageDispatcher serviceMessageDispatcher,
         INatsMessageWriter writer,
         INatsMessageReader reader)
@@ -35,8 +33,7 @@ internal sealed class Messaging : IMessagingInfrastructure, IDisposable
         _reader = reader;
         _natsClient = natsClient;
         _subscriptionManager = subscriptionManager;
-        _inputRouteTranslator = inputRouteTranslator;
-        _outputRouteTranslator = outputRouteTranslator;
+        _routes = routes;
         _serviceMessageDispatcher = serviceMessageDispatcher;
     }
 
@@ -52,7 +49,7 @@ internal sealed class Messaging : IMessagingInfrastructure, IDisposable
                 return;
             }
 
-            wireMessage.PublishAsync(_natsClient, _inputRouteTranslator.TranslateRoute(message.Topic));
+            _ = ObservePublishingAsync(wireMessage.PublishAsync(_natsClient, _routes.Input.TranslateRoute(message.Topic)), message.Topic);
         }
         catch (NullReferenceException nre)
         {
@@ -162,7 +159,7 @@ internal sealed class Messaging : IMessagingInfrastructure, IDisposable
         try
         {
             var isSynchronized = false;
-            var subject = _inputRouteTranslator.TranslateRoute(routeFilterPattern);
+            var subject = _routes.Input.TranslateRoute(routeFilterPattern);
             var cts = new CancellationTokenSource();
             var subscriptionTask = Task.Run(async () =>
             {
@@ -174,7 +171,7 @@ internal sealed class Messaging : IMessagingInfrastructure, IDisposable
                     using var body = msg.Data;
                     try
                     {
-                        var message = _reader.Read(_outputRouteTranslator.TranslateRoute(msg.Subject), new NatsBody(body.Memory), msg.Headers);
+                        var message = _reader.Read(_routes.Output.TranslateRoute(msg.Subject), new NatsBody(body.Memory), msg.Headers);
                         if (message != null) handler(message);
                     }
                     catch (Exception)
@@ -203,6 +200,24 @@ internal sealed class Messaging : IMessagingInfrastructure, IDisposable
         }
 
         return null;
+    }
+
+    // NATS.Net may finish sending after Publish returned, for example once the connection is back.
+    private async Task ObservePublishingAsync(ValueTask publishing, string topic)
+    {
+        try
+        {
+            await publishing.ConfigureAwait(false);
+        }
+        catch (ObjectDisposedException ode)
+        {
+            // catch in case the DI container disposed the client while sending
+            _logger.LogInformation(ode, "Handled ObjectDisposedException while publishing message {Topic}", topic);
+        }
+        catch (Exception e)
+        {
+            _logger.LogError(e, "Failed to publish message on {Topic}", topic);
+        }
     }
 }
 

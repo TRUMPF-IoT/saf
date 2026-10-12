@@ -17,7 +17,7 @@ using JsonSerializer = Toolbox.Serialization.JsonSerializer;
 /// </summary>
 internal sealed class RedisMessageReader : IRedisMessageReader
 {
-    private readonly IReadOnlyDictionary<int, IRedisEnvelopeFormat> _formatsByMajorVersion;
+    private readonly Dictionary<int, IRedisEnvelopeFormat> _formatsByMajorVersion;
     private readonly IRedisBinaryFrame _binaryFrame;
     private readonly UnknownVersionWarning _unknownVersionWarning;
     private readonly ILogger _logger;

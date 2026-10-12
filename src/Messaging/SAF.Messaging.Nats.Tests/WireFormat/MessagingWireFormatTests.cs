@@ -30,7 +30,7 @@ public class MessagingWireFormatTests
     public MessagingWireFormatTests()
     {
         _messaging = new Messaging(_logger, _client, Substitute.For<INatsSubscriptionManager>(),
-            new NatsInputRouteTranslator(), new NatsOutputRouteTranslator(), _dispatcher, _writer, _reader);
+            new NatsRouteTranslation(new NatsInputRouteTranslator(), new NatsOutputRouteTranslator()), _dispatcher, _writer, _reader);
     }
 
     [Theory]
@@ -68,6 +68,37 @@ public class MessagingWireFormatTests
         _messaging.Publish(message);
 
         Assert.Same(binaryBody, _client.ReceivedCalls().Single(c => c.GetMethodInfo().Name == "PublishAsync").GetArguments()[1]);
+    }
+
+    [Fact]
+    public void Publish_LogsAnError_WhenSendingFailsAfterPublishReturned()
+    {
+        var sending = PublishCompletesWith();
+
+        sending.SetException(new TimeoutException("no connection"));
+
+        _logger.AssertLogged(LogLevel.Error, m => m.Contains("a/b"));
+    }
+
+    [Fact]
+    public void Publish_LogsInformation_WhenTheClientIsDisposedWhileSending()
+    {
+        var sending = PublishCompletesWith();
+
+        sending.SetException(new ObjectDisposedException("client"));
+
+        _logger.AssertLogged(LogLevel.Information, m => m.Contains("a/b"));
+        _logger.DidNotReceive().Log(LogLevel.Error, Arg.Any<string>());
+    }
+
+    [Fact]
+    public void Publish_LogsNoError_WhenSendingSucceedsAfterPublishReturned()
+    {
+        var sending = PublishCompletesWith();
+
+        sending.SetResult();
+
+        _logger.DidNotReceive().Log(LogLevel.Error, Arg.Any<string>());
     }
 
     [Fact]
@@ -122,6 +153,20 @@ public class MessagingWireFormatTests
 
         await dispatched.Task.WaitAsync(TimeSpan.FromSeconds(10), TestContext.Current.CancellationToken);
         Assert.Equal(new byte[] { 0, 255 }, body);
+    }
+
+    // Publishes a message on a/b whose sending finishes when the test completes the returned source.
+    private TaskCompletionSource PublishCompletesWith()
+    {
+        var sending = new TaskCompletionSource();
+        _client.PublishAsync<string?>(default!, default).ReturnsForAnyArgs(new ValueTask(sending.Task));
+        var message = new Message { Topic = "a/b" };
+        WriterReturns(message, NatsWireMessage.Text("body", null));
+
+        _messaging.Publish(message);
+
+        _logger.DidNotReceive().Log(Arg.Is<LogLevel>(level => level >= LogLevel.Information), Arg.Any<string>());
+        return sending;
     }
 
     private void WriterReturns(Message message, NatsWireMessage wireMessage)

@@ -432,6 +432,12 @@ is slower than the publish rate still applies backpressure to the reader instead
 messages — the 10.x behaviour. No action is required; the note is here because the underlying default
 inverted, so a host that builds its own `NatsOpts` has to set the mode itself.
 
+### NATS messaging logs failed publishes
+
+`Publish` returns before NATS.Net has sent the message. In 10.x, a failure after that went unnoticed and the message
+was lost silently. 11.x logs such a failure as an error with the topic; a failure because the connection was
+disposed, for example at shutdown, is logged as information. No action is required. See [NATS](./messaging.md#nats).
+
 ### NATS transports custom properties and requires NATS Server 2.2
 
 SAF 10.x sent only topic and payload over NATS; `Message.CustomProperties` were lost on the way. SAF 11.x sends
