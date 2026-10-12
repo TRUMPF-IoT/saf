@@ -16,6 +16,11 @@ internal interface IRedisEnvelopeFormat
     /// </summary>
     IReadOnlyCollection<int> MajorVersions { get; }
 
+    /// <summary>
+    /// The payload format of the messages this format writes.
+    /// </summary>
+    MessageFormats Format { get; }
+
     bool CanWrite(Message message);
 
     RedisWireValue Write(Message message);

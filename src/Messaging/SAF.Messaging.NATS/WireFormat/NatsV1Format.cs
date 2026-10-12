@@ -15,6 +15,8 @@ internal sealed class NatsV1Format : INatsWireFormat
 {
     public int MajorVersion => 1;
 
+    public MessageFormats Format => MessageFormats.Text;
+
     public bool CanWrite(Message message)
         => message is { BinaryPayload: null, ReplyTo: null, AcceptedReplyFormats: null, CustomProperties: null };
 

@@ -21,15 +21,13 @@ public class RetryingFileChunkSenderTests
         => new(_inner, retryAttempts, _ => TimeSpan.Zero, NullLogger.Instance);
 
     [Theory]
-    [InlineData(MessageFormats.Text, true)]
-    [InlineData(MessageFormats.Binary, false)]
-    public void TakesFormatAndCanSendFromTheSender(MessageFormats format, bool canSend)
+    [InlineData(MessageFormats.Text)]
+    [InlineData(MessageFormats.Binary)]
+    public void TakesTheFormatFromTheSender(MessageFormats format)
     {
         _inner.Format.Returns(format);
-        _inner.CanSend("topic").Returns(canSend);
 
         Assert.Equal(format, CreateSender(2).Format);
-        Assert.Equal(canSend, CreateSender(2).CanSend("topic"));
     }
 
     [Fact]

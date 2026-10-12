@@ -15,8 +15,6 @@ internal sealed class TextFileChunkSender(IRequestClient requestClient) : IFileC
 {
     public MessageFormats Format => MessageFormats.Text;
 
-    public bool CanSend(string topic) => true;
-
     public async Task<FileReceiverStatus?> SendAsync(string topic, TransportFile file, FileChunk chunk, uint timeoutMs)
     {
         var response = await requestClient.SendRequestAwaitFirstAnswer<SendFileChunkRequest, SendFileChunkResponse>(

@@ -17,11 +17,6 @@ internal interface IFileChunkSender
     MessageFormats Format { get; }
 
     /// <summary>
-    /// Returns whether the messaging infrastructure can publish chunks in this format on the topic.
-    /// </summary>
-    bool CanSend(string topic);
-
-    /// <summary>
     /// Sends the chunk and returns the receiver's status, or <c>null</c> if no reply arrives in time.
     /// </summary>
     Task<FileReceiverStatus?> SendAsync(string topic, TransportFile file, FileChunk chunk, uint timeoutMs);

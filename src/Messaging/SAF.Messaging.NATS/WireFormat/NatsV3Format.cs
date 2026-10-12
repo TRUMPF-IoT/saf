@@ -18,6 +18,8 @@ internal sealed class NatsV3Format(INatsMetadataHeader metadataHeader) : INatsWi
 
     public int MajorVersion => 3;
 
+    public MessageFormats Format => MessageFormats.Binary;
+
     public bool CanWrite(Message message) => message.BinaryPayload is not null;
 
     public NatsWireMessage Write(Message message)

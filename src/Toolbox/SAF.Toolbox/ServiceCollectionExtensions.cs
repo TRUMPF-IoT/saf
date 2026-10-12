@@ -101,8 +101,8 @@ public static class ServiceCollectionExtensions
             options.Value.RetryAttemptsForFailedChunks, attempt => TimeSpan.FromSeconds(Math.Pow(2, attempt)), log);
 
         // In order of preference.
-        return new FileSender(log, options, fileSystem, requestClient,
-            [WithRetries(new BinaryFileChunkSender(requestClient, messaging)), WithRetries(new TextFileChunkSender(requestClient))]);
+        return new FileSender(log, options, fileSystem, requestClient, messaging,
+            [WithRetries(new BinaryFileChunkSender(requestClient)), WithRetries(new TextFileChunkSender(requestClient))]);
     }
 
     public static IServiceCollection AddFileReceiver(this IServiceCollection services)

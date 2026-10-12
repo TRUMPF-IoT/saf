@@ -74,6 +74,14 @@ public class TestMessagingCde
     }
 
     [Fact]
+    public void PublishesTextAndBinaryPayloads()
+    {
+        Messaging messaging = new(null, Substitute.For<IServiceMessageDispatcher>(), Substitute.For<IPublisher>(), Substitute.For<ISubscriber>());
+
+        Assert.Equal(MessageFormats.Text | MessageFormats.Binary, messaging.GetPublishableFormats("t"));
+    }
+
+    [Fact]
     public void RunServices()
     {
         TestConfigurationProvider cp = new();

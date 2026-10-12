@@ -14,6 +14,8 @@ internal sealed class RedisEnvelopeV3Format(IRedisEnvelopeSerializer serializer)
 {
     public IReadOnlyCollection<int> MajorVersions { get; } = [3];
 
+    public MessageFormats Format => MessageFormats.Binary;
+
     public bool CanWrite(Message message) => message.BinaryPayload is not null;
 
     public RedisWireValue Write(Message message)

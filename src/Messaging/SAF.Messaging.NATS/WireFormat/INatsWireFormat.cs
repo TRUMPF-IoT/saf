@@ -14,6 +14,11 @@ internal interface INatsWireFormat
 {
     int MajorVersion { get; }
 
+    /// <summary>
+    /// The payload format of the messages this format writes.
+    /// </summary>
+    MessageFormats Format { get; }
+
     bool CanWrite(Message message);
 
     NatsWireMessage Write(Message message);

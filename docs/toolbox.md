@@ -200,15 +200,19 @@ public void Handle(Message message)
     var request   = JsonSerializer.Deserialize<GetThumbnailRequest>(message.Payload!)!;
     var thumbnail = CreateThumbnail(request.ImageId, message.BinaryPayload);
 
-    var binaryReply = new Message { Topic = message.ReplyTo!, BinaryPayload = thumbnail };
-    messaging.Publish(message.AcceptsReplyFormat(MessageFormats.Binary) && messaging.CanPublish(binaryReply)
-        ? binaryReply
-        : new Message { Topic = message.ReplyTo!, Payload = JsonSerializer.Serialize(new GetThumbnailResponse { Thumbnail = thumbnail }) });
+    var replyTo    = message.ReplyTo!;
+    var sendBinary = message.AcceptsReplyFormat(MessageFormats.Binary)
+                     && messaging.GetPublishableFormats(replyTo).HasFlag(MessageFormats.Binary);
+
+    messaging.Publish(sendBinary
+        ? new Message { Topic = replyTo, BinaryPayload = thumbnail }
+        : new Message { Topic = replyTo, Payload = JsonSerializer.Serialize(new GetThumbnailResponse { Thumbnail = thumbnail }) });
 }
 ```
 
-`messaging.CanPublish` is `false` if the responder's own transport does not send binary payloads, for example on Redis
-or NATS with `EnableBinaryPayloads` set to `false`; see [Interface](./messaging.md#interface).
+`messaging.GetPublishableFormats` lacks `MessageFormats.Binary` if the responder's own transport does not send binary
+payloads on the reply topic, for example on Redis or NATS with `EnableBinaryPayloads` set to `false`; see
+[Interface](./messaging.md#interface).
 
 A reply in a format the request did not accept is still returned; the request client logs a warning, and the
 `SendRequestAwaitFirstAnswer` methods return `null` if the reply has no `Payload`.
@@ -324,8 +328,8 @@ configuration is needed:
 
 1. Before the first chunk, the sender asks the receiver for its state, as before. A receiver on SAF 11.x also reports
    the chunk formats it reads; a receiver on SAF 10.x or older reports none.
-2. The sender sends binary chunks if the receiver reads them and its own messaging can publish them
-   (`IMessagingInfrastructure.CanPublish`), otherwise text chunks as in SAF 10.x.
+2. The sender sends binary chunks if the receiver reads them and its own messaging publishes them on the topic
+   (`IMessagingInfrastructure.GetPublishableFormats`), otherwise text chunks as in SAF 10.x.
 
 | Sender | Receiver | Chunks |
 |---|---|---|

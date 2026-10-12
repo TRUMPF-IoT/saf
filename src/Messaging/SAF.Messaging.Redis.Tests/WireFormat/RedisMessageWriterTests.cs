@@ -38,14 +38,13 @@ public class RedisMessageWriterTests
     }
 
     [Theory]
-    [InlineData(false, false, false)]
-    [InlineData(true, false, true)]
-    [InlineData(false, true, true)]
-    public void CanWrite_IsTrue_WhenAnyFormatCanWriteTheMessage(bool olderCanWrite, bool newerCanWrite, bool expected)
+    [InlineData(MessageFormats.Text, MessageFormats.Text, MessageFormats.Text)]
+    [InlineData(MessageFormats.Text, MessageFormats.Binary, MessageFormats.Text | MessageFormats.Binary)]
+    public void Formats_AreThoseOfAllWireFormats(MessageFormats older, MessageFormats newer, MessageFormats expected)
     {
-        var writer = new RedisMessageWriter([CreateFormat(2, olderCanWrite, "v2"), CreateFormat(3, newerCanWrite, "v3")], _binaryFrame);
+        var writer = new RedisMessageWriter([CreateFormat(2, older), CreateFormat(3, newer)], _binaryFrame);
 
-        Assert.Equal(expected, writer.CanWrite(new Message { Topic = "t" }));
+        Assert.Equal(expected, writer.Formats);
     }
 
     [Fact]
@@ -87,6 +86,13 @@ public class RedisMessageWriterTests
     {
         Assert.True(TestWireFormat.Writer().TryWrite(new Message { Topic = "t", Payload = "p", BinaryPayload = [1] }, out var value, out _));
         Assert.True(new RedisBinaryFrame().IsFrame(value));
+    }
+
+    private static IRedisEnvelopeFormat CreateFormat(int major, MessageFormats format)
+    {
+        var created = CreateFormat(major, canWrite: true, "v");
+        created.Format.Returns(format);
+        return created;
     }
 
     private static IRedisEnvelopeFormat CreateFormat(int major, bool canWrite, string envelope)

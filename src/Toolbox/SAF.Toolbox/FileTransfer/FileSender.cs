@@ -16,6 +16,7 @@ internal class FileSender(
     IOptions<FileSenderOptions> options,
     IFileSystem fileSystem,
     IRequestClient requestClient,
+    IMessagingInfrastructure messaging,
     IReadOnlyList<IFileChunkSender> chunkSenders) : IFileSender
 {
     private readonly FileSenderOptions _options = options.Value;
@@ -117,9 +118,13 @@ internal class FileSender(
         }
     }
 
-    // The first sender in order of preference whose format the receiver accepts and the messaging can publish.
+    // The first sender in order of preference whose format the receiver accepts and the messaging publishes.
+    // Text chunks work with every receiver and messaging.
     private IFileChunkSender SelectChunkSender(string topic, MessageFormats acceptedFormats)
-        => chunkSenders.First(sender => acceptedFormats.HasFlag(sender.Format) && sender.CanSend(topic));
+    {
+        var formats = (acceptedFormats & messaging.GetPublishableFormats(topic)) | MessageFormats.Text;
+        return chunkSenders.First(sender => formats.HasFlag(sender.Format));
+    }
 
     private static async Task<FileChunk> ReadFileChunkAsync(uint chunkIndex, FileSystemStream fileStream, TransportFile file)
     {

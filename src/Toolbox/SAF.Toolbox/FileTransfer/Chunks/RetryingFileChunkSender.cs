@@ -15,8 +15,6 @@ internal sealed class RetryingFileChunkSender(IFileChunkSender sender, int retry
 {
     public MessageFormats Format => sender.Format;
 
-    public bool CanSend(string topic) => sender.CanSend(topic);
-
     public Task<FileReceiverStatus?> SendAsync(string topic, TransportFile file, FileChunk chunk, uint timeoutMs)
         => Retry.UntilAsync(logger, () => sender.SendAsync(topic, file, chunk, timeoutMs),
             status => status == FileReceiverStatus.Ok, retryInterval, retryAttempts);

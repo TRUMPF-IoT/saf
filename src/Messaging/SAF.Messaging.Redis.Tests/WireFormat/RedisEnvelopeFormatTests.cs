@@ -19,6 +19,7 @@ public class RedisEnvelopeFormatTests
     [Fact]
     public void V2_WritesTextOnly()
     {
+        Assert.Equal(MessageFormats.Text, _v2.Format);
         Assert.True(_v2.CanWrite(new Message { Topic = "t", Payload = "p" }));
         Assert.False(_v2.CanWrite(new Message { Topic = "t", BinaryPayload = [] }));
     }
@@ -38,6 +39,7 @@ public class RedisEnvelopeFormatTests
     [Fact]
     public void V3_WritesBinaryPayloadsOnly()
     {
+        Assert.Equal(MessageFormats.Binary, _v3.Format);
         Assert.True(_v3.CanWrite(new Message { Topic = "t", BinaryPayload = [] }));
         Assert.False(_v3.CanWrite(new Message { Topic = "t", Payload = "p" }));
     }

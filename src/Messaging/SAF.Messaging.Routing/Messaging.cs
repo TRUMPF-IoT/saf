@@ -41,7 +41,8 @@ internal sealed class Messaging : IMessagingInfrastructure, IDisposable
             routing.Publish(message);
     }
 
-    public bool CanPublish(Message message) => _messageRoutings.All(routing => routing.CanPublish(message));
+    public MessageFormats GetPublishableFormats(string topic)
+        => _messageRoutings.Aggregate(MessageFormats.Text | MessageFormats.Binary, (formats, routing) => formats & routing.GetPublishableFormats(topic));
 
     public object Subscribe<TMessageHandler>() where TMessageHandler : IMessageHandler => Subscribe<TMessageHandler>("*");
 

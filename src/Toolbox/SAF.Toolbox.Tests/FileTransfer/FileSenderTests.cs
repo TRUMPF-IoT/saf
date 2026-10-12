@@ -22,7 +22,7 @@ public class FileSenderTests
     private readonly ILogger<FileSender> _logger;
     private readonly MockFileSystem _fileSystem = new();
     private readonly IRequestClient _requestClient = Substitute.For<IRequestClient>();
-    // Cannot publish binary payloads unless a test says otherwise.
+    // Reports no publishable formats unless a test says otherwise, so the sender falls back to text chunks.
     private readonly IMessagingInfrastructure _messaging = Substitute.For<IMessagingInfrastructure>();
     private readonly IOptions<FileSenderOptions> _defaultOptions = Options.Create(new FileSenderOptions());
 
@@ -319,18 +319,20 @@ public class FileSenderTests
     }
 
     [Theory]
-    [InlineData(null, true, MessageFormats.Text)]
-    [InlineData(MessageFormats.Text, true, MessageFormats.Text)]
-    [InlineData(MessageFormats.Text | MessageFormats.Binary, true, MessageFormats.Binary)]
-    [InlineData(MessageFormats.Text | MessageFormats.Binary, false, MessageFormats.Text)]
-    public async Task SendAsync_SendsInTheFirstFormatTheReceiverAcceptsAndTheMessagingCanPublish(
-        MessageFormats? acceptedChunkFormats, bool canSendBinary, MessageFormats expected)
+    [InlineData(null, MessageFormats.Text | MessageFormats.Binary, MessageFormats.Text)]
+    [InlineData(MessageFormats.Text, MessageFormats.Text | MessageFormats.Binary, MessageFormats.Text)]
+    [InlineData(MessageFormats.Text | MessageFormats.Binary, MessageFormats.Text | MessageFormats.Binary, MessageFormats.Binary)]
+    [InlineData(MessageFormats.Text | MessageFormats.Binary, MessageFormats.Text, MessageFormats.Text)]
+    [InlineData(MessageFormats.Text | MessageFormats.Binary, MessageFormats.None, MessageFormats.Text)]
+    public async Task SendAsync_SendsInTheFirstFormatTheReceiverAcceptsAndTheMessagingPublishes(
+        MessageFormats? acceptedChunkFormats, MessageFormats publishableFormats, MessageFormats expected)
     {
         AddFile("file.txt", [0, 1, 2, 3]);
         ReturnReceiverState(new FileReceiverState(), acceptedChunkFormats);
-        var binary = CreateChunkSender(MessageFormats.Binary, canSendBinary);
-        var text = CreateChunkSender(MessageFormats.Text, true);
-        var sender = new FileSender(_logger, _defaultOptions, _fileSystem, _requestClient, [binary, text]);
+        _messaging.GetPublishableFormats("topic").Returns(publishableFormats);
+        var binary = CreateChunkSender(MessageFormats.Binary);
+        var text = CreateChunkSender(MessageFormats.Text);
+        var sender = new FileSender(_logger, _defaultOptions, _fileSystem, _requestClient, _messaging, [binary, text]);
 
         Assert.Equal(FileTransferStatus.Delivered, await sender.SendAsync("topic", "file.txt", 1000));
 
@@ -344,15 +346,16 @@ public class FileSenderTests
     {
         AddFile("file.txt", Enumerable.Range(0, 10).Select(i => (byte)i).ToArray());
         ReturnReceiverState(new FileReceiverState(), MessageFormats.Text | MessageFormats.Binary);
+        _messaging.GetPublishableFormats("topic").Returns(MessageFormats.Text | MessageFormats.Binary);
         var sentChunks = new List<FileChunk>();
-        var binary = CreateChunkSender(MessageFormats.Binary, true);
+        var binary = CreateChunkSender(MessageFormats.Binary);
         binary.SendAsync(default!, default!, default!, default).ReturnsForAnyArgs(ci =>
         {
             sentChunks.Add(ci.Arg<FileChunk>());
             return FileReceiverStatus.Ok;
         });
         var options = Options.Create(new FileSenderOptions { MaxChunkSizeInBytes = 4 });
-        var sender = new FileSender(_logger, options, _fileSystem, _requestClient, [binary]);
+        var sender = new FileSender(_logger, options, _fileSystem, _requestClient, _messaging, [binary]);
 
         await sender.SendAsync("topic", "file.txt", 1000);
 
@@ -367,10 +370,10 @@ public class FileSenderTests
     {
         AddFile("file.txt", new byte[10]);
         ReturnReceiverState(new FileReceiverState(), null);
-        var text = CreateChunkSender(MessageFormats.Text, true);
+        var text = CreateChunkSender(MessageFormats.Text);
         text.SendAsync(default!, default!, default!, default).ReturnsForAnyArgs(receiverStatus);
         var options = Options.Create(new FileSenderOptions { MaxChunkSizeInBytes = 4 });
-        var sender = new FileSender(_logger, options, _fileSystem, _requestClient, [text]);
+        var sender = new FileSender(_logger, options, _fileSystem, _requestClient, _messaging, [text]);
 
         Assert.Equal(expected, await sender.SendAsync("topic", "file.txt", 1000));
         await text.ReceivedWithAnyArgs(1).SendAsync(default!, default!, default!, default);
@@ -381,11 +384,10 @@ public class FileSenderTests
                 null!, null!, null!, null!, null!)
             .ReturnsForAnyArgs(new GetReceiverStateResponse { State = state, AcceptedChunkFormats = acceptedChunkFormats });
 
-    private static IFileChunkSender CreateChunkSender(MessageFormats format, bool canSend)
+    private static IFileChunkSender CreateChunkSender(MessageFormats format)
     {
         var sender = Substitute.For<IFileChunkSender>();
         sender.Format.Returns(format);
-        sender.CanSend(Arg.Any<string>()).Returns(canSend);
         sender.SendAsync(default!, default!, default!, default).ReturnsForAnyArgs(FileReceiverStatus.Ok);
         return sender;
     }

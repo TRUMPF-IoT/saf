@@ -264,44 +264,41 @@ public class MessageRoutingTest
     }
 
     [Theory]
-    [InlineData(true, true, true)]
-    [InlineData(true, false, false)]
-    [InlineData(false, false, false)]
-    public void CanPublishOnlyWhenEveryRoutingCan(bool firstCan, bool secondCan, bool expected)
+    [InlineData(MessageFormats.Text | MessageFormats.Binary, MessageFormats.Text | MessageFormats.Binary, MessageFormats.Text | MessageFormats.Binary)]
+    [InlineData(MessageFormats.Text | MessageFormats.Binary, MessageFormats.Text, MessageFormats.Text)]
+    [InlineData(MessageFormats.Text, MessageFormats.Text, MessageFormats.Text)]
+    public void PublishableFormatsAreThoseEveryRoutingPublishes(MessageFormats first, MessageFormats second, MessageFormats expected)
     {
-        var message = CreateTestMessage("test/topic");
-        var first = Substitute.For<IMessageRouting>();
-        var second = Substitute.For<IMessageRouting>();
-        first.CanPublish(message).Returns(firstCan);
-        second.CanPublish(message).Returns(secondCan);
-        Messaging messaging = new(null, [first, second]);
+        var firstRouting = Substitute.For<IMessageRouting>();
+        var secondRouting = Substitute.For<IMessageRouting>();
+        firstRouting.GetPublishableFormats("test/topic").Returns(first);
+        secondRouting.GetPublishableFormats("test/topic").Returns(second);
+        Messaging messaging = new(null, [firstRouting, secondRouting]);
 
-        Assert.Equal(expected, messaging.CanPublish(message));
+        Assert.Equal(expected, messaging.GetPublishableFormats("test/topic"));
     }
 
     [Theory]
-    [InlineData(true)]
-    [InlineData(false)]
-    public void RouteCanPublish_AsksItsMessaging_ForAMatchingTopic(bool canPublish)
+    [InlineData(MessageFormats.Text)]
+    [InlineData(MessageFormats.Text | MessageFormats.Binary)]
+    public void RoutePublishableFormats_AreThoseOfItsMessaging_ForAMatchingTopic(MessageFormats formats)
     {
-        var message = CreateTestMessage("test/topic");
         var messaging = Substitute.For<IMessagingInfrastructure>();
-        messaging.CanPublish(message).Returns(canPublish);
+        messaging.GetPublishableFormats("test/topic").Returns(formats);
         var routing = new MessageRouting(messaging) { PublishPatterns = ["test/*"] };
 
-        Assert.Equal(canPublish, routing.CanPublish(message));
+        Assert.Equal(formats, routing.GetPublishableFormats("test/topic"));
     }
 
     [Fact]
-    public void RouteCanPublish_IsTrue_ForATopicItDoesNotPublish()
+    public void RoutePublishableFormats_AreAllFormats_ForATopicItDoesNotPublish()
     {
-        var message = CreateTestMessage("other/topic");
         var messaging = Substitute.For<IMessagingInfrastructure>();
-        messaging.CanPublish(Arg.Any<Message>()).Returns(false);
+        messaging.GetPublishableFormats(Arg.Any<string>()).Returns(MessageFormats.Text);
         var routing = new MessageRouting(messaging) { PublishPatterns = ["test/*"] };
 
-        Assert.True(routing.CanPublish(message));
-        messaging.DidNotReceive().CanPublish(Arg.Any<Message>());
+        Assert.Equal(MessageFormats.Text | MessageFormats.Binary, routing.GetPublishableFormats("other/topic"));
+        messaging.DidNotReceive().GetPublishableFormats(Arg.Any<string>());
     }
 
     private static Message CreateTestMessage(string topic)

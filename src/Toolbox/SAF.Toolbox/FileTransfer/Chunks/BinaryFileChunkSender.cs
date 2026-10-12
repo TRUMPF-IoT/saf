@@ -13,12 +13,9 @@ namespace SAF.Toolbox.FileTransfer.Chunks;
 /// Sends the chunk data as binary payload and the file and chunk index as JSON payload,
 /// which receivers on SAF 11.x read.
 /// </summary>
-internal sealed class BinaryFileChunkSender(IRequestClient requestClient, IMessagingInfrastructure messaging) : IFileChunkSender
+internal sealed class BinaryFileChunkSender(IRequestClient requestClient) : IFileChunkSender
 {
     public MessageFormats Format => MessageFormats.Binary;
-
-    public bool CanSend(string topic)
-        => messaging.CanPublish(new Message { Topic = topic, Payload = string.Empty, BinaryPayload = [] });
 
     public async Task<FileReceiverStatus?> SendAsync(string topic, TransportFile file, FileChunk chunk, uint timeoutMs)
     {

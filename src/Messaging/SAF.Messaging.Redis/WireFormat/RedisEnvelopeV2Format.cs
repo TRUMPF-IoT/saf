@@ -15,6 +15,8 @@ internal sealed class RedisEnvelopeV2Format(IRedisEnvelopeSerializer serializer)
     public IReadOnlyCollection<int> MajorVersions { get; } = [1, 2];
 
     // The JSON envelope carries text only.
+    public MessageFormats Format => MessageFormats.Text;
+
     public bool CanWrite(Message message) => message.BinaryPayload is null;
 
     public RedisWireValue Write(Message message) => new(serializer.Serialize(RedisMessageVersion.V2, message));

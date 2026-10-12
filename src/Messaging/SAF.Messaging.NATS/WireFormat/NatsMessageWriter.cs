@@ -17,9 +17,10 @@ internal sealed class NatsMessageWriter : INatsMessageWriter
     public NatsMessageWriter(IEnumerable<INatsWireFormat> formats)
     {
         _formats = formats.OrderBy(f => f.MajorVersion).ToList();
+        Formats = _formats.Aggregate(MessageFormats.None, (all, format) => all | format.Format);
     }
 
-    public bool CanWrite(Message message) => _formats.Any(f => f.CanWrite(message));
+    public MessageFormats Formats { get; }
 
     public bool TryWrite(Message message, out NatsWireMessage wireMessage, [NotNullWhen(false)] out string? dropReason)
     {

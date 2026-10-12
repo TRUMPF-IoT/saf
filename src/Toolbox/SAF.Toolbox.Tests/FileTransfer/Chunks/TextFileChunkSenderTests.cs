@@ -19,13 +19,8 @@ public class TextFileChunkSenderTests
     private readonly IRequestClient _requestClient = Substitute.For<IRequestClient>();
 
     [Fact]
-    public void SendsText_OnEveryTopic()
-    {
-        var sender = new TextFileChunkSender(_requestClient);
-
-        Assert.Equal(MessageFormats.Text, sender.Format);
-        Assert.True(sender.CanSend("topic"));
-    }
+    public void SendsText()
+        => Assert.Equal(MessageFormats.Text, new TextFileChunkSender(_requestClient).Format);
 
     [Theory]
     [InlineData(FileReceiverStatus.Ok)]

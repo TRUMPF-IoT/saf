@@ -519,8 +519,8 @@ carry the reply topic only in `Message.ReplyTo`, so only 11.x responders can ans
 **Recommended for responders:** read the reply topic as `message.ReplyTo ?? request.ReplyTo`, so the responder
 answers `SendRequestAwaitFirstReply` requests as well as requests from 10.x nodes. Before replying with a binary
 payload, check `message.AcceptsReplyFormat(MessageFormats.Binary)`, because requests from 10.x nodes accept text
-only, and `messaging.CanPublish(reply)`, because your own transport may not send binary payloads (see
-[Messaging infrastructures report whether they can publish a message](#messaging-infrastructures-report-whether-they-can-publish-a-message)).
+only, and `messaging.GetPublishableFormats(message.ReplyTo)`, because your own transport may not send binary payloads
+(see [Messaging infrastructures report the payload formats they publish](#messaging-infrastructures-report-the-payload-formats-they-publish)).
 
 ### The request client receives replies on NATS
 
@@ -533,15 +533,17 @@ With Routing, the request client now subscribes only this pattern, on the routes
 the prefix, instead of every route pattern that ends in `*`. No action is required. See
 [Request Client](./toolbox.md#request-client).
 
-### Messaging infrastructures report whether they can publish a message
+### Messaging infrastructures report the payload formats they publish
 
-`IMessagingInfrastructure` has a new member, `bool CanPublish(Message message)`. It tells whether `Publish` sends
-the message rather than dropping it, for example a binary payload on Redis or NATS while `EnableBinaryPayloads` is
-`false`. See [Interface](./messaging.md#interface).
+`IMessagingInfrastructure` has a new member, `MessageFormats GetPublishableFormats(string topic)`. It tells in which
+payload formats `Publish` sends messages on a topic. Without `MessageFormats.Binary`, a message with a `BinaryPayload`
+does not arrive, for example on Redis or NATS while `EnableBinaryPayloads` is `false`. See
+[Interface](./messaging.md#interface).
 
-The member has a default implementation that returns `true`, so your own implementations keep compiling. Implement it
-if your infrastructure drops messages it cannot carry. Substitutes from mocking libraries return `false` unless
-configured.
+The member has a default implementation that returns `MessageFormats.Text`, so your own implementations keep
+compiling, and file transfers over them use text chunks as in 10.x. If your infrastructure sends
+`Message.BinaryPayload`, implement the member to return `MessageFormats.Text | MessageFormats.Binary` for the topics it
+sends them on. Substitutes from mocking libraries return `MessageFormats.None` unless configured.
 
 ### File transfers send binary chunks between 11.x nodes
 
@@ -642,5 +644,6 @@ The [shared set](./plugin-system.md#the-shared-set) includes `SAF.PluginSystem.H
 - [ ] Make sure no handler changes a `Message` it receives; create a new one instead
 - [ ] If you implement `IRequestClient` yourself, add `SendRequestAwaitFirstReply`
 - [ ] Let responders read the reply topic as `message.ReplyTo ?? request.ReplyTo`
-- [ ] Before a responder replies with a binary payload, check `message.AcceptsReplyFormat(MessageFormats.Binary)` and `messaging.CanPublish(reply)`
+- [ ] Before a responder replies with a binary payload, check `message.AcceptsReplyFormat(MessageFormats.Binary)` and `messaging.GetPublishableFormats(message.ReplyTo)`
+- [ ] If you implement `IMessagingInfrastructure` and it sends `Message.BinaryPayload`, implement `GetPublishableFormats`
 - [ ] While 10.x nodes receive files of 4 GiB or more, check those files against `FileReceivedEventArgs.File.ContentHash`

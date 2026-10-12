@@ -32,14 +32,13 @@ public class MessagingWireFormatTests
     }
 
     [Theory]
-    [InlineData(true)]
-    [InlineData(false)]
-    public void CanPublish_AsksTheWriter(bool canWrite)
+    [InlineData(MessageFormats.Text)]
+    [InlineData(MessageFormats.Text | MessageFormats.Binary)]
+    public void GetPublishableFormats_AreTheWritersFormats(MessageFormats formats)
     {
-        var message = new Message { Topic = "t", BinaryPayload = [1] };
-        _writer.CanWrite(message).Returns(canWrite);
+        _writer.Formats.Returns(formats);
 
-        Assert.Equal(canWrite, _messaging.CanPublish(message));
+        Assert.Equal(formats, _messaging.GetPublishableFormats("t"));
     }
 
     [Fact]

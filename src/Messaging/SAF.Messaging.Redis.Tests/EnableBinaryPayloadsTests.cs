@@ -70,7 +70,6 @@ public class EnableBinaryPayloadsTests
 
         Assert.Equal(enabled, writer.TryWrite(new Message { Topic = "t", BinaryPayload = [1] }, out _, out _));
         Assert.True(writer.TryWrite(new Message { Topic = "t", Payload = "p" }, out _, out _));
-        Assert.Equal(enabled, writer.CanWrite(new Message { Topic = "t", BinaryPayload = [1] }));
-        Assert.True(writer.CanWrite(new Message { Topic = "t", Payload = "p" }));
+        Assert.Equal(enabled ? MessageFormats.Text | MessageFormats.Binary : MessageFormats.Text, writer.Formats);
     }
 }

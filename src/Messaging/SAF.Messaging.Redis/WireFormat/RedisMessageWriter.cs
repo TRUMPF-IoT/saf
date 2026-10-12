@@ -20,9 +20,10 @@ internal sealed class RedisMessageWriter : IRedisMessageWriter
     {
         _formats = formats.OrderBy(f => f.MajorVersions.Max()).ToList();
         _binaryFrame = binaryFrame;
+        Formats = _formats.Aggregate(MessageFormats.None, (all, format) => all | format.Format);
     }
 
-    public bool CanWrite(Message message) => _formats.Any(f => f.CanWrite(message));
+    public MessageFormats Formats { get; }
 
     public bool TryWrite(Message message, out RedisValue value, [NotNullWhen(false)] out string? dropReason)
     {

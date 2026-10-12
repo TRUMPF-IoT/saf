@@ -16,19 +16,10 @@ using RequestOptions = SAF.Toolbox.RequestClient.RequestOptions;
 public class BinaryFileChunkSenderTests
 {
     private readonly IRequestClient _requestClient = Substitute.For<IRequestClient>();
-    private readonly IMessagingInfrastructure _messaging = Substitute.For<IMessagingInfrastructure>();
 
-    [Theory]
-    [InlineData(true)]
-    [InlineData(false)]
-    public void CanSend_AsksTheMessagingWhetherItCanPublishABinaryPayloadOnTheTopic(bool canPublish)
-    {
-        _messaging.CanPublish(Arg.Is<Message>(m => m.Topic == "topic" && m.BinaryPayload != null)).Returns(canPublish);
-        var sender = new BinaryFileChunkSender(_requestClient, _messaging);
-
-        Assert.Equal(MessageFormats.Binary, sender.Format);
-        Assert.Equal(canPublish, sender.CanSend("topic"));
-    }
+    [Fact]
+    public void SendsBinary()
+        => Assert.Equal(MessageFormats.Binary, new BinaryFileChunkSender(_requestClient).Format);
 
     [Theory]
     [InlineData("""{"status":0}""", FileReceiverStatus.Ok)]
@@ -43,7 +34,7 @@ public class BinaryFileChunkSenderTests
                 Arg.Do<RequestOptions?>(o => options = o))
             .Returns(new Message { Topic = "reply", Payload = reply });
 
-        var status = await new BinaryFileChunkSender(_requestClient, _messaging).SendAsync("topic", File, chunk, 1000);
+        var status = await new BinaryFileChunkSender(_requestClient).SendAsync("topic", File, chunk, 1000);
 
         Assert.Equal(expected, status);
         Assert.Equal(BinaryChunkRequest, payload);
@@ -60,6 +51,6 @@ public class BinaryFileChunkSenderTests
     {
         _requestClient.SendRequestAwaitFirstReply(default!).ReturnsForAnyArgs(replyArrives ? new Message { Topic = "reply", BinaryPayload = [1] } : null);
 
-        Assert.Null(await new BinaryFileChunkSender(_requestClient, _messaging).SendAsync("topic", File, new FileChunk { Index = 1, Data = ChunkData }, 1000));
+        Assert.Null(await new BinaryFileChunkSender(_requestClient).SendAsync("topic", File, new FileChunk { Index = 1, Data = ChunkData }, 1000));
     }
 }

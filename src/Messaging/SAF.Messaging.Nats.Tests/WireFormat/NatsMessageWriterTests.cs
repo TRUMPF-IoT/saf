@@ -52,14 +52,13 @@ public class NatsMessageWriterTests
     }
 
     [Theory]
-    [InlineData(false, false, false)]
-    [InlineData(true, false, true)]
-    [InlineData(false, true, true)]
-    public void CanWrite_IsTrue_WhenAnyFormatCanWriteTheMessage(bool olderCanWrite, bool newerCanWrite, bool expected)
+    [InlineData(MessageFormats.Text, MessageFormats.Text, MessageFormats.Text)]
+    [InlineData(MessageFormats.Text, MessageFormats.Binary, MessageFormats.Text | MessageFormats.Binary)]
+    public void Formats_AreThoseOfAllWireFormats(MessageFormats older, MessageFormats newer, MessageFormats expected)
     {
-        var writer = new NatsMessageWriter([CreateFormat(2, olderCanWrite, "v2"), CreateFormat(3, newerCanWrite, "v3")]);
+        var writer = new NatsMessageWriter([CreateFormat(2, older), CreateFormat(3, newer)]);
 
-        Assert.Equal(expected, writer.CanWrite(new Message { Topic = "t" }));
+        Assert.Equal(expected, writer.Formats);
     }
 
     [Fact]
@@ -70,6 +69,13 @@ public class NatsMessageWriterTests
         Assert.False(writer.TryWrite(new Message { Topic = "t", BinaryPayload = [] }, out var wire, out var dropReason));
         Assert.Equal(default, wire);
         Assert.Contains("Binary", dropReason);
+    }
+
+    private static INatsWireFormat CreateFormat(int major, MessageFormats format)
+    {
+        var created = CreateFormat(major, canWrite: true, "v");
+        created.Format.Returns(format);
+        return created;
     }
 
     private static INatsWireFormat CreateFormat(int major, bool canWrite, string body)

@@ -8,17 +8,15 @@ using Xunit;
 
 public class MessagingInfrastructureTests
 {
-    [Theory]
-    [InlineData("p", false)]
-    [InlineData(null, true)]
-    public void CanPublish_IsTrueByDefault(string? payload, bool hasBinaryPayload)
+    [Fact]
+    public void GetPublishableFormats_IsTextOnlyByDefault()
     {
-        IMessagingInfrastructure messaging = new MessagingWithoutCanPublish();
+        IMessagingInfrastructure messaging = new MessagingWithoutPublishableFormats();
 
-        Assert.True(messaging.CanPublish(new Message { Topic = "t", Payload = payload, BinaryPayload = hasBinaryPayload ? [1] : null }));
+        Assert.Equal(MessageFormats.Text, messaging.GetPublishableFormats("t"));
     }
 
-    private sealed class MessagingWithoutCanPublish : IMessagingInfrastructure
+    private sealed class MessagingWithoutPublishableFormats : IMessagingInfrastructure
     {
         public void Publish(Message message) { }
         public object Subscribe<TMessageHandler>() where TMessageHandler : IMessageHandler => new();

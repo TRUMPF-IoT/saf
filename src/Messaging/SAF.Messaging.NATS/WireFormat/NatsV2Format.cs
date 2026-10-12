@@ -17,6 +17,8 @@ internal sealed class NatsV2Format(INatsMetadataHeader metadataHeader) : INatsWi
 
     public int MajorVersion => 2;
 
+    public MessageFormats Format => MessageFormats.Text;
+
     public bool CanWrite(Message message) => message.BinaryPayload is null;
 
     public NatsWireMessage Write(Message message)

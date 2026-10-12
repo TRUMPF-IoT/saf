@@ -10,7 +10,7 @@ namespace SAF.Messaging.Contracts;
 public interface IMessagingInfrastructure
 {
     void   Publish(Message message);
-    bool   CanPublish(Message message) => true;
+    MessageFormats GetPublishableFormats(string topic) => MessageFormats.Text;
     object Subscribe<TMessageHandler>() where TMessageHandler : IMessageHandler;
     object Subscribe<TMessageHandler>(string routeFilterPattern) where TMessageHandler : IMessageHandler;
     object Subscribe(Action<Message> handler);
@@ -21,12 +21,20 @@ public interface IMessagingInfrastructure
 
 `routeFilterPattern` is a **regular expression** applied to `Message.Topic`.
 
-`CanPublish` tells whether `Publish` sends a message or drops it because the transport cannot carry it: on Redis and
-NATS a message with a `BinaryPayload` while `EnableBinaryPayloads` is `false`, with
-[Routing](#routing-multiple-brokers) a message that one of the routes publishing its topic cannot carry. Check it
-before you send a binary payload for which a text alternative exists. It says nothing about single subscribers:
-C-DEngine still skips 9.x and 10.x subscribers for a binary payload. In-Process and C-DEngine return `true`, as does
-the default implementation of the interface; substitutes from mocking libraries return `false` unless configured.
+`GetPublishableFormats` tells in which payload formats `Publish` sends messages on a topic. A message with a
+`BinaryPayload` arrives only if the result contains `MessageFormats.Binary`:
+
+| Infrastructure | Formats |
+|---|---|
+| In-Process, C-DEngine | text and binary |
+| Redis, NATS | text and binary; text only while `EnableBinaryPayloads` is `false` |
+| [Routing](#routing-multiple-brokers) | those that every route publishing the topic sends |
+| Default implementation of the interface | text only |
+
+Check it before you send a binary payload for which a text alternative exists:
+`messaging.GetPublishableFormats(topic).HasFlag(MessageFormats.Binary)`. It says nothing about single subscribers:
+C-DEngine still skips 9.x and 10.x subscribers for a binary payload. Substitutes from mocking libraries return
+`MessageFormats.None` unless configured.
 
 ## The Message Type
 
@@ -366,7 +374,7 @@ node:
 
 - A message with a `BinaryPayload` is then not sent. The sender logs an error, so a feature that needs binary
   payloads fails visibly instead of feeding older nodes corrupt data.
-- `CanPublish` returns `false` for such a message, so code with a text alternative can use that instead. The
+- `GetPublishableFormats` then reports text only, so code with a text alternative can use that instead. The
   [file transfer](./toolbox.md#binary-chunks) does so on its own.
 - Text messages are not affected; they look on the wire exactly as with the setting on.
 - A node still reads binary payloads that other 11.x nodes send; the setting covers sending only.
@@ -495,8 +503,9 @@ public class MyCustomMessaging : IMessagingInfrastructure
 }
 ```
 
-If your infrastructure drops messages it cannot carry, also implement `CanPublish` to return `false` for them; the
-default implementation returns `true`.
+If your infrastructure sends `Message.BinaryPayload`, also implement `GetPublishableFormats` to return
+`MessageFormats.Text | MessageFormats.Binary` for the topics it sends them on. The default implementation reports
+text only, so the [file transfer](./toolbox.md#binary-chunks) sends text chunks over your infrastructure.
 
 Expose it through a plug-in. Provide an extension method that registers a keyed factory, then call it from your plug-in's `PluginManifest` (mirroring how the built-in implementations work):
 

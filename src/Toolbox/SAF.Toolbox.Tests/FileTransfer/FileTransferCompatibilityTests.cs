@@ -188,7 +188,7 @@ public sealed class FileTransferCompatibilityTests : IDisposable
         _services.Dispose();
     }
 
-    // Records what is published and answers CanPublish like a transport with binary payloads enabled or disabled.
+    // Records what is published and reports the formats of a transport with binary payloads enabled or disabled.
     private sealed class RecordingMessaging(IMessagingInfrastructure transport, bool canPublishBinary) : IMessagingInfrastructure
     {
         public ConcurrentQueue<Message> Published { get; } = new();
@@ -199,7 +199,8 @@ public sealed class FileTransferCompatibilityTests : IDisposable
             transport.Publish(message);
         }
 
-        public bool CanPublish(Message message) => canPublishBinary || message.BinaryPayload is null;
+        public MessageFormats GetPublishableFormats(string topic)
+            => canPublishBinary ? transport.GetPublishableFormats(topic) : transport.GetPublishableFormats(topic) & ~MessageFormats.Binary;
 
         public object Subscribe<TMessageHandler>() where TMessageHandler : IMessageHandler => transport.Subscribe<TMessageHandler>();
         public object Subscribe<TMessageHandler>(string routeFilterPattern) where TMessageHandler : IMessageHandler

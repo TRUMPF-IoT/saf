@@ -27,7 +27,10 @@ public class NatsWireFormatTests
 
     [Fact]
     public void V1_WritesAMessageWithPayloadOnly()
-        => Assert.True(_v1.CanWrite(new Message { Topic = "t", Payload = "p" }));
+    {
+        Assert.Equal(MessageFormats.Text, _v1.Format);
+        Assert.True(_v1.CanWrite(new Message { Topic = "t", Payload = "p" }));
+    }
 
     [Theory]
     [MemberData(nameof(MessagesBeyondV1))]
@@ -37,6 +40,7 @@ public class NatsWireFormatTests
     [Fact]
     public void V2_DoesNotWriteBinaryPayloads()
     {
+        Assert.Equal(MessageFormats.Text, _v2.Format);
         Assert.True(_v2.CanWrite(new Message { Topic = "t", Payload = "p", AcceptedReplyFormats = MessageFormats.Text }));
         Assert.False(_v2.CanWrite(new Message { Topic = "t", Payload = "p", BinaryPayload = [] }));
     }
@@ -148,6 +152,7 @@ public class NatsWireFormatTests
     [Fact]
     public void V3_WritesBinaryPayloadsOnly()
     {
+        Assert.Equal(MessageFormats.Binary, _v3.Format);
         Assert.True(_v3.CanWrite(new Message { Topic = "t", BinaryPayload = [] }));
         Assert.False(_v3.CanWrite(new Message { Topic = "t", Payload = "p" }));
     }

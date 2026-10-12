@@ -63,12 +63,12 @@ internal sealed class MessageRouting : IMessageRouting, IDisposable
     }
 
     /// <summary>
-    /// Returns whether the IMessagingInfrastructure stored in Messaging can publish the message, or <c>true</c> in case
-    /// the message does not match the PublishPatterns and this route does not publish it at all.
+    /// Gets the payload formats the IMessagingInfrastructure stored in Messaging publishes on the topic, or all formats
+    /// in case the topic does not match the PublishPatterns and this route does not publish it at all.
     /// </summary>
-    /// <param name="message">The message to check.</param>
-    public bool CanPublish(Message message)
-        => !MessageNeedsPublication(message.Topic) || Messaging.CanPublish(message);
+    /// <param name="topic">The topic to publish on.</param>
+    public MessageFormats GetPublishableFormats(string topic)
+        => MessageNeedsPublication(topic) ? Messaging.GetPublishableFormats(topic) : MessageFormats.Text | MessageFormats.Binary;
 
     /// <summary>
     /// Subcribes to a message topic at the IMessagingInfrastructure stored in Messaging. The subscription is only done in case

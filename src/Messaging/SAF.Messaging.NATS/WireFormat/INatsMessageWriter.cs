@@ -9,8 +9,8 @@ using SAF.Messaging.Contracts;
 
 internal interface INatsMessageWriter
 {
-    /// <summary>Returns whether <see cref="TryWrite"/> writes the message rather than dropping it.</summary>
-    bool CanWrite(Message message);
+    /// <summary>The payload formats of the messages <see cref="TryWrite"/> writes rather than drops.</summary>
+    MessageFormats Formats { get; }
 
     /// <param name="dropReason">Why the message is not sent, if the result is <c>false</c>.</param>
     bool TryWrite(Message message, out NatsWireMessage wireMessage, [NotNullWhen(false)] out string? dropReason);
