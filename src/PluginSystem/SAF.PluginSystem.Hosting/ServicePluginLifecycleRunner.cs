@@ -7,6 +7,7 @@ namespace SAF.PluginSystem.Hosting;
 using Contracts;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
+using System.Runtime.ExceptionServices;
 
 /// <inheritdoc />
 internal sealed class ServicePluginLifecycleRunner(
@@ -19,15 +20,15 @@ internal sealed class ServicePluginLifecycleRunner(
 
     /// <inheritdoc />
     public Task StartingAsync(IEnumerable<IServicePlugin> servicePlugins, CancellationToken cancellationToken)
-        => ExecuteLifecyclePhaseAsync(
-            servicePlugins,
+        => ExecuteUntilCanceledAsync(
+            servicePlugins.OfType<ILifecycleServicePlugin>(),
             static (plugin, ct) => plugin.StartingAsync(ct),
-            nameof(ILifecycleServicePlugin.StartingAsync),
+            LogPhaseFailure(nameof(ILifecycleServicePlugin.StartingAsync)),
             cancellationToken);
 
     /// <inheritdoc />
     public Task StartAsync(IEnumerable<IServicePlugin> servicePlugins, CancellationToken cancellationToken)
-        => ExecuteAsync(
+        => ExecuteUntilCanceledAsync(
             servicePlugins,
             static (plugin, ct) => plugin.StartAsync(ct),
             ex => logger.LogError(ex, "Failed to start service plug-in."),
@@ -35,53 +36,52 @@ internal sealed class ServicePluginLifecycleRunner(
 
     /// <inheritdoc />
     public Task StartedAsync(IEnumerable<IServicePlugin> servicePlugins, CancellationToken cancellationToken)
-        => ExecuteLifecyclePhaseAsync(
-            servicePlugins,
+        => ExecuteUntilCanceledAsync(
+            servicePlugins.OfType<ILifecycleServicePlugin>(),
             static (plugin, ct) => plugin.StartedAsync(ct),
-            nameof(ILifecycleServicePlugin.StartedAsync),
+            LogPhaseFailure(nameof(ILifecycleServicePlugin.StartedAsync)),
             cancellationToken);
 
     /// <inheritdoc />
     public Task StoppingAsync(IEnumerable<IServicePlugin> servicePlugins, CancellationToken cancellationToken)
-        => ExecuteLifecyclePhaseAsync(
-            servicePlugins,
+        => ExecuteAllAsync(
+            InStopOrder(servicePlugins).OfType<ILifecycleServicePlugin>(),
             static (plugin, ct) => plugin.StoppingAsync(ct),
-            nameof(ILifecycleServicePlugin.StoppingAsync),
+            LogPhaseFailure(nameof(ILifecycleServicePlugin.StoppingAsync)),
             cancellationToken);
 
     /// <inheritdoc />
     public Task StopAsync(IEnumerable<IServicePlugin> servicePlugins, CancellationToken cancellationToken)
-        => ExecuteAsync(
-            servicePlugins,
+        => ExecuteAllAsync(
+            InStopOrder(servicePlugins),
             static (plugin, ct) => plugin.StopAsync(ct),
             ex => logger.LogError(ex, "Failed to stop service plug-in."),
             cancellationToken);
 
     /// <inheritdoc />
     public Task StoppedAsync(IEnumerable<IServicePlugin> servicePlugins, CancellationToken cancellationToken)
-        => ExecuteLifecyclePhaseAsync(
-            servicePlugins,
+        => ExecuteAllAsync(
+            InStopOrder(servicePlugins).OfType<ILifecycleServicePlugin>(),
             static (plugin, ct) => plugin.StoppedAsync(ct),
-            nameof(ILifecycleServicePlugin.StoppedAsync),
+            LogPhaseFailure(nameof(ILifecycleServicePlugin.StoppedAsync)),
             cancellationToken);
 
-    private Task ExecuteLifecyclePhaseAsync(
-        IEnumerable<IServicePlugin> servicePlugins,
-        Func<ILifecycleServicePlugin, CancellationToken, Task> executePhase,
-        string phaseName,
-        CancellationToken cancellationToken)
-        => ExecuteAsync(
-            servicePlugins.OfType<ILifecycleServicePlugin>(),
-            executePhase,
-            ex => logger.LogError(ex, "Failed to execute {PhaseName} for service plug-in.", phaseName),
-            cancellationToken);
+    // Like the .NET host with its hosted services, the plug-ins stop in the reverse order they start in: a plug-in
+    // commonly uses the services of the plug-ins started before it, such as the messaging, and can then still use
+    // them while it stops.
+    private static IEnumerable<IServicePlugin> InStopOrder(IEnumerable<IServicePlugin> servicePlugins)
+        => servicePlugins.Reverse();
 
-    private static async Task ExecuteAsync<TPlugin>(
+    private Action<Exception> LogPhaseFailure(string phaseName)
+        => ex => logger.LogError(ex, "Failed to execute {PhaseName} for service plug-in.", phaseName);
+
+    private static async Task ExecuteUntilCanceledAsync<TPlugin>(
         IEnumerable<TPlugin> servicePlugins,
         Func<TPlugin, CancellationToken, Task> execute,
         Action<Exception> logFailure,
         CancellationToken cancellationToken)
     {
+        // Scopes the token to this phase, so callbacks a plug-in leaves registered do not stay on the caller's token.
         using var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
 
         foreach (TPlugin servicePlugin in servicePlugins)
@@ -98,6 +98,39 @@ internal sealed class ServicePluginLifecycleRunner(
             {
                 logFailure(ex);
             }
+        }
+    }
+
+    // Like the .NET host, still runs the remaining plug-ins after a cancellation and reports it afterwards.
+    private static async Task ExecuteAllAsync<TPlugin>(
+        IEnumerable<TPlugin> servicePlugins,
+        Func<TPlugin, CancellationToken, Task> execute,
+        Action<Exception> logFailure,
+        CancellationToken cancellationToken)
+    {
+        // Scopes the token to this phase, so callbacks a plug-in leaves registered do not stay on the caller's token.
+        using var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+        OperationCanceledException? cancellation = null;
+
+        foreach (TPlugin servicePlugin in servicePlugins)
+        {
+            try
+            {
+                await execute(servicePlugin, linkedCts.Token).ConfigureAwait(false);
+            }
+            catch (OperationCanceledException ex) when (cancellationToken.IsCancellationRequested)
+            {
+                cancellation ??= ex;
+            }
+            catch (Exception ex)
+            {
+                logFailure(ex);
+            }
+        }
+
+        if (cancellation is not null)
+        {
+            ExceptionDispatchInfo.Throw(cancellation);
         }
     }
 }

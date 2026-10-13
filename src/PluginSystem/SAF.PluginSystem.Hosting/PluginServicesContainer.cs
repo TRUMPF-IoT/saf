@@ -29,7 +29,7 @@ public sealed class PluginServicesContainer(
     }
 
     private List<PluginServiceCollection> _pluginServiceCollections = [];
-    private PluginServiceCollection _publicServicesOnlyCollection = new(new ServiceCollection(), []);
+    private PluginServiceCollection _publicServicesOnlyCollection = CreatePublicServicesOnlyCollection();
 
     public IEnumerable<IServiceProvider> GetPluginServices()
     {
@@ -98,13 +98,16 @@ public sealed class PluginServicesContainer(
         return publishResult.CurrentProviders;
     }
 
+    private static PluginServiceCollection CreatePublicServicesOnlyCollection() =>
+        new(new ServiceCollection(), []) { Name = "public services" };
+
     private List<IPluginManifest> GetPluginManifests() =>
         _cachedPluginManifests ??= [.. pluginContainers.SelectMany(container => container.GetPluginManifests())];
 
     private (List<PluginServiceCollection> pluginServiceCollections, PluginServiceCollection publicServicesOnlyCollection) InitializePlugins(IEnumerable<IPluginManifest> pluginManifests)
     {
         List<PluginServiceCollection> pluginServiceCollections = [];
-        PluginServiceCollection publicServicesOnlyCollection = new(new ServiceCollection(), []);
+        PluginServiceCollection publicServicesOnlyCollection = CreatePublicServicesOnlyCollection();
 
         try
         {
@@ -116,7 +119,10 @@ public sealed class PluginServicesContainer(
 
                 manifest.ConfigureServices(hostContext, pluginServices);
 
-                pluginServiceCollections.Add(new PluginServiceCollection(pluginServices, CollectPublicServices(pluginServices)));
+                pluginServiceCollections.Add(new PluginServiceCollection(pluginServices, CollectPublicServices(pluginServices))
+                {
+                    Name = manifest.GetType().Assembly.GetName().Name ?? string.Empty
+                });
             }
 
             var publicServicesOnlyBuilder = new PluginServicesLocatorBuilder(publicServicesOnlyCollection, pluginServiceCollections);
@@ -148,7 +154,7 @@ public sealed class PluginServicesContainer(
 
     public async ValueTask DisposeAsync()
     {
-        List<IServiceProvider> providersToDispose;
+        List<NamedProvider> providersToDispose;
 
         lock (_syncPluginLoading)
         {
@@ -193,7 +199,7 @@ public sealed class PluginServicesContainer(
                     new OperationCanceledException(cancellationToken));
             }
 
-            List<IServiceProvider> providersToDispose;
+            List<NamedProvider> providersToDispose;
 
             if (replaceExisting || !_initialized)
             {
@@ -211,22 +217,37 @@ public sealed class PluginServicesContainer(
         }
     }
 
-    private List<IServiceProvider> SnapshotProviders() =>
+    private List<NamedProvider> SnapshotProviders() =>
         SnapshotProviders(_pluginServiceCollections, _publicServicesOnlyCollection);
 
-    private static List<IServiceProvider> SnapshotProviders(
+    // The built providers in load order, followed by the one of the public services.
+    private static List<NamedProvider> SnapshotProviders(
         IEnumerable<PluginServiceCollection> pluginServiceCollections,
         PluginServiceCollection publicServicesOnlyCollection) =>
         [.. pluginServiceCollections
-            .Select(collection => collection.ServiceProvider)
-            .Append(publicServicesOnlyCollection.ServiceProvider)
-            .OfType<IServiceProvider>()];
+            .Append(publicServicesOnlyCollection)
+            .Where(collection => collection.ServiceProvider is not null)
+            .Select(collection => new NamedProvider(collection.Name, collection.ServiceProvider!))];
 
-    private static void DisposeProviders(IEnumerable<IServiceProvider> providers)
+    /// <summary>
+    /// Orders the providers for disposal: the reverse of the order the plug-ins were loaded in.
+    /// </summary>
+    /// <remarks>
+    /// Microsoft's container disposes its singletons in the reverse order of their creation, too: a plug-in commonly
+    /// uses the services of the plug-ins loaded before it, such as the messaging, and can then still release them in
+    /// its own disposal. The provider of the public services only imports services from the others and goes first.
+    /// </remarks>
+    private static IEnumerable<NamedProvider> InDisposalOrder(IEnumerable<NamedProvider> providers) =>
+        providers.Reverse();
+
+    // Only gets providers that were built but never handed out: after a failed initialization, or when another
+    // initialization or the disposal of this container came first. None of their services has been created, so unlike
+    // in DisposeProvidersAsync, their disposal runs no service's Dispose that could fail.
+    private static void DisposeProviders(IEnumerable<NamedProvider> providers)
     {
-        foreach (IServiceProvider provider in providers)
+        foreach (NamedProvider provider in InDisposalOrder(providers))
         {
-            DisposeProvider(provider);
+            DisposeProvider(provider.Provider);
         }
     }
 
@@ -245,11 +266,22 @@ public sealed class PluginServicesContainer(
         }
     }
 
-    private static async ValueTask DisposeProvidersAsync(IEnumerable<IServiceProvider> providers)
+    // A failing provider must not keep the others from being disposed. Within it, Microsoft's container stops at the
+    // failing service, so the services it created before that one stay undisposed.
+    private async ValueTask DisposeProvidersAsync(IEnumerable<NamedProvider> providers)
     {
-        foreach (IServiceProvider provider in providers)
+        foreach (NamedProvider provider in InDisposalOrder(providers))
         {
-            await DisposeProviderAsync(provider).ConfigureAwait(false);
+            try
+            {
+                await DisposeProviderAsync(provider.Provider).ConfigureAwait(false);
+            }
+            catch (Exception ex)
+            {
+                logger.LogError(ex,
+                    "Failed to dispose the service provider of {Plugin}. The services it created before the failing one were not disposed.",
+                    provider.Name);
+            }
         }
     }
 
@@ -268,7 +300,9 @@ public sealed class PluginServicesContainer(
     }
 
     private sealed record PublishProvidersResult(
-        List<IServiceProvider> ProvidersToDispose,
+        List<NamedProvider> ProvidersToDispose,
         (List<IServiceProvider> PluginServices, IServiceProvider PublicServices) CurrentProviders,
         Exception? DeferredException);
+
+    private readonly record struct NamedProvider(string Name, IServiceProvider Provider);
 }
