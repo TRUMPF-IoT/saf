@@ -214,19 +214,38 @@ public sealed class PluginServicesContainer(
     private List<IServiceProvider> SnapshotProviders() =>
         SnapshotProviders(_pluginServiceCollections, _publicServicesOnlyCollection);
 
+    /// <summary>
+    /// Returns the built providers in the order they are disposed in.
+    /// </summary>
+    /// <remarks>
+    /// That is the reverse of the order the plug-ins were loaded in, as Microsoft's container disposes its singletons
+    /// in the reverse order of their creation: a plug-in commonly uses the services of the plug-ins loaded before it,
+    /// such as the messaging, and can then still release them in its own disposal. The provider of the public services
+    /// only imports services from the others and goes first.
+    /// </remarks>
     private static List<IServiceProvider> SnapshotProviders(
         IEnumerable<PluginServiceCollection> pluginServiceCollections,
         PluginServiceCollection publicServicesOnlyCollection) =>
         [.. pluginServiceCollections
             .Select(collection => collection.ServiceProvider)
             .Append(publicServicesOnlyCollection.ServiceProvider)
+            .Reverse()
             .OfType<IServiceProvider>()];
 
-    private static void DisposeProviders(IEnumerable<IServiceProvider> providers)
+    // A provider that fails to dispose must not keep the others from being disposed: they may hold resources such as
+    // connections or files, and the caller - the host shutdown or a reload - can do nothing about the failure.
+    private void DisposeProviders(IEnumerable<IServiceProvider> providers)
     {
         foreach (IServiceProvider provider in providers)
         {
-            DisposeProvider(provider);
+            try
+            {
+                DisposeProvider(provider);
+            }
+            catch (Exception ex)
+            {
+                logger.LogError(ex, "Failed to dispose a plug-in service provider.");
+            }
         }
     }
 
@@ -245,11 +264,18 @@ public sealed class PluginServicesContainer(
         }
     }
 
-    private static async ValueTask DisposeProvidersAsync(IEnumerable<IServiceProvider> providers)
+    private async ValueTask DisposeProvidersAsync(IEnumerable<IServiceProvider> providers)
     {
         foreach (IServiceProvider provider in providers)
         {
-            await DisposeProviderAsync(provider).ConfigureAwait(false);
+            try
+            {
+                await DisposeProviderAsync(provider).ConfigureAwait(false);
+            }
+            catch (Exception ex)
+            {
+                logger.LogError(ex, "Failed to dispose a plug-in service provider.");
+            }
         }
     }
 

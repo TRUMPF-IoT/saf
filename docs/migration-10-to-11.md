@@ -262,6 +262,11 @@ pluginServices.AddServicePlugin<MyWorker>();
 
 If other services in the same plug-in container also need `MyWorker` by its concrete type, additionally register `pluginServices.AddSingleton<MyWorker>()`.
 
+Release what you hold of other plug-ins, such as subscriptions, in `StopAsync`, not only in `Dispose`. In 10.x all
+services lived in one container, which disposed them in the reverse order of their creation. In 11.x every plug-in has
+its own container, and the containers are disposed one after another in the reverse load order. That order cannot
+express every dependency between plug-ins (see [Shutdown and Disposal](./plugin-system.md#shutdown-and-disposal)).
+
 ---
 
 ## Step 6 — Migrate Plugin-Specific Configuration
@@ -487,6 +492,7 @@ The [shared set](./plugin-system.md#the-shared-set) includes `SAF.PluginSystem.H
 - [ ] Configure `Messaging:PrimaryKey` in configuration
 - [ ] Ensure `SAF.Messaging.Runtime.dll` is discoverable by the plugin system (automatic with `AddSafHost()`)
 - [ ] Replace manual lifecycle background tasks with `IServicePlugin` / `ILifecycleServicePlugin` registered via `AddServicePlugin<T>()`
+- [ ] Unsubscribe in `StopAsync` rather than only in `Dispose`, and register the folder container with your messaging/storage plug-ins before the one with your application plug-ins (see [Shutdown and Disposal](./plugin-system.md#shutdown-and-disposal))
 - [ ] Move plugin configuration into the shared plugin settings file (or host `appsettings.json`) under a per-plugin section
 - [ ] Deploy messaging/storage as plug-ins (add their DLLs to `IncludePatterns`) instead of calling `Add*Infrastructure()` on the host
 - [ ] If you used `AddCdeInfrastructure`, load `SAF.Storage.Cde.dll` next to `SAF.Messaging.Cde.dll`, both from the host's base directory

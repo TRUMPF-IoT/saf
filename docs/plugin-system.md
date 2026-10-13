@@ -806,6 +806,67 @@ sequenceDiagram
 
 ---
 
+## Shutdown and Disposal
+
+When the host shuts down, it first stops the service plug-ins (see [Lifecycle Sequence Diagram](#lifecycle-sequence-diagram)).
+Afterwards it disposes the plug-in containers, and each container disposes the singletons it created itself.
+
+The containers are disposed in the **reverse order the plug-ins were loaded in**, the rule Microsoft's container
+applies to its own singletons. A plug-in usually uses services of plug-ins loaded before it, above all the messaging
+and the storage. Because it is disposed first, its `Dispose` can still release them, for example cancel a
+subscription.
+
+The load order is:
+
+1. The order the plugin assembly containers were registered in. `AddSafHost()` registers its built-in container
+   (`SAF.Messaging.Runtime`) first; your `AddPluginAssemblyFolderContainer` calls follow in the order you make them.
+2. Within one folder container, the order the folder search finds the assemblies in. That order is not defined on
+   every platform, so do not rely on it.
+
+To keep the messaging and the storage alive until the plug-ins that use them are disposed, load the infrastructure
+plug-ins from a folder container that you register **before** the containers of your application plug-ins:
+
+```csharp
+builder.AddSafHost()
+    .ConfigurePluginSystem(ps =>
+    {
+        // Registered first: disposed after the application plug-ins
+        ps.AddPluginAssemblyFolderContainer(options =>
+        {
+            options.SearchRootPath = AppContext.BaseDirectory;
+            options.Recursive = false;
+            options.IncludePatterns = "SAF.Messaging.Cde.dll;SAF.Messaging.Routing.dll;SAF.Storage.SQLite.dll";
+        });
+
+        // Registered second: disposed first
+        ps.AddPluginAssemblyFolderContainer(options =>
+        {
+            options.SearchRootPath = AppContext.BaseDirectory;
+            options.Recursive = false;
+            options.IncludePatterns = "MyApp.Plugin.*.dll";
+        });
+    });
+```
+
+> **Release subscriptions in `StopAsync`.** The disposal order cannot express every dependency between plug-ins. The
+> primary `IMessagingInfrastructure`, for example, belongs to the runtime plug-in, which is loaded first, but it is
+> created by the messaging plug-ins loaded after it, and so it is disposed after them. Subscribe in `StartAsync` and
+> unsubscribe in `StopAsync`: the plug-ins are stopped while everything is still running.
+
+**Failures.** If a container fails to dispose, the error is logged (`Failed to dispose a plug-in service provider.`)
+and the other containers are still disposed. Neither the host's disposal nor a
+[reload](#live-reload-reconfiguration) fails because of it. Within one container, Microsoft's container stops
+disposing at the first singleton that throws.
+
+> **Changed after 11.0.0-alpha.10:** The pre-releases up to 11.0.0-alpha.10 disposed the containers in load order,
+> starting with the runtime plug-in and its primary messaging, and stopped at the first container that failed to
+> dispose. A plug-in that unsubscribed only in `Dispose` then met a disposed messaging: the routing messaging logged
+> `Subscription not active anymore`, the in-process messaging threw an `ObjectDisposedException`. No change is needed
+> in your code. A host that loads its application plug-ins and their infrastructure from the same folder container
+> should split them into two containers as shown above.
+
+---
+
 ## Live Reload (Reconfiguration)
 
 The plugin system can rebuild its DI containers **in-process** from the current
@@ -851,8 +912,9 @@ StartingAsync → StartAsync → StartedAsync     on the new instances
 - **Rebuilds** every plugin's DI container by re-running `IPluginManifest.ConfigureServices` with the
   current `PluginConfiguration`, and re-imports the public cross-plugin services.
 - **Disposes** the previously built service providers (and the singletons they own) after the new
-  providers are ready. Services forwarded in from the host are not owned by the plugin containers and
-  stay alive (see [IHostServiceForwarder](#ihostserviceforwarder)).
+  providers are ready, in the same order as at shutdown (see [Shutdown and Disposal](#shutdown-and-disposal)).
+  A provider that fails to dispose is logged and does not fail the reload. Services forwarded in from the
+  host are not owned by the plugin containers and stay alive (see [IHostServiceForwarder](#ihostserviceforwarder)).
 - **Keeps** the assembly load contexts. `PluginAssemblyLoadContext` is **not** collectible, so rebuilding
   providers instead of recreating ALCs avoids leaking assemblies over repeated reloads.
 - **Does not** re-discover plugin assemblies. The set of plugin manifests is the one found at startup, so a

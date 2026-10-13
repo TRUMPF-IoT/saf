@@ -8,6 +8,7 @@ using Contracts;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using NSubstitute;
+using TestUtilities;
 
 public class PluginServicesContainerTests
 {
@@ -216,6 +217,61 @@ public class PluginServicesContainerTests
     }
 
     /// <summary>
+    /// Tests that DisposeAsync disposes the plugin service providers in the reverse order the plugins were loaded in,
+    /// across and within the plugin assembly containers.
+    /// </summary>
+    [Fact]
+    public async Task DisposeAsync_DisposesPluginProviders_InReverseLoadOrder()
+    {
+        // Arrange
+        List<string> disposed = [];
+        var pluginServicesContainer = new PluginServicesContainer(
+            _logger, _hostContext, _applicationServiceProvider,
+            [
+                AssemblyContainerWith(ManifestDisposing(() => disposed.Add("first")), ManifestDisposing(() => disposed.Add("second"))),
+                AssemblyContainerWith(ManifestDisposing(() => disposed.Add("third"))),
+            ],
+            _publicServiceTypeRegistry);
+        ResolveDisposeProbes(pluginServicesContainer);
+
+        // Act
+        await DisposeContainerAsync(pluginServicesContainer);
+
+        // Assert
+        Assert.Equal(["third", "second", "first"], disposed);
+    }
+
+    /// <summary>
+    /// Tests that a plugin service provider failing to dispose neither keeps the others from being disposed nor lets
+    /// DisposeAsync throw, and that the failure is logged.
+    /// </summary>
+    [Fact]
+    public async Task DisposeAsync_WhenAPluginProviderFailsToDispose_DisposesTheOthersAndLogsTheFailure()
+    {
+        // Arrange
+        var logger = Substitute.For<MockLogger<PluginServicesContainer>>();
+        List<string> disposed = [];
+        var pluginServicesContainer = new PluginServicesContainer(
+            logger, _hostContext, _applicationServiceProvider,
+            [
+                AssemblyContainerWith(
+                    ManifestDisposing(() => disposed.Add("first")),
+                    ManifestDisposing(() => throw new InvalidOperationException("dispose boom")),
+                    ManifestDisposing(() => disposed.Add("third"))),
+            ],
+            _publicServiceTypeRegistry);
+        ResolveDisposeProbes(pluginServicesContainer);
+
+        // Act
+        var exception = await Record.ExceptionAsync(() => DisposeContainerAsync(pluginServicesContainer));
+
+        // Assert
+        Assert.Null(exception);
+        Assert.Equal(["third", "first"], disposed);
+        logger.AssertLoggedOnce(LogLevel.Error);
+    }
+
+    /// <summary>
     /// Tests that ReinitializeAsync rebuilds service providers without re-scanning plugin manifests.
     /// </summary>
     [Fact]
@@ -252,6 +308,31 @@ public class PluginServicesContainerTests
 
         // Assert
         Assert.Throws<ObjectDisposedException>(() => providerBefore.GetService(typeof(IServiceProvider)));
+    }
+
+    /// <summary>
+    /// Tests that a reload completes with the new providers when a previous provider fails to dispose.
+    /// </summary>
+    [Fact]
+    public async Task ReinitializeAsync_WhenAPreviousProviderFailsToDispose_KeepsTheNewProviders()
+    {
+        // Arrange
+        var logger = Substitute.For<MockLogger<PluginServicesContainer>>();
+        var pluginServicesContainer = new PluginServicesContainer(
+            logger, _hostContext, _applicationServiceProvider,
+            [AssemblyContainerWith(ManifestDisposing(() => throw new InvalidOperationException("dispose boom")))],
+            _publicServiceTypeRegistry);
+        ResolveDisposeProbes(pluginServicesContainer);
+        var providerBefore = pluginServicesContainer.GetPluginServices().Single();
+
+        // Act
+        var exception = await Record.ExceptionAsync(
+            () => pluginServicesContainer.ReinitializeAsync(TestContext.Current.CancellationToken).AsTask());
+
+        // Assert
+        Assert.Null(exception);
+        Assert.NotSame(providerBefore, pluginServicesContainer.GetPluginServices().Single());
+        logger.AssertLoggedOnce(LogLevel.Error);
     }
 
     /// <summary>
@@ -419,4 +500,36 @@ public class PluginServicesContainerTests
             // Intentionally left blank: verify dispose without initialization.
         }),
     ];
+
+    private static IPluginAssemblyContainer AssemblyContainerWith(params IPluginManifest[] manifests)
+    {
+        var assemblyContainer = Substitute.For<IPluginAssemblyContainer>();
+        assemblyContainer.GetPluginManifests().Returns(manifests);
+        return assemblyContainer;
+    }
+
+    /// <summary>
+    /// Creates a plugin manifest that registers a <see cref="DisposeProbe"/> running <paramref name="dispose"/>.
+    /// </summary>
+    private IPluginManifest ManifestDisposing(Action dispose)
+    {
+        var manifest = Substitute.For<IPluginManifest>();
+        manifest.When(m => m.ConfigureServices(_hostContext, Arg.Any<IServiceCollection>()))
+            .Do(call => call.Arg<IServiceCollection>().AddSingleton(_ => new DisposeProbe(dispose)));
+        return manifest;
+    }
+
+    // A singleton is created, and so disposed by its provider, only once it has been resolved.
+    private static void ResolveDisposeProbes(PluginServicesContainer pluginServicesContainer)
+    {
+        foreach (var pluginServices in pluginServicesContainer.GetPluginServices())
+        {
+            pluginServices.GetRequiredService<DisposeProbe>();
+        }
+    }
+
+    private sealed class DisposeProbe(Action dispose) : IDisposable
+    {
+        public void Dispose() => dispose();
+    }
 }
