@@ -81,6 +81,7 @@ internal sealed class ServicePluginLifecycleRunner(
         Action<Exception> logFailure,
         CancellationToken cancellationToken)
     {
+        // Scopes the token to this phase, so callbacks a plug-in leaves registered do not stay on the caller's token.
         using var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
 
         foreach (TPlugin servicePlugin in servicePlugins)
@@ -107,6 +108,7 @@ internal sealed class ServicePluginLifecycleRunner(
         Action<Exception> logFailure,
         CancellationToken cancellationToken)
     {
+        // Scopes the token to this phase, so callbacks a plug-in leaves registered do not stay on the caller's token.
         using var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
         OperationCanceledException? cancellation = null;
 

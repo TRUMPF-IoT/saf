@@ -957,9 +957,11 @@ StartingAsync → StartAsync → StartedAsync     on the new instances, in load 
   may leak the resources it still holds — the failure is logged, and releasing resources reliably in
   `StopAsync` remains the plugin's responsibility.
 - **Cancellation ends the reload** and is rethrown as `OperationCanceledException`. A canceled stop phase
-  still runs over the remaining old plugins first, as at host shutdown; a canceled start phase aborts at the
-  next plugin boundary. The plugin system is then left exactly where the reload got to — for example with the
-  old plugins stopped and the new ones not started yet — and is not restored to its previous state.
+  still runs over the remaining old plugins first. Unlike at host shutdown, the stop phases after it are then
+  skipped: a reload canceled during `StoppingAsync` calls no plugin's `StopAsync`. A canceled start phase
+  aborts at the next plugin boundary. The plugin system is then left exactly where the reload got to — for
+  example with the old plugins stopped and the new ones not started yet — and is not restored to its previous
+  state.
 
 Because failures of the reload itself are rethrown, the caller decides how to react — retry the reload,
 keep running with what is left, or shut the host down.
