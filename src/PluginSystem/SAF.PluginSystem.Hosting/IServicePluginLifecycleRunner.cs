@@ -17,8 +17,9 @@ using Contracts;
 /// </para>
 /// <para>
 /// All operations are best-effort: a failure of a single plug-in is logged and the run continues with the
-/// remaining plug-ins. Only cancellation aborts a run, and is reported as
-/// <see cref="OperationCanceledException"/>.
+/// remaining plug-ins. Cancellation is reported as <see cref="OperationCanceledException"/>. It aborts a start
+/// phase at the next plug-in, while a stop phase still runs over the remaining plug-ins first, as the .NET host
+/// does with its hosted services.
 /// </para>
 /// </remarks>
 internal interface IServicePluginLifecycleRunner

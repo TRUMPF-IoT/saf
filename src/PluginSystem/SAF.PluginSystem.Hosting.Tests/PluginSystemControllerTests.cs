@@ -165,7 +165,7 @@ public class PluginSystemControllerTests
     }
 
     [Fact]
-    public async Task ReloadAsync_WhenStopIsCanceled_AbortsRemainingStopOperationsAndRethrows()
+    public async Task ReloadAsync_WhenStopIsCanceled_StopsTheRemainingPluginsAndRethrows()
     {
         // Arrange
         var firstPlugin = Substitute.For<IServicePlugin>();
@@ -188,7 +188,7 @@ public class PluginSystemControllerTests
 
         // Assert
         Assert.IsAssignableFrom<OperationCanceledException>(exception);
-        await firstPlugin.DidNotReceive().StopAsync(Arg.Any<CancellationToken>());
+        await firstPlugin.Received(1).StopAsync(Arg.Any<CancellationToken>());
         await _pluginServicesReloader.DidNotReceive().ReinitializeAsync(Arg.Any<CancellationToken>());
     }
 

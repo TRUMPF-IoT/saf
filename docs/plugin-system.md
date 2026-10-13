@@ -856,6 +856,11 @@ builder.AddSafHost()
 > created by the messaging plug-ins loaded after it, and so it is disposed after them. Subscribe in `StartAsync` and
 > unsubscribe in `StopAsync`: the plug-ins are stopped while everything is still running.
 
+**Cancellation.** If the host's `ShutdownTimeout` expires during a stop phase, the remaining plug-ins are still
+called, with the canceled token, as the .NET host does with its hosted services. A plug-in whose `StopAsync` takes too
+long therefore does not keep the plug-ins loaded before it, such as the messaging, from being stopped. Honor the token
+in `StopAsync` to keep the shutdown within the timeout.
+
 **Failures.** If a container fails to dispose, the error is logged with the name of the plug-in's assembly
 (`Failed to dispose the service provider of MyApp.Plugin.Orders. ...`), and the other containers are still disposed.
 Neither the host's disposal nor a [reload](#live-reload-reconfiguration) fails because of it. Within one container,
@@ -863,11 +868,12 @@ Microsoft's container stops disposing at the first singleton that throws, so the
 that one stay undisposed. Do not let `Dispose` throw.
 
 > **Changed after 11.0.0-alpha.10:** The pre-releases up to 11.0.0-alpha.10 stopped the service plug-ins and disposed
-> the containers in load order, and stopped disposing at the first container that failed. The runtime plug-in with the
-> primary messaging was disposed first, so a plug-in that unsubscribed only in `Dispose` met a disposed messaging: the
-> routing messaging logged `Subscription not active anymore`, the in-process messaging threw an
-> `ObjectDisposedException`. No change is needed in your code. A host that loads its application plug-ins and their
-> infrastructure from the same folder container should split them into two containers as shown above.
+> the containers in load order, ended a stop phase at the first plug-in that was canceled, and stopped disposing at the
+> first container that failed. The runtime plug-in with the primary messaging was disposed first, so a plug-in that
+> unsubscribed only in `Dispose` met a disposed messaging: the routing messaging logged
+> `Subscription not active anymore`, the in-process messaging threw an `ObjectDisposedException`. No change is needed
+> in your code. A host that loads its application plug-ins and their infrastructure from the same folder container
+> should split them into two containers as shown above.
 
 ---
 
@@ -957,9 +963,10 @@ StartingAsync → StartAsync → StartedAsync     on the new instances, in load 
   discarded, so the plugin system never tries to revive the previous state. A plugin that fails to stop
   may leak the resources it still holds — the failure is logged, and releasing resources reliably in
   `StopAsync` remains the plugin's responsibility.
-- **Cancellation aborts at the next plugin boundary** and rethrows `OperationCanceledException`. The
-  plugin system is then left exactly where the reload got to — for example with the old plugins stopped
-  and the new ones not started yet — and is not restored to its previous state.
+- **Cancellation ends the reload** and is rethrown as `OperationCanceledException`. A canceled stop phase
+  still runs over the remaining old plugins first, as at host shutdown; a canceled start phase aborts at the
+  next plugin boundary. The plugin system is then left exactly where the reload got to — for example with the
+  old plugins stopped and the new ones not started yet — and is not restored to its previous state.
 
 Because failures of the reload itself are rethrown, the caller decides how to react — retry the reload,
 keep running with what is left, or shut the host down.
