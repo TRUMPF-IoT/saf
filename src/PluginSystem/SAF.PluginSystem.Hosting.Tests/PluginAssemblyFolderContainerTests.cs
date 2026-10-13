@@ -113,6 +113,76 @@ public sealed class PluginAssemblyFolderContainerTests : IDisposable
         manifestLoader.Received(1).LoadPluginManifest(Arg.Any<Assembly>());
     }
 
+    /// <summary>
+    /// Tests that the assemblies load in the order of the include patterns, across subdirectories, and the ones
+    /// matching the same pattern in the ordinal order of their paths.
+    /// </summary>
+    [Fact]
+    public void GetPluginManifests_LoadsAssembliesInIncludePatternOrder_ThenOrdinallyByPath()
+    {
+        // Arrange
+        var testDirectory = CreateTestDirectory($"test-plugins-{Guid.NewGuid():N}");
+        var subDirectory = Path.Combine(testDirectory, "sub");
+        _fileSystem.Directory.CreateDirectory(subDirectory);
+
+        _fileSystem.File.Copy(_testAssemblyPath, Path.Combine(testDirectory, "a.app.dll"));
+        _fileSystem.File.Copy(_testAssemblyPath, Path.Combine(testDirectory, "z.infra.dll"));
+        _fileSystem.File.Copy(_testAssemblyPath, Path.Combine(subDirectory, "b.infra.dll"));
+        _fileSystem.File.Copy(_testAssemblyPath, Path.Combine(testDirectory, "b.app.dll"));
+
+        List<string> loaded = [];
+        var manifestLoader = Substitute.For<IPluginManifestLoader>();
+        manifestLoader.LoadPluginManifest(Arg.Do<Assembly>(assembly => loaded.Add(Path.GetFileName(assembly.Location))))
+            .Returns(Substitute.For<IPluginManifest>());
+
+        var options = new PluginAssemblyFolderSearchOptions
+        {
+            SearchRootPath = testDirectory,
+            IncludePatterns = "*.infra.dll;*.app.dll",
+            ExcludePatterns = string.Empty,
+            Recursive = true
+        };
+        var container = new PluginAssemblyFolderContainer(_loggerFactory, manifestLoader, options, _fileSystem, [], TestSharedAssemblyResolver.SharesHostProvidedAssemblies, SharedAssemblyConflictBehavior.Fail);
+
+        // Act
+        container.GetPluginManifests();
+
+        // Assert: the infra assemblies first, though one is in a subdirectory, and sub\b.infra.dll before z.infra.dll
+        Assert.Equal(["b.infra.dll", "z.infra.dll", "a.app.dll", "b.app.dll"], loaded);
+    }
+
+    /// <summary>
+    /// Tests that an assembly matching several include patterns loads once, at its first pattern.
+    /// </summary>
+    [Fact]
+    public void GetPluginManifests_LoadsAnAssemblyMatchingSeveralPatternsOnce_AtItsFirstPattern()
+    {
+        // Arrange
+        var testDirectory = CreateTestDirectory($"test-plugins-{Guid.NewGuid():N}");
+        _fileSystem.File.Copy(_testAssemblyPath, Path.Combine(testDirectory, "a.app.dll"));
+        _fileSystem.File.Copy(_testAssemblyPath, Path.Combine(testDirectory, "b.infra.dll"));
+
+        List<string> loaded = [];
+        var manifestLoader = Substitute.For<IPluginManifestLoader>();
+        manifestLoader.LoadPluginManifest(Arg.Do<Assembly>(assembly => loaded.Add(Path.GetFileName(assembly.Location))))
+            .Returns(Substitute.For<IPluginManifest>());
+
+        var options = new PluginAssemblyFolderSearchOptions
+        {
+            SearchRootPath = testDirectory,
+            IncludePatterns = "*.infra.dll;*.dll",
+            ExcludePatterns = string.Empty,
+            Recursive = false
+        };
+        var container = new PluginAssemblyFolderContainer(_loggerFactory, manifestLoader, options, _fileSystem, [], TestSharedAssemblyResolver.SharesHostProvidedAssemblies, SharedAssemblyConflictBehavior.Fail);
+
+        // Act
+        container.GetPluginManifests();
+
+        // Assert
+        Assert.Equal(["b.infra.dll", "a.app.dll"], loaded);
+    }
+
     [Fact]
     public void GetPluginManifests_ReturnsNoResult_WhenSearchPathNotFound()
     {

@@ -822,34 +822,26 @@ The load order is:
 
 1. The order the plugin assembly containers were registered in. `AddSafHost()` registers its built-in container
    (`SAF.Messaging.Runtime`) first; your `AddPluginAssemblyFolderContainer` calls follow in the order you make them.
-2. Within one folder container, the order the folder search finds the assemblies in. That order is not defined on
-   every platform, so do not rely on it.
+2. Within one folder container, the order of its `IncludePatterns`. The assemblies matching the same pattern load in
+   the ordinal order of their full paths, and an assembly matching several patterns loads once, at its first one.
 
-To keep the messaging and the storage alive until the plug-ins that use them are stopped and disposed, load the
-infrastructure plug-ins from a folder container that you register **before** the containers of your application
-plug-ins:
+To keep the messaging and the storage alive until the plug-ins that use them are stopped and disposed, list the
+infrastructure plug-ins **before** your application plug-ins:
 
 ```csharp
 builder.AddSafHost()
-    .ConfigurePluginSystem(ps =>
+    .ConfigurePluginSystem(ps => ps.AddPluginAssemblyFolderContainer(options =>
     {
-        // Registered first: disposed after the application plug-ins
-        ps.AddPluginAssemblyFolderContainer(options =>
-        {
-            options.SearchRootPath = AppContext.BaseDirectory;
-            options.Recursive = false;
-            options.IncludePatterns = "SAF.Messaging.Cde.dll;SAF.Messaging.Routing.dll;SAF.Storage.SQLite.dll";
-        });
-
-        // Registered second: disposed first
-        ps.AddPluginAssemblyFolderContainer(options =>
-        {
-            options.SearchRootPath = AppContext.BaseDirectory;
-            options.Recursive = false;
-            options.IncludePatterns = "MyApp.Plugin.*.dll";
-        });
-    });
+        options.SearchRootPath = AppContext.BaseDirectory;
+        options.Recursive = false;
+        // Loaded first: stopped and disposed after the application plug-ins
+        options.IncludePatterns =
+            "SAF.Messaging.Cde.dll;SAF.Messaging.Routing.dll;SAF.Storage.SQLite.dll;MyApp.Plugin.*.dll";
+    }));
 ```
+
+If the infrastructure and the application plug-ins are in separate folders, register the folder container of the
+infrastructure plug-ins first.
 
 > **Release subscriptions in `StopAsync`.** The disposal order cannot express every dependency between plug-ins. The
 > primary `IMessagingInfrastructure`, for example, belongs to the runtime plug-in, which is loaded first, but it is
@@ -869,11 +861,12 @@ that one stay undisposed. Do not let `Dispose` throw.
 
 > **Changed after 11.0.0-alpha.10:** The pre-releases up to 11.0.0-alpha.10 stopped the service plug-ins and disposed
 > the containers in load order, ended a stop phase at the first plug-in that was canceled, and stopped disposing at the
-> first container that failed. The runtime plug-in with the primary messaging was disposed first, so a plug-in that
-> unsubscribed only in `Dispose` met a disposed messaging: the routing messaging logged
-> `Subscription not active anymore`, the in-process messaging threw an `ObjectDisposedException`. No change is needed
-> in your code. A host that loads its application plug-ins and their infrastructure from the same folder container
-> should split them into two containers as shown above.
+> first container that failed. Within one folder container, the assemblies loaded in the order the file system listed
+> them. The runtime plug-in with the primary messaging was disposed first, so a plug-in that unsubscribed only in
+> `Dispose` met a disposed messaging: the routing messaging logged `Subscription not active anymore`, the in-process
+> messaging threw an `ObjectDisposedException`. No change is needed in your code. If one folder container loads your
+> application plug-ins and their infrastructure, list the infrastructure patterns first in `IncludePatterns`, as
+> shown above.
 
 ---
 

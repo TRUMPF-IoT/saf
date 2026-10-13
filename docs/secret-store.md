@@ -77,7 +77,7 @@ builder.AddSafHost()
         ps.AddPluginAssemblyFolderContainer(options =>
         {
             options.SearchRootPath = AppContext.BaseDirectory;
-            options.IncludePatterns = "MyApp.Plugin.*.dll;SAF.Messaging.InProcess.dll";
+            options.IncludePatterns = "SAF.Messaging.InProcess.dll;MyApp.Plugin.*.dll";
             options.Recursive = false;
         });
 

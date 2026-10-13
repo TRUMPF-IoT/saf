@@ -22,9 +22,9 @@ builder.AddSafHost()
     .ConfigurePluginSystem(ps => ps.AddPluginAssemblyFolderContainer(options =>
     {
         options.SearchRootPath = AppContext.BaseDirectory;
-        // Include your plug-ins AND the messaging/storage implementation plug-ins.
+        // Include the messaging/storage implementation plug-ins AND your plug-ins, in this order.
         options.IncludePatterns =
-            "MyApp.Plugin.*.dll;SAF.Messaging.InProcess.dll;SAF.Storage.LiteDb.dll";
+            "SAF.Messaging.InProcess.dll;SAF.Storage.LiteDb.dll;MyApp.Plugin.*.dll";
         options.Recursive = false;
     }));
 

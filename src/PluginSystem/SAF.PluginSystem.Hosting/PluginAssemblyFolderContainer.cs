@@ -58,37 +58,71 @@ public class PluginAssemblyFolderContainer(
         }
     }
 
-    // Absolute paths: LoadFromAssemblyPath rejects relative ones, and validators see a canonical path.
+    // Absolute paths: LoadFromAssemblyPath rejects relative ones, and validators see a canonical path. Ordered by
+    // include pattern, then ordinally by path, so the load order does not depend on the file system.
     private List<string> GetPluginAssemblyPaths()
-        => [.. SearchDirectoryForMatchingFiles(SearchOptions.SearchRootPath).Select(_fileSystem.Path.GetFullPath)];
-
-    private List<string> SearchDirectoryForMatchingFiles(string directory)
     {
-        if (!_fileSystem.Directory.Exists(directory))
+        var directories = GetSearchDirectories();
+        var excludePatterns = SearchOptions.ExcludePatterns.Split(';');
+        HashSet<string> foundPaths = new(StringComparer.Ordinal);
+        List<string> result = [];
+
+        foreach (var includePattern in SearchOptions.IncludePatterns.Split(';'))
         {
-            _logger.LogWarning("Configured plugin directory {SearchDirectory} not found. No plugins will be loaded.", directory);
+            var matchingPaths = directories
+                .SelectMany(directory => FindMatchingFiles(directory, includePattern, excludePatterns))
+                .Select(_fileSystem.Path.GetFullPath)
+                .Order(StringComparer.Ordinal);
+
+            foreach (var path in matchingPaths)
+            {
+                if (foundPaths.Add(path))
+                {
+                    result.Add(path);
+                }
+            }
+        }
+
+        _logger.LogDebug("Found {MatchingAssemblyCount} matching assemblies", result.Count);
+        return result;
+    }
+
+    private List<string> GetSearchDirectories()
+    {
+        var rootDirectory = SearchOptions.SearchRootPath;
+        if (!_fileSystem.Directory.Exists(rootDirectory))
+        {
+            _logger.LogWarning("Configured plugin directory {SearchDirectory} not found. No plugins will be loaded.", rootDirectory);
             return [];
         }
 
         _logger.LogDebug("Searching for matching plugin assemblies in directory {SearchDirectory}{Recursive}",
-            directory, SearchOptions.Recursive ? " recursive" : string.Empty);
+            rootDirectory, SearchOptions.Recursive ? " recursive" : string.Empty);
 
-        var matcher = new Matcher(StringComparison.OrdinalIgnoreCase);
-        matcher.AddIncludePatterns(SearchOptions.IncludePatterns.Split(';'));
-        matcher.AddExcludePatterns(SearchOptions.ExcludePatterns.Split(';'));
-
-        var result = matcher.GetResultsInFullPath(directory).ToList();
-        _logger.LogDebug("Found {MatchingAssemblyCount} matching assemblies", result.Count);
-
+        List<string> directories = [rootDirectory];
         if (SearchOptions.Recursive)
         {
-            foreach (var subDir in _fileSystem.Directory.GetDirectories(directory))
-            {
-                result.AddRange(SearchDirectoryForMatchingFiles(subDir));
-            }
+            AddSubdirectories(rootDirectory, directories);
         }
 
-        return result;
+        return directories;
+    }
+
+    private void AddSubdirectories(string directory, List<string> directories)
+    {
+        foreach (var subDirectory in _fileSystem.Directory.GetDirectories(directory))
+        {
+            directories.Add(subDirectory);
+            AddSubdirectories(subDirectory, directories);
+        }
+    }
+
+    private static IEnumerable<string> FindMatchingFiles(string directory, string includePattern, string[] excludePatterns)
+    {
+        var matcher = new Matcher(StringComparison.OrdinalIgnoreCase);
+        matcher.AddInclude(includePattern);
+        matcher.AddExcludePatterns(excludePatterns);
+        return matcher.GetResultsInFullPath(directory);
     }
 
     private List<IPluginManifest> LoadManifests(List<string> pluginAssemblyPaths)
