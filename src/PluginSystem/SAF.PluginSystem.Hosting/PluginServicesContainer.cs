@@ -232,20 +232,14 @@ public sealed class PluginServicesContainer(
             .Reverse()
             .OfType<IServiceProvider>()];
 
-    // A provider that fails to dispose must not keep the others from being disposed: they may hold resources such as
-    // connections or files, and the caller - the host shutdown or a reload - can do nothing about the failure.
-    private void DisposeProviders(IEnumerable<IServiceProvider> providers)
+    // Only gets providers that were built but never handed out: after a failed initialization, or when another
+    // initialization or the disposal of this container came first. None of their services has been created, so unlike
+    // in DisposeProvidersAsync, their disposal runs no service's Dispose that could fail.
+    private static void DisposeProviders(IEnumerable<IServiceProvider> providers)
     {
         foreach (IServiceProvider provider in providers)
         {
-            try
-            {
-                DisposeProvider(provider);
-            }
-            catch (Exception ex)
-            {
-                logger.LogError(ex, "Failed to dispose a plug-in service provider.");
-            }
+            DisposeProvider(provider);
         }
     }
 
@@ -264,6 +258,8 @@ public sealed class PluginServicesContainer(
         }
     }
 
+    // A provider that fails to dispose must not keep the others from being disposed: they may hold resources such as
+    // connections or files, and the caller - the host shutdown or a reload - can do nothing about the failure.
     private async ValueTask DisposeProvidersAsync(IEnumerable<IServiceProvider> providers)
     {
         foreach (IServiceProvider provider in providers)
