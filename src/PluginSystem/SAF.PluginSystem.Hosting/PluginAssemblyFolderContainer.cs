@@ -74,12 +74,9 @@ public class PluginAssemblyFolderContainer(
                 .Select(_fileSystem.Path.GetFullPath)
                 .Order(StringComparer.Ordinal);
 
-            foreach (var path in matchingPaths)
+            foreach (var path in matchingPaths.Where(foundPaths.Add))
             {
-                if (foundPaths.Add(path))
-                {
-                    result.Add(path);
-                }
+                result.Add(path);
             }
         }
 
@@ -127,18 +124,9 @@ public class PluginAssemblyFolderContainer(
 
     private List<IPluginManifest> LoadManifests(List<string> pluginAssemblyPaths)
     {
-        List<IPluginManifest> manifests = [];
-
-        foreach (var pluginAssemblyPath in pluginAssemblyPaths)
-        {
-            var manifest = LoadManifest(pluginAssemblyPath);
-            if (manifest is not null)
-            {
-                manifests.Add(manifest);
-            }
-        }
-
-        return manifests;
+        return [.. pluginAssemblyPaths
+            .Select(LoadManifest)
+            .OfType<IPluginManifest>()];
     }
 
     /// <summary>
