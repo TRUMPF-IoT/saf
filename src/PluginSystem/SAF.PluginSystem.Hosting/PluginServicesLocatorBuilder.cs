@@ -12,6 +12,11 @@ public record PluginServiceCollection(
     List<ServiceDescriptor> PublicServiceDescriptors)
 {
     public IServiceProvider? ServiceProvider { get; set; }
+
+    /// <summary>
+    /// Identifies the plug-in in log entries.
+    /// </summary>
+    public string Name { get; init; } = string.Empty;
 }
 
 internal sealed class PluginServicesLocatorBuilder

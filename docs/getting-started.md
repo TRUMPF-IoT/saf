@@ -46,12 +46,12 @@ var builder = Host.CreateApplicationBuilder(args);
 // to the plugin contracts search pattern automatically.
 builder.AddSafHost()
     // Tell the plugin system which assemblies to scan for IPluginManifest implementations.
-    // Include your own plug-ins AND the messaging/storage implementation plug-ins.
+    // Include the messaging/storage implementation plug-ins AND your own plug-ins, in this order.
     .ConfigurePluginSystem(ps => ps.AddPluginAssemblyFolderContainer(options =>
     {
         options.SearchRootPath = AppContext.BaseDirectory;
         options.IncludePatterns =
-            "MyApp.Plugin.*.dll;SAF.Messaging.InProcess.dll;SAF.Storage.LiteDb.dll";
+            "SAF.Messaging.InProcess.dll;SAF.Storage.LiteDb.dll;MyApp.Plugin.*.dll";
         options.Recursive = false;
     }));
 
@@ -223,7 +223,9 @@ For development, build and publish the plug-in assemblies next to the host binar
 `IncludePatterns` setting controls which DLLs are scanned for `IPluginManifest` implementations.
 Remember this must also include the messaging and storage implementation DLLs
 (`SAF.Messaging.InProcess.dll`, `SAF.Storage.LiteDb.dll`) since those are plug-ins too.
-`SAF.Messaging.Runtime.dll` is added automatically by `AddSafHost`.
+`SAF.Messaging.Runtime.dll` is added automatically by `AddSafHost`. The assemblies load in the order
+of the patterns, so list the messaging and storage DLLs before your own plug-ins: they are then
+stopped and disposed after them (see [Shutdown and Disposal](./plugin-system.md#shutdown-and-disposal)).
 
 For production third-party deployment, do not let untrusted users write directly to the configured
 plugin search root. Use an installer-controlled active directory and keep any upload or staging

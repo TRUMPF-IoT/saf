@@ -165,15 +165,16 @@ public class PluginSystemControllerTests
     }
 
     [Fact]
-    public async Task ReloadAsync_WhenStopIsCanceled_AbortsRemainingStopOperationsAndRethrows()
+    public async Task ReloadAsync_WhenStopIsCanceled_StopsTheRemainingPluginsAndRethrows()
     {
         // Arrange
         var firstPlugin = Substitute.For<IServicePlugin>();
         var secondPlugin = Substitute.For<IServicePlugin>();
         _pluginServicesContainer.GetPluginServices().Returns([BuildProviderWith(firstPlugin, secondPlugin)]);
 
+        // The plug-ins are stopped in reverse order, so the second one goes first.
         using var cancellationTokenSource = new CancellationTokenSource();
-        firstPlugin.StopAsync(Arg.Any<CancellationToken>())
+        secondPlugin.StopAsync(Arg.Any<CancellationToken>())
             .Returns(_ =>
             {
                 cancellationTokenSource.Cancel();
@@ -187,7 +188,7 @@ public class PluginSystemControllerTests
 
         // Assert
         Assert.IsAssignableFrom<OperationCanceledException>(exception);
-        await secondPlugin.DidNotReceive().StopAsync(Arg.Any<CancellationToken>());
+        await firstPlugin.Received(1).StopAsync(Arg.Any<CancellationToken>());
         await _pluginServicesReloader.DidNotReceive().ReinitializeAsync(Arg.Any<CancellationToken>());
     }
 
