@@ -128,7 +128,9 @@ public class MyLifecyclePlugin : ILifecycleServicePlugin
 }
 ```
 
-The lifecycle order follows `IHostedLifecycleService` semantics, executed sequentially across all plugins:
+The lifecycle order follows `IHostedLifecycleService` semantics, executed sequentially across all plugins. As the .NET
+host does with its hosted services, the start phases run over the plug-ins in load order and the stop phases in reverse
+load order (see [Shutdown and Disposal](#shutdown-and-disposal)):
 
 ```
 StartingAsync → StartAsync → StartedAsync
@@ -797,8 +799,8 @@ sequenceDiagram
     SPH->>PB: StoppingAsync
 
     Host->>SPH: StopAsync
-    SPH->>PA: StopAsync
     SPH->>PB: StopAsync
+    SPH->>PA: StopAsync
 
     Host->>SPH: StoppedAsync
     SPH->>PB: StoppedAsync
@@ -811,10 +813,10 @@ sequenceDiagram
 When the host shuts down, it first stops the service plug-ins (see [Lifecycle Sequence Diagram](#lifecycle-sequence-diagram)).
 Afterwards it disposes the plug-in containers, and each container disposes the singletons it created itself.
 
-The containers are disposed in the **reverse order the plug-ins were loaded in**, the rule Microsoft's container
-applies to its own singletons. A plug-in usually uses services of plug-ins loaded before it, above all the messaging
-and the storage. Because it is disposed first, its `Dispose` can still release them, for example cancel a
-subscription.
+Both run in the **reverse order the plug-ins were loaded in**, the rule the .NET host applies to its hosted services
+and Microsoft's container to its singletons. A plug-in usually uses services of plug-ins loaded before it, above all
+the messaging and the storage. Because it is stopped and disposed first, its `StopAsync` and `Dispose` can still use
+them, for example to cancel a subscription.
 
 The load order is:
 
@@ -823,8 +825,9 @@ The load order is:
 2. Within one folder container, the order the folder search finds the assemblies in. That order is not defined on
    every platform, so do not rely on it.
 
-To keep the messaging and the storage alive until the plug-ins that use them are disposed, load the infrastructure
-plug-ins from a folder container that you register **before** the containers of your application plug-ins:
+To keep the messaging and the storage alive until the plug-ins that use them are stopped and disposed, load the
+infrastructure plug-ins from a folder container that you register **before** the containers of your application
+plug-ins:
 
 ```csharp
 builder.AddSafHost()
@@ -858,12 +861,12 @@ and the other containers are still disposed. Neither the host's disposal nor a
 [reload](#live-reload-reconfiguration) fails because of it. Within one container, Microsoft's container stops
 disposing at the first singleton that throws.
 
-> **Changed after 11.0.0-alpha.10:** The pre-releases up to 11.0.0-alpha.10 disposed the containers in load order,
-> starting with the runtime plug-in and its primary messaging, and stopped at the first container that failed to
-> dispose. A plug-in that unsubscribed only in `Dispose` then met a disposed messaging: the routing messaging logged
-> `Subscription not active anymore`, the in-process messaging threw an `ObjectDisposedException`. No change is needed
-> in your code. A host that loads its application plug-ins and their infrastructure from the same folder container
-> should split them into two containers as shown above.
+> **Changed after 11.0.0-alpha.10:** The pre-releases up to 11.0.0-alpha.10 stopped the service plug-ins and disposed
+> the containers in load order, and stopped disposing at the first container that failed. The runtime plug-in with the
+> primary messaging was disposed first, so a plug-in that unsubscribed only in `Dispose` met a disposed messaging: the
+> routing messaging logged `Subscription not active anymore`, the in-process messaging threw an
+> `ObjectDisposedException`. No change is needed in your code. A host that loads its application plug-ins and their
+> infrastructure from the same folder container should split them into two containers as shown above.
 
 ---
 
@@ -902,9 +905,9 @@ A reload runs the **complete** service-plugin lifecycle around the provider rebu
 .NET host runs at startup and shutdown, so `ILifecycleServicePlugin` implementations are honored:
 
 ```
-StoppingAsync → StopAsync → StoppedAsync      on the old instances
+StoppingAsync → StopAsync → StoppedAsync      on the old instances, in reverse load order
              ↓ rebuild plugin service providers ↓
-StartingAsync → StartAsync → StartedAsync     on the new instances
+StartingAsync → StartAsync → StartedAsync     on the new instances, in load order
 ```
 
 ### What a reload does — and does not — do

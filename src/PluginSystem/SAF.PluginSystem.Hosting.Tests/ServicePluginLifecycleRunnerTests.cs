@@ -86,8 +86,8 @@ public class ServicePluginLifecycleRunnerTests
         faultyPlugin.StopAsync(Arg.Any<CancellationToken>()).Returns(Task.FromException(new Exception("boom")));
         var runner = new ServicePluginLifecycleRunner(_logger, _pluginServicesContainer);
 
-        // Act
-        var exception = await Record.ExceptionAsync(() => runner.StopAsync([faultyPlugin, okPlugin], CancellationToken.None));
+        // Act: stopped in reverse order, so the faulty plug-in goes first
+        var exception = await Record.ExceptionAsync(() => runner.StopAsync([okPlugin, faultyPlugin], CancellationToken.None));
 
         // Assert
         Assert.Null(exception);
@@ -128,9 +128,9 @@ public class ServicePluginLifecycleRunnerTests
 
         var runner = new ServicePluginLifecycleRunner(_logger, _pluginServicesContainer);
 
-        // Act
+        // Act: stopped in reverse order, so the canceling plug-in goes first
         var exception = await Record.ExceptionAsync(
-            () => runner.StopAsync([cancelingPlugin, notReachedPlugin], cancellationTokenSource.Token));
+            () => runner.StopAsync([notReachedPlugin, cancelingPlugin], cancellationTokenSource.Token));
 
         // Assert
         Assert.IsAssignableFrom<OperationCanceledException>(exception);
@@ -154,9 +154,9 @@ public class ServicePluginLifecycleRunnerTests
 
         var runner = new ServicePluginLifecycleRunner(_logger, _pluginServicesContainer);
 
-        // Act
+        // Act: stopping runs in reverse order, so the canceling plug-in goes first
         var exception = await Record.ExceptionAsync(
-            () => runner.StoppingAsync([cancelingPlugin, notReachedPlugin], cancellationTokenSource.Token));
+            () => runner.StoppingAsync([notReachedPlugin, cancelingPlugin], cancellationTokenSource.Token));
 
         // Assert
         Assert.IsAssignableFrom<OperationCanceledException>(exception);
@@ -192,13 +192,43 @@ public class ServicePluginLifecycleRunnerTests
         SetupPhaseToThrow(failingPlugin, phaseName);
 
         var runner = new ServicePluginLifecycleRunner(_logger, _pluginServicesContainer);
-        IEnumerable<IServicePlugin> plugins = [failingPlugin, succeedingPlugin];
+
+        // The stop phases run in reverse order; either way the failing plug-in goes first.
+        IEnumerable<IServicePlugin> plugins = phaseName.StartsWith("Stop", StringComparison.Ordinal)
+            ? [succeedingPlugin, failingPlugin]
+            : [failingPlugin, succeedingPlugin];
 
         // Act
         await InvokePhase(runner, plugins, phaseName);
 
         // Assert
         await VerifySucceedingPluginCalled(succeedingPlugin, phaseName);
+    }
+
+    /// <summary>
+    /// Tests that the start phases run over the plug-ins in the order they are passed in, and the stop phases in
+    /// the reverse order, as the .NET host does with its hosted services.
+    /// </summary>
+    [Theory]
+    [InlineData("StartingAsync", "first", "second")]
+    [InlineData("StartAsync", "first", "second")]
+    [InlineData("StartedAsync", "first", "second")]
+    [InlineData("StoppingAsync", "second", "first")]
+    [InlineData("StopAsync", "second", "first")]
+    [InlineData("StoppedAsync", "second", "first")]
+    public async Task Phase_ShouldRunStartPhasesInOrder_AndStopPhasesInReverse(
+        string phaseName, string expectedFirst, string expectedSecond)
+    {
+        // Arrange
+        List<string> calls = [];
+        var runner = new ServicePluginLifecycleRunner(_logger, _pluginServicesContainer);
+        IEnumerable<IServicePlugin> plugins = [new RecordingPlugin("first", calls), new RecordingPlugin("second", calls)];
+
+        // Act
+        await InvokePhase(runner, plugins, phaseName);
+
+        // Assert
+        Assert.Equal([expectedFirst, expectedSecond], calls);
     }
 
     private static void SetupPhaseToThrow(ILifecycleServicePlugin plugin, string phaseName)
@@ -216,8 +246,10 @@ public class ServicePluginLifecycleRunnerTests
         => phaseName switch
         {
             "StartingAsync" => runner.StartingAsync(plugins, CancellationToken.None),
+            "StartAsync" => runner.StartAsync(plugins, CancellationToken.None),
             "StartedAsync" => runner.StartedAsync(plugins, CancellationToken.None),
             "StoppingAsync" => runner.StoppingAsync(plugins, CancellationToken.None),
+            "StopAsync" => runner.StopAsync(plugins, CancellationToken.None),
             "StoppedAsync" => runner.StoppedAsync(plugins, CancellationToken.None),
             _ => throw new ArgumentOutOfRangeException(nameof(phaseName))
         };
@@ -230,6 +262,30 @@ public class ServicePluginLifecycleRunnerTests
             case "StartedAsync": await succeedingPlugin.Received(1).StartedAsync(Arg.Any<CancellationToken>()); break;
             case "StoppingAsync": await succeedingPlugin.Received(1).StoppingAsync(Arg.Any<CancellationToken>()); break;
             case "StoppedAsync": await succeedingPlugin.Received(1).StoppedAsync(Arg.Any<CancellationToken>()); break;
+        }
+    }
+
+    /// <summary>
+    /// Records its name in <paramref name="calls"/> in every lifecycle phase.
+    /// </summary>
+    private sealed class RecordingPlugin(string name, List<string> calls) : ILifecycleServicePlugin
+    {
+        public Task StartingAsync(CancellationToken cancellationToken) => Record();
+
+        public Task StartAsync(CancellationToken token) => Record();
+
+        public Task StartedAsync(CancellationToken cancellationToken) => Record();
+
+        public Task StoppingAsync(CancellationToken cancellationToken) => Record();
+
+        public Task StopAsync(CancellationToken token) => Record();
+
+        public Task StoppedAsync(CancellationToken cancellationToken) => Record();
+
+        private Task Record()
+        {
+            calls.Add(name);
+            return Task.CompletedTask;
         }
     }
 }

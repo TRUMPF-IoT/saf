@@ -44,7 +44,7 @@ internal sealed class ServicePluginLifecycleRunner(
     /// <inheritdoc />
     public Task StoppingAsync(IEnumerable<IServicePlugin> servicePlugins, CancellationToken cancellationToken)
         => ExecuteLifecyclePhaseAsync(
-            servicePlugins,
+            InStopOrder(servicePlugins),
             static (plugin, ct) => plugin.StoppingAsync(ct),
             nameof(ILifecycleServicePlugin.StoppingAsync),
             cancellationToken);
@@ -52,7 +52,7 @@ internal sealed class ServicePluginLifecycleRunner(
     /// <inheritdoc />
     public Task StopAsync(IEnumerable<IServicePlugin> servicePlugins, CancellationToken cancellationToken)
         => ExecuteAsync(
-            servicePlugins,
+            InStopOrder(servicePlugins),
             static (plugin, ct) => plugin.StopAsync(ct),
             ex => logger.LogError(ex, "Failed to stop service plug-in."),
             cancellationToken);
@@ -60,10 +60,16 @@ internal sealed class ServicePluginLifecycleRunner(
     /// <inheritdoc />
     public Task StoppedAsync(IEnumerable<IServicePlugin> servicePlugins, CancellationToken cancellationToken)
         => ExecuteLifecyclePhaseAsync(
-            servicePlugins,
+            InStopOrder(servicePlugins),
             static (plugin, ct) => plugin.StoppedAsync(ct),
             nameof(ILifecycleServicePlugin.StoppedAsync),
             cancellationToken);
+
+    // Like the .NET host with its hosted services, the plug-ins stop in the reverse order they start in: a plug-in
+    // commonly uses the services of the plug-ins started before it, such as the messaging, and can then still use
+    // them while it stops.
+    private static IEnumerable<IServicePlugin> InStopOrder(IEnumerable<IServicePlugin> servicePlugins)
+        => servicePlugins.Reverse();
 
     private Task ExecuteLifecyclePhaseAsync(
         IEnumerable<IServicePlugin> servicePlugins,
