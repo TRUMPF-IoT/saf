@@ -272,6 +272,29 @@ public class PluginServicesContainerTests
     }
 
     /// <summary>
+    /// Tests that the failure of a plugin service provider to dispose is logged with the name of the plugin.
+    /// </summary>
+    [Fact]
+    public async Task DisposeAsync_WhenAPluginProviderFailsToDispose_LogsThePluginName()
+    {
+        // Arrange
+        var logger = Substitute.For<MockLogger<PluginServicesContainer>>();
+        var pluginServicesContainer = new PluginServicesContainer(
+            logger, _hostContext, _applicationServiceProvider,
+            [AssemblyContainerWith(ManifestDisposing(() => { }), new ThrowingOnDisposeManifest())],
+            _publicServiceTypeRegistry);
+        ResolveDisposeProbes(pluginServicesContainer);
+
+        // Act
+        await DisposeContainerAsync(pluginServicesContainer);
+
+        // Assert
+        var pluginName = typeof(ThrowingOnDisposeManifest).Assembly.GetName().Name!;
+        logger.AssertLoggedOnce(LogLevel.Error);
+        logger.AssertLogged(LogLevel.Error, message => message.Contains(pluginName, StringComparison.Ordinal));
+    }
+
+    /// <summary>
     /// Tests that ReinitializeAsync rebuilds service providers without re-scanning plugin manifests.
     /// </summary>
     [Fact]
@@ -531,5 +554,12 @@ public class PluginServicesContainerTests
     private sealed class DisposeProbe(Action dispose) : IDisposable
     {
         public void Dispose() => dispose();
+    }
+
+    // Unlike the substituted manifests, lives in this test assembly, which names the plugin.
+    private sealed class ThrowingOnDisposeManifest : IPluginManifest
+    {
+        public void ConfigureServices(IPluginSystemHostContext context, IServiceCollection pluginServices)
+            => pluginServices.AddSingleton(_ => new DisposeProbe(() => throw new InvalidOperationException("dispose boom")));
     }
 }

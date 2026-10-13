@@ -856,10 +856,11 @@ builder.AddSafHost()
 > created by the messaging plug-ins loaded after it, and so it is disposed after them. Subscribe in `StartAsync` and
 > unsubscribe in `StopAsync`: the plug-ins are stopped while everything is still running.
 
-**Failures.** If a container fails to dispose, the error is logged (`Failed to dispose a plug-in service provider.`)
-and the other containers are still disposed. Neither the host's disposal nor a
-[reload](#live-reload-reconfiguration) fails because of it. Within one container, Microsoft's container stops
-disposing at the first singleton that throws.
+**Failures.** If a container fails to dispose, the error is logged with the name of the plug-in's assembly
+(`Failed to dispose the service provider of MyApp.Plugin.Orders. ...`), and the other containers are still disposed.
+Neither the host's disposal nor a [reload](#live-reload-reconfiguration) fails because of it. Within one container,
+Microsoft's container stops disposing at the first singleton that throws, so the singletons the plug-in created before
+that one stay undisposed. Do not let `Dispose` throw.
 
 > **Changed after 11.0.0-alpha.10:** The pre-releases up to 11.0.0-alpha.10 stopped the service plug-ins and disposed
 > the containers in load order, and stopped disposing at the first container that failed. The runtime plug-in with the
