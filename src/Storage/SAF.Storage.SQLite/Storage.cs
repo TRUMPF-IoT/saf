@@ -5,7 +5,9 @@
 namespace SAF.Storage.SQLite;
 using SAF.Common;
 using Microsoft.Data.Sqlite;
+using System.Diagnostics.CodeAnalysis;
 
+[SuppressMessage("Security", "S2077:Formatting SQL queries is security-sensitive", Justification = "Table names cannot be passed as SQL parameters; area names are inserted only through QuoteIdentifier, and all values are parameterized.")]
 public class Storage : IStorageInfrastructure, IDisposable
 {
     private readonly SqliteConnection _connection;
@@ -59,7 +61,7 @@ public class Storage : IStorageInfrastructure, IDisposable
             area = CorrectLegacyAreas(area);
             if (!DoesTableExist(area)) return this;
 
-            using var command = new SqliteCommand($"DELETE FROM {area} WHERE id=@id", _connection);
+            using var command = new SqliteCommand($"DELETE FROM {QuoteIdentifier(area)} WHERE id=@id", _connection);
             command.Parameters.AddWithValue("@id", key);
             command.ExecuteNonQuery();
         }
@@ -75,7 +77,7 @@ public class Storage : IStorageInfrastructure, IDisposable
 
         lock (_syncDbAccess)
         {
-            using var command = new SqliteCommand($"DROP TABLE IF EXISTS {area}", _connection);
+            using var command = new SqliteCommand($"DROP TABLE IF EXISTS {QuoteIdentifier(area)}", _connection);
             command.ExecuteNonQuery();
         }
 
@@ -99,7 +101,7 @@ public class Storage : IStorageInfrastructure, IDisposable
             area = CorrectLegacyAreas(area);
             if (!DoesTableExist(area)) return null;
 
-            using var command = new SqliteCommand($"SELECT {valueType} FROM {area} WHERE id=@id", _connection);
+            using var command = new SqliteCommand($"SELECT {valueType} FROM {QuoteIdentifier(area)} WHERE id=@id", _connection);
             command.Parameters.AddWithValue("@id", key);
             return command.ExecuteScalar();
         }
@@ -143,7 +145,7 @@ public class Storage : IStorageInfrastructure, IDisposable
             area = CorrectLegacyAreas(area);
             CreateTable(area);
 
-            using var cmd = new SqliteCommand($"REPLACE INTO {area}(id, {rowType}) VALUES(@id, @value)", _connection);
+            using var cmd = new SqliteCommand($"REPLACE INTO {QuoteIdentifier(area)}(id, {rowType}) VALUES(@id, @value)", _connection);
             cmd.Parameters.AddWithValue("@id", key);
             cmd.Parameters.AddWithValue("@value", value);
             cmd.ExecuteNonQuery();
@@ -152,11 +154,14 @@ public class Storage : IStorageInfrastructure, IDisposable
 
     private void CreateTable(string tableName)
     {
-        using var cmd = new SqliteCommand($"CREATE TABLE IF NOT EXISTS {tableName}(id string PRIMARY KEY, {StringValue} TEXT, {BytesValue} BLOB)", _connection);
+        using var cmd = new SqliteCommand($"CREATE TABLE IF NOT EXISTS {QuoteIdentifier(tableName)}(id string PRIMARY KEY, {StringValue} TEXT, {BytesValue} BLOB)", _connection);
         cmd.ExecuteNonQuery();
     }
 
     private static string CorrectLegacyAreas(string area)
         => area.Replace(".", "_").Replace("/", "_");
+
+    private static string QuoteIdentifier(string name)
+        => $"\"{name.Replace("\"", "\"\"")}\"";
 }
 

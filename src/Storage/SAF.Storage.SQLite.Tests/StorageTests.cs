@@ -414,6 +414,24 @@ public class StorageTests
         });
     }
 
+    [Theory]
+    [InlineData("x; DROP TABLE global; --")]
+    [InlineData("area \"with\" quotes")]
+    [InlineData("hyphen-area")]
+    public void AreaNamesAreTreatedAsIdentifiers(string area)
+    {
+        using var storage = new Storage(_connection);
+        storage.Set("key", "global value");
+
+        storage.Set(area, "key", "area value");
+        Assert.Equal("area value", storage.GetString(area, "key"));
+        storage.RemoveKey(area, "key");
+        Assert.Null(storage.GetString(area, "key"));
+        storage.RemoveArea(area);
+
+        Assert.Equal("global value", storage.GetString("key"));
+    }
+
     [Fact]
     public void NativeSqliteLoadsOnExpectedRuntime()
     {
