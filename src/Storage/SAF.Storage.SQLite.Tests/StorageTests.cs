@@ -6,7 +6,6 @@ namespace SAF.Storage.SQLite.Tests;
 using Microsoft.Data.Sqlite;
 using Microsoft.Extensions.DependencyInjection;
 using SAF.Common;
-using System.Runtime.InteropServices;
 using Xunit;
 
 public class StorageTests
@@ -328,35 +327,22 @@ public class StorageTests
     }
 
     [Fact]
-    public void ExistingLegacySchemaRemainsReadableAndWritable()
+    public void DatabaseWrittenBySystemDataSQLiteRemainsReadableAndWritable()
     {
-        var path = Path.GetTempFileName();
+        var path = Path.Combine(Path.GetTempPath(), $"saf-legacy-{Guid.NewGuid():N}.db");
+        File.Copy(Path.Combine(AppContext.BaseDirectory, "Fixtures", "legacy-system-data-sqlite.db"), path);
         var connectionString = new SqliteConnectionStringBuilder { DataSource = path, Pooling = false }.ToString();
         var bytes = new byte[] { 0, 1, 2, 255 };
 
         try
         {
-            using (var connection = new SqliteConnection(connectionString))
-            {
-                connection.Open();
-                using var command = connection.CreateCommand();
-                command.CommandText = """
-                    CREATE TABLE global(id string PRIMARY KEY, stringValue TEXT, bytesValue BLOB);
-                    INSERT INTO global VALUES('text', 'legacy global text', NULL);
-                    INSERT INTO global VALUES('bytes', NULL, X'000102FF');
-                    CREATE TABLE legacy_area_name(id string PRIMARY KEY, stringValue TEXT, bytesValue BLOB);
-                    INSERT INTO legacy_area_name VALUES('text', 'legacy named text', NULL);
-                    INSERT INTO legacy_area_name VALUES('bytes', NULL, X'000102FF');
-                    """;
-                command.ExecuteNonQuery();
-            }
-
             using (var storage = new Storage(new SqliteConnection(connectionString)))
             {
                 Assert.Equal("legacy global text", storage.GetString("text"));
                 Assert.Equal(bytes, storage.GetBytes("bytes"));
                 Assert.Equal("legacy named text", storage.GetString("legacy.area/name", "text"));
                 Assert.Equal(bytes, storage.GetBytes("legacy.area/name", "bytes"));
+                Assert.Equal("Grüße 你好", storage.GetString("legacy.area/name", "unicode"));
                 storage.Set("text", "updated global text");
                 storage.Set("bytes", new byte[] { 42 });
                 storage.Set("legacy.area/name", "text", "updated named text");
@@ -433,16 +419,80 @@ public class StorageTests
     }
 
     [Fact]
-    public void NativeSqliteLoadsOnExpectedRuntime()
+    public void BundledNativeSqliteLibraryIsUsed()
     {
-        var expectedRuntime = Environment.GetEnvironmentVariable("SAF_SQLITE_EXPECTED_RID");
-        if (!string.IsNullOrEmpty(expectedRuntime))
-        {
-            Assert.Equal(expectedRuntime, RuntimeInformation.RuntimeIdentifier);
-        }
-
         using var storage = new Storage(_connection);
         storage.Set("native", "loaded");
+
         Assert.Equal("loaded", storage.GetString("native"));
+        Assert.Equal("e_sqlite3", SQLitePCL.raw.GetNativeLibraryName());
     }
+
+    [Fact]
+    public void EncryptedConnectionStringIsRejected()
+    {
+        var services = new ServiceCollection();
+        services.AddSQLiteStorageInfrastructure(config => config.ConnectionString = "Data Source=:memory:;Version=3;Password=secret;");
+        using var provider = services.BuildServiceProvider();
+
+        Assert.Throws<InvalidOperationException>(() => provider.GetRequiredService<IStorageInfrastructure>());
+    }
+
+    [Fact]
+    public void NullValuesAreStoredAsNull()
+    {
+        using var storage = new Storage(_connection);
+        storage.Set("key", "value");
+        storage.Set("area", "key", "value");
+
+        storage.Set("key", (string)null!);
+        storage.Set("area", "key", (byte[])null!);
+
+        Assert.Null(storage.GetString("key"));
+        Assert.Null(storage.GetBytes("area", "key"));
+        Assert.Null(storage.GetString(null!));
+        storage.RemoveKey(null!);
+    }
+
+    [Fact]
+    public void DisposeReleasesDatabaseFile()
+    {
+        var path = Path.Combine(Path.GetTempPath(), $"saf-dispose-{Guid.NewGuid():N}.db");
+        var services = new ServiceCollection();
+        services.AddSQLiteStorageInfrastructure(config => config.ConnectionString = $"Data Source={path};");
+
+        using (var provider = services.BuildServiceProvider())
+        {
+            provider.GetRequiredService<IStorageInfrastructure>().Set("key", "value");
+        }
+
+        File.Delete(path);
+        Assert.False(File.Exists(path));
+    }
+
+    [Theory]
+    [InlineData("GLOBAL")]
+    [InlineData("Global")]
+    public void RemoveGlobalAreaIgnoresCase(string area)
+    {
+        using var storage = new Storage(_connection);
+        storage.Set("key", "value");
+
+        Assert.Throws<NotSupportedException>(() => storage.RemoveArea(area));
+        Assert.Equal("value", storage.GetString("key"));
+    }
+
+    [Fact]
+    public void AreaNamesIgnoreCase()
+    {
+        using var storage = new Storage(_connection);
+        storage.Set("MyArea", "a", "1");
+        storage.Set("myarea", "b", "2");
+
+        Assert.Equal("2", storage.GetString("MyArea", "b"));
+        Assert.Equal("1", storage.GetString("myarea", "a"));
+        storage.RemoveKey("MYAREA", "b");
+        Assert.Null(storage.GetString("myarea", "b"));
+    }
+
 }

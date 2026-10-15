@@ -36,6 +36,7 @@ public class Storage : IStorageInfrastructure, IDisposable
         lock (_syncDbAccess)
         {
             _connection.Close();
+            SqliteConnection.ClearPool(_connection);
             _connection.Dispose();
         }
     }
@@ -62,7 +63,7 @@ public class Storage : IStorageInfrastructure, IDisposable
             if (!DoesTableExist(area)) return this;
 
             using var command = new SqliteCommand($"DELETE FROM {QuoteIdentifier(area)} WHERE id=@id", _connection);
-            command.Parameters.AddWithValue("@id", key);
+            command.Parameters.AddWithValue("@id", ToDbValue(key));
             command.ExecuteNonQuery();
         }
 
@@ -72,7 +73,7 @@ public class Storage : IStorageInfrastructure, IDisposable
     public IStorageInfrastructure RemoveArea(string area)
     {
         area = CorrectLegacyAreas(area);
-        if (area == GlobalStorageArea)
+        if (string.Equals(area, GlobalStorageArea, StringComparison.OrdinalIgnoreCase))
             throw new NotSupportedException("It is not allowed to delete the global storage area.");
 
         lock (_syncDbAccess)
@@ -102,14 +103,14 @@ public class Storage : IStorageInfrastructure, IDisposable
             if (!DoesTableExist(area)) return null;
 
             using var command = new SqliteCommand($"SELECT {valueType} FROM {QuoteIdentifier(area)} WHERE id=@id", _connection);
-            command.Parameters.AddWithValue("@id", key);
+            command.Parameters.AddWithValue("@id", ToDbValue(key));
             return command.ExecuteScalar();
         }
     }
 
     private bool DoesTableExist(string area)
     {
-        using var command = new SqliteCommand("SELECT name FROM sqlite_master WHERE type = 'table' AND name = @tableName", _connection);
+        using var command = new SqliteCommand("SELECT name FROM sqlite_master WHERE type = 'table' AND name = @tableName COLLATE NOCASE", _connection);
         command.Parameters.AddWithValue("@tableName", area);
         return !string.IsNullOrWhiteSpace(command.ExecuteScalar()?.ToString());
     }
@@ -138,7 +139,7 @@ public class Storage : IStorageInfrastructure, IDisposable
         return this;
     }
 
-    private void SaveValue(string area, string key, object value, string rowType)
+    private void SaveValue(string area, string key, object? value, string rowType)
     {
         lock (_syncDbAccess)
         {
@@ -146,8 +147,8 @@ public class Storage : IStorageInfrastructure, IDisposable
             CreateTable(area);
 
             using var cmd = new SqliteCommand($"REPLACE INTO {QuoteIdentifier(area)}(id, {rowType}) VALUES(@id, @value)", _connection);
-            cmd.Parameters.AddWithValue("@id", key);
-            cmd.Parameters.AddWithValue("@value", value);
+            cmd.Parameters.AddWithValue("@id", ToDbValue(key));
+            cmd.Parameters.AddWithValue("@value", ToDbValue(value));
             cmd.ExecuteNonQuery();
         }
     }
@@ -160,6 +161,9 @@ public class Storage : IStorageInfrastructure, IDisposable
 
     private static string CorrectLegacyAreas(string area)
         => area.Replace(".", "_").Replace("/", "_");
+
+    private static object ToDbValue(object? value)
+        => value ?? DBNull.Value;
 
     private static string QuoteIdentifier(string name)
         => $"\"{name.Replace("\"", "\"\"")}\"";
