@@ -16,7 +16,7 @@ public class PluginManifestTests
     [Fact]
     public void ConfigureServices_WithPluginSQLiteConfiguration_RegistersStorageInfrastructure()
     {
-        var pluginConfig = new Dictionary<string, string?> { ["SQLite:ConnectionString"] = "Data Source=plugin.db" };
+        var pluginConfig = new Dictionary<string, string?> { ["SQLite:ConnectionString"] = "Data Source=:memory:;Version=3;" };
         var hostConfig = new Dictionary<string, string?> { ["SQLite:ConnectionString"] = "Data Source=host.db" };
 
         var context = CreateContext(hostConfig, pluginConfig);
@@ -25,7 +25,7 @@ public class PluginManifestTests
         var manifest = new PluginManifest();
         manifest.ConfigureServices(context, services);
 
-        var provider = services.BuildServiceProvider();
+        using var provider = services.BuildServiceProvider();
 
         // Verify IStorageInfrastructure is registered
         var storage = provider.GetService<IStorageInfrastructure>();
@@ -36,7 +36,7 @@ public class PluginManifestTests
     [Fact]
     public void ConfigureServices_WithLegacyPluginSQLiteConfiguration_RegistersStorageInfrastructure()
     {
-        var pluginConfig = new Dictionary<string, string?> { ["SQLiteConfiguration:ConnectionString"] = "Data Source=legacy.db" };
+        var pluginConfig = new Dictionary<string, string?> { ["SQLiteConfiguration:ConnectionString"] = "Data Source=:memory:;Version=3;" };
         var hostConfig = new Dictionary<string, string?>();
 
         var context = CreateContext(hostConfig, pluginConfig);
@@ -45,7 +45,7 @@ public class PluginManifestTests
         var manifest = new PluginManifest();
         manifest.ConfigureServices(context, services);
 
-        var provider = services.BuildServiceProvider();
+        using var provider = services.BuildServiceProvider();
 
         // Verify IStorageInfrastructure is registered
         var storage = provider.GetService<IStorageInfrastructure>();
@@ -56,7 +56,7 @@ public class PluginManifestTests
     [Fact]
     public void ConfigureServices_WithoutPluginConfiguration_RegistersStorageInfrastructure()
     {
-        var hostConfig = new Dictionary<string, string?> { ["SQLite:ConnectionString"] = "Data Source=host.db" };
+        var hostConfig = new Dictionary<string, string?> { ["SQLite:ConnectionString"] = "Data Source=:memory:;Version=3;" };
 
         var context = CreateContext(hostConfig, new Dictionary<string, string?>());
         var services = new ServiceCollection();
@@ -64,7 +64,7 @@ public class PluginManifestTests
         var manifest = new PluginManifest();
         manifest.ConfigureServices(context, services);
 
-        var provider = services.BuildServiceProvider();
+        using var provider = services.BuildServiceProvider();
 
         // Verify IStorageInfrastructure is registered
         var storage = provider.GetService<IStorageInfrastructure>();
@@ -81,10 +81,31 @@ public class PluginManifestTests
         var manifest = new PluginManifest();
         manifest.ConfigureServices(context, services);
 
-        var provider = services.BuildServiceProvider();
+        using var provider = services.BuildServiceProvider();
 
         // Attempting to resolve IStorageInfrastructure without valid connection string should throw
         Assert.Throws<ArgumentException>(() => provider.GetService<IStorageInfrastructure>());
+    }
+
+    [Theory]
+    [InlineData("SQLite", true)]
+    [InlineData("SQLite", false)]
+    [InlineData("SQLiteConfiguration", true)]
+    [InlineData("SQLiteConfiguration", false)]
+    public void ConfigureServices_WithLegacyVersionOption_StorageIsUsable(string section, bool pluginConfiguration)
+    {
+        var values = new Dictionary<string, string?> { [$"{section}:ConnectionString"] = "Data Source=:memory:;Version=3;" };
+        var empty = new Dictionary<string, string?>();
+        var context = pluginConfiguration ? CreateContext(empty, values) : CreateContext(values, empty);
+        var services = new ServiceCollection();
+        new PluginManifest().ConfigureServices(context, services);
+        using var provider = services.BuildServiceProvider();
+        var storage = provider.GetRequiredService<IStorageInfrastructure>();
+
+        storage.Set("text", "value");
+        storage.Set("area", "bytes", new byte[] { 0, 1, 255 });
+        Assert.Equal("value", storage.GetString("text"));
+        Assert.Equal(new byte[] { 0, 1, 255 }, storage.GetBytes("area", "bytes"));
     }
 
     private static IPluginSystemHostContext CreateContext(

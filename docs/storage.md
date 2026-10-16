@@ -54,17 +54,27 @@ Embedded NoSQL database. Zero external dependencies, suitable for single-node de
 
 ### SQLite
 
-Embedded relational database, using `System.Data.SQLite`.
+Embedded relational database, using `Microsoft.Data.Sqlite` with the bundled SQLitePCLRaw native SQLite library. Windows, Linux, macOS x64 (`osx-x64`), and native Apple Silicon (`osx-arm64`) are supported. Apple Silicon applications do not need Rosetta or `SQLite.Interop.dll`. Deploy the package's native runtime assets with your application; for a self-contained Apple Silicon deployment, publish with `dotnet publish -r osx-arm64 --self-contained true`.
 
 **Plug-in DLL:** `SAF.Storage.SQLite.dll`
 
 ```json
 {
-  "SQLite": { "ConnectionString": "Data Source=app.db;Version=3;" }
+    "SQLite": { "ConnectionString": "Data Source=app.db;" }
 }
 ```
 
-The plug-in also accepts the legacy section name `SQLiteConfiguration`.
+The plug-in also accepts the legacy section name `SQLiteConfiguration`. Both sections and `AddSQLiteStorageInfrastructure(...)` remain unchanged.
+
+Connection strings use the [Microsoft.Data.Sqlite syntax](https://learn.microsoft.com/dotnet/standard/data/sqlite/connection-strings), for example `Data Source=app.db;Mode=ReadWriteCreate;` or `Data Source=:memory:;`. SAF transparently removes the legacy `Version` option (including `Version=3`, case-insensitively) during registration. Existing configurations containing it continue to work. Other provider-specific options must be converted to their Microsoft.Data.Sqlite equivalents; unsupported keywords cause an `ArgumentException` when the storage service is resolved.
+
+Existing SQLite database files remain readable and writable without schema or data migration. The table layout is unchanged: one table per area, with `id string PRIMARY KEY`, `stringValue TEXT`, and `bytesValue BLOB`. Global calls use the `global` table. Dots and slashes in legacy area names still become underscores. Area names are quoted as SQL identifiers, so names containing spaces, hyphens, quotes, or other SQL syntax are stored as ordinary tables and cannot alter the executed statement; such names previously failed or were interpreted as SQL. Missing keys and reads of the other value type return `null`; overwriting a key replaces the old value, including when switching between string and binary values. Area names are case-insensitive, matching SQLite table names: `MyArea` and `myarea` address the same area. Key removal and area removal are unchanged, and the global area cannot be removed under any spelling (for example `GLOBAL`). Null keys and values are stored and looked up as SQL `NULL`, as before.
+
+All operations on the shared connection, including reads and disposal, are serialized. Concurrent storage calls are supported, but a sequence of calls is not an atomic transaction. Do not use storage after disposal or access its connection independently while storage is in use. Disposing the storage (for example by disposing the service provider) releases the database file, so it can be moved or deleted afterwards, even though Microsoft.Data.Sqlite pools connections by default.
+
+**Breaking change for encrypted databases:** The bundled `e_sqlite3` library does not support encryption. A connection string with a `Password` option fails with an `InvalidOperationException` when the storage service is resolved, and databases encrypted with System.Data.SQLite cannot be opened. Decrypt such a database with your previous SAF version before upgrading, or keep using that version.
+
+**Breaking change for direct construction:** `Storage(System.Data.SQLite.SQLiteConnection)` is replaced by `Storage(Microsoft.Data.Sqlite.SqliteConnection)`. This is a source and binary breaking change and belongs in the next major release. Consumers that instantiate `Storage` directly must replace the connection type and rebuild; consumers using DI or configuration do not need to change their registration. A directly constructed `SqliteConnection` must already use Microsoft.Data.Sqlite syntax (omit `Version=3`); SAF's legacy-option handling applies to `AddSQLiteStorageInfrastructure(...)` and the configuration path.
 
 ### C-DEngine
 

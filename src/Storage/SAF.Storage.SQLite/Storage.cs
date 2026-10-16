@@ -4,18 +4,20 @@
 
 namespace SAF.Storage.SQLite;
 using SAF.Common;
-using System.Data.SQLite;
+using Microsoft.Data.Sqlite;
+using System.Diagnostics.CodeAnalysis;
 
+[SuppressMessage("Security", "S2077:Formatting SQL queries is security-sensitive", Justification = "Table names cannot be passed as SQL parameters; area names are inserted only through QuoteIdentifier, and all values are parameterized.")]
 public class Storage : IStorageInfrastructure, IDisposable
 {
-    private readonly SQLiteConnection _connection;
-    private readonly ReaderWriterLockSlim _syncDbAccess = new(LockRecursionPolicy.SupportsRecursion);
+    private readonly SqliteConnection _connection;
+    private readonly object _syncDbAccess = new();
 
     private const string GlobalStorageArea = "global";
     private const string BytesValue = "bytesValue";
     private const string StringValue = "stringValue";
 
-    public Storage(SQLiteConnection connection)
+    public Storage(SqliteConnection connection)
     {
         _connection = connection;
         _connection.Open();
@@ -31,8 +33,12 @@ public class Storage : IStorageInfrastructure, IDisposable
     {
         if(!disposing) return;
 
-        _connection.Close();
-        _connection.Dispose();
+        lock (_syncDbAccess)
+        {
+            _connection.Close();
+            SqliteConnection.ClearPool(_connection);
+            _connection.Dispose();
+        }
     }
 
     public byte[]? GetBytes(string key)
@@ -51,27 +57,14 @@ public class Storage : IStorageInfrastructure, IDisposable
 
     public IStorageInfrastructure RemoveKey(string area, string key)
     {
-        _syncDbAccess.EnterUpgradeableReadLock();
-        try
+        lock (_syncDbAccess)
         {
             area = CorrectLegacyAreas(area);
             if (!DoesTableExist(area)) return this;
 
-            _syncDbAccess.EnterWriteLock();
-            try
-            {
-                using var command = new SQLiteCommand($"DELETE FROM {area} WHERE id=@id", _connection);
-                command.Parameters.AddWithValue("@id", key);
-                command.ExecuteNonQuery();
-            }
-            finally
-            {
-                _syncDbAccess.ExitWriteLock();
-            }
-        }
-        finally
-        {
-            _syncDbAccess.ExitUpgradeableReadLock();
+            using var command = new SqliteCommand($"DELETE FROM {QuoteIdentifier(area)} WHERE id=@id", _connection);
+            command.Parameters.AddWithValue("@id", ToDbValue(key));
+            command.ExecuteNonQuery();
         }
 
         return this;
@@ -80,18 +73,13 @@ public class Storage : IStorageInfrastructure, IDisposable
     public IStorageInfrastructure RemoveArea(string area)
     {
         area = CorrectLegacyAreas(area);
-        if (area == GlobalStorageArea)
+        if (string.Equals(area, GlobalStorageArea, StringComparison.OrdinalIgnoreCase))
             throw new NotSupportedException("It is not allowed to delete the global storage area.");
 
-        _syncDbAccess.EnterWriteLock();
-        try
+        lock (_syncDbAccess)
         {
-            using var command = new SQLiteCommand($"DROP TABLE IF EXISTS {area}", _connection);
+            using var command = new SqliteCommand($"DROP TABLE IF EXISTS {QuoteIdentifier(area)}", _connection);
             command.ExecuteNonQuery();
-        }
-        finally
-        {
-            _syncDbAccess.ExitWriteLock();
         }
 
         return this;
@@ -109,25 +97,20 @@ public class Storage : IStorageInfrastructure, IDisposable
 
     private object? GetValue(string area, string key, string valueType)
     {
-        _syncDbAccess.EnterReadLock();
-        try
+        lock (_syncDbAccess)
         {
             area = CorrectLegacyAreas(area);
             if (!DoesTableExist(area)) return null;
 
-            using var command = new SQLiteCommand($"SELECT {valueType} FROM {area} WHERE id=@id", _connection);
-            command.Parameters.AddWithValue("@id", key);
+            using var command = new SqliteCommand($"SELECT {valueType} FROM {QuoteIdentifier(area)} WHERE id=@id", _connection);
+            command.Parameters.AddWithValue("@id", ToDbValue(key));
             return command.ExecuteScalar();
-        }
-        finally
-        {
-            _syncDbAccess.ExitReadLock();
         }
     }
 
     private bool DoesTableExist(string area)
     {
-        using var command = new SQLiteCommand("SELECT name FROM sqlite_master WHERE type = 'table' AND name = @tableName", _connection);
+        using var command = new SqliteCommand("SELECT name FROM sqlite_master WHERE type = 'table' AND name = @tableName COLLATE NOCASE", _connection);
         command.Parameters.AddWithValue("@tableName", area);
         return !string.IsNullOrWhiteSpace(command.ExecuteScalar()?.ToString());
     }
@@ -156,33 +139,33 @@ public class Storage : IStorageInfrastructure, IDisposable
         return this;
     }
 
-    private void SaveValue(string area, string key, object value, string rowType)
+    private void SaveValue(string area, string key, object? value, string rowType)
     {
-        _syncDbAccess.EnterWriteLock();
-        try
+        lock (_syncDbAccess)
         {
             area = CorrectLegacyAreas(area);
             CreateTable(area);
 
-            using var cmd = new SQLiteCommand($"REPLACE INTO {area}(id, {rowType}) VALUES(@id, @value)", _connection);
-            cmd.Parameters.AddWithValue("@id", key);
-            cmd.Parameters.AddWithValue("@value", value);
+            using var cmd = new SqliteCommand($"REPLACE INTO {QuoteIdentifier(area)}(id, {rowType}) VALUES(@id, @value)", _connection);
+            cmd.Parameters.AddWithValue("@id", ToDbValue(key));
+            cmd.Parameters.AddWithValue("@value", ToDbValue(value));
             cmd.ExecuteNonQuery();
-        }
-        finally
-        {
-            _syncDbAccess.ExitWriteLock();
         }
     }
 
     private void CreateTable(string tableName)
     {
-        using var cmd = new SQLiteCommand(_connection);
-        cmd.CommandText = $"CREATE TABLE IF NOT EXISTS {tableName}(id string PRIMARY KEY, {StringValue} TEXT, {BytesValue} BLOB)";
+        using var cmd = new SqliteCommand($"CREATE TABLE IF NOT EXISTS {QuoteIdentifier(tableName)}(id string PRIMARY KEY, {StringValue} TEXT, {BytesValue} BLOB)", _connection);
         cmd.ExecuteNonQuery();
     }
 
     private static string CorrectLegacyAreas(string area)
         => area.Replace(".", "_").Replace("/", "_");
+
+    private static object ToDbValue(object? value)
+        => value ?? DBNull.Value;
+
+    private static string QuoteIdentifier(string name)
+        => $"\"{name.Replace("\"", "\"\"")}\"";
 }
 
