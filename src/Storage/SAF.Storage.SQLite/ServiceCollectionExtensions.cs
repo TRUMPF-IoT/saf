@@ -3,7 +3,8 @@
 // SPDX-License-Identifier: MPL-2.0
 
 namespace SAF.Storage.SQLite;
-using System.Data.SQLite;
+using System.Data.Common;
+using Microsoft.Data.Sqlite;
 using Microsoft.Extensions.DependencyInjection;
 using SAF.Common;
 
@@ -32,14 +33,16 @@ public static class ServiceCollectionExtensions
             new Storage(CreateSQLiteConnection(config)));
     }
 
-    private static SQLiteConnection CreateSQLiteConnection(SQLiteConfiguration config)
+    private static SqliteConnection CreateSQLiteConnection(SQLiteConfiguration config)
     {
         if (string.IsNullOrEmpty(config.ConnectionString))
         {
             throw new ArgumentException("The connection string can't be null", nameof(config));
         }
 
-        return new SQLiteConnection(config.ConnectionString);
+        var connectionString = new DbConnectionStringBuilder { ConnectionString = config.ConnectionString };
+        connectionString.Remove("Version");
+        return new SqliteConnection(connectionString.ConnectionString);
     }
 }
 
