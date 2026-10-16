@@ -47,6 +47,8 @@ internal class Messaging : IMessagingInfrastructure
         _publisher.Publish(message, _config.RoutingOptions);
     }
 
+    public MessageFormats GetPublishableFormats(string topic) => MessageFormats.Text | MessageFormats.Binary;
+
     public object Subscribe<TMessageHandler>() where TMessageHandler : IMessageHandler => Subscribe<TMessageHandler>("*");
 
     public object Subscribe<TMessageHandler>(string routeFilterPattern) where TMessageHandler : IMessageHandler

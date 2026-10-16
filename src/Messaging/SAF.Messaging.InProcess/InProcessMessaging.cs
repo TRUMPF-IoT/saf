@@ -129,6 +129,8 @@ internal class InProcessMessaging : IMessagingInfrastructure, IDisposable
             .ContinueWith(_ => _log.LogTrace("Finished invoking {subscriptionCount} handlers.", subscriptionsToRun.Count));
     }
 
+    public MessageFormats GetPublishableFormats(string topic) => MessageFormats.Text | MessageFormats.Binary;
+
     public void Unsubscribe(object subscription)
     {
         if (subscription is TypedSubscription typedSubscription)

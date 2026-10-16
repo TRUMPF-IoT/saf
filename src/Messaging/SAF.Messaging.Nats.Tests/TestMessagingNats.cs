@@ -6,6 +6,7 @@ using NATS.Client.Core;
 using NATS.Client.ObjectStore;
 using NSubstitute;
 using SAF.Messaging.Contracts;
+using SAF.Messaging.Nats.Tests.WireFormat;
 using Xunit;
 
 namespace SAF.Messaging.Nats.Tests;
@@ -21,7 +22,8 @@ public class TestMessagingNats
         var subscriptionManager = Substitute.For<INatsSubscriptionManager>();
         var natsClient = Substitute.For<INatsClient>();
 
-        var messaging = new Messaging(null, natsClient, subscriptionManager, inputRouteTranslator, outputRouteTranslator, smd);
+        var messaging = new Messaging(null, natsClient, subscriptionManager, new NatsRouteTranslation(inputRouteTranslator, outputRouteTranslator), smd,
+            TestWireFormat.Writer(), TestWireFormat.Reader());
         messaging.Unsubscribe(null!);
         subscriptionManager.DidNotReceive().TryRemove(Arg.Any<Guid>(), out _);
 
@@ -36,8 +38,8 @@ public class TestMessagingNats
         var messageHandler = Substitute.For<IMessageHandler>();
         messageHandler.CanHandle(Arg.Any<Message>()).Returns(true);
         var id = (Guid)messaging.Subscribe<IMessageHandler>();
-        natsClient.Connection.SubscribeCoreAsync<string>(subject: Arg.Any<string>(), cancellationToken: Arg.Any<CancellationToken>());
-        natsClient.Connection.Received().SubscribeCoreAsync<string>(subject: Arg.Any<string>(), cancellationToken: Arg.Any<CancellationToken>());
+        natsClient.Connection.SubscribeCoreAsync<NatsMemoryOwner<byte>>(subject: Arg.Any<string>(), cancellationToken: Arg.Any<CancellationToken>());
+        natsClient.Connection.Received().SubscribeCoreAsync<NatsMemoryOwner<byte>>(subject: Arg.Any<string>(), cancellationToken: Arg.Any<CancellationToken>());
         subscriptionManager.Received().TryAdd(Arg.Is<Guid>(id), Arg.Any<(string routeFilterPattern, CancellationTokenSource cancellationTokenSource, Task)>());
         subscriptionManager.ClearReceivedCalls();
         natsClient.ClearReceivedCalls();
@@ -133,6 +135,10 @@ public class TestMessagingNats
         Assert.Equal("C:\\caFile.ca", nmc.CaFile);
         Assert.True(nmc.InsecureSkipVerify);
         Assert.Equal(TlsMode.Implicit, nmc.Mode);
+        Assert.Null(nmc.EnableBinaryPayloads);
+
+        mc.Config.Add("EnableBinaryPayloads", "false");
+        Assert.False(new NatsMessagingConfiguration(mc).EnableBinaryPayloads);
     }
 
     [Fact]

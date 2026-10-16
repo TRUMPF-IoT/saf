@@ -12,6 +12,7 @@ using Interfaces;
 using SAF.Communication.Cde.Utils;
 using MessageProcessing;
 using System.Text;
+using WireFormat;
 
 /// <summary>
 /// Contains the information about a subscriber running on another node.
@@ -23,6 +24,7 @@ internal class RemoteSubscriber : IRemoteSubscriber
 
     private readonly ComLine _line;
     private readonly RegistrySubscriptionRequest _registryRequest;
+    private readonly ITsmMessageEncoder _encoder;
     private readonly HashSet<string> _patterns;
     private DateTimeOffset _lastActivity = DateTimeOffset.UtcNow;
 
@@ -31,15 +33,15 @@ internal class RemoteSubscriber : IRemoteSubscriber
     private const int MaxMessagesPerBlock = 100;
     private const int MaxPayloadBytesPerBlock = 200 * 1024; //200 kB
 
-    public RemoteSubscriber(ComLine line, TSM tsm)
-        : this(line, tsm, new List<string>(), new RegistrySubscriptionRequest())
-    { }
-    public RemoteSubscriber(ComLine line, TSM tsm, IList<string> patterns, RegistrySubscriptionRequest request)
+    private static readonly Version LatestVersion = System.Version.Parse(PubSubVersion.Latest);
+
+    public RemoteSubscriber(ComLine line, TSM tsm, IList<string> patterns, RegistrySubscriptionRequest request, ITsmMessageEncoder encoder)
     {
         Tsm = tsm;
 
         _line = line;
         _registryRequest = request;
+        _encoder = encoder;
         _patterns = [..patterns.Distinct()];
         IsLocalHost = tsm.IsLocalHost();
 
@@ -55,6 +57,11 @@ internal class RemoteSubscriber : IRemoteSubscriber
     public string Version => string.IsNullOrEmpty(_registryRequest.version)
         ? PubSubVersion.V1
         : _registryRequest.version;
+
+    /// <summary>
+    /// The version messages to this peer are written in: the peer's own, or this node's latest if the peer is newer.
+    /// </summary>
+    private string WireVersion => System.Version.Parse(Version) > LatestVersion ? PubSubVersion.Latest : Version;
 
     public void AddPatterns(IList<string> patterns)
     {
@@ -87,13 +94,20 @@ internal class RemoteSubscriber : IRemoteSubscriber
             return;
         }
 
-        if (System.Version.Parse(Version) >= System.Version.Parse(PubSubVersion.V4))
+        var wireVersion = WireVersion;
+        if (!_encoder.CanEncode(message.Message, wireVersion))
+        {
+            _logger.LogWarning($"Dropped message on {message.Topic.Channel} for {Tsm.ORG}: pub/sub version {wireVersion} cannot transport a message with format {message.Message.GetFormat()}.");
+            return;
+        }
+
+        if (System.Version.Parse(wireVersion) >= System.Version.Parse(PubSubVersion.V4))
         {
             _broadcastMessageQueue.Enqueue(message);
             return;
         }
 
-        var tsm = CreateBroadcastTsm(message);
+        var tsm = CreateBroadcastTsm(message, wireVersion);
 
         _logger.LogDebug($"Send {MessageToken.Publish} ({message.Topic.Channel}), origin: {_line.Address}, target: {Tsm.ORG}");
         _line.AnswerToSender(Tsm, tsm);
@@ -108,42 +122,25 @@ internal class RemoteSubscriber : IRemoteSubscriber
             _ => throw new ArgumentOutOfRangeException(nameof(routingOptions))
         };
 
-    private TSM CreateBroadcastTsm(BroadcastMessage message)
+    private TSM CreateBroadcastTsm(BroadcastMessage message, string wireVersion)
     {
-        TSM tsm;
-        var messageTxt = $"{MessageToken.Publish}:{new Topic(message.Topic.Channel, message.Topic.MsgId, Version).ToTsmTxt()}";
-        if (Version == PubSubVersion.V1)
-        {
-            tsm = new TSM(TargetEngine, messageTxt, message.Message.Payload)
-            {
-                UID = message.UserId
-            };
-        }
-        else
-        {
-            tsm = new TSM(TargetEngine, messageTxt, TheCommonUtils.SerializeObjectToJSONString(message.Message))
-            {
-                UID = message.UserId
-            };
-        }
-
+        var messageTxt = $"{MessageToken.Publish}:{new Topic(message.Topic.Channel, message.Topic.MsgId, wireVersion).ToTsmTxt()}";
+        var tsm = _encoder.Encode(message.Message, wireVersion).ToTsm(TargetEngine, messageTxt);
+        tsm.UID = message.UserId;
         return tsm;
     }
 
     private void BroadcastQueueProcessing(string userId, IEnumerable<BroadcastMessage> broadcastMessages)
     {
         var messagesToSend = broadcastMessages.Select(m => m.Message);
+        var wireVersion = WireVersion;
 
         foreach (var block in CreateMessageBlocks(messagesToSend))
         {
-            var serializedMessages = TheCommonUtils.SerializeObjectToJSONString(block);
-
             var msgId = Guid.NewGuid().ToString("N");
-            var messageTxt = $"{MessageToken.Publish}:{new Topic($"$$batch:size={block.Count}$$", msgId, PubSubVersion.V4).ToTsmTxt()}";
-            var tsm = new TSM(TargetEngine, messageTxt, serializedMessages)
-            {
-                UID = userId
-            };
+            var messageTxt = $"{MessageToken.Publish}:{new Topic(TsmBatchChannel.Create(block.Count), msgId, wireVersion).ToTsmTxt()}";
+            var tsm = _encoder.EncodeBatch(block, wireVersion).ToTsm(TargetEngine, messageTxt);
+            tsm.UID = userId;
 
             _logger.LogDebug($"Send {MessageToken.Publish} (batch size={block.Count}), origin: {_line.Address}, target: {Tsm.ORG}");
             _line.AnswerToSender(Tsm, tsm);
@@ -153,7 +150,7 @@ internal class RemoteSubscriber : IRemoteSubscriber
     /// <summary>
     /// Splits an enumeration of messages into blocks. A block is finalized when it reaches
     /// either the maximum number of messages (<see cref="MaxMessagesPerBlock"/>) or the cumulative
-    /// UTF-8 encoded payload size exceeds <see cref="MaxPayloadBytesPerBlock"/>.
+    /// payload size - UTF-8 encoded text plus binary - exceeds <see cref="MaxPayloadBytesPerBlock"/>.
     /// A single message larger than the payload limit will be placed in its own block.
     /// </summary>
     /// <param name="messages">The messages to split.</param>
@@ -165,7 +162,7 @@ internal class RemoteSubscriber : IRemoteSubscriber
 
         foreach (var msg in messages)
         {
-            var payloadSize = msg.Payload != null ? Encoding.UTF8.GetByteCount(msg.Payload) : 0;
+            var payloadSize = (msg.Payload != null ? Encoding.UTF8.GetByteCount(msg.Payload) : 0) + (msg.BinaryPayload?.Length ?? 0);
 
             if (block.Count > 0 && (block.Count == MaxMessagesPerBlock || cumulativeSize + payloadSize > MaxPayloadBytesPerBlock))
             {

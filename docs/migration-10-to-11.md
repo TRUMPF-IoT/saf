@@ -22,6 +22,10 @@ This document describes every breaking change and the steps needed to migrate fr
 | Message handler registration in plug-ins | `IMessageHandler` interface registration often worked implicitly | Typed handlers must be registered via `SAF.Messaging.Extensions` (`AddSingletonMessageHandler<T>()` / `AddTransientMessageHandler<T>()`) and `AddMessageHandlerResolver()` |
 | Storage namespace | `SAF.Common.IStorageInfrastructure` | Still `SAF.Common.IStorageInfrastructure` (unchanged) |
 | Cross-plugin services | Not supported | Public contract services imported across plugin containers; `IPluginServiceProvider` for dynamic resolution |
+| NATS server | Any version | **2.2 or newer**, because `CustomProperties` now travel in NATS headers |
+| Binary payloads on Redis and NATS | Not available | Sent by default; 9.x and 10.x nodes read them as corrupt text, so set `EnableBinaryPayloads` to `false` while they share the server; see [Redis and NATS send binary payloads](#redis-and-nats-send-binary-payloads) |
+| Received messages | A C-DEngine handler could change a batched message without affecting other subscriptions | Messages are read-only on every transport; see [Messages are read-only](#messages-are-read-only) |
+| `IRequestClient` | Three `SendRequestAwaitFirstAnswer` methods; the reply topic only in the request object | Additional member `SendRequestAwaitFirstReply`, which only your own implementations of the interface must add; every request also carries `Message.ReplyTo`; see [Requests carry their reply topic in `Message.ReplyTo`](#requests-carry-their-reply-topic-in-messagereplyto) |
 
 ---
 
@@ -433,6 +437,153 @@ is slower than the publish rate still applies backpressure to the reader instead
 messages — the 10.x behaviour. No action is required; the note is here because the underlying default
 inverted, so a host that builds its own `NatsOpts` has to set the mode itself.
 
+### NATS messaging logs failed publishes
+
+`Publish` returns before NATS.Net has sent the message. In 10.x, a failure after that went unnoticed and the message
+was lost silently. 11.x logs such a failure as an error with the topic; a failure because the connection was
+disposed, for example at shutdown, is logged as information. No action is required. See [NATS](./messaging.md#nats).
+
+### NATS transports custom properties and requires NATS Server 2.2
+
+SAF 10.x sent only topic and payload over NATS; `Message.CustomProperties` were lost on the way. SAF 11.x sends
+them in the NATS headers `saf-v` and `saf-meta`, which NATS supports since server version **2.2**. The message
+body is still the payload, and a message without custom properties carries no headers, so it looks exactly as
+in 10.x.
+
+**Required:** run NATS Server 2.2 or newer. An older server rejects every message with custom properties and
+closes the publishing connection; the message is lost.
+
+In mixed operation, 9.x and 10.x nodes keep working with 11.x nodes: they ignore the headers and receive topic
+and payload, as before, but no custom properties. See [NATS](./messaging.md#nats) for the details.
+
+### Redis drops messages of unknown wire format versions
+
+A Redis receiver in 11.x reads the envelope versions `1.x` and `2.x` that all SAF versions since 9.x write. An
+envelope with any other major version is now **dropped** with a warning, logged once per version, instead of
+being read as version 2. No action is required: 9.x, 10.x and 11.x all write version `2.0.0`. See
+[Redis](./messaging.md#redis).
+
+### Messages are read-only
+
+`Message` has new optional members: `BinaryPayload`, `ReplyTo`, `AcceptedReplyFormats`, `GetFormat()` and `AcceptsReplyFormat()` (see
+[The Message Type](./messaging.md#the-message-type)). Existing code compiles and behaves as before.
+
+A message must not be changed after it is published, neither by the publisher nor by a handler. That was already
+necessary for In-Process messaging, which hands the published instance itself to all handlers. The C-DEngine
+transport now does the same for batched messages: all subscriptions of a node get one instance, where 10.x gave
+each subscription its own copy.
+
+**Required:** check handlers that modify the `Message` they receive, for example by rewriting `Topic` or adding a
+custom property before passing it on. Create a new `Message` instead. See
+[Messages Are Read-Only](./messaging.md#messages-are-read-only).
+
+### C-DEngine nodes announce pub/sub version 5.0.0
+
+An 11.x node announces the C-DEngine pub/sub version `5.0.0`, which carries binary payloads (see
+[C-DEngine](./messaging.md#c-dengine)). 9.x and 10.x nodes keep exchanging text messages with it as before.
+A message with a `BinaryPayload` is not sent to them; the sender logs a warning per such peer. No action is
+required, but a feature that sends binary payloads works only between 11.x nodes.
+
+### Redis and NATS send binary payloads
+
+SAF 11.x sends a message with a `BinaryPayload` over Redis and NATS without Base64: on Redis in a binary frame,
+on NATS as the message body (see [Redis](./messaging.md#redis) and [NATS](./messaging.md#nats)). Text messages
+look on the wire as in 10.x.
+
+A 9.x or 10.x node cannot read such a message and cannot tell: it receives the bytes as the `Payload` of a
+message, as corrupt text, and logs no error. Redis and NATS have no per-node negotiation like C-DEngine, so the
+sender cannot leave older nodes out.
+
+**Required in mixed operation:** while 9.x or 10.x nodes use the same Redis or NATS server, set
+`EnableBinaryPayloads` to `false` in the `Redis` or `Nats` section of every 11.x node:
+
+```json
+{
+  "Redis": { "ConnectionString": "localhost:6379", "EnableBinaryPayloads": false },
+  "Nats": { "Url": "nats://localhost:4222", "EnableBinaryPayloads": false }
+}
+```
+
+A message with a `BinaryPayload` is then not sent, and the sender logs an error; text messages are not affected.
+Remove the setting once all nodes run 11.x. Without older nodes, no action is required. See
+[Binary Payloads With Older Nodes on Redis or NATS](./messaging.md#binary-payloads-with-older-nodes-on-redis-or-nats).
+
+### Requests carry their reply topic in `Message.ReplyTo`
+
+`Message` has a new optional member, `ReplyTo`: the topic a reply is expected on. `IRequestClient` sets it on every
+request. `SendRequestAwaitFirstAnswer` also still writes the reply topic into the request object
+(`MessageRequestBase.ReplyTo`), so 10.x responders keep working.
+
+Every request from an 11.x node therefore carries the field on the wire: on Redis as `"replyTo"` in the envelope, on
+C-DEngine in the JSON, on NATS in the `saf-meta` header. Older nodes ignore it. On NATS every request thus has
+headers, which needs NATS Server 2.2 or newer (see
+[NATS transports custom properties and requires NATS Server 2.2](#nats-transports-custom-properties-and-requires-nats-server-22)).
+
+`IRequestClient` has a new member, `SendRequestAwaitFirstReply`. It sends a request with a text payload, a binary
+payload, both or none, and returns the whole reply message, including a binary reply if the request accepts one
+(see [Binary Payloads in Requests and Replies](./toolbox.md#binary-payloads-in-requests-and-replies)). Its requests
+carry the reply topic only in `Message.ReplyTo`, so only 11.x responders can answer them.
+
+**Required:** only if you implement `IRequestClient` yourself, for example as a hand-written test double: add
+`SendRequestAwaitFirstReply`. Substitutes from a mocking library need no change.
+
+**Recommended for responders:** read the reply topic as `message.ReplyTo ?? request.ReplyTo`, so the responder
+answers `SendRequestAwaitFirstReply` requests as well as requests from 10.x nodes. Before replying with a binary
+payload, check `message.AcceptsReplyFormat(MessageFormats.Binary)`, because requests from 10.x nodes accept text
+only, and `messaging.GetPublishableFormats(message.ReplyTo)`, because your own transport may not send binary payloads
+(see [Messaging infrastructures report the payload formats they publish](#messaging-infrastructures-report-the-payload-formats-they-publish)).
+
+### The request client receives replies on NATS
+
+In 10.x, a request client that used NATS without [Routing](./messaging.md#routing-multiple-brokers) never received a
+reply, and every request timed out: it subscribed `*/requestclient/{client id}`, and on NATS `*` matches exactly one
+topic level, while reply topics have several. 11.x subscribes `{prefix}/*/requestclient/{client id}` once per reply
+topic prefix, which every transport matches. The reply topics themselves are unchanged.
+
+With Routing, the request client now subscribes only this pattern, on the routes whose subscription patterns cover
+the prefix, instead of every route pattern that ends in `*`. No action is required. See
+[Request Client](./toolbox.md#request-client).
+
+### Messaging infrastructures report the payload formats they publish
+
+`IMessagingInfrastructure` has a new member, `MessageFormats GetPublishableFormats(string topic)`. It tells in which
+payload formats `Publish` sends messages on a topic. Without `MessageFormats.Binary`, a message with a `BinaryPayload`
+does not arrive, for example on Redis or NATS while `EnableBinaryPayloads` is `false`. See
+[Interface](./messaging.md#interface).
+
+The member has a default implementation that returns `MessageFormats.Text`, so your own implementations keep
+compiling, and file transfers over them use text chunks as in 10.x. If your infrastructure sends
+`Message.BinaryPayload`, implement the member to return `MessageFormats.Text | MessageFormats.Binary` for the topics it
+sends them on. Substitutes from mocking libraries return `MessageFormats.None` unless configured.
+
+### File transfers send binary chunks between 11.x nodes
+
+An 11.x file sender puts the chunk data into `Message.BinaryPayload` instead of Base64-encoding it into the JSON
+payload, if the receiver runs 11.x and the sender's transport can publish binary payloads. That saves a quarter of the
+bytes on the wire. Transfers with 10.x or older nodes, and transfers while `EnableBinaryPayloads` is `false`, use text
+chunks as before. See [Binary Chunks](./toolbox.md#binary-chunks).
+
+`GetReceiverStateResponse` has a new optional member, `AcceptedChunkFormats`, the chunk formats the receiver reads.
+
+No action is required. If you implement `IStatefulFileReceiver` yourself, do not change `FileChunk.Data`: for a binary
+chunk it is the message's binary payload (see [Messages are read-only](#messages-are-read-only)).
+
+### Resumed file transfers and files of 4 GiB or more arrive intact
+
+In 10.x, a resumed file transfer delivered a corrupt file: the sender skipped the chunks the receiver already had but
+kept reading the file from where it was, so it sent each missing chunk with the data of another chunk. Receivers also
+wrote chunks of files of 4 GiB and more to wrong positions. 11.x fixes the first on the sending side and the second on
+the receiving side.
+
+An 11.x receiver also checks every completed file against the length and the content hash the sender reported. A file
+that does not match, for example from a 10.x sender that resumed a transfer, is not completed: the last chunk fails,
+so the sender reports an error, and the next attempt transfers the whole file. See
+[Content Check](./toolbox.md#content-check). If you call `StatefulFileReceiver.WriteFile` yourself, it now returns
+`FileReceiverStatus.Failed` for the last chunk of such a file.
+
+Files of 4 GiB or more sent to a 10.x receiver can still arrive corrupt; see
+[Transfers With Older Nodes](./toolbox.md#transfers-with-older-nodes). No action is required otherwise.
+
 ### Digital-signature validation is secure by default
 
 `DigitalSignaturePluginAssemblyValidatorOptions.RequireValidDigitalSignature` defaults to `true`, so registering the validator without configuration demands a signature that is intact, covers the file and chains to a trusted root. Check that against the signatures your plug-ins actually carry before enabling the validator: unsigned plug-ins, and plug-ins whose signer chains to a root the host does not trust, are skipped with a warning.
@@ -500,3 +651,11 @@ The [shared set](./plugin-system.md#the-shared-set) includes `SAF.PluginSystem.H
 - [ ] Reference `SAF.PluginSystem.Hosting.Extensions` explicitly if you use plugin assembly validation, and check the `RequireValidDigitalSignature = true` default against the signatures your plug-ins actually carry
 - [ ] Forward any additional host service your plug-ins need with `AddHostServiceForwarder<T>()` — v10's single shared container needed no such step
 - [ ] Replace `using SAF.Messaging.Cde;` with `using SAF.Cde.Common;` wherever you use `CdeConfiguration` or `CdeCryptoLibConfig`
+- [ ] If you use NATS, run NATS Server 2.2 or newer
+- [ ] If 9.x or 10.x nodes share a Redis or NATS server with 11.x nodes, set `EnableBinaryPayloads` to `false` on the 11.x nodes until all nodes run 11.x
+- [ ] Make sure no handler changes a `Message` it receives; create a new one instead
+- [ ] If you implement `IRequestClient` yourself, add `SendRequestAwaitFirstReply`
+- [ ] Let responders read the reply topic as `message.ReplyTo ?? request.ReplyTo`
+- [ ] Before a responder replies with a binary payload, check `message.AcceptsReplyFormat(MessageFormats.Binary)` and `messaging.GetPublishableFormats(message.ReplyTo)`
+- [ ] If you implement `IMessagingInfrastructure` and it sends `Message.BinaryPayload`, implement `GetPublishableFormats`
+- [ ] While 10.x nodes receive files of 4 GiB or more, check those files against `FileReceivedEventArgs.File.ContentHash`

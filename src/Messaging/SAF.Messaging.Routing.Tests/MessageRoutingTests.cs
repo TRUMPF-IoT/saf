@@ -161,6 +161,30 @@ public class MessageRoutingTest
         messaging.Received().Unsubscribe(subId);
     }
 
+    /// <summary>
+    /// The request client subscribes "{prefix}/*/requestclient/{id}" per reply prefix. A route covering the prefix
+    /// subscribes exactly that pattern, which every transport can express, and none of its other patterns.
+    /// </summary>
+    [Theory]
+    [InlineData("*")]
+    [InlineData("private/*")]
+    [InlineData("private/reply/*")]
+    public void RequestClientReplyPatternIsSubscribedAsIs(string routingPattern)
+    {
+        const string pattern = "private/reply/*/requestclient/3f2a";
+        var testHandler = (Message msg) => { };
+
+        var messaging = Substitute.For<IMessagingInfrastructure>();
+        var routing = new MessageRouting(messaging)
+        {
+            SubscriptionPatterns = [routingPattern, "sensors/*"]
+        };
+        routing.Subscribe(pattern, testHandler);
+
+        messaging.Received(1).Subscribe(pattern, testHandler);
+        messaging.Received(1).Subscribe(Arg.Any<string>(), Arg.Any<Action<Message>>());
+    }
+
     [Theory]
     [InlineData("*", "*")]
     [InlineData("test/this/subtopic/*", "test/this/subtopic/*")]
@@ -237,6 +261,44 @@ public class MessageRoutingTest
         routing.Publish(message);
 
         messaging.Received().Publish(Arg.Is(message));
+    }
+
+    [Theory]
+    [InlineData(MessageFormats.Text | MessageFormats.Binary, MessageFormats.Text | MessageFormats.Binary, MessageFormats.Text | MessageFormats.Binary)]
+    [InlineData(MessageFormats.Text | MessageFormats.Binary, MessageFormats.Text, MessageFormats.Text)]
+    [InlineData(MessageFormats.Text, MessageFormats.Text, MessageFormats.Text)]
+    public void PublishableFormatsAreThoseEveryRoutingPublishes(MessageFormats first, MessageFormats second, MessageFormats expected)
+    {
+        var firstRouting = Substitute.For<IMessageRouting>();
+        var secondRouting = Substitute.For<IMessageRouting>();
+        firstRouting.GetPublishableFormats("test/topic").Returns(first);
+        secondRouting.GetPublishableFormats("test/topic").Returns(second);
+        Messaging messaging = new(null, [firstRouting, secondRouting]);
+
+        Assert.Equal(expected, messaging.GetPublishableFormats("test/topic"));
+    }
+
+    [Theory]
+    [InlineData(MessageFormats.Text)]
+    [InlineData(MessageFormats.Text | MessageFormats.Binary)]
+    public void RoutePublishableFormats_AreThoseOfItsMessaging_ForAMatchingTopic(MessageFormats formats)
+    {
+        var messaging = Substitute.For<IMessagingInfrastructure>();
+        messaging.GetPublishableFormats("test/topic").Returns(formats);
+        var routing = new MessageRouting(messaging) { PublishPatterns = ["test/*"] };
+
+        Assert.Equal(formats, routing.GetPublishableFormats("test/topic"));
+    }
+
+    [Fact]
+    public void RoutePublishableFormats_AreAllFormats_ForATopicItDoesNotPublish()
+    {
+        var messaging = Substitute.For<IMessagingInfrastructure>();
+        messaging.GetPublishableFormats(Arg.Any<string>()).Returns(MessageFormats.Text);
+        var routing = new MessageRouting(messaging) { PublishPatterns = ["test/*"] };
+
+        Assert.Equal(MessageFormats.Text | MessageFormats.Binary, routing.GetPublishableFormats("other/topic"));
+        messaging.DidNotReceive().GetPublishableFormats(Arg.Any<string>());
     }
 
     private static Message CreateTestMessage(string topic)

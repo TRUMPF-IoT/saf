@@ -15,4 +15,8 @@ SPDX-License-Identifier: MPL-2.0
     <PackageReference Include="NSubstitute" />
   </ItemGroup>
 
+  <ItemGroup>
+    <ProjectReference Include="..\Messaging\SAF.Messaging.Contracts\SAF.Messaging.Contracts.csproj" />
+  </ItemGroup>
+
 </Project>

@@ -75,6 +75,8 @@ internal class NatsMessagingConfiguration
     public bool InsecureSkipVerify => _config.TryGetValue("TlsOpts_InsecureSkipVerify", out var insecureSkipVerify) && bool.Parse(insecureSkipVerify);
 
     public TlsMode Mode => _config.TryGetValue("TlsOpts_Mode", out var mode) ? Enum.Parse<TlsMode>(mode) : TlsMode.Auto;
+
+    public bool? EnableBinaryPayloads => _config.TryGetValue("EnableBinaryPayloads", out var enable) ? bool.Parse(enable) : null;
 }
 
 

@@ -11,6 +11,7 @@ using SAF.Communication.Cde;
 using Interfaces;
 using nsCDEngine.ViewModels;
 using nsCDEngine.BaseClasses;
+using SAF.Communication.PubSub.Cde.WireFormat;
 
 public class TestCommunicationPubSubCde
 {
@@ -95,7 +96,7 @@ public class TestCommunicationPubSubCde
         {
             isRegistry = false
         };
-        RemoteSubscriber resu = new(Substitute.For<ComLine>(), tsm, lstPattern, rsr);
+        RemoteSubscriber resu = new(Substitute.For<ComLine>(), tsm, lstPattern, rsr, TsmWireFormats.CreateCodec());
         Assert.Equal(tsm, resu.Tsm);
         Assert.True(resu.IsAlive);
         Assert.False(resu.IsRegistry);
@@ -189,7 +190,8 @@ public class TestCommunicationPubSubCde
     {
         var comLineSubscriptionRegistry = Substitute.For<ComLine>();
         comLineSubscriptionRegistry.Address.Returns("NOT RUNNING");
-        SubscriptionRegistry subscriptionRegistry = new(comLineSubscriptionRegistry);
+        var codec = TsmWireFormats.CreateCodec();
+        SubscriptionRegistry subscriptionRegistry = new(comLineSubscriptionRegistry, codec, codec);
         await subscriptionRegistry.ConnectAsync(new CancellationTokenSource().Token);
 
         TSM? tsmResult = null;

@@ -3,27 +3,31 @@
 // SPDX-License-Identifier: MPL-2.0
 
 namespace SAF.Communication.PubSub.Cde;
-using nsCDEngine.BaseClasses;
 using nsCDEngine.ViewModels;
 using SAF.Common;
+using SAF.Communication.Cde.Utils;
 using SAF.Messaging.Contracts;
 using Interfaces;
+using WireFormat;
 
 /// <summary>
 /// Defines the pattern and the handler to be executed for a subscription. 
 /// </summary>
 internal class Subscription : ISubscription
 {
+    private readonly Logger _log = new(typeof(Subscription));
     private readonly Subscriber _subscriber;
+    private readonly ITsmMessageDecoder _decoder;
     private Action<DateTimeOffset, Message>? _handler;
 
-    public Subscription(Subscriber subscriber, params string[] patterns)
-        : this(subscriber, RoutingOptions.All, patterns)
+    public Subscription(Subscriber subscriber, ITsmMessageDecoder decoder, params string[] patterns)
+        : this(subscriber, decoder, RoutingOptions.All, patterns)
     { }
 
-    public Subscription(Subscriber subscriber, RoutingOptions routingOptions, params string[] patterns)
+    public Subscription(Subscriber subscriber, ITsmMessageDecoder decoder, RoutingOptions routingOptions, params string[] patterns)
     {
         _subscriber = subscriber;
+        _decoder = decoder;
         RoutingOptions = routingOptions;
         Patterns = patterns;
 
@@ -71,32 +75,24 @@ internal class Subscription : ISubscription
         {
             if (!IsTopicMatch(topic)) return;
 
-            var message = msgVersion == PubSubVersion.V1
-                ? new Message {Topic = topic, Payload = msg.Message.PLS}
-                : TheCommonUtils.DeserializeJSONStringToObject<Message>(msg.Message.PLS);
+            var message = _decoder.Decode(topic, msgVersion, TsmPayload.Of(msg.Message));
+            if (message == null)
+            {
+                _log.LogWarning($"Dropped unreadable message on {topic} from {msg.Message.ORG}, pub/sub version {msgVersion}.");
+                return;
+            }
 
             _handler.Invoke(msg.Message.TIM, message);
             return;
         }
 
+        // The batch is decoded once per subscriber; handlers must not change the messages.
         foreach (var message in batchMessages)
         {
             if (!IsTopicMatch(message.Topic)) continue;
-            _handler.Invoke(msg.Message.TIM, CopyMessage(message));
+            _handler.Invoke(msg.Message.TIM, message);
         }
     }
-
-    private static Message CopyMessage(Message message)
-        => new()
-        {
-            Topic = message.Topic,
-            Payload = message.Payload,
-            CustomProperties = message.CustomProperties?.Select(property => new MessageCustomProperty
-            {
-                Name = property.Name,
-                Value = property.Value
-            }).ToList()
-        };
 }
 
 
