@@ -182,7 +182,7 @@ jobs:
     - name: NuGet push
       if: github.event_name == 'push' && contains(github.ref, 'refs/tags/')
       run: |
-        dotnet nuget push ".\artifacts\*.nupkg" --api-key ${{steps.login.outputs.NUGET_API_KEY}} --source https://api.nuget.org/v3/index.json --skip-duplicate
+        dotnet nuget push ".\artifacts\*.nupkg" --api-key ${{steps.nugetlogin.outputs.NUGET_API_KEY}} --source https://api.nuget.org/v3/index.json --skip-duplicate
 
   # A plain build+test run on Linux, separate from build_test_pack: that job's SonarCloud scan and NuGet
   # publish must run exactly once per commit, so it stays windows-latest-only rather than becoming a
