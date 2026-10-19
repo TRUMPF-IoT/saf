@@ -19,5 +19,5 @@ internal interface IRedisBinaryFrame
     byte? GetNewerLayoutVersion(RedisValue frame);
 
     /// <returns><c>null</c> if the frame cannot be read.</returns>
-    RedisWireValue? Read(RedisValue frame);
+    RedisFrameContent? Read(RedisValue frame);
 }

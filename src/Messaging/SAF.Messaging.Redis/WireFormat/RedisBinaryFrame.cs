@@ -52,17 +52,15 @@ internal sealed class RedisBinaryFrame : IRedisBinaryFrame
         return bytes.Length > LayoutVersionOffset && bytes[LayoutVersionOffset] > LayoutVersion ? bytes[LayoutVersionOffset] : null;
     }
 
-    public RedisWireValue? Read(RedisValue frame)
+    public RedisFrameContent? Read(RedisValue frame)
     {
-        var bytes = ((ReadOnlyMemory<byte>)frame).Span;
-        if (bytes.Length < EnvelopeOffset || bytes[LayoutVersionOffset] != LayoutVersion) return null;
+        var bytes = (ReadOnlyMemory<byte>)frame;
+        if (bytes.Length < EnvelopeOffset || bytes.Span[LayoutVersionOffset] != LayoutVersion) return null;
 
-        var envelopeLength = BinaryPrimitives.ReadUInt32LittleEndian(bytes[EnvelopeLengthOffset..]);
+        var envelopeLength = BinaryPrimitives.ReadUInt32LittleEndian(bytes.Span[EnvelopeLengthOffset..]);
         if (envelopeLength > (uint)(bytes.Length - EnvelopeOffset)) return null;
 
         var binaryOffset = EnvelopeOffset + (int)envelopeLength;
-        return new RedisWireValue(
-            Encoding.UTF8.GetString(bytes[EnvelopeOffset..binaryOffset]),
-            bytes[binaryOffset..].ToArray());
+        return new RedisFrameContent(bytes[EnvelopeOffset..binaryOffset], bytes[binaryOffset..].ToArray());
     }
 }

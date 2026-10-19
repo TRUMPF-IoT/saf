@@ -5,7 +5,6 @@
 namespace SAF.Messaging.Redis.WireFormat;
 
 using System.Diagnostics.CodeAnalysis;
-using System.Text;
 using Microsoft.Extensions.Logging;
 using SAF.Messaging.Contracts;
 using SAF.Messaging.WireFormat;
@@ -58,11 +57,11 @@ internal sealed class RedisMessageReader : IRedisMessageReader
             return null;
         }
 
-        if (_binaryFrame.Read(frame) is not { } value || _headerReader.Read(Encoding.UTF8.GetBytes(value.Envelope)) is not { } header)
+        if (_binaryFrame.Read(frame) is not { } content || _headerReader.Read(content.Envelope.Span) is not { } header)
             return DropUnreadableFrame(channel);
         if (!TryGetFormat(header.Version, channel, out var format)) return null;
 
-        return format.Read(value) ?? DropUnreadableFrame(channel);
+        return format.Read(content.ToWireValue()) ?? DropUnreadableFrame(channel);
     }
 
     private bool TryGetFormat(string? version, string channel, [NotNullWhen(true)] out IRedisEnvelopeFormat? format)

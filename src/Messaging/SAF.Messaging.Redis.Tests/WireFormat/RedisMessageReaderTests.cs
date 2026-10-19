@@ -247,7 +247,7 @@ public class RedisMessageReaderTests
         RedisValue value = "anything";
         var binaryFrame = Substitute.For<IRedisBinaryFrame>();
         binaryFrame.IsFrame(value).Returns(true);
-        binaryFrame.Read(value).Returns(new RedisWireValue("""{"version":"3.0.0","message":{"topic":"t"}}""", [7]));
+        binaryFrame.Read(value).Returns(new RedisFrameContent("""{"version":"3.0.0","message":{"topic":"t"}}"""u8.ToArray(), [7]));
         var reader = new RedisMessageReader(RedisWireFormats.All, new RedisEnvelopeHeaderReader(), binaryFrame, new WireVersion(), new UnknownVersionWarning(NullLogger.Instance, "Redis"), NullLogger.Instance);
 
         var message = reader.Read("channel", value);

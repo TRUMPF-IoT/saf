@@ -36,7 +36,8 @@ internal sealed class NatsMetadataHeader : INatsMetadataHeader
         foreach (var c in json.AsSpan(first))
         {
             if (c is >= ' ' and <= '~') escaped.Append(c);
-            else escaped.Append(@"\u").Append(((int)c).ToString("X4"));
+            // The interpolation handler formats into the builder, without a string per character.
+            else escaped.Append($@"\u{(int)c:X4}");
         }
         return escaped.ToString();
     }

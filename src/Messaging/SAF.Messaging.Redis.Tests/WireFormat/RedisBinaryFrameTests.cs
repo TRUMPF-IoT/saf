@@ -18,11 +18,15 @@ public class RedisBinaryFrameTests
     [InlineData("", new byte[0])]
     public void Read_ReturnsWhatWriteWrote(string envelope, byte[] binaryPayload)
     {
-        var value = _frame.Read(_frame.Write(envelope, binaryPayload));
+        var value = _frame.Read(_frame.Write(envelope, binaryPayload))!.Value.ToWireValue();
 
-        Assert.Equal(envelope, value!.Value.Envelope);
-        Assert.Equal(binaryPayload, value.Value.BinaryPayload);
+        Assert.Equal(envelope, value.Envelope);
+        Assert.Equal(binaryPayload, value.BinaryPayload);
     }
+
+    [Fact]
+    public void Read_ReturnsTheEnvelopeAsUtf8()
+        => Assert.Equal("""{"a":"ä"}"""u8.ToArray(), _frame.Read(_frame.Write("""{"a":"ä"}""", [1]))!.Value.Envelope.ToArray());
 
     [Fact]
     public void Read_ReturnsAnEmptyBinaryPayload_WhenNothingFollowsTheEnvelope()
