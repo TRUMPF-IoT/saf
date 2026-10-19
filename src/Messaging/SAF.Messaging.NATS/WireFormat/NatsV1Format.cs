@@ -8,7 +8,7 @@ using NATS.Client.Core;
 using SAF.Messaging.Contracts;
 
 /// <summary>
-/// The header-less format of every SAF node up to 11.0.0-alpha.9: the body is the payload, nothing else.
+/// The header-less format of every SAF node up to 11.0.0-alpha.11: the body is the payload, nothing else.
 /// Also works with NATS servers before 2.2.
 /// </summary>
 internal sealed class NatsV1Format : INatsWireFormat

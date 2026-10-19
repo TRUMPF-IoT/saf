@@ -492,7 +492,7 @@ look on the wire as in 10.x.
 
 A 9.x or 10.x node cannot read such a message and cannot tell: it receives the bytes as the `Payload` of a
 message, as corrupt text, and logs no error. Redis and NATS have no per-node negotiation like C-DEngine, so the
-sender cannot leave older nodes out.
+sender cannot leave older nodes out. The 11.0 pre-releases up to 11.0.0-alpha.11 count as 10.x here.
 
 **Required in mixed operation:** while 9.x or 10.x nodes use the same Redis or NATS server, set
 `EnableBinaryPayloads` to `false` in the `Redis` or `Nats` section of every 11.x node:

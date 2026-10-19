@@ -19,9 +19,9 @@ using static TestWireFormat;
 
 /// <summary>
 /// Records the NATS wire format. 9.0.1, 10.0.3 and 11.0.0-alpha.9 send the payload string as body,
-/// without envelope and without headers, and ignore headers on receipt. Since then custom properties
-/// and accepted reply formats travel in SAF headers, while the body stays the payload. A binary payload is the body
-/// of a version 3 message. A failure here means an old node would read something different than it does today.
+/// without envelope and without headers, and ignore headers on receipt; so does every release up to 11.0.0-alpha.11.
+/// Since then custom properties and accepted reply formats travel in SAF headers, while the body stays the payload.
+/// A binary payload is the body of a version 3 message. A failure here means an old node would read something different than it does today.
 /// </summary>
 public class NatsWireFormatGoldenTests
 {
@@ -109,7 +109,7 @@ public class NatsWireFormatGoldenTests
     }
 
     /// <summary>
-    /// Up to 11.0.0-alpha.9 custom properties never reached the wire. Now they travel in headers together
+    /// Up to 11.0.0-alpha.11 custom properties never reached the wire. Now they travel in headers together
     /// with the accepted reply formats. Older nodes ignore the headers, so the body they read stays the same.
     /// </summary>
     [Theory]

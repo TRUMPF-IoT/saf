@@ -12,7 +12,7 @@ using System.Text;
 internal readonly struct NatsBody(ReadOnlyMemory<byte> bytes)
 {
     /// <summary>
-    /// Reads the body exactly like NATS.Net reads it into a <see cref="string"/>, which SAF did up to 11.0.0-alpha.9.
+    /// Reads the body exactly like NATS.Net reads it into a <see cref="string"/>, which SAF did up to 11.0.0-alpha.11.
     /// </summary>
     // NATS delivers an empty body as null, whether "" or null was sent.
     public string? ReadText() => bytes.IsEmpty ? null : Encoding.UTF8.GetString(bytes.Span);

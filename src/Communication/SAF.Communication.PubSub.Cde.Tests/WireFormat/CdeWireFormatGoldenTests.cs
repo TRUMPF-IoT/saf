@@ -221,7 +221,7 @@ public class CdeWireFormatGoldenTests
     }
 
     /// <summary>
-    /// A node up to 11.0.0-alpha.9 reads the JSON into a type without the reply topic and the accepted reply formats.
+    /// A node up to 11.0.0-alpha.11 reads the JSON into a type without the reply topic and the accepted reply formats.
     /// </summary>
     [Theory]
     [InlineData(WireFormatReferenceMessages.ReplyFormats)]

@@ -16,10 +16,10 @@ using Xunit;
 
 /// <summary>
 /// Records the Redis wire format as an old SAF node sees it. The samples without accepted reply formats are
-/// verified to be identical in 9.0.1, 10.0.3 and 11.0.0-alpha.9, so they cover every version SAF has to
-/// interoperate with. Binary payloads travel in a binary frame since 11.x. A failure here means the wire format
-/// changed - that is only allowed together with a deliberate bump of <see cref="RedisMessageVersion"/> and a reader
-/// for the old version.
+/// verified to be identical in 9.0.1, 10.0.3 and 11.0.0-alpha.9, which has the wire format of every release up to
+/// 11.0.0-alpha.11, so they cover every version SAF has to interoperate with. Binary payloads travel in a binary
+/// frame since 11.x. A failure here means the wire format changed - that is only allowed together with a deliberate
+/// bump of <see cref="RedisMessageVersion"/> and a reader for the old version.
 /// </summary>
 public class RedisWireFormatGoldenTests
 {
@@ -167,7 +167,7 @@ public class RedisWireFormatGoldenTests
     }
 
     /// <summary>
-    /// Up to 11.0.0-alpha.9 an unknown version was read like V2. Since then it is dropped, so a future format
+    /// Up to 11.0.0-alpha.11 an unknown version was read like V2. Since then it is dropped, so a future format
     /// can no longer be mistaken for a corrupt old message.
     /// </summary>
     [Fact]
@@ -183,7 +183,7 @@ public class RedisWireFormatGoldenTests
     }
 
     /// <summary>
-    /// A node up to 11.0.0-alpha.9 reads the envelope into a type without the reply topic and the accepted reply formats.
+    /// A node up to 11.0.0-alpha.11 reads the envelope into a type without the reply topic and the accepted reply formats.
     /// </summary>
     [Theory]
     [InlineData(WireFormatReferenceMessages.ReplyFormats)]

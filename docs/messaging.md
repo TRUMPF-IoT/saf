@@ -92,6 +92,8 @@ Which transports deliver binary payloads:
   such nodes use the same server, set `EnableBinaryPayloads` to `false`; see
   [Binary Payloads With Older Nodes on Redis or NATS](#binary-payloads-with-older-nodes-on-redis-or-nats).
 
+The 11.0 pre-releases up to 11.0.0-alpha.11 cannot read binary payloads either; here they count as 10.x.
+
 With [Routing](#routing-multiple-brokers), each route's transport decides on its own.
 
 ### Messages Are Read-Only
@@ -198,7 +200,7 @@ frame as corrupt text; with `EnableBinaryPayloads` set to `false`, a message wit
 and Redis messaging logs an error.
 
 An envelope with an **unknown major version** comes from a newer SAF version that this node cannot read. It is
-**dropped**, and a warning is logged once per unknown version. Up to 11.0.0-alpha.9 such an envelope was read as
+**dropped**, and a warning is logged once per unknown version. Up to 11.0.0-alpha.11 such an envelope was read as
 if it were version 2, which could hand handlers a wrong message.
 
 ### NATS
@@ -241,7 +243,7 @@ exactly as in earlier SAF versions:
 NATS header values are ASCII, so `saf-meta` escapes every other character as a JSON `\u` sequence. A non-SAF
 client that reads the header gets the original text back with any JSON parser.
 
-- **Older SAF nodes** (9.x, 10.x and 11.0.0-alpha.9 or earlier) ignore the headers. They receive topic and
+- **Older SAF nodes** (9.x, 10.x and 11.0.0-alpha.11 or earlier) ignore the headers. They receive topic and
   payload as before, but no metadata: those versions never transported custom properties over NATS.
 - **A NATS server before 2.2** rejects a message with headers and closes the publisher's connection. The
   message is lost, and the client reconnects. Messages without metadata are not affected.
@@ -348,7 +350,8 @@ Routes messages across multiple messaging infrastructures based on topic pattern
 ## Compatibility Between SAF Versions
 
 SAF nodes of 9.x, 10.x and 11.x can share one broker. Each transport versions its wire format and keeps reading
-the formats of older versions:
+the formats of older versions. The 11.0 pre-releases up to 11.0.0-alpha.11 use the wire formats of 10.x; wherever
+this section says 10.x, it includes them.
 
 | Transport | Mixed operation with 9.x and 10.x | Changed in 11.x |
 |---|---|---|
