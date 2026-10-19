@@ -154,7 +154,7 @@ public class RemoteSubscriberTests
     {
         var tsm = new TSM(Engines.PubSub, MessageToken.SubscribeRequest) { ORG = localHost ? _line.Address : "remote" };
         var req = new RegistrySubscriptionRequest { version = version, isRegistry = false };
-        return new RemoteSubscriber(_line, tsm, patterns ?? ["sensor/*"], req, TsmWireFormats.CreateCodec());
+        return new RemoteSubscriber(_line, tsm, patterns ?? ["sensor/*"], req, TsmWireFormats.CreateCodec(), Substitute.For<IDroppedMessageWarning>());
     }
 
     private static BroadcastMessage CreateBroadcastMessage(string channel = "sensor/1", string payload = "data", string userId = "user", string version = PubSubVersion.V4)

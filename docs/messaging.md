@@ -86,7 +86,7 @@ Which transports deliver binary payloads:
 
 - **In-Process** delivers them.
 - **C-DEngine** delivers them to peers on SAF 11.x (pub/sub version `5.0.0`). It **does not send** such a message
-  to a 9.x or 10.x peer and logs a warning per peer; see [C-DEngine](#c-dengine).
+  to a 9.x or 10.x peer and logs one warning per peer; see [C-DEngine](#c-dengine).
 - **Redis** and **NATS** deliver them between SAF 11.x nodes. They cannot tell which nodes listen: a 9.x or 10.x
   node on the same channel or subject **receives the bytes as corrupt text** in `Payload`, without an error. While
   such nodes use the same server, set `EnableBinaryPayloads` to `false`; see
@@ -292,7 +292,7 @@ Version `5.0.0`, announced by SAF 11.x, adds binary payloads:
   It still sends the field Base64-encoded inside its own frames, so the gain is in SAF, which encodes nothing,
   not in bandwidth.
 - A peer before `5.0.0` (9.x announces `3.0.0`, 10.x `4.0.0`) cannot receive binary payloads. A message with a
-  `BinaryPayload` is not sent to such a peer, with a warning per peer in the C-DEngine log; other peers still
+  `BinaryPayload` is not sent to such a peer, with one warning per peer in the C-DEngine log, not one per message; other peers still
   receive it.
 
 A received message that cannot be read, for example because its binary payload does not have the announced

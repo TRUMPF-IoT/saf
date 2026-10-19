@@ -302,7 +302,7 @@ public class CdeWireFormatGoldenTests
 
         var subscriberTsm = new TSM(Engines.PubSub, MessageToken.SubscribeRequest) { ORG = line.Address };
         var request = new RegistrySubscriptionRequest { version = version, isRegistry = false };
-        var remote = new RemoteSubscriber(line, subscriberTsm, ["*"], request, TsmWireFormats.CreateCodec());
+        var remote = new RemoteSubscriber(line, subscriberTsm, ["*"], request, TsmWireFormats.CreateCodec(), Substitute.For<IDroppedMessageWarning>());
 
         foreach (var message in messages)
         {

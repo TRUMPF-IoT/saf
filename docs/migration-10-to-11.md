@@ -487,7 +487,7 @@ custom property before passing it on. Create a new `Message` instead. See
 
 An 11.x node announces the C-DEngine pub/sub version `5.0.0`, which carries binary payloads (see
 [C-DEngine](./messaging.md#c-dengine)). 9.x and 10.x nodes keep exchanging text messages with it as before.
-A message with a `BinaryPayload` is not sent to them; the sender logs a warning per such peer. No action is
+A message with a `BinaryPayload` is not sent to them; the sender logs one warning per such peer, not one per message. No action is
 required, but a feature that sends binary payloads works only between 11.x nodes.
 
 ### Redis and NATS send binary payloads

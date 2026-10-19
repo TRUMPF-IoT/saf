@@ -20,6 +20,8 @@ public class CodecUsageTests
 {
     private readonly ComLine _line = Substitute.For<ComLine>();
     private readonly ITsmMessageEncoder _encoder = Substitute.For<ITsmMessageEncoder>();
+    private readonly ITsmPeerEncoder _peerEncoder = Substitute.For<ITsmPeerEncoder>();
+    private readonly IDroppedMessageWarning _droppedMessageWarning = Substitute.For<IDroppedMessageWarning>();
     private readonly TaskCompletionSource<TSM> _sent = new();
 
     public CodecUsageTests()
@@ -27,36 +29,38 @@ public class CodecUsageTests
         _line.Address.Returns("origin");
         _line.When(l => l.AnswerToSender(Arg.Any<TSM>(), Arg.Any<TSM>()))
             .Do(ci => _sent.TrySetResult(ci.ArgAt<TSM>(1)));
-        _encoder.CanEncode(Arg.Any<Message>(), Arg.Any<string>()).Returns(true);
+        _encoder.ForPeer(Arg.Any<string>()).Returns(_peerEncoder);
+        _peerEncoder.CanEncode(Arg.Any<Message>()).Returns(true);
     }
 
     [Fact]
     public async Task Broadcast_SendsWhatTheEncoderProducesForThePeerVersion()
     {
         var message = new Message { Topic = "t" };
-        _encoder.Encode(message, PubSubVersion.V3).Returns(new TsmPayload("encoded"));
+        _peerEncoder.Encode(message).Returns(new TsmPayload("encoded"));
 
         CreateRemoteSubscriber(PubSubVersion.V3).Broadcast(Broadcast(message));
 
         Assert.Equal("encoded", (await SentAsync()).PLS);
+        _encoder.Received(1).ForPeer(PubSubVersion.V3);
     }
 
     [Fact]
     public async Task Broadcast_SendsWhatTheBatchEncoderProducesForThePeerVersion()
     {
-        var message = new Message { Topic = "t" };
-        _encoder.EncodeBatch(Arg.Any<IEnumerable<Message>>(), PubSubVersion.V4).Returns(new TsmPayload("batch"));
+        _peerEncoder.EncodeBatch(Arg.Any<IEnumerable<Message>>()).Returns(new TsmPayload("batch"));
 
-        CreateRemoteSubscriber(PubSubVersion.V4).Broadcast(Broadcast(message));
+        CreateRemoteSubscriber(PubSubVersion.V4).Broadcast(Broadcast(new Message { Topic = "t" }));
 
         Assert.Equal("batch", (await SentAsync()).PLS);
+        _encoder.Received(1).ForPeer(PubSubVersion.V4);
     }
 
     [Fact]
     public async Task Broadcast_SendsThePlbTheEncoderProduces()
     {
         byte[] plb = [1, 2, 3];
-        _encoder.EncodeBatch(Arg.Any<IEnumerable<Message>>(), PubSubVersion.V5).Returns(new TsmPayload("batch", plb));
+        _peerEncoder.EncodeBatch(Arg.Any<IEnumerable<Message>>()).Returns(new TsmPayload("batch", plb));
 
         CreateRemoteSubscriber(PubSubVersion.V5).Broadcast(Broadcast(new Message { Topic = "t" }));
 
@@ -71,26 +75,38 @@ public class CodecUsageTests
     public async Task Broadcast_EncodesForTheNewestVersionBothSidesKnow(string peerVersion)
     {
         var expected = peerVersion == PubSubVersion.V3 ? PubSubVersion.V3 : PubSubVersion.Latest;
-        _encoder.Encode(Arg.Any<Message>(), expected).Returns(new TsmPayload("single"));
-        _encoder.EncodeBatch(Arg.Any<IEnumerable<Message>>(), expected).Returns(new TsmPayload("batch"));
+        _peerEncoder.Encode(Arg.Any<Message>()).Returns(new TsmPayload("single"));
+        _peerEncoder.EncodeBatch(Arg.Any<IEnumerable<Message>>()).Returns(new TsmPayload("batch"));
 
         CreateRemoteSubscriber(peerVersion).Broadcast(Broadcast(new Message { Topic = "t" }));
 
         var sent = await SentAsync();
         Assert.EndsWith($"|{expected}", sent.TXT);
-        _encoder.Received().CanEncode(Arg.Any<Message>(), expected);
+        _encoder.Received(1).ForPeer(expected);
+    }
+
+    [Fact]
+    public void Constructor_PicksTheFormatOnce()
+    {
+        var remote = CreateRemoteSubscriber(PubSubVersion.V3);
+        _peerEncoder.Encode(Arg.Any<Message>()).Returns(new TsmPayload("single"));
+
+        remote.Broadcast(Broadcast(new Message { Topic = "a" }));
+        remote.Broadcast(Broadcast(new Message { Topic = "b" }));
+
+        _encoder.Received(1).ForPeer(Arg.Any<string>());
     }
 
     [Theory]
     [InlineData(PubSubVersion.V3)]
     [InlineData(PubSubVersion.V4)]
-    public async Task Broadcast_DropsAMessageThePeerCannotReceive(string version)
+    public async Task Broadcast_DropsAMessageThePeerCannotReceiveAndReportsIt(string version)
     {
         var dropped = new Message { Topic = "dropped" };
         var sent = new Message { Topic = "sent" };
-        _encoder.CanEncode(dropped, version).Returns(false);
-        _encoder.Encode(sent, version).Returns(new TsmPayload("encoded"));
-        _encoder.EncodeBatch(Arg.Any<IEnumerable<Message>>(), version)
+        _peerEncoder.CanEncode(dropped).Returns(false);
+        _peerEncoder.Encode(sent).Returns(new TsmPayload("encoded"));
+        _peerEncoder.EncodeBatch(Arg.Any<IEnumerable<Message>>())
             .Returns(ci => new TsmPayload(string.Join(",", ci.Arg<IEnumerable<Message>>().Select(m => m.Topic))));
         var remote = CreateRemoteSubscriber(version);
 
@@ -98,12 +114,14 @@ public class CodecUsageTests
         remote.Broadcast(Broadcast(sent));
 
         Assert.Equal(version == PubSubVersion.V4 ? "sent" : "encoded", (await SentAsync()).PLS);
-        _encoder.DidNotReceive().Encode(dropped, Arg.Any<string>());
+        _peerEncoder.DidNotReceive().Encode(dropped);
+        _droppedMessageWarning.Received(1).Report("origin", version, dropped);
+        _droppedMessageWarning.DidNotReceive().Report(Arg.Any<string>(), Arg.Any<string>(), sent);
     }
 
     private RemoteSubscriber CreateRemoteSubscriber(string version)
         => new(_line, new TSM(Engines.PubSub, MessageToken.SubscribeRequest) { ORG = _line.Address }, ["*"],
-            new RegistrySubscriptionRequest { version = version, isRegistry = false }, _encoder);
+            new RegistrySubscriptionRequest { version = version, isRegistry = false }, _encoder, _droppedMessageWarning);
 
     private static BroadcastMessage Broadcast(Message message)
         => new(new Topic(message.Topic, "id", PubSubVersion.V4), message, "user", RoutingOptions.All);

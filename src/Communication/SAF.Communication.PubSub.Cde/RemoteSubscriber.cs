@@ -24,7 +24,10 @@ internal class RemoteSubscriber : IRemoteSubscriber
 
     private readonly ComLine _line;
     private readonly RegistrySubscriptionRequest _registryRequest;
-    private readonly ITsmMessageEncoder _encoder;
+    private readonly string _wireVersion;
+    private readonly bool _sendsBatches;
+    private readonly ITsmPeerEncoder _encoder;
+    private readonly IDroppedMessageWarning _droppedMessageWarning;
     private readonly HashSet<string> _patterns;
     private DateTimeOffset _lastActivity = DateTimeOffset.UtcNow;
 
@@ -34,14 +37,20 @@ internal class RemoteSubscriber : IRemoteSubscriber
     private const int MaxPayloadBytesPerBlock = 200 * 1024; //200 kB
 
     private static readonly Version LatestVersion = System.Version.Parse(PubSubVersion.Latest);
+    private static readonly Version BatchVersion = System.Version.Parse(PubSubVersion.V4);
 
-    public RemoteSubscriber(ComLine line, TSM tsm, IList<string> patterns, RegistrySubscriptionRequest request, ITsmMessageEncoder encoder)
+    public RemoteSubscriber(ComLine line, TSM tsm, IList<string> patterns, RegistrySubscriptionRequest request,
+        ITsmMessageEncoder encoder, IDroppedMessageWarning droppedMessageWarning)
     {
         Tsm = tsm;
 
         _line = line;
         _registryRequest = request;
-        _encoder = encoder;
+        // The peer's version is fixed, so the format is picked once rather than per message.
+        _wireVersion = WireVersionFor(Version);
+        _sendsBatches = System.Version.Parse(_wireVersion) >= BatchVersion;
+        _encoder = encoder.ForPeer(_wireVersion);
+        _droppedMessageWarning = droppedMessageWarning;
         _patterns = [..patterns.Distinct()];
         IsLocalHost = tsm.IsLocalHost();
 
@@ -61,7 +70,8 @@ internal class RemoteSubscriber : IRemoteSubscriber
     /// <summary>
     /// The version messages to this peer are written in: the peer's own, or this node's latest if the peer is newer.
     /// </summary>
-    private string WireVersion => System.Version.Parse(Version) > LatestVersion ? PubSubVersion.Latest : Version;
+    private static string WireVersionFor(string peerVersion)
+        => System.Version.Parse(peerVersion) > LatestVersion ? PubSubVersion.Latest : peerVersion;
 
     public void AddPatterns(IList<string> patterns)
     {
@@ -94,20 +104,19 @@ internal class RemoteSubscriber : IRemoteSubscriber
             return;
         }
 
-        var wireVersion = WireVersion;
-        if (!_encoder.CanEncode(message.Message, wireVersion))
+        if (!_encoder.CanEncode(message.Message))
         {
-            _logger.LogWarning($"Dropped message on {message.Topic.Channel} for {Tsm.ORG}: pub/sub version {wireVersion} cannot transport a message with format {message.Message.GetFormat()}.");
+            _droppedMessageWarning.Report(Tsm.ORG, _wireVersion, message.Message);
             return;
         }
 
-        if (System.Version.Parse(wireVersion) >= System.Version.Parse(PubSubVersion.V4))
+        if (_sendsBatches)
         {
             _broadcastMessageQueue.Enqueue(message);
             return;
         }
 
-        var tsm = CreateBroadcastTsm(message, wireVersion);
+        var tsm = CreateBroadcastTsm(message);
 
         _logger.LogDebug($"Send {MessageToken.Publish} ({message.Topic.Channel}), origin: {_line.Address}, target: {Tsm.ORG}");
         _line.AnswerToSender(Tsm, tsm);
@@ -122,10 +131,10 @@ internal class RemoteSubscriber : IRemoteSubscriber
             _ => throw new ArgumentOutOfRangeException(nameof(routingOptions))
         };
 
-    private TSM CreateBroadcastTsm(BroadcastMessage message, string wireVersion)
+    private TSM CreateBroadcastTsm(BroadcastMessage message)
     {
-        var messageTxt = $"{MessageToken.Publish}:{new Topic(message.Topic.Channel, message.Topic.MsgId, wireVersion).ToTsmTxt()}";
-        var tsm = _encoder.Encode(message.Message, wireVersion).ToTsm(TargetEngine, messageTxt);
+        var messageTxt = $"{MessageToken.Publish}:{new Topic(message.Topic.Channel, message.Topic.MsgId, _wireVersion).ToTsmTxt()}";
+        var tsm = _encoder.Encode(message.Message).ToTsm(TargetEngine, messageTxt);
         tsm.UID = message.UserId;
         return tsm;
     }
@@ -133,13 +142,12 @@ internal class RemoteSubscriber : IRemoteSubscriber
     private void BroadcastQueueProcessing(string userId, IEnumerable<BroadcastMessage> broadcastMessages)
     {
         var messagesToSend = broadcastMessages.Select(m => m.Message);
-        var wireVersion = WireVersion;
 
         foreach (var block in CreateMessageBlocks(messagesToSend))
         {
             var msgId = Guid.NewGuid().ToString("N");
-            var messageTxt = $"{MessageToken.Publish}:{new Topic(TsmBatchChannel.Create(block.Count), msgId, wireVersion).ToTsmTxt()}";
-            var tsm = _encoder.EncodeBatch(block, wireVersion).ToTsm(TargetEngine, messageTxt);
+            var messageTxt = $"{MessageToken.Publish}:{new Topic(TsmBatchChannel.Create(block.Count), msgId, _wireVersion).ToTsmTxt()}";
+            var tsm = _encoder.EncodeBatch(block).ToTsm(TargetEngine, messageTxt);
             tsm.UID = userId;
 
             _logger.LogDebug($"Send {MessageToken.Publish} (batch size={block.Count}), origin: {_line.Address}, target: {Tsm.ORG}");

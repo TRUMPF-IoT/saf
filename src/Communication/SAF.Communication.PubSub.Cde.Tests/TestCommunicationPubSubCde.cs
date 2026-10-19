@@ -96,7 +96,7 @@ public class TestCommunicationPubSubCde
         {
             isRegistry = false
         };
-        RemoteSubscriber resu = new(Substitute.For<ComLine>(), tsm, lstPattern, rsr, TsmWireFormats.CreateCodec());
+        RemoteSubscriber resu = new(Substitute.For<ComLine>(), tsm, lstPattern, rsr, TsmWireFormats.CreateCodec(), Substitute.For<IDroppedMessageWarning>());
         Assert.Equal(tsm, resu.Tsm);
         Assert.True(resu.IsAlive);
         Assert.False(resu.IsRegistry);

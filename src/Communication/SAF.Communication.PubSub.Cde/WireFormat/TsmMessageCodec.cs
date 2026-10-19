@@ -21,22 +21,7 @@ internal sealed class TsmMessageCodec : ITsmMessageEncoder, ITsmMessageDecoder
         _formatsNewestFirst = formats.OrderByDescending(f => f.MinimumVersion).ToList();
     }
 
-    public bool CanEncode(Message message, string peerVersion) => FormatFor(peerVersion).CanEncode(message);
-
-    public TsmPayload Encode(Message message, string peerVersion)
-    {
-        var format = FormatFor(peerVersion);
-        EnsureCanEncode(format, message, peerVersion);
-        return format.Encode(message);
-    }
-
-    public TsmPayload EncodeBatch(IEnumerable<Message> messages, string peerVersion)
-    {
-        var format = BatchFormatFor(peerVersion);
-        var list = messages.ToList();
-        foreach (var message in list) EnsureCanEncode(format, message, peerVersion);
-        return format.EncodeBatch(list);
-    }
+    public ITsmPeerEncoder ForPeer(string peerVersion) => new TsmPeerEncoder(FormatFor(peerVersion), peerVersion);
 
     public bool IsBatch(string channel, string version)
         => Version.Parse(version) >= BatchVersion && TsmBatchChannel.Matches(channel);
@@ -57,12 +42,6 @@ internal sealed class TsmMessageCodec : ITsmMessageEncoder, ITsmMessageDecoder
         var parsed = Version.Parse(version);
         return _formatsNewestFirst.FirstOrDefault(f => f.MinimumVersion <= parsed)
                ?? throw new NotSupportedException($"No C-DEngine message format for pub/sub version {version}.");
-    }
-
-    private static void EnsureCanEncode(ITsmMessageFormat format, Message message, string peerVersion)
-    {
-        if (!format.CanEncode(message))
-            throw new InvalidOperationException($"Pub/sub version {peerVersion} cannot carry the message on {message.Topic}.");
     }
 
     private ITsmBatchFormat BatchFormatFor(string version)

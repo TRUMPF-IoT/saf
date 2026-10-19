@@ -4,22 +4,11 @@
 
 namespace SAF.Communication.PubSub.Cde.WireFormat;
 
-using SAF.Messaging.Contracts;
-
 internal interface ITsmMessageEncoder
 {
     /// <summary>
-    /// Whether a peer of the given pub/sub version can receive the message. Messages it cannot are not encoded.
+    /// The encoder for a peer of the given pub/sub version. It picks the format once.
     /// </summary>
-    bool CanEncode(Message message, string peerVersion);
-
-    /// <summary>
-    /// The TSM payload for one message to a peer of the given pub/sub version.
-    /// </summary>
-    TsmPayload Encode(Message message, string peerVersion);
-
-    /// <summary>
-    /// The TSM payload for several messages at once to a peer of the given pub/sub version.
-    /// </summary>
-    TsmPayload EncodeBatch(IEnumerable<Message> messages, string peerVersion);
+    /// <exception cref="NotSupportedException">No format exists for the version.</exception>
+    ITsmPeerEncoder ForPeer(string peerVersion);
 }

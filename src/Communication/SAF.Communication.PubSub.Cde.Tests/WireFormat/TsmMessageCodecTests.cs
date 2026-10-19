@@ -42,7 +42,7 @@ public class TsmMessageCodecTests
             CustomProperties = [new MessageCustomProperty { Name = "n", Value = "v" }]
         };
 
-        var decoded = _codec.Decode("ignored", version, _codec.Encode(message, version));
+        var decoded = _codec.Decode("ignored", version, _codec.ForPeer(version).Encode(message));
 
         Assert.Equal("t", decoded!.Topic);
         Assert.Equal("p", decoded.Payload);
@@ -63,7 +63,7 @@ public class TsmMessageCodecTests
             CustomProperties = [new MessageCustomProperty { Name = "n" }]
         };
 
-        var decoded = _codec.Decode("channel", PubSubVersion.V1, _codec.Encode(message, PubSubVersion.V1));
+        var decoded = _codec.Decode("channel", PubSubVersion.V1, _codec.ForPeer(PubSubVersion.V1).Encode(message));
 
         Assert.Equal("channel", decoded!.Topic);
         Assert.Equal("p", decoded.Payload);
@@ -76,7 +76,7 @@ public class TsmMessageCodecTests
     {
         var message = new Message { Topic = "t", Payload = "p", BinaryPayload = [1, 2, 3] };
 
-        var decoded = _codec.Decode("ignored", PubSubVersion.V5, _codec.Encode(message, PubSubVersion.V5));
+        var decoded = _codec.Decode("ignored", PubSubVersion.V5, _codec.ForPeer(PubSubVersion.V5).Encode(message));
 
         Assert.Equal("p", decoded!.Payload);
         Assert.Equal([1, 2, 3], decoded.BinaryPayload);
@@ -97,8 +97,8 @@ public class TsmMessageCodecTests
     [InlineData(PubSubVersion.V4)]
     public void CanEncode_RejectsBinaryPayloadsBeforeV5(string version)
     {
-        Assert.True(_codec.CanEncode(new Message { Topic = "t", Payload = "p" }, version));
-        Assert.False(_codec.CanEncode(new Message { Topic = "t", Payload = "p", BinaryPayload = [] }, version));
+        Assert.True(_codec.ForPeer(version).CanEncode(new Message { Topic = "t", Payload = "p" }));
+        Assert.False(_codec.ForPeer(version).CanEncode(new Message { Topic = "t", Payload = "p", BinaryPayload = [] }));
     }
 
     [Theory]
@@ -106,16 +106,16 @@ public class TsmMessageCodecTests
     [InlineData("5.1.0")]
     [InlineData("6.0.0")]
     public void CanEncode_AcceptsBinaryPayloadsFromV5(string version)
-        => Assert.True(_codec.CanEncode(new Message { Topic = "t", BinaryPayload = [] }, version));
+        => Assert.True(_codec.ForPeer(version).CanEncode(new Message { Topic = "t", BinaryPayload = [] }));
 
     [Fact]
     public void Encode_RefusesAMessageThePeerCannotReceive()
-        => Assert.Throws<InvalidOperationException>(() => _codec.Encode(new Message { Topic = "t", BinaryPayload = [1] }, PubSubVersion.V3));
+        => Assert.Throws<InvalidOperationException>(() => _codec.ForPeer(PubSubVersion.V3).Encode(new Message { Topic = "t", BinaryPayload = [1] }));
 
     [Fact]
     public void EncodeBatch_RefusesAMessageThePeerCannotReceive()
         => Assert.Throws<InvalidOperationException>(() =>
-            _codec.EncodeBatch([new Message { Topic = "a" }, new Message { Topic = "b", BinaryPayload = [1] }], PubSubVersion.V4));
+            _codec.ForPeer(PubSubVersion.V4).EncodeBatch([new Message { Topic = "a" }, new Message { Topic = "b", BinaryPayload = [1] }]));
 
     [Theory]
     [InlineData(PubSubVersion.V4)]
@@ -124,7 +124,7 @@ public class TsmMessageCodecTests
     {
         Message[] messages = [new() { Topic = "a", Payload = "1" }, new() { Topic = "b" }];
 
-        var decoded = _codec.DecodeBatch(version, _codec.EncodeBatch(messages, version));
+        var decoded = _codec.DecodeBatch(version, _codec.ForPeer(version).EncodeBatch(messages));
 
         Assert.Equal(["a", "b"], decoded!.Select(m => m.Topic));
         Assert.Equal(["1", null], decoded!.Select(m => m.Payload));
@@ -132,11 +132,11 @@ public class TsmMessageCodecTests
 
     [Fact]
     public void EncodeBatch_IsNotSupportedForAFormatWithoutBatches()
-        => Assert.Throws<NotSupportedException>(() => _codec.EncodeBatch([new Message { Topic = "t" }], PubSubVersion.V1));
+        => Assert.Throws<NotSupportedException>(() => _codec.ForPeer(PubSubVersion.V1).EncodeBatch([new Message { Topic = "t" }]));
 
     [Fact]
-    public void Encode_IsNotSupportedBelowTheOldestFormat()
-        => Assert.Throws<NotSupportedException>(() => _codec.Encode(new Message { Topic = "t" }, "0.9.0"));
+    public void ForPeer_IsNotSupportedBelowTheOldestFormat()
+        => Assert.Throws<NotSupportedException>(() => _codec.ForPeer("0.9.0"));
 
     [Theory]
     [InlineData("t", PubSubVersion.V2, "null")]
@@ -158,10 +158,10 @@ public class TsmMessageCodecTests
         var codec = new TsmMessageCodec([..TsmWireFormats.All, v6]);
         var message = new Message { Topic = "t", Payload = "p" };
 
-        Assert.Equal("v6", codec.Encode(message, "6.0.0").Pls);
-        Assert.Equal("v6", codec.Encode(message, "6.3.0").Pls);
-        Assert.Equal(_codec.Encode(message, PubSubVersion.V5), codec.Encode(message, PubSubVersion.V5));
-        Assert.Equal(_codec.Encode(message, PubSubVersion.V4), codec.Encode(message, PubSubVersion.V4));
-        Assert.Equal("p", codec.Encode(message, PubSubVersion.V1).Pls);
+        Assert.Equal("v6", codec.ForPeer("6.0.0").Encode(message).Pls);
+        Assert.Equal("v6", codec.ForPeer("6.3.0").Encode(message).Pls);
+        Assert.Equal(_codec.ForPeer(PubSubVersion.V5).Encode(message), codec.ForPeer(PubSubVersion.V5).Encode(message));
+        Assert.Equal(_codec.ForPeer(PubSubVersion.V4).Encode(message), codec.ForPeer(PubSubVersion.V4).Encode(message));
+        Assert.Equal("p", codec.ForPeer(PubSubVersion.V1).Encode(message).Pls);
     }
 }

@@ -115,7 +115,9 @@ internal class SubscriptionRegistry : ISubscriptionRegistry
         {
             if (!_subscribers.TryGetValue(message.ORG, out var subscriber))
             {
-                subscriber = new RemoteSubscriber(_line, message, newPatterns, request, _encoder);
+                var subscriberLog = new Logger(typeof(RemoteSubscriber));
+                subscriber = new RemoteSubscriber(_line, message, newPatterns, request, _encoder,
+                    new DroppedMessageWarning(warning => subscriberLog.LogWarning(warning)));
                 _subscribers.Add(message.ORG, subscriber);
                 _log.LogDebug($"HandleSubscribe: new {message.ORG}, topics {string.Join(",", topics)}");
             }
