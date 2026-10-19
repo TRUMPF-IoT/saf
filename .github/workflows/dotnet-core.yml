@@ -58,6 +58,7 @@ jobs:
     permissions:
       contents: read
       pull-requests: read
+      id-token: write
 
     steps:
     - name: Setup JDK
@@ -170,13 +171,18 @@ jobs:
       with:
         name: SmartApplicationFramework-${{ steps.minver.outputs.version }}
         path: ./artifacts
+
+    - name: NuGet login (OIDC → temp API key)
+      if: github.event_name == 'push' && contains(github.ref, 'refs/tags/')
+      uses: NuGet/login@v1
+      id: nugetlogin
+      with:
+        user: ${{ secrets.NUGET_USER }}
       
-    - name: Publish nuget packages
-      env:
-        SAF_NUGETORG_APIKEY: ${{ secrets.SAF_NUGETORG_APIKEY }}
+    - name: NuGet push
       if: github.event_name == 'push' && contains(github.ref, 'refs/tags/')
       run: |
-        dotnet nuget push ".\artifacts\*.nupkg" --api-key "$env:SAF_NUGETORG_APIKEY" --source https://api.nuget.org/v3/index.json --skip-duplicate
+        dotnet nuget push ".\artifacts\*.nupkg" --api-key ${{steps.login.outputs.NUGET_API_KEY}} --source https://api.nuget.org/v3/index.json --skip-duplicate
 
   # A plain build+test run on Linux, separate from build_test_pack: that job's SonarCloud scan and NuGet
   # publish must run exactly once per commit, so it stays windows-latest-only rather than becoming a
