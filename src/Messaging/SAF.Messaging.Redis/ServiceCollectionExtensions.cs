@@ -9,6 +9,7 @@ using SAF.Common;
 using SAF.Messaging.Contracts;
 using System.Runtime.CompilerServices;
 using SAF.Messaging.Redis.WireFormat;
+using SAF.Messaging.WireFormat;
 
 [assembly: InternalsVisibleTo("SAF.Messaging.Redis.Tests")]
 [assembly: InternalsVisibleTo("DynamicProxyGenAssembly2")]
@@ -134,14 +135,15 @@ public static class ServiceCollectionExtensions
         };
     }
 
-    internal static IRedisMessageWriter CreateWriter(RedisConfiguration config)
+    internal static IWireMessageWriter<RedisValue> CreateWriter(RedisConfiguration config)
     {
-        IRedisMessageWriter writer = new RedisMessageWriter(RedisWireFormats.All, new RedisBinaryFrame());
-        return config.EnableBinaryPayloads ? writer : new BinaryPayloadsDisabledWriter(writer);
+        IWireMessageWriter<RedisValue> writer = new RedisMessageWriter(RedisWireFormats.All, new RedisBinaryFrame());
+        return config.EnableBinaryPayloads ? writer : new BinaryPayloadsDisabledWriter<RedisValue>(writer);
     }
 
     internal static IRedisMessageReader CreateReader(ILogger logger)
-        => new RedisMessageReader(RedisWireFormats.All, new RedisEnvelopeHeaderReader(), new RedisBinaryFrame(), new UnknownVersionWarning(logger), logger);
+        => new RedisMessageReader(RedisWireFormats.All, new RedisEnvelopeHeaderReader(), new RedisBinaryFrame(),
+            new WireVersion(), new UnknownVersionWarning(logger, "Redis"), logger);
 
     private static Messaging CreateMessagingInfrastructure(IServiceProvider serviceProvider, MessagingConfiguration config, RedisConfiguration defaultConfiguration)
         => CreateMessagingInfrastructure(serviceProvider, ResolveConfiguration(config, defaultConfiguration));

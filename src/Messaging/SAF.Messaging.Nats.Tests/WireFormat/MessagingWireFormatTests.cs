@@ -10,6 +10,7 @@ using NATS.Client.Core;
 using NSubstitute;
 using SAF.Messaging.Contracts;
 using SAF.Messaging.Nats.WireFormat;
+using SAF.Messaging.WireFormat;
 using TestUtilities;
 using Xunit;
 using INatsSubscriptionManager = SAF.Messaging.Nats.INatsSubscriptionManager;
@@ -22,7 +23,7 @@ public class MessagingWireFormatTests
 {
     private readonly IServiceMessageDispatcher _dispatcher = Substitute.For<IServiceMessageDispatcher>();
     private readonly INatsClient _client = Substitute.For<INatsClient>();
-    private readonly INatsMessageWriter _writer = Substitute.For<INatsMessageWriter>();
+    private readonly IWireMessageWriter<NatsWireMessage> _writer = Substitute.For<IWireMessageWriter<NatsWireMessage>>();
     private readonly INatsMessageReader _reader = Substitute.For<INatsMessageReader>();
     private readonly MockLogger<Messaging> _logger = Substitute.For<MockLogger<Messaging>>();
     private readonly Messaging _messaging;

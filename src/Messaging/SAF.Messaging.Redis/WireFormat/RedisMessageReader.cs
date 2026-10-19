@@ -8,6 +8,7 @@ using System.Diagnostics.CodeAnalysis;
 using System.Text;
 using Microsoft.Extensions.Logging;
 using SAF.Messaging.Contracts;
+using SAF.Messaging.WireFormat;
 using StackExchange.Redis;
 
 /// <summary>
@@ -19,17 +20,19 @@ internal sealed class RedisMessageReader : IRedisMessageReader
     private readonly Dictionary<int, IRedisEnvelopeFormat> _formatsByMajorVersion;
     private readonly IRedisEnvelopeHeaderReader _headerReader;
     private readonly IRedisBinaryFrame _binaryFrame;
-    private readonly UnknownVersionWarning _unknownVersionWarning;
+    private readonly IWireVersion _wireVersion;
+    private readonly IUnknownVersionWarning _unknownVersionWarning;
     private readonly ILogger _logger;
 
     public RedisMessageReader(IEnumerable<IRedisEnvelopeFormat> formats, IRedisEnvelopeHeaderReader headerReader,
-        IRedisBinaryFrame binaryFrame, UnknownVersionWarning unknownVersionWarning, ILogger logger)
+        IRedisBinaryFrame binaryFrame, IWireVersion wireVersion, IUnknownVersionWarning unknownVersionWarning, ILogger logger)
     {
         _formatsByMajorVersion = formats
             .SelectMany(format => format.MajorVersions.Select(major => (major, format)))
             .ToDictionary(entry => entry.major, entry => entry.format);
         _headerReader = headerReader;
         _binaryFrame = binaryFrame;
+        _wireVersion = wireVersion;
         _unknownVersionWarning = unknownVersionWarning;
         _logger = logger;
     }
@@ -65,7 +68,7 @@ internal sealed class RedisMessageReader : IRedisMessageReader
     private bool TryGetFormat(string? version, string channel, [NotNullWhen(true)] out IRedisEnvelopeFormat? format)
     {
         format = null;
-        if (WireVersion.TryGetMajor(version, out var major) && _formatsByMajorVersion.TryGetValue(major, out format))
+        if (_wireVersion.TryGetMajor(version, out var major) && _formatsByMajorVersion.TryGetValue(major, out format))
             return true;
 
         _unknownVersionWarning.Report(version!, channel);

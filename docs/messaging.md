@@ -157,7 +157,7 @@ handlers. No external dependencies.
 
 Backed by [StackExchange.Redis](https://github.com/StackExchange/StackExchange.Redis). Suitable for multi-process or multi-machine deployments. The Redis plug-in registers **both** a messaging factory and `IStorageInfrastructure`.
 
-**Package / plug-in DLL:** `SAF.Messaging.Redis` (`SAF.Messaging.Redis.dll`)
+**Package / plug-in DLL:** `SAF.Messaging.Redis` (`SAF.Messaging.Redis.dll`, with `SAF.Messaging.WireFormat.dll`)
 
 ```json
 {
@@ -208,7 +208,7 @@ if it were version 2, which could hand handlers a wrong message.
 
 Backed by [NATS.Net](https://nats.io). High-performance, cloud-native messaging. Also provides NATS-backed storage.
 
-**Package / plug-in DLL:** `SAF.Messaging.NATS` (`SAF.Messaging.NATS.dll`)
+**Package / plug-in DLL:** `SAF.Messaging.NATS` (`SAF.Messaging.NATS.dll`, with `SAF.Messaging.WireFormat.dll`)
 
 ```json
 {
@@ -515,6 +515,16 @@ public class MyCustomMessaging : IMessagingInfrastructure
 If your infrastructure sends `Message.BinaryPayload`, also implement `GetPublishableFormats` to return
 `MessageFormats.Text | MessageFormats.Binary` for the topics it sends them on. The default implementation reports
 text only, so the [file transfer](./toolbox.md#binary-chunks) sends text chunks over your infrastructure.
+
+The package `SAF.Messaging.WireFormat` holds the building blocks that the Redis and NATS plug-ins share. Use them
+if your infrastructure versions its wire format the same way:
+
+| Type | Purpose |
+|---|---|
+| `IWireVersion` / `WireVersion` | Reads the major version of a wire format version such as `2.0.0`; a missing version is major version 1. Select the reader format by major version, since a minor version only adds optional fields. |
+| `IUnknownVersionWarning` / `UnknownVersionWarning` | Logs one warning per unknown version, at most 32, when you drop a message of a newer sender. |
+| `IWireMessageWriter<TWire>` | Turns a `Message` into what your transport sends (`TWire`), or names the reason it drops the message. Its `Formats` tell what `GetPublishableFormats` should report. |
+| `BinaryPayloadsDisabledWriter<TWire>` | Decorates a writer to drop messages with a `BinaryPayload`, as the `EnableBinaryPayloads` setting of Redis and NATS does. |
 
 Expose it through a plug-in. Provide an extension method that registers a keyed factory, then call it from your plug-in's `PluginManifest` (mirroring how the built-in implementations work):
 

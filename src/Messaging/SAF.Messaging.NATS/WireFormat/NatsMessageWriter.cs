@@ -6,11 +6,12 @@ namespace SAF.Messaging.Nats.WireFormat;
 
 using System.Diagnostics.CodeAnalysis;
 using SAF.Messaging.Contracts;
+using SAF.Messaging.WireFormat;
 
 /// <summary>
 /// Writes each message in the oldest format that can carry it, so older nodes and servers can read as much as possible.
 /// </summary>
-internal sealed class NatsMessageWriter : INatsMessageWriter
+internal sealed class NatsMessageWriter : IWireMessageWriter<NatsWireMessage>
 {
     private readonly IReadOnlyList<INatsWireFormat> _formats;
 
@@ -22,17 +23,17 @@ internal sealed class NatsMessageWriter : INatsMessageWriter
 
     public MessageFormats Formats { get; }
 
-    public bool TryWrite(Message message, out NatsWireMessage wireMessage, [NotNullWhen(false)] out string? dropReason)
+    public bool TryWrite(Message message, out NatsWireMessage wire, [NotNullWhen(false)] out string? dropReason)
     {
         var format = _formats.FirstOrDefault(f => f.CanWrite(message));
         if (format == null)
         {
-            wireMessage = default;
+            wire = default;
             dropReason = $"NATS messaging has no wire format for a message with format {message.GetFormat()}.";
             return false;
         }
 
-        wireMessage = format.Write(message);
+        wire = format.Write(message);
         dropReason = null;
         return true;
     }

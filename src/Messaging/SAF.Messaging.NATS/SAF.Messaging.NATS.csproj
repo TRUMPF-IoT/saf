@@ -29,6 +29,7 @@ SPDX-License-Identifier: MPL-2.0
             <Private>False</Private>
             <ExcludeAssets>runtime</ExcludeAssets>
         </ProjectReference>
+        <ProjectReference Include="..\SAF.Messaging.WireFormat\SAF.Messaging.WireFormat.csproj" />
         <ProjectReference Include="..\..\Toolbox\SAF.Toolbox\SAF.Toolbox.csproj" />
     </ItemGroup>
 

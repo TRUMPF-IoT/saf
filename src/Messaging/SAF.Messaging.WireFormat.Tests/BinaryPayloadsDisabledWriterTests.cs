@@ -2,22 +2,20 @@
 //
 // SPDX-License-Identifier: MPL-2.0
 
-namespace SAF.Messaging.Redis.Tests.WireFormat;
+namespace SAF.Messaging.WireFormat.Tests;
 
 using NSubstitute;
 using SAF.Messaging.Contracts;
-using SAF.Messaging.Redis.WireFormat;
-using StackExchange.Redis;
 using Xunit;
 
 public class BinaryPayloadsDisabledWriterTests
 {
-    private readonly IRedisMessageWriter _inner = Substitute.For<IRedisMessageWriter>();
-    private readonly BinaryPayloadsDisabledWriter _writer;
+    private readonly IWireMessageWriter<string?> _inner = Substitute.For<IWireMessageWriter<string?>>();
+    private readonly BinaryPayloadsDisabledWriter<string?> _writer;
 
     public BinaryPayloadsDisabledWriterTests()
     {
-        _writer = new BinaryPayloadsDisabledWriter(_inner);
+        _writer = new BinaryPayloadsDisabledWriter<string?>(_inner);
     }
 
     [Theory]
@@ -25,9 +23,9 @@ public class BinaryPayloadsDisabledWriterTests
     [InlineData(new byte[] { 1 })]
     public void DropsBinaryPayloadsWithAReasonThatNamesTheSetting(byte[] binaryPayload)
     {
-        Assert.False(_writer.TryWrite(new Message { Topic = "t", BinaryPayload = binaryPayload }, out var value, out var dropReason));
+        Assert.False(_writer.TryWrite(new Message { Topic = "t", BinaryPayload = binaryPayload }, out var wire, out var dropReason));
 
-        Assert.True(value.IsNull);
+        Assert.Null(wire);
         Assert.Contains("EnableBinaryPayloads", dropReason);
         _inner.DidNotReceiveWithAnyArgs().TryWrite(default!, out _, out _);
     }
@@ -48,16 +46,16 @@ public class BinaryPayloadsDisabledWriterTests
     public void PassesTextMessagesToTheWriter(bool written, string? reason)
     {
         var message = new Message { Topic = "t", Payload = "p" };
-        _inner.TryWrite(message, out Arg.Any<RedisValue>(), out Arg.Any<string?>())
+        _inner.TryWrite(message, out Arg.Any<string?>(), out Arg.Any<string?>())
             .Returns(ci =>
             {
-                ci[1] = (RedisValue)"value";
+                ci[1] = "wire";
                 ci[2] = reason;
                 return written;
             });
 
-        Assert.Equal(written, _writer.TryWrite(message, out var value, out var dropReason));
-        Assert.Equal("value", value);
+        Assert.Equal(written, _writer.TryWrite(message, out var wire, out var dropReason));
+        Assert.Equal("wire", wire);
         Assert.Equal(reason, dropReason);
     }
 }

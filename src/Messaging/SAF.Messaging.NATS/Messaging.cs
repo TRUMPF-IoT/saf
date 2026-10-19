@@ -8,6 +8,7 @@ using NATS.Client.Core;
 using SAF.Common;
 using SAF.Messaging.Contracts;
 using SAF.Messaging.Nats.WireFormat;
+using SAF.Messaging.WireFormat;
 
 namespace SAF.Messaging.Nats;
 
@@ -18,14 +19,14 @@ internal sealed class Messaging : IMessagingInfrastructure, IDisposable
     private readonly NatsRouteTranslation _routes;
     private readonly IServiceMessageDispatcher _serviceMessageDispatcher;
     private readonly ILogger<Messaging> _logger;
-    private readonly INatsMessageWriter _writer;
+    private readonly IWireMessageWriter<NatsWireMessage> _writer;
     private readonly INatsMessageReader _reader;
 
     public Messaging(ILogger<Messaging>? logger, INatsClient natsClient,
         INatsSubscriptionManager subscriptionManager,
         NatsRouteTranslation routes,
         IServiceMessageDispatcher serviceMessageDispatcher,
-        INatsMessageWriter writer,
+        IWireMessageWriter<NatsWireMessage> writer,
         INatsMessageReader reader)
     {
         _logger = logger ?? NullLogger<Messaging>.Instance;

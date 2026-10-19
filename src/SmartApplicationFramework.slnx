@@ -39,6 +39,8 @@ SPDX-License-Identifier: MPL-2.0
     <Project Path="Messaging/SAF.Messaging.Routing/SAF.Messaging.Routing.csproj" />
     <Project Path="Messaging/SAF.Messaging.Runtime.Tests/SAF.Messaging.Runtime.Tests.csproj" />
     <Project Path="Messaging/SAF.Messaging.Runtime/SAF.Messaging.Runtime.csproj" />
+    <Project Path="Messaging/SAF.Messaging.WireFormat.Tests/SAF.Messaging.WireFormat.Tests.csproj" />
+    <Project Path="Messaging/SAF.Messaging.WireFormat/SAF.Messaging.WireFormat.csproj" />
   </Folder>
   <Folder Name="/Hosting/">
     <Project Path="Hosting/SAF.Hosting.Contracts/SAF.Hosting.Contracts.csproj" />

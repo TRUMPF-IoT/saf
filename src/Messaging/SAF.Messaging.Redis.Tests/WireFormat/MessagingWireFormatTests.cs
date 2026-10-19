@@ -8,6 +8,7 @@ using Microsoft.Extensions.Logging;
 using NSubstitute;
 using SAF.Messaging.Contracts;
 using SAF.Messaging.Redis.WireFormat;
+using SAF.Messaging.WireFormat;
 using StackExchange.Redis;
 using TestUtilities;
 using Xunit;
@@ -19,7 +20,7 @@ public class MessagingWireFormatTests
 {
     private readonly IServiceMessageDispatcher _dispatcher = Substitute.For<IServiceMessageDispatcher>();
     private readonly ISubscriber _subscriber = Substitute.For<ISubscriber>();
-    private readonly IRedisMessageWriter _writer = Substitute.For<IRedisMessageWriter>();
+    private readonly IWireMessageWriter<RedisValue> _writer = Substitute.For<IWireMessageWriter<RedisValue>>();
     private readonly IRedisMessageReader _reader = Substitute.For<IRedisMessageReader>();
     private readonly MockLogger<Messaging> _logger = Substitute.For<MockLogger<Messaging>>();
     private readonly Messaging _messaging;

@@ -9,6 +9,7 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using StackExchange.Redis;
 using SAF.Messaging.Contracts;
+using SAF.Messaging.WireFormat;
 using WireFormat;
 
 public static class RedisMessageVersion
@@ -24,13 +25,13 @@ internal sealed class Messaging : IMessagingInfrastructure, IDisposable
     private readonly IConnectionMultiplexer _redis;
     private readonly IServiceMessageDispatcher _serviceMessageDispatcher;
     private readonly ILogger<Messaging> _log;
-    private readonly IRedisMessageWriter _writer;
+    private readonly IWireMessageWriter<RedisValue> _writer;
     private readonly IRedisMessageReader _reader;
 
     private readonly ConcurrentDictionary<Guid, (string routeFilterPattern, Action<RedisChannel, RedisValue> handler)> _subscriptions = new();
 
     public Messaging(ILogger<Messaging>? log, IConnectionMultiplexer redis, IServiceMessageDispatcher serviceMessageDispatcher,
-        IRedisMessageWriter writer, IRedisMessageReader reader)
+        IWireMessageWriter<RedisValue> writer, IRedisMessageReader reader)
     {
         _log = log ?? NullLogger<Messaging>.Instance;
         _writer = writer;

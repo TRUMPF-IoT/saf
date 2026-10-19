@@ -2,24 +2,23 @@
 //
 // SPDX-License-Identifier: MPL-2.0
 
-namespace SAF.Messaging.Redis.WireFormat;
+namespace SAF.Messaging.WireFormat;
 
 using System.Diagnostics.CodeAnalysis;
 using SAF.Messaging.Contracts;
-using StackExchange.Redis;
 
 /// <summary>
 /// Drops messages with a binary payload, which nodes before SAF 11 would read as corrupt text, and passes all others on.
 /// </summary>
-internal sealed class BinaryPayloadsDisabledWriter(IRedisMessageWriter writer) : IRedisMessageWriter
+public sealed class BinaryPayloadsDisabledWriter<TWire>(IWireMessageWriter<TWire> writer) : IWireMessageWriter<TWire>
 {
     public MessageFormats Formats => writer.Formats & ~MessageFormats.Binary;
 
-    public bool TryWrite(Message message, out RedisValue value, [NotNullWhen(false)] out string? dropReason)
+    public bool TryWrite(Message message, out TWire wire, [NotNullWhen(false)] out string? dropReason)
     {
-        if (message.BinaryPayload is null) return writer.TryWrite(message, out value, out dropReason);
+        if (message.BinaryPayload is null) return writer.TryWrite(message, out wire, out dropReason);
 
-        value = RedisValue.Null;
+        wire = default!;
         dropReason = "Sending binary payloads is disabled by the setting EnableBinaryPayloads.";
         return false;
     }

@@ -12,6 +12,7 @@ using NATS.Net;
 using SAF.Common;
 using SAF.Messaging.Contracts;
 using SAF.Messaging.Nats.WireFormat;
+using SAF.Messaging.WireFormat;
 
 [assembly: InternalsVisibleTo("SAF.Messaging.Nats.Tests")]
 [assembly: InternalsVisibleTo("DynamicProxyGenAssembly2")]
@@ -105,14 +106,14 @@ public static class ServiceCollectionExtensions
         return natsCfg;
     }
 
-    internal static INatsMessageWriter CreateWriter(NatsConfiguration config)
+    internal static IWireMessageWriter<NatsWireMessage> CreateWriter(NatsConfiguration config)
     {
-        INatsMessageWriter writer = new NatsMessageWriter(NatsWireFormats.All);
-        return config.EnableBinaryPayloads ? writer : new BinaryPayloadsDisabledWriter(writer);
+        IWireMessageWriter<NatsWireMessage> writer = new NatsMessageWriter(NatsWireFormats.All);
+        return config.EnableBinaryPayloads ? writer : new BinaryPayloadsDisabledWriter<NatsWireMessage>(writer);
     }
 
     internal static INatsMessageReader CreateReader(ILogger logger)
-        => new NatsMessageReader(NatsWireFormats.All, new UnknownVersionWarning(logger), logger);
+        => new NatsMessageReader(NatsWireFormats.All, new WireVersion(), new UnknownVersionWarning(logger, "NATS"), logger);
 
     private static INatsClient CreateNatsClient(NatsConfiguration config, ILogger logger)
     {

@@ -7,6 +7,7 @@ namespace SAF.Messaging.Nats.WireFormat;
 using Microsoft.Extensions.Logging;
 using NATS.Client.Core;
 using SAF.Messaging.Contracts;
+using SAF.Messaging.WireFormat;
 
 /// <summary>
 /// Reads the <see cref="NatsHeaderNames.Version"/> header and hands the message to the format registered for its
@@ -15,12 +16,15 @@ using SAF.Messaging.Contracts;
 internal sealed class NatsMessageReader : INatsMessageReader
 {
     private readonly Dictionary<int, INatsWireFormat> _formatsByMajorVersion;
-    private readonly UnknownVersionWarning _unknownVersionWarning;
+    private readonly IWireVersion _wireVersion;
+    private readonly IUnknownVersionWarning _unknownVersionWarning;
     private readonly ILogger _logger;
 
-    public NatsMessageReader(IEnumerable<INatsWireFormat> formats, UnknownVersionWarning unknownVersionWarning, ILogger logger)
+    public NatsMessageReader(IEnumerable<INatsWireFormat> formats, IWireVersion wireVersion,
+        IUnknownVersionWarning unknownVersionWarning, ILogger logger)
     {
         _formatsByMajorVersion = formats.ToDictionary(f => f.MajorVersion);
+        _wireVersion = wireVersion;
         _unknownVersionWarning = unknownVersionWarning;
         _logger = logger;
     }
@@ -31,7 +35,7 @@ internal sealed class NatsMessageReader : INatsMessageReader
             ? values.ToString()
             : null;
 
-        if (!WireVersion.TryGetMajor(version, out var major) || !_formatsByMajorVersion.TryGetValue(major, out var format))
+        if (!_wireVersion.TryGetMajor(version, out var major) || !_formatsByMajorVersion.TryGetValue(major, out var format))
         {
             _unknownVersionWarning.Report(version!, topic);
             return null;

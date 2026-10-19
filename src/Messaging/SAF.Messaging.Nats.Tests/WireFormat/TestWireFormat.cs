@@ -9,13 +9,14 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using NATS.Client.Core;
 using SAF.Messaging.Nats.WireFormat;
+using SAF.Messaging.WireFormat;
 
 /// <summary>
 /// The production wire format composition, as the plug-in builds it, and NATS messages as a subscription delivers them.
 /// </summary>
 internal static class TestWireFormat
 {
-    public static INatsMessageWriter Writer(bool enableBinaryPayloads = true)
+    public static IWireMessageWriter<NatsWireMessage> Writer(bool enableBinaryPayloads = true)
         => ServiceCollectionExtensions.CreateWriter(new NatsConfiguration { EnableBinaryPayloads = enableBinaryPayloads });
 
     public static INatsMessageReader Reader(ILogger? logger = null)

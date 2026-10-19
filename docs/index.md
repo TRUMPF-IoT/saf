@@ -67,6 +67,7 @@ graph TB
 | `SAF.Messaging.Cde` | C-DEngine-backed messaging |
 | `SAF.Cde.Common` | C-DEngine configuration (`CdeConfiguration`) and the one C-DEngine node per process that the C-DEngine plug-ins share |
 | `SAF.Messaging.Routing` | Fan-out / routing across multiple brokers |
+| `SAF.Messaging.WireFormat` | Wire format building blocks shared by the Redis and NATS plug-ins, usable for custom infrastructures |
 | `SAF.Storage.LiteDb` | LiteDB-backed key/value storage |
 | `SAF.Storage.SQLite` | SQLite-backed key/value storage |
 | `SAF.Storage.Cde` | C-DEngine-backed key/value storage |

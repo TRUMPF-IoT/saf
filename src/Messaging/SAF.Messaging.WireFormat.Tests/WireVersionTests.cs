@@ -2,13 +2,14 @@
 //
 // SPDX-License-Identifier: MPL-2.0
 
-namespace SAF.Messaging.Redis.Tests.WireFormat;
+namespace SAF.Messaging.WireFormat.Tests;
 
-using SAF.Messaging.Redis.WireFormat;
 using Xunit;
 
 public class WireVersionTests
 {
+    private readonly WireVersion _wireVersion = new();
+
     [Theory]
     [InlineData(null, 1)]
     [InlineData("", 1)]
@@ -17,7 +18,7 @@ public class WireVersionTests
     [InlineData("10.0.0", 10)]
     public void TryGetMajor_ReturnsTheMajorVersion(string? version, int expected)
     {
-        Assert.True(WireVersion.TryGetMajor(version, out var major));
+        Assert.True(_wireVersion.TryGetMajor(version, out var major));
         Assert.Equal(expected, major);
     }
 
@@ -25,5 +26,5 @@ public class WireVersionTests
     [InlineData("abc")]
     [InlineData("2")]
     public void TryGetMajor_RejectsUnparsableVersions(string version)
-        => Assert.False(WireVersion.TryGetMajor(version, out _));
+        => Assert.False(_wireVersion.TryGetMajor(version, out _));
 }

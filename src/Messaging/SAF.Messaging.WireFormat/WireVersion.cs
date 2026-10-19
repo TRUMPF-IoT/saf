@@ -2,16 +2,16 @@
 //
 // SPDX-License-Identifier: MPL-2.0
 
-namespace SAF.Messaging.Nats.WireFormat;
+namespace SAF.Messaging.WireFormat;
 
 /// <summary>
-/// Formats are selected by major version: a minor version only adds optional fields.
+/// Versions in the form <c>major.minor[.build]</c>. A missing version is major version 1, the oldest formats
+/// carried none.
 /// </summary>
-internal static class WireVersion
+public sealed class WireVersion : IWireVersion
 {
-    public static bool TryGetMajor(string? version, out int major)
+    public bool TryGetMajor(string? version, out int major)
     {
-        // The oldest format carried no version.
         if (string.IsNullOrEmpty(version))
         {
             major = 1;

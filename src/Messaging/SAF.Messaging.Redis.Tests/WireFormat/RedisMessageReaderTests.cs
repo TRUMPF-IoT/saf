@@ -9,6 +9,7 @@ using Microsoft.Extensions.Logging.Abstractions;
 using NSubstitute;
 using SAF.Messaging.Contracts;
 using SAF.Messaging.Redis.WireFormat;
+using SAF.Messaging.WireFormat;
 using StackExchange.Redis;
 using TestUtilities;
 using Xunit;
@@ -110,7 +111,7 @@ public class RedisMessageReaderTests
         format.MajorVersions.Returns([2]);
         var headerReader = new CountingHeaderReader();
         var reader = new RedisMessageReader([format], headerReader, new RedisBinaryFrame(),
-            new UnknownVersionWarning(NullLogger.Instance), NullLogger.Instance);
+            new WireVersion(), new UnknownVersionWarning(NullLogger.Instance, "Redis"), NullLogger.Instance);
 
         reader.Read("channel", """{"version":"2.0.0","message":{}}""");
 
@@ -140,7 +141,7 @@ public class RedisMessageReaderTests
         var v4 = Substitute.For<IRedisEnvelopeFormat>();
         v4.MajorVersions.Returns([4]);
         v4.Read(Arg.Any<RedisWireValue>()).Returns(expected);
-        var reader = new RedisMessageReader([..RedisWireFormats.All, v4], new RedisEnvelopeHeaderReader(), new RedisBinaryFrame(), new UnknownVersionWarning(NullLogger.Instance), NullLogger.Instance);
+        var reader = new RedisMessageReader([..RedisWireFormats.All, v4], new RedisEnvelopeHeaderReader(), new RedisBinaryFrame(), new WireVersion(), new UnknownVersionWarning(NullLogger.Instance, "Redis"), NullLogger.Instance);
 
         var message = reader.Read("channel", """{"version":"4.2.0","message":{}}""");
 
@@ -154,7 +155,7 @@ public class RedisMessageReaderTests
         duplicate.MajorVersions.Returns([2]);
 
         Assert.Throws<ArgumentException>(() =>
-            new RedisMessageReader([..RedisWireFormats.All, duplicate], new RedisEnvelopeHeaderReader(), new RedisBinaryFrame(), new UnknownVersionWarning(NullLogger.Instance), NullLogger.Instance));
+            new RedisMessageReader([..RedisWireFormats.All, duplicate], new RedisEnvelopeHeaderReader(), new RedisBinaryFrame(), new WireVersion(), new UnknownVersionWarning(NullLogger.Instance, "Redis"), NullLogger.Instance));
     }
 
     /// <summary>
@@ -244,7 +245,7 @@ public class RedisMessageReaderTests
         var binaryFrame = Substitute.For<IRedisBinaryFrame>();
         binaryFrame.IsFrame(value).Returns(true);
         binaryFrame.Read(value).Returns(new RedisWireValue("""{"version":"3.0.0","message":{"topic":"t"}}""", [7]));
-        var reader = new RedisMessageReader(RedisWireFormats.All, new RedisEnvelopeHeaderReader(), binaryFrame, new UnknownVersionWarning(NullLogger.Instance), NullLogger.Instance);
+        var reader = new RedisMessageReader(RedisWireFormats.All, new RedisEnvelopeHeaderReader(), binaryFrame, new WireVersion(), new UnknownVersionWarning(NullLogger.Instance, "Redis"), NullLogger.Instance);
 
         var message = reader.Read("channel", value);
 

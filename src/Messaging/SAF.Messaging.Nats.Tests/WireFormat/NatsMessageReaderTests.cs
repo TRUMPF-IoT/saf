@@ -10,6 +10,7 @@ using NATS.Client.Core;
 using NSubstitute;
 using SAF.Messaging.Contracts;
 using SAF.Messaging.Nats.WireFormat;
+using SAF.Messaging.WireFormat;
 using TestUtilities;
 using Xunit;
 using static TestWireFormat;
@@ -86,7 +87,7 @@ public class NatsMessageReaderTests
         var v4 = Substitute.For<INatsWireFormat>();
         v4.MajorVersion.Returns(4);
         v4.Read("t", Arg.Any<NatsBody>(), Arg.Any<NatsHeaders?>()).Returns(expected);
-        var reader = new NatsMessageReader([..NatsWireFormats.All, v4], new UnknownVersionWarning(NullLogger.Instance), NullLogger.Instance);
+        var reader = new NatsMessageReader([..NatsWireFormats.All, v4], new WireVersion(), new UnknownVersionWarning(NullLogger.Instance, "NATS"), NullLogger.Instance);
 
         var message = reader.Read("t", Utf8("p"), new NatsHeaders { { NatsHeaderNames.Version, "4.1.0" } });
 

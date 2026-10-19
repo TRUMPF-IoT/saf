@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: MPL-2.0
 
-namespace SAF.Messaging.Nats.WireFormat;
+namespace SAF.Messaging.WireFormat;
 
 using System.Collections.Concurrent;
 using Microsoft.Extensions.Logging;
@@ -10,7 +10,8 @@ using Microsoft.Extensions.Logging;
 /// <summary>
 /// Warns once per unknown wire format version instead of once per dropped message.
 /// </summary>
-internal sealed class UnknownVersionWarning(ILogger logger)
+/// <param name="transport">Names the transport in the warning, for example <c>Redis</c>.</param>
+public sealed class UnknownVersionWarning(ILogger logger, string transport) : IUnknownVersionWarning
 {
     // Bounds memory when a peer sends arbitrary version strings.
     private const int MaxReportedVersions = 32;
@@ -22,7 +23,7 @@ internal sealed class UnknownVersionWarning(ILogger logger)
         if (_reportedVersions.Count >= MaxReportedVersions || !_reportedVersions.TryAdd(version, 0)) return;
 
         logger.LogWarning(
-            "Dropped NATS message on {Topic}: unknown wire format version {Version}. The sender runs a newer SAF version; further messages with this version are dropped silently.",
-            topic, version);
+            "Dropped {Transport} message on {Topic}: unknown wire format version {Version}. The sender runs a newer SAF version; further messages with this version are dropped silently.",
+            transport, topic, version);
     }
 }

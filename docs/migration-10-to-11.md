@@ -390,6 +390,10 @@ Update your `.csproj` files:
 | `IMessageHandler` plugin registration without extensions | Add package `SAF.Messaging.Extensions` and use `AddSingletonMessageHandler<T>()` / `AddTransientMessageHandler<T>()` + `AddMessageHandlerResolver()` |
 | `SAF.Messaging.Cde` (for `CdeConfiguration`, `CdeCryptoLibConfig`, `AddCde`) | `SAF.Cde.Common`, namespace `SAF.Cde.Common` (see [below](#c-dengine-configuration-moved-to-safcdecommon)) |
 
+`SAF.Messaging.Redis` and `SAF.Messaging.NATS` depend on the new package `SAF.Messaging.WireFormat`. NuGet restores
+it, and the build puts `SAF.Messaging.WireFormat.dll` next to the plug-in DLL. If you deploy plug-in files by hand,
+copy it as well.
+
 ### C-DEngine configuration moved to `SAF.Cde.Common`
 
 `CdeConfiguration`, `CdeCryptoLibConfig` and `AddCde` moved from `SAF.Messaging.Cde` to the new package
