@@ -47,9 +47,21 @@ internal sealed class ReplyTopics(IMessagingInfrastructure messaging, Action<Mes
     {
         foreach (var prefix in _subscriptions.Keys)
         {
-            // A subscription still in progress is awaited, so it does not outlive the client; failed ones are gone.
-            if (_subscriptions.TryRemove(prefix, out var subscription) && subscription.Value is { } handle)
-                messaging.Unsubscribe(handle);
+            if (!_subscriptions.TryRemove(prefix, out var subscription)) continue;
+
+            object? handle;
+            try
+            {
+                // A subscription still in progress is awaited, so it does not outlive the client.
+                handle = subscription.Value;
+            }
+            catch
+            {
+                // The request that subscribed got the exception; the other prefixes still need unsubscribing.
+                continue;
+            }
+
+            if (handle is not null) messaging.Unsubscribe(handle);
         }
     }
 }

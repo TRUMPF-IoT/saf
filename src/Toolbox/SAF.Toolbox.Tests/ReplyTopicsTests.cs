@@ -184,4 +184,34 @@ public class ReplyTopicsTests
 
         _messaging.DidNotReceive().Unsubscribe(Arg.Any<object>());
     }
+
+    [Fact]
+    public async Task Dispose_UnsubscribesTheOtherPrefixes_WhenASubscriptionInProgressFails()
+    {
+        var handle = new object();
+        using var subscribing = new ManualResetEventSlim();
+        using var release = new ManualResetEventSlim();
+        _messaging.Subscribe(Arg.Is<string>(p => p.StartsWith("a/")), Arg.Any<Action<Message>>()).Returns(handle);
+        _messaging.Subscribe(Arg.Is<string>(p => p.StartsWith("slow/")), Arg.Any<Action<Message>>())
+            .Returns(_ =>
+            {
+                subscribing.Set();
+                release.Wait(Timeout, TestContext.Current.CancellationToken);
+                throw new InvalidOperationException("subscribe failed");
+            });
+        var sut = new ReplyTopics(_messaging, _ => { });
+        sut.Create("a");
+        var slow = Task.Run(() => sut.Create("slow"), TestContext.Current.CancellationToken);
+        Assert.True(subscribing.Wait(Timeout, TestContext.Current.CancellationToken));
+
+        var dispose = Task.Run(sut.Dispose, TestContext.Current.CancellationToken);
+        await Task.Delay(100, TestContext.Current.CancellationToken);
+        Assert.False(dispose.IsCompleted);
+        release.Set();
+
+        await dispose.WaitAsync(Timeout, TestContext.Current.CancellationToken);
+        await Assert.ThrowsAsync<InvalidOperationException>(() => slow.WaitAsync(Timeout, TestContext.Current.CancellationToken));
+        _messaging.Received(1).Unsubscribe(handle);
+        _messaging.Received(1).Unsubscribe(Arg.Any<object>());
+    }
 }

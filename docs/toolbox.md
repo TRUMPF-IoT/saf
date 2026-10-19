@@ -153,7 +153,8 @@ default prefix. The request client subscribes `{prefix}/*/requestclient/{client 
 prefix when the client is created, any other prefix at the first request with it. It sends that request only once
 the subscription is in place; on C-DEngine, subscribing can take a few seconds, and only requests on that prefix
 wait for it. The task of a request completes asynchronously, so code after `await` does not run on the thread
-that delivered the reply. With
+that delivered the reply. Disposing the client waits for a subscription still in progress and unsubscribes every
+prefix, even if one of the subscriptions failed. With
 [Routing](./messaging.md#routing-multiple-brokers), a route that has subscription patterns receives replies only if
 one of them covers the prefix, for example `private/*`.
 
