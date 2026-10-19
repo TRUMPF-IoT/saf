@@ -300,6 +300,10 @@ A received message that cannot be read, for example because its binary payload d
 length, is dropped with a warning in the C-DEngine log. A message from a peer before `5.0.0` is read from its JSON
 only; a binary field on it is ignored, as in 10.x.
 
+A peer whose announced version cannot be read (it must have the form `major.minor[.build]`) or is older than
+`1.0.0` is not registered: its subscription is ignored with a warning in the C-DEngine log, and it receives no
+messages from this node. Other peers are not affected.
+
 The plug-in provides messaging only. For the C-DEngine storage, load `SAF.Storage.Cde.dll` as well (see
 [Storage Infrastructure](./storage.md#c-dengine)); it reads the same `Cde` section.
 

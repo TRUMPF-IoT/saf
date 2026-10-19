@@ -4,6 +4,7 @@
 
 namespace SAF.Communication.PubSub.Cde;
 
+using System.Diagnostics.CodeAnalysis;
 using nsCDEngine.BaseClasses;
 using nsCDEngine.Engines.ThingService;
 using nsCDEngine.ViewModels;
@@ -115,9 +116,7 @@ internal class SubscriptionRegistry : ISubscriptionRegistry
         {
             if (!_subscribers.TryGetValue(message.ORG, out var subscriber))
             {
-                var subscriberLog = new Logger(typeof(RemoteSubscriber));
-                subscriber = new RemoteSubscriber(_line, message, newPatterns, request, _encoder,
-                    new DroppedMessageWarning(warning => subscriberLog.LogWarning(warning)));
+                if (!TryCreateSubscriber(message, newPatterns, request, out subscriber)) return;
                 _subscribers.Add(message.ORG, subscriber);
                 _log.LogDebug($"HandleSubscribe: new {message.ORG}, topics {string.Join(",", topics)}");
             }
@@ -143,6 +142,24 @@ internal class SubscriptionRegistry : ISubscriptionRegistry
         finally
         {
             _syncSubscribers.ExitWriteLock();
+        }
+    }
+
+    private bool TryCreateSubscriber(TSM message, IList<string> patterns, RegistrySubscriptionRequest request,
+        [NotNullWhen(true)] out IRemoteSubscriber? subscriber)
+    {
+        var subscriberLog = new Logger(typeof(RemoteSubscriber));
+        try
+        {
+            subscriber = new RemoteSubscriber(_line, message, patterns, request, _encoder,
+                new DroppedMessageWarning(warning => subscriberLog.LogWarning(warning)));
+            return true;
+        }
+        catch (Exception e) when (e is ArgumentException or FormatException or OverflowException or NotSupportedException)
+        {
+            _log.LogWarning($"Ignored subscription of {message.ORG}: its pub/sub version {request.version} is not supported.", e);
+            subscriber = null;
+            return false;
         }
     }
 

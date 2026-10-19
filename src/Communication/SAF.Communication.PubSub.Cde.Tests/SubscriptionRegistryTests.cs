@@ -54,6 +54,21 @@ public class SubscriptionRegistryTests
         _line.DidNotReceive().AnswerToSender(Arg.Any<TSM>(), Arg.Is<TSM>(t => t.TXT.StartsWith(MessageToken.Publish)));
     }
 
+    [Theory]
+    [InlineData("5")]
+    [InlineData("abc")]
+    [InlineData("0.9.0")]
+    public void Subscribe_IgnoresAPeerWithAnUnsupportedVersion(string version)
+    {
+        Subscribe(version);
+
+        _line.DidNotReceive().AnswerToSender(Arg.Any<TSM>(), Arg.Is<TSM>(t => t.TXT.StartsWith(MessageToken.SubscribeResponse)));
+
+        Subscribe(PubSubVersion.V5);
+
+        _line.Received(1).AnswerToSender(Arg.Any<TSM>(), Arg.Is<TSM>(t => t.TXT.StartsWith(MessageToken.SubscribeResponse)));
+    }
+
     private void Subscribe(string version)
     {
         var request = new RegistrySubscriptionRequest { id = "id", topics = ["t"], isRegistry = true, version = version };
