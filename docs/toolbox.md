@@ -149,8 +149,11 @@ SAF 10.x responders read it, and into `Message.ReplyTo`. Its requests carry no `
 responders answer them with text, and it reads only the reply's `Payload`.
 
 Replies arrive on `{prefix}/{request id}/requestclient/{client id}`, where the prefix is `replyTopicPrefix` or the
-default prefix. The request client subscribes `{prefix}/*/requestclient/{client id}` once per prefix, at the first
-request with that prefix, and sends that request only once the subscription is in place. With
+default prefix. The request client subscribes `{prefix}/*/requestclient/{client id}` once per prefix: the default
+prefix when the client is created, any other prefix at the first request with it. It sends that request only once
+the subscription is in place; on C-DEngine, subscribing can take a few seconds, and only requests on that prefix
+wait for it. The task of a request completes asynchronously, so code after `await` does not run on the thread
+that delivered the reply. With
 [Routing](./messaging.md#routing-multiple-brokers), a route that has subscription patterns receives replies only if
 one of them covers the prefix, for example `private/*`.
 

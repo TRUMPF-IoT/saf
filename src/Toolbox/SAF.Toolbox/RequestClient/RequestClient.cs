@@ -37,11 +37,26 @@ internal sealed class RequestClient : IRequestClient, IDisposable
         _heartbeat = heartbeat;
         _log = log ?? NullLogger<RequestClient>.Instance;
         _replyTopics = createReplyTopics(Handle);
+        SubscribeDefaultPrefix();
 
         _heartbeat.Beat += CheckExpiringSubscriptions;
     }
 
     public void SetDefaultPrefix(string prefix) => _defaultPrefix = prefix.TrimEnd('/');
+
+    // As in 10.x, the client subscribes when it is created, so a request does not wait for the subscription, which
+    // can take seconds. A request still subscribes its prefix if this failed.
+    private void SubscribeDefaultPrefix()
+    {
+        try
+        {
+            _replyTopics.Subscribe(_defaultPrefix);
+        }
+        catch (Exception e)
+        {
+            _log.LogWarning(e, "Failed to subscribe the replies under {Prefix}; the first request with it tries again.", _defaultPrefix);
+        }
+    }
 
     public Task<TResponse?> SendRequestAwaitFirstAnswer<TRequest, TResponse>(string topic, TRequest request,
         string? replyTopicPrefix = null, double? millisecondsTimeoutTarget = null)
@@ -151,7 +166,9 @@ internal sealed class RequestClient : IRequestClient, IDisposable
 
     private sealed class OpenRequest(Message message, string replyToTopic, long publishedOnHeartbeat, long expiresOnHeartbeat)
     {
-        private readonly TaskCompletionSource<Message?> _reply = new();
+        // The caller's continuation must not run on the transport thread that delivers the reply: a request it sends
+        // on a new prefix would wait there for a subscription that the same thread has to confirm.
+        private readonly TaskCompletionSource<Message?> _reply = new(TaskCreationOptions.RunContinuationsAsynchronously);
 
         public Message Message { get; } = message;
         public string Topic => Message.Topic;

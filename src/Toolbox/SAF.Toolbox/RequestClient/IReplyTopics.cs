@@ -10,6 +10,11 @@ namespace SAF.Toolbox.RequestClient;
 internal interface IReplyTopics : IDisposable
 {
     /// <summary>
+    /// Subscribes the replies under the prefix ahead of the first request with it.
+    /// </summary>
+    void Subscribe(string prefix);
+
+    /// <summary>
     /// Creates a unique reply topic under the prefix. Replies on it are received from the moment this returns.
     /// </summary>
     string Create(string prefix);

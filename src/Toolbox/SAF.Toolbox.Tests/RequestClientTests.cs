@@ -297,6 +297,48 @@ public class RequestClientTests
     }
 
     [Fact]
+    public void Constructor_SubscribesTheRepliesUnderTheDefaultPrefix()
+    {
+        _ = new RequestClient.RequestClient(_messaging, _heartbeat, _logger);
+
+        _messaging.Received(1).Subscribe(Arg.Is<string>(p => p.StartsWith("private/reply/*/requestclient/")), Arg.Any<Action<Message>>());
+    }
+
+    [Fact]
+    public async Task Constructor_LeavesTheSubscriptionToTheFirstRequest_WhenItFails()
+    {
+        var replyTopics = Substitute.For<IReplyTopics>();
+        replyTopics.When(r => r.Subscribe("private/reply")).Do(_ => throw new InvalidOperationException("subscribe failed"));
+        replyTopics.Create("private/reply").Returns("reply/1");
+        Action<Message>? handleReply = null;
+        var sut = new RequestClient.RequestClient(_messaging, _heartbeat, _logger, h => { handleReply = h; return replyTopics; });
+
+        var task = sut.SendRequestAwaitFirstReply("test");
+        var reply = new Message { Topic = "reply/1" };
+        handleReply!(reply);
+
+        Assert.Same(reply, await task);
+        _logger.AssertLogged(LogLevel.Warning, m => m.Contains("private/reply"));
+    }
+
+    [Fact]
+    public async Task Handle_DoesNotRunTheCallersContinuation()
+    {
+        var sut = CreateSut();
+        var task = sut.SendRequestAwaitFirstReply("test");
+        var handlingThread = Environment.CurrentManagedThreadId;
+        var handling = false;
+        var continuation = task.ContinueWith(_ => handling && Environment.CurrentManagedThreadId == handlingThread,
+            TestContext.Current.CancellationToken, TaskContinuationOptions.ExecuteSynchronously, TaskScheduler.Default);
+
+        handling = true;
+        sut.Handle(new Message { Topic = _published!.ReplyTo! });
+        handling = false;
+
+        Assert.False(await continuation, "The continuation ran inside Handle.");
+    }
+
+    [Fact]
     public async Task SendRequest_UsesTheInjectedReplyTopics()
     {
         var replyTopics = Substitute.For<IReplyTopics>();

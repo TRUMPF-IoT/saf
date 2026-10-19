@@ -12,6 +12,8 @@ using Xunit;
 
 public class ReplyTopicsTests
 {
+    private static readonly TimeSpan Timeout = TimeSpan.FromSeconds(10);
+
     private readonly IMessagingInfrastructure _messaging = Substitute.For<IMessagingInfrastructure>();
 
     [Theory]
@@ -102,6 +104,57 @@ public class ReplyTopicsTests
     }
 
     [Fact]
+    public void Subscribe_SubscribesThePrefixAheadOfTheFirstRequest()
+    {
+        var sut = new ReplyTopics(_messaging, _ => { });
+
+        sut.Subscribe("p/");
+        _messaging.Received(1).Subscribe(Arg.Is<string>(p => p.StartsWith("p/*/requestclient/")), Arg.Any<Action<Message>>());
+        sut.Create("p");
+
+        _messaging.Received(1).Subscribe(Arg.Any<string>(), Arg.Any<Action<Message>>());
+    }
+
+    [Fact]
+    public async Task Create_DoesNotWaitForTheSubscriptionOfAnotherPrefix()
+    {
+        using var subscribing = new ManualResetEventSlim();
+        using var release = new ManualResetEventSlim();
+        _messaging.Subscribe(Arg.Is<string>(p => p.StartsWith("slow/")), Arg.Any<Action<Message>>())
+            .Returns(_ => { subscribing.Set(); release.Wait(Timeout, TestContext.Current.CancellationToken); return new object(); });
+        var sut = new ReplyTopics(_messaging, _ => { });
+
+        var slow = Task.Run(() => sut.Create("slow"), TestContext.Current.CancellationToken);
+        Assert.True(subscribing.Wait(Timeout, TestContext.Current.CancellationToken));
+        var fast = Task.Run(() => sut.Create("fast"), TestContext.Current.CancellationToken);
+
+        Assert.StartsWith("fast/", await fast.WaitAsync(Timeout, TestContext.Current.CancellationToken));
+        Assert.False(slow.IsCompleted);
+        release.Set();
+        Assert.StartsWith("slow/", await slow.WaitAsync(Timeout, TestContext.Current.CancellationToken));
+    }
+
+    [Fact]
+    public async Task Create_WaitsForTheSubscriptionOfItsPrefix()
+    {
+        using var subscribing = new ManualResetEventSlim();
+        using var release = new ManualResetEventSlim();
+        _messaging.Subscribe(Arg.Any<string>(), Arg.Any<Action<Message>>())
+            .Returns(_ => { subscribing.Set(); release.Wait(Timeout, TestContext.Current.CancellationToken); return new object(); });
+        var sut = new ReplyTopics(_messaging, _ => { });
+
+        var first = Task.Run(() => sut.Create("p"), TestContext.Current.CancellationToken);
+        Assert.True(subscribing.Wait(Timeout, TestContext.Current.CancellationToken));
+        var second = Task.Run(() => sut.Create("p"), TestContext.Current.CancellationToken);
+
+        await Task.Delay(100, TestContext.Current.CancellationToken);
+        Assert.False(second.IsCompleted);
+        release.Set();
+        await Task.WhenAll(first, second).WaitAsync(Timeout, TestContext.Current.CancellationToken);
+        _messaging.Received(1).Subscribe(Arg.Any<string>(), Arg.Any<Action<Message>>());
+    }
+
+    [Fact]
     public void Dispose_UnsubscribesEverySubscription()
     {
         var first = new object();
@@ -118,5 +171,17 @@ public class ReplyTopicsTests
         _messaging.Received(1).Unsubscribe(first);
         _messaging.Received(1).Unsubscribe(second);
         _messaging.Received(2).Unsubscribe(Arg.Any<object>());
+    }
+
+    [Fact]
+    public void Dispose_SkipsAFailedSubscription()
+    {
+        _messaging.Subscribe(Arg.Any<string>(), Arg.Any<Action<Message>>()).Returns(_ => throw new InvalidOperationException());
+        var sut = new ReplyTopics(_messaging, _ => { });
+        Assert.Throws<InvalidOperationException>(() => sut.Create("p"));
+
+        sut.Dispose();
+
+        _messaging.DidNotReceive().Unsubscribe(Arg.Any<object>());
     }
 }

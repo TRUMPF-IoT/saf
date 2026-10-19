@@ -3,6 +3,8 @@
 // SPDX-License-Identifier: MPL-2.0
 
 namespace SAF.Toolbox.RequestClient;
+
+using System.Collections.Concurrent;
 using SAF.Messaging.Contracts;
 
 /// <summary>
@@ -13,28 +15,41 @@ using SAF.Messaging.Contracts;
 internal sealed class ReplyTopics(IMessagingInfrastructure messaging, Action<Message> handleReply) : IReplyTopics
 {
     private readonly string _postfix = $"requestclient/{Guid.NewGuid()}";
-    private readonly Dictionary<string, object?> _subscriptions = new();
+
+    // Subscribing can block for seconds (C-DEngine waits for its registries), so requests on other prefixes must
+    // not wait for it. Requests on the same prefix do: their replies may arrive only once the subscription is in place.
+    private readonly ConcurrentDictionary<string, Lazy<object?>> _subscriptions = new();
+
+    public void Subscribe(string prefix)
+    {
+        prefix = prefix.TrimEnd('/');
+        var subscription = _subscriptions.GetOrAdd(prefix,
+            p => new Lazy<object?>(() => messaging.Subscribe($"{p}/*/{_postfix}", handleReply)));
+        try
+        {
+            _ = subscription.Value;
+        }
+        catch
+        {
+            // Lazy keeps the exception, so the next request on the prefix needs a new one.
+            _subscriptions.TryRemove(new KeyValuePair<string, Lazy<object?>>(prefix, subscription));
+            throw;
+        }
+    }
 
     public string Create(string prefix)
     {
-        prefix = prefix.TrimEnd('/');
-        // Subscribing returns once the subscription is in place, so the first reply is not missed.
-        lock (_subscriptions)
-        {
-            if (!_subscriptions.ContainsKey(prefix))
-                _subscriptions[prefix] = messaging.Subscribe($"{prefix}/*/{_postfix}", handleReply);
-        }
-
-        return $"{prefix}/{Guid.NewGuid()}/{_postfix}";
+        Subscribe(prefix);
+        return $"{prefix.TrimEnd('/')}/{Guid.NewGuid()}/{_postfix}";
     }
 
     public void Dispose()
     {
-        lock (_subscriptions)
+        foreach (var prefix in _subscriptions.Keys)
         {
-            foreach (var subscription in _subscriptions.Values.OfType<object>())
-                messaging.Unsubscribe(subscription);
-            _subscriptions.Clear();
+            // A subscription still in progress is awaited, so it does not outlive the client; failed ones are gone.
+            if (_subscriptions.TryRemove(prefix, out var subscription) && subscription.Value is { } handle)
+                messaging.Unsubscribe(handle);
         }
     }
 }
