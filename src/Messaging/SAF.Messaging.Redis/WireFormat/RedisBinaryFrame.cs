@@ -10,11 +10,15 @@ using StackExchange.Redis;
 
 /// <summary>
 /// Layout 1: <c>'S' 'A' 'F' 'B' | layout version (1 byte) | envelope length (uint32, little-endian) | envelope (UTF-8 JSON) | binary payload</c>.
-/// A JSON envelope never starts with the magic, so both share one channel.
+/// A JSON envelope never starts with the magic, so both share one channel. A layout version is a control character,
+/// which text of other applications rarely has after the magic.
 /// </summary>
 internal sealed class RedisBinaryFrame : IRedisBinaryFrame
 {
     public const byte LayoutVersion = 1;
+
+    // Layouts 1 to 31; a printable byte after the magic is text of another application.
+    private const byte MaxLayoutVersion = 0x1F;
 
     private const int LayoutVersionOffset = 4;
     private const int EnvelopeLengthOffset = 5;
@@ -22,7 +26,13 @@ internal sealed class RedisBinaryFrame : IRedisBinaryFrame
 
     private static readonly RedisValue Magic = "SAFB"u8.ToArray();
 
-    public bool IsFrame(RedisValue value) => value.StartsWith(Magic);
+    public bool IsFrame(RedisValue value)
+    {
+        if (!value.StartsWith(Magic)) return false;
+
+        var bytes = ((ReadOnlyMemory<byte>)value).Span;
+        return bytes.Length > LayoutVersionOffset && bytes[LayoutVersionOffset] <= MaxLayoutVersion;
+    }
 
     public RedisValue Write(string envelope, byte[] binaryPayload)
     {

@@ -32,12 +32,22 @@ public class RedisBinaryFrameTests
     public void IsFrame_RecognizesTheMagic()
     {
         Assert.True(_frame.IsFrame(_frame.Write("{}", [])));
-        Assert.True(_frame.IsFrame("SAFB"u8.ToArray()));
+        Assert.True(_frame.IsFrame(new byte[] { 0x53, 0x41, 0x46, 0x42, 0 }));
+        Assert.True(_frame.IsFrame(new byte[] { 0x53, 0x41, 0x46, 0x42, 0x1F }));
         Assert.False(_frame.IsFrame("""{"version":"2.0.0"}"""));
         Assert.False(_frame.IsFrame("SAF"u8.ToArray()));
         Assert.False(_frame.IsFrame(RedisValue.EmptyString));
         Assert.False(_frame.IsFrame(RedisValue.Null));
     }
+
+    [Theory]
+    [InlineData("SAFB")]
+    [InlineData("SAFBOX ready")]
+    [InlineData("SAFB ")]
+    [InlineData("SAFB\u007F")]
+    [InlineData("SAFBä")]
+    public void IsFrame_LeavesTextAfterTheMagicToOtherApplications(string value)
+        => Assert.False(_frame.IsFrame(value));
 
     [Theory]
     [InlineData(new byte[] { 0x53, 0x41, 0x46, 0x42 }, null)]

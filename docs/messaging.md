@@ -179,7 +179,7 @@ Backed by [StackExchange.Redis](https://github.com/StackExchange/StackExchange.R
 A text message goes to the channel as a versioned JSON envelope, `{"version":"2.0.0","message":{…}}`. A receiver
 reads every `1.x` and `2.x` envelope. Only a JSON object with a `message` object counts as an envelope. Any other
 value, for example `{"version":"1","temp":21.5}` published by another application, is delivered with the raw value
-as `Payload` and the channel as `Topic`, unless it starts with the bytes `SAFB`.
+as `Payload` and the channel as `Topic`, unless it starts with the bytes `SAFB` and a byte below 32.
 
 `ReplyTo` and `AcceptedReplyFormats` are optional fields of the envelope's `message`, written only when set, the
 flags as a number: `"replyTo":"…","acceptedReplyFormats":3`. Older SAF nodes ignore them.
@@ -189,7 +189,7 @@ A message with a `BinaryPayload` goes to the channel as a binary frame, without 
 | Bytes | Content |
 |---|---|
 | 4 | `SAFB` |
-| 1 | Layout version of the frame, `1` |
+| 1 | Layout version of the frame, `1`; layout versions stay below 32, so text after `SAFB` is no frame |
 | 4 | Length of the envelope in bytes, as an unsigned little-endian integer |
 | length of the envelope | The envelope `{"version":"3.0.0","message":{…}}` in UTF-8, with topic, `Payload` and the other fields |
 | rest of the value | The binary payload |

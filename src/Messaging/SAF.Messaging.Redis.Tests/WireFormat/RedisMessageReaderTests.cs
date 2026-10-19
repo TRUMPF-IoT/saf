@@ -173,6 +173,19 @@ public class RedisMessageReaderTests
         Assert.Null(message.BinaryPayload);
     }
 
+    [Theory]
+    [InlineData("SAFBOX ready")]
+    [InlineData("SAFB")]
+    public void Read_DeliversTextOfOtherApplicationsThatStartsWithTheMagic(string value)
+    {
+        var logger = Substitute.For<MockLogger>();
+
+        var message = TestWireFormat.Reader(logger).Read("channel", value);
+
+        Assert.Equal(value, message!.Payload);
+        logger.DidNotReceive().Log(LogLevel.Warning, Arg.Any<string>());
+    }
+
     [Fact]
     public void Read_DropsAFrameOfAnUnknownLayoutVersionAndWarns()
     {
@@ -197,7 +210,7 @@ public class RedisMessageReaderTests
 
     public static TheoryData<byte[]> UnreadableFrames =>
     [
-        "SAFB"u8.ToArray(),
+        "SAFB\0"u8.ToArray(),
         Frame("""{"version":"3.0.0","message":{"topic":"t"}}""", layoutVersion: 0),
         // "SAFB", layout 1, envelope length 100, "{}"
         new byte[] { 0x53, 0x41, 0x46, 0x42, 1, 100, 0, 0, 0, 0x7B, 0x7D },
