@@ -14,9 +14,7 @@ internal sealed class RedisEnvelope<TMessage>
 }
 
 /// <summary>
-/// Reads only the version of an envelope whose message part could not be read.
+/// What a receiver needs to know of an envelope before it reads the message.
 /// </summary>
-internal sealed class RedisEnvelopeHeader
-{
-    public string? Version { get; set; }
-}
+/// <param name="Version">The envelope version; <c>null</c> in the oldest envelopes.</param>
+internal sealed record RedisEnvelopeHeader(string? Version);

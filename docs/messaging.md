@@ -177,9 +177,9 @@ Backed by [StackExchange.Redis](https://github.com/StackExchange/StackExchange.R
 | `EnableBinaryPayloads` | `true` | Sends messages with a `BinaryPayload`. Set it to `false` while nodes before SAF 11 use the same Redis server; see [Binary Payloads With Older Nodes on Redis or NATS](#binary-payloads-with-older-nodes-on-redis-or-nats). |
 
 A text message goes to the channel as a versioned JSON envelope, `{"version":"2.0.0","message":{…}}`. A receiver
-reads every `1.x` and `2.x` envelope. A value that is no SAF envelope at all, for example one published by
-another application, is delivered with the raw value as `Payload` and the channel as `Topic`, unless it starts with
-the bytes `SAFB`.
+reads every `1.x` and `2.x` envelope. Only a JSON object with a `message` object counts as an envelope. Any other
+value, for example `{"version":"1","temp":21.5}` published by another application, is delivered with the raw value
+as `Payload` and the channel as `Topic`, unless it starts with the bytes `SAFB`.
 
 `ReplyTo` and `AcceptedReplyFormats` are optional fields of the envelope's `message`, written only when set, the
 flags as a number: `"replyTo":"…","acceptedReplyFormats":3`. Older SAF nodes ignore them.

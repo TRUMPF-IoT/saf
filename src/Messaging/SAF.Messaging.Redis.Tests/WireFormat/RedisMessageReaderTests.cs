@@ -51,10 +51,10 @@ public class RedisMessageReaderTests
     [InlineData("""{"version":"99.1.0","message":{"topic":"t"}}""", "99.1.0")]
     [InlineData("""{"version":"0.9.0","message":{"topic":"t"}}""", "0.9.0")]
     [InlineData("""{"version":"abc","message":{"topic":"t"}}""", "abc")]
-    [InlineData("""{"version":"4.0.0"}""", "4.0.0")]
-    [InlineData("""{"version":"4.0.0","message":"opaque"}""", "4.0.0")]
-    [InlineData("""{"version":"4.0.0","message":[1,2,3]}""", "4.0.0")]
     [InlineData("""{"version":"4.0.0","message":{"topic":42}}""", "4.0.0")]
+    [InlineData("""{"message":{"topic":"t"},"version":"4.0.0"}""", "4.0.0")]
+    [InlineData("""{"VERSION":"4.0.0","Message":{"topic":"t"}}""", "4.0.0")]
+    [InlineData("""{"version":"1","message":{"topic":"t"}}""", "1")]
     public void Read_DropsUnknownVersionsAndWarns(string wireValue, string expectedVersion)
     {
         var logger = Substitute.For<MockLogger>();
@@ -71,16 +71,63 @@ public class RedisMessageReaderTests
     [InlineData("""{"version":"2.0.0"}""")]
     [InlineData("""{"version":"2.0.0","message":null}""")]
     [InlineData("""{"foo":1}""")]
+    [InlineData("""{"version":"1","temp":21.5}""")]
+    [InlineData("""{"version":"5.0.0","data":{"topic":"t"}}""")]
+    [InlineData("""{"version":"4.0.0"}""")]
+    [InlineData("""{"version":"4.0.0","message":"opaque"}""")]
+    [InlineData("""{"version":"4.0.0","message":[1,2,3]}""")]
+    [InlineData("""{"version":4,"message":{"topic":"t"}}""")]
+    [InlineData("""{"version":"4.0.0","message":{"topic":1""")]
     [InlineData("""[1,2,3]""")]
+    [InlineData("""42""")]
     [InlineData("""null""")]
     [InlineData("not json at all")]
     [InlineData("")]
     public void Read_FallsBackToRawValue_WhenNoKnownMessageCanBeRead(string wireValue)
     {
-        var message = TestWireFormat.Reader().Read("channel", wireValue);
+        var logger = Substitute.For<MockLogger>();
+
+        var message = TestWireFormat.Reader(logger).Read("channel", wireValue);
 
         Assert.Equal("channel", message!.Topic);
         Assert.Equal(wireValue, message.Payload);
+        logger.DidNotReceive().Log(LogLevel.Warning, Arg.Any<string>());
+    }
+
+    [Fact]
+    public void Read_ReadsAnEnvelopeWithCommentsAndTrailingCommas()
+    {
+        var message = TestWireFormat.Reader().Read("channel",
+            """{"version":"2.0.0", /* note */ "message":{"topic":"t","payload":"p",},}""");
+
+        Assert.Equal("p", message!.Payload);
+    }
+
+    [Fact]
+    public void Read_ReadsTheMessageOfATextEnvelopeOnce()
+    {
+        var format = Substitute.For<IRedisEnvelopeFormat>();
+        format.MajorVersions.Returns([2]);
+        var headerReader = new CountingHeaderReader();
+        var reader = new RedisMessageReader([format], headerReader, new RedisBinaryFrame(),
+            new UnknownVersionWarning(NullLogger.Instance), NullLogger.Instance);
+
+        reader.Read("channel", """{"version":"2.0.0","message":{}}""");
+
+        Assert.Equal(1, headerReader.Calls);
+        format.Received(1).Read(Arg.Any<RedisWireValue>());
+    }
+
+    // NSubstitute cannot match span arguments.
+    private sealed class CountingHeaderReader : IRedisEnvelopeHeaderReader
+    {
+        public int Calls { get; private set; }
+
+        public RedisEnvelopeHeader? Read(ReadOnlySpan<byte> utf8Json)
+        {
+            Calls++;
+            return new RedisEnvelopeHeader("2.0.0");
+        }
     }
 
     /// <summary>
@@ -93,7 +140,7 @@ public class RedisMessageReaderTests
         var v4 = Substitute.For<IRedisEnvelopeFormat>();
         v4.MajorVersions.Returns([4]);
         v4.Read(Arg.Any<RedisWireValue>()).Returns(expected);
-        var reader = new RedisMessageReader([..RedisWireFormats.All, v4], new RedisBinaryFrame(), new UnknownVersionWarning(NullLogger.Instance), NullLogger.Instance);
+        var reader = new RedisMessageReader([..RedisWireFormats.All, v4], new RedisEnvelopeHeaderReader(), new RedisBinaryFrame(), new UnknownVersionWarning(NullLogger.Instance), NullLogger.Instance);
 
         var message = reader.Read("channel", """{"version":"4.2.0","message":{}}""");
 
@@ -107,7 +154,7 @@ public class RedisMessageReaderTests
         duplicate.MajorVersions.Returns([2]);
 
         Assert.Throws<ArgumentException>(() =>
-            new RedisMessageReader([..RedisWireFormats.All, duplicate], new RedisBinaryFrame(), new UnknownVersionWarning(NullLogger.Instance), NullLogger.Instance));
+            new RedisMessageReader([..RedisWireFormats.All, duplicate], new RedisEnvelopeHeaderReader(), new RedisBinaryFrame(), new UnknownVersionWarning(NullLogger.Instance), NullLogger.Instance));
     }
 
     /// <summary>
@@ -183,7 +230,7 @@ public class RedisMessageReaderTests
         var binaryFrame = Substitute.For<IRedisBinaryFrame>();
         binaryFrame.IsFrame(value).Returns(true);
         binaryFrame.Read(value).Returns(new RedisWireValue("""{"version":"3.0.0","message":{"topic":"t"}}""", [7]));
-        var reader = new RedisMessageReader(RedisWireFormats.All, binaryFrame, new UnknownVersionWarning(NullLogger.Instance), NullLogger.Instance);
+        var reader = new RedisMessageReader(RedisWireFormats.All, new RedisEnvelopeHeaderReader(), binaryFrame, new UnknownVersionWarning(NullLogger.Instance), NullLogger.Instance);
 
         var message = reader.Read("channel", value);
 

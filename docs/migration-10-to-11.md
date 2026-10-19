@@ -463,6 +463,9 @@ envelope with any other major version is now **dropped** with a warning, logged 
 being read as version 2. No action is required: 9.x, 10.x and 11.x all write version `2.0.0`. See
 [Redis](./messaging.md#redis).
 
+Only a JSON object with a `message` object counts as an envelope. Values of other applications, such as
+`{"version":"1","temp":21.5}`, still arrive as the raw `Payload`, as in 10.x.
+
 ### Messages are read-only
 
 `Message` has new optional members: `BinaryPayload`, `ReplyTo`, `AcceptedReplyFormats`, `GetFormat()` and `AcceptsReplyFormat()` (see

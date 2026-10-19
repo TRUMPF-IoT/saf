@@ -141,7 +141,7 @@ public static class ServiceCollectionExtensions
     }
 
     internal static IRedisMessageReader CreateReader(ILogger logger)
-        => new RedisMessageReader(RedisWireFormats.All, new RedisBinaryFrame(), new UnknownVersionWarning(logger), logger);
+        => new RedisMessageReader(RedisWireFormats.All, new RedisEnvelopeHeaderReader(), new RedisBinaryFrame(), new UnknownVersionWarning(logger), logger);
 
     private static Messaging CreateMessagingInfrastructure(IServiceProvider serviceProvider, MessagingConfiguration config, RedisConfiguration defaultConfiguration)
         => CreateMessagingInfrastructure(serviceProvider, ResolveConfiguration(config, defaultConfiguration));
