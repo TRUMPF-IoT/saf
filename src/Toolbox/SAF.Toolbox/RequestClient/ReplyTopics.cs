@@ -4,64 +4,60 @@
 
 namespace SAF.Toolbox.RequestClient;
 
-using System.Collections.Concurrent;
 using SAF.Messaging.Contracts;
 
 /// <summary>
-/// Reply topics <c>{prefix}/{request id}/requestclient/{client id}</c>, received by one subscription per prefix:
-/// <c>{prefix}/*/requestclient/{client id}</c>. The wildcard stands for exactly one topic level, which every transport
-/// can express; NATS cannot match a leading wildcard over several levels.
+/// Reply topics <c>{prefix}/{request id}/requestclient/{client id}</c>, received under every prefix by one
+/// subscription <c>*/requestclient/{client id}</c>, as in SAF 10.x. NATS matches that leading wildcard against
+/// exactly one level, so it receives no replies there without routing.
 /// </summary>
 internal sealed class ReplyTopics(IMessagingInfrastructure messaging, Action<Message> handleReply) : IReplyTopics
 {
     private readonly string _postfix = $"requestclient/{Guid.NewGuid()}";
 
-    // Subscribing can block for seconds (C-DEngine waits for its registries), so requests on other prefixes must
-    // not wait for it. Requests on the same prefix do: their replies may arrive only once the subscription is in place.
-    private readonly ConcurrentDictionary<string, Lazy<object?>> _subscriptions = new();
+    // Null until the first subscription and after a failed one. Requests wait for a subscription in progress: their
+    // replies may arrive only once it is in place.
+    private Lazy<object?>? _subscription;
 
-    public void Subscribe(string prefix)
+    public void Subscribe()
     {
-        prefix = prefix.TrimEnd('/');
-        var subscription = _subscriptions.GetOrAdd(prefix,
-            p => new Lazy<object?>(() => messaging.Subscribe($"{p}/*/{_postfix}", handleReply)));
+        var subscription = LazyInitializer.EnsureInitialized(ref _subscription,
+            () => new Lazy<object?>(() => messaging.Subscribe($"*/{_postfix}", handleReply)));
         try
         {
             _ = subscription.Value;
         }
         catch
         {
-            // Lazy keeps the exception, so the next request on the prefix needs a new one.
-            _subscriptions.TryRemove(new KeyValuePair<string, Lazy<object?>>(prefix, subscription));
+            // Lazy keeps the exception, so the next request needs a new one.
+            Interlocked.CompareExchange(ref _subscription, null, subscription);
             throw;
         }
     }
 
     public string Create(string prefix)
     {
-        Subscribe(prefix);
+        Subscribe();
         return $"{prefix.TrimEnd('/')}/{Guid.NewGuid()}/{_postfix}";
     }
 
     public void Dispose()
     {
-        foreach (var prefix in _subscriptions.Keys)
+        var subscription = Interlocked.Exchange(ref _subscription, null);
+        if (subscription is null) return;
+
+        object? handle;
+        try
         {
-            if (!_subscriptions.TryRemove(prefix, out var subscription)) continue;
-
-            object? handle;
-            try
-            {
-                // A subscription still in progress is awaited, so it does not outlive the client.
-                handle = subscription.Value;
-            }
-            catch
-            {
-                // The request that subscribed got the exception; the other prefixes still need unsubscribing.
-                continue;
-            }
-
-            if (handle is not null) messaging.Unsubscribe(handle);
+            // A subscription still in progress is awaited, so it does not outlive the client.
+            handle = subscription.Value;
         }
+        catch
+        {
+            // The request that subscribed got the exception.
+            return;
+        }
+
+        if (handle is not null) messaging.Unsubscribe(handle);
     }
 }

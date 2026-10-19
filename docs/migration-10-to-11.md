@@ -544,18 +544,6 @@ payload, check `message.AcceptsReplyFormat(MessageFormats.Binary)`, because requ
 only, and `messaging.GetPublishableFormats(message.ReplyTo)`, because your own transport may not send binary payloads
 (see [Messaging infrastructures report the payload formats they publish](#messaging-infrastructures-report-the-payload-formats-they-publish)).
 
-### The request client receives replies on NATS
-
-In 10.x, a request client that used NATS without [Routing](./messaging.md#routing-multiple-brokers) never received a
-reply, and every request timed out: it subscribed `*/requestclient/{client id}`, and on NATS `*` matches exactly one
-topic level, while reply topics have several. 11.x subscribes `{prefix}/*/requestclient/{client id}` once per reply
-topic prefix, which every transport matches: the default prefix when the client is created, as in 10.x, and any
-other prefix at the first request with it. The reply topics themselves are unchanged.
-
-With Routing, the request client now subscribes only this pattern, on the routes whose subscription patterns cover
-the prefix, instead of every route pattern that ends in `*`. No action is required. See
-[Request Client](./toolbox.md#request-client).
-
 ### Messaging infrastructures report the payload formats they publish
 
 `IMessagingInfrastructure` has a new member, `MessageFormats GetPublishableFormats(string topic)`. It tells in which

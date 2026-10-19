@@ -5,14 +5,14 @@
 namespace SAF.Toolbox.RequestClient;
 
 /// <summary>
-/// The reply topics of one request client, and the subscriptions that receive replies on them.
+/// The reply topics of one request client, and the subscription that receives replies on them.
 /// </summary>
 internal interface IReplyTopics : IDisposable
 {
     /// <summary>
-    /// Subscribes the replies under the prefix ahead of the first request with it.
+    /// Subscribes the replies ahead of the first request, unless they already are.
     /// </summary>
-    void Subscribe(string prefix);
+    void Subscribe();
 
     /// <summary>
     /// Creates a unique reply topic under the prefix. Replies on it are received from the moment this returns.

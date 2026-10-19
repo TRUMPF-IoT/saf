@@ -149,14 +149,22 @@ SAF 10.x responders read it, and into `Message.ReplyTo`. Its requests carry no `
 responders answer them with text, and it reads only the reply's `Payload`.
 
 Replies arrive on `{prefix}/{request id}/requestclient/{client id}`, where the prefix is `replyTopicPrefix` or the
-default prefix. The request client subscribes `{prefix}/*/requestclient/{client id}` once per prefix: the default
-prefix when the client is created, any other prefix at the first request with it. It sends that request only once
-the subscription is in place; on C-DEngine, subscribing can take a few seconds, and only requests on that prefix
-wait for it. The task of a request completes asynchronously, so code after `await` does not run on the thread
-that delivered the reply. Disposing the client waits for a subscription still in progress and unsubscribes every
-prefix, even if one of the subscriptions failed. With
-[Routing](./messaging.md#routing-multiple-brokers), a route that has subscription patterns receives replies only if
-one of them covers the prefix, for example `private/*`.
+default prefix. As in SAF 10.x, the request client subscribes `*/requestclient/{client id}` once, when it is
+created. That subscription receives the replies under every prefix, so no request waits for a subscription, whatever
+prefix it uses. On C-DEngine, subscribing can take a few seconds. If it fails, the client logs a warning, and the
+next request subscribes before it is sent. The task of a request completes asynchronously, so code after `await` does
+not run on the thread that delivered the reply. Disposing the client waits for a subscription still in progress and
+unsubscribes it.
+
+With [Routing](./messaging.md#routing-multiple-brokers), a route that has subscription patterns subscribes those of
+its patterns that end in `*` for the request client, so the client also receives the other messages on them and
+ignores them. It receives replies over that route only if one of these patterns covers the prefix, for example
+`private/*`.
+
+**NATS without Routing:** NATS matches `*` against exactly one topic level, while reply topics have several. A
+request client that uses NATS directly therefore receives no replies, and every request times out, as in SAF 10.x.
+Use NATS through Routing, with a subscription pattern that ends in `*` and covers the reply prefix, for example
+`private/*`: NATS matches a `*` at the end of a pattern over several levels.
 
 ### Binary Payloads in Requests and Replies
 

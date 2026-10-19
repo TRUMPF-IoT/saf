@@ -278,7 +278,7 @@ public class RequestClientTests
     }
 
     [Fact]
-    public async Task SendRequest_SubscribesTheReplyTopicsOfItsPrefixBeforePublishing()
+    public async Task SendRequest_SubscribesTheRepliesBeforePublishing()
     {
         Action<Message>? subscribed = null;
         _messaging.Subscribe(Arg.Any<string>(), Arg.Do<Action<Message>>(h => subscribed = h));
@@ -290,25 +290,36 @@ public class RequestClientTests
 
         Received.InOrder(() =>
         {
-            _messaging.Subscribe(Arg.Is<string>(p => p.StartsWith("private/reply/*/requestclient/")), Arg.Any<Action<Message>>());
+            _messaging.Subscribe(Arg.Is<string>(p => p.StartsWith("*/requestclient/")), Arg.Any<Action<Message>>());
             _messaging.Publish(Arg.Any<Message>());
         });
         Assert.Same(reply, await task);
     }
 
     [Fact]
-    public void Constructor_SubscribesTheRepliesUnderTheDefaultPrefix()
+    public void Constructor_SubscribesTheRepliesUnderEveryPrefix()
     {
         _ = new RequestClient.RequestClient(_messaging, _heartbeat, _logger);
 
-        _messaging.Received(1).Subscribe(Arg.Is<string>(p => p.StartsWith("private/reply/*/requestclient/")), Arg.Any<Action<Message>>());
+        _messaging.Received(1).Subscribe(Arg.Is<string>(p => p.StartsWith("*/requestclient/")), Arg.Any<Action<Message>>());
+    }
+
+    [Fact]
+    public async Task SendRequest_DoesNotSubscribeAgain_ForAnotherPrefix()
+    {
+        var sut = CreateSut(message => new Message { Topic = message.ReplyTo! });
+
+        var reply = await sut.SendRequestAwaitFirstReply("test", options: new RequestOptions { ReplyTopicPrefix = "custom/prefix" });
+
+        Assert.StartsWith("custom/prefix/", reply!.Topic);
+        _messaging.Received(1).Subscribe(Arg.Any<string>(), Arg.Any<Action<Message>>());
     }
 
     [Fact]
     public async Task Constructor_LeavesTheSubscriptionToTheFirstRequest_WhenItFails()
     {
         var replyTopics = Substitute.For<IReplyTopics>();
-        replyTopics.When(r => r.Subscribe("private/reply")).Do(_ => throw new InvalidOperationException("subscribe failed"));
+        replyTopics.When(r => r.Subscribe()).Do(_ => throw new InvalidOperationException("subscribe failed"));
         replyTopics.Create("private/reply").Returns("reply/1");
         Action<Message>? handleReply = null;
         var sut = new RequestClient.RequestClient(_messaging, _heartbeat, _logger, h => { handleReply = h; return replyTopics; });
@@ -318,7 +329,7 @@ public class RequestClientTests
         handleReply!(reply);
 
         Assert.Same(reply, await task);
-        _logger.AssertLogged(LogLevel.Warning, m => m.Contains("private/reply"));
+        _logger.AssertLogged(LogLevel.Warning, m => m.Contains("subscribe the replies"));
     }
 
     [Fact]

@@ -261,6 +261,11 @@ back with any JSON parser.
   **dropped**, and a warning is logged once per unknown version. A message whose `saf-meta` header cannot be
   read is dropped with a warning, too. Headers of other publishers are ignored.
 
+NATS matches `*` against exactly one topic level, except at the end of a pattern, where it matches several. A
+pattern that starts with `*`, such as `*/status`, therefore receives only topics with two levels. For this reason,
+the [request client](./toolbox.md#request-client) receives no replies over NATS without
+[Routing](#routing-multiple-brokers), as in SAF 10.x.
+
 ### C-DEngine
 
 Backed by [C-DEngine](https://github.com/TRUMPF-IoT/C-DEngine), a mesh-network framework for industrial IoT.

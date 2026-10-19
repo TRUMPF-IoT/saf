@@ -37,7 +37,7 @@ internal sealed class RequestClient : IRequestClient, IDisposable
         _heartbeat = heartbeat;
         _log = log ?? NullLogger<RequestClient>.Instance;
         _replyTopics = createReplyTopics(Handle);
-        SubscribeDefaultPrefix();
+        SubscribeReplies();
 
         _heartbeat.Beat += CheckExpiringSubscriptions;
     }
@@ -45,16 +45,16 @@ internal sealed class RequestClient : IRequestClient, IDisposable
     public void SetDefaultPrefix(string prefix) => _defaultPrefix = prefix.TrimEnd('/');
 
     // As in 10.x, the client subscribes when it is created, so a request does not wait for the subscription, which
-    // can take seconds. A request still subscribes its prefix if this failed.
-    private void SubscribeDefaultPrefix()
+    // can take seconds. A request still subscribes if this failed.
+    private void SubscribeReplies()
     {
         try
         {
-            _replyTopics.Subscribe(_defaultPrefix);
+            _replyTopics.Subscribe();
         }
         catch (Exception e)
         {
-            _log.LogWarning(e, "Failed to subscribe the replies under {Prefix}; the first request with it tries again.", _defaultPrefix);
+            _log.LogWarning(e, "Failed to subscribe the replies; the first request tries again.");
         }
     }
 
