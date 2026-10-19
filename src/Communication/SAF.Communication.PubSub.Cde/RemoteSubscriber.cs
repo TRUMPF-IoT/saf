@@ -12,6 +12,7 @@ using Interfaces;
 using SAF.Communication.Cde.Utils;
 using MessageProcessing;
 using System.Text;
+using WireFormat;
 
 /// <summary>
 /// Contains the information about a subscriber running on another node.
@@ -23,6 +24,10 @@ internal class RemoteSubscriber : IRemoteSubscriber
 
     private readonly ComLine _line;
     private readonly RegistrySubscriptionRequest _registryRequest;
+    private readonly string _wireVersion;
+    private readonly bool _sendsBatches;
+    private readonly ITsmPeerEncoder _encoder;
+    private readonly IDroppedMessageWarning _droppedMessageWarning;
     private readonly HashSet<string> _patterns;
     private DateTimeOffset _lastActivity = DateTimeOffset.UtcNow;
 
@@ -31,15 +36,21 @@ internal class RemoteSubscriber : IRemoteSubscriber
     private const int MaxMessagesPerBlock = 100;
     private const int MaxPayloadBytesPerBlock = 200 * 1024; //200 kB
 
-    public RemoteSubscriber(ComLine line, TSM tsm)
-        : this(line, tsm, new List<string>(), new RegistrySubscriptionRequest())
-    { }
-    public RemoteSubscriber(ComLine line, TSM tsm, IList<string> patterns, RegistrySubscriptionRequest request)
+    private static readonly Version LatestVersion = System.Version.Parse(PubSubVersion.Latest);
+    private static readonly Version BatchVersion = System.Version.Parse(PubSubVersion.V4);
+
+    public RemoteSubscriber(ComLine line, TSM tsm, IList<string> patterns, RegistrySubscriptionRequest request,
+        ITsmMessageEncoder encoder, IDroppedMessageWarning droppedMessageWarning)
     {
         Tsm = tsm;
 
         _line = line;
         _registryRequest = request;
+        // The peer's version is fixed, so the format is picked once rather than per message.
+        _wireVersion = WireVersionFor(Version);
+        _sendsBatches = System.Version.Parse(_wireVersion) >= BatchVersion;
+        _encoder = encoder.ForPeer(_wireVersion);
+        _droppedMessageWarning = droppedMessageWarning;
         _patterns = [..patterns.Distinct()];
         IsLocalHost = tsm.IsLocalHost();
 
@@ -55,6 +66,12 @@ internal class RemoteSubscriber : IRemoteSubscriber
     public string Version => string.IsNullOrEmpty(_registryRequest.version)
         ? PubSubVersion.V1
         : _registryRequest.version;
+
+    /// <summary>
+    /// The version messages to this peer are written in: the peer's own, or this node's latest if the peer is newer.
+    /// </summary>
+    private static string WireVersionFor(string peerVersion)
+        => System.Version.Parse(peerVersion) > LatestVersion ? PubSubVersion.Latest : peerVersion;
 
     public void AddPatterns(IList<string> patterns)
     {
@@ -87,7 +104,13 @@ internal class RemoteSubscriber : IRemoteSubscriber
             return;
         }
 
-        if (System.Version.Parse(Version) >= System.Version.Parse(PubSubVersion.V4))
+        if (!_encoder.CanEncode(message.Message))
+        {
+            _droppedMessageWarning.Report(Tsm.ORG, _wireVersion, message.Message);
+            return;
+        }
+
+        if (_sendsBatches)
         {
             _broadcastMessageQueue.Enqueue(message);
             return;
@@ -110,23 +133,9 @@ internal class RemoteSubscriber : IRemoteSubscriber
 
     private TSM CreateBroadcastTsm(BroadcastMessage message)
     {
-        TSM tsm;
-        var messageTxt = $"{MessageToken.Publish}:{new Topic(message.Topic.Channel, message.Topic.MsgId, Version).ToTsmTxt()}";
-        if (Version == PubSubVersion.V1)
-        {
-            tsm = new TSM(TargetEngine, messageTxt, message.Message.Payload)
-            {
-                UID = message.UserId
-            };
-        }
-        else
-        {
-            tsm = new TSM(TargetEngine, messageTxt, TheCommonUtils.SerializeObjectToJSONString(message.Message))
-            {
-                UID = message.UserId
-            };
-        }
-
+        var messageTxt = $"{MessageToken.Publish}:{new Topic(message.Topic.Channel, message.Topic.MsgId, _wireVersion).ToTsmTxt()}";
+        var tsm = _encoder.Encode(message.Message).ToTsm(TargetEngine, messageTxt);
+        tsm.UID = message.UserId;
         return tsm;
     }
 
@@ -136,14 +145,10 @@ internal class RemoteSubscriber : IRemoteSubscriber
 
         foreach (var block in CreateMessageBlocks(messagesToSend))
         {
-            var serializedMessages = TheCommonUtils.SerializeObjectToJSONString(block);
-
             var msgId = Guid.NewGuid().ToString("N");
-            var messageTxt = $"{MessageToken.Publish}:{new Topic($"$$batch:size={block.Count}$$", msgId, PubSubVersion.V4).ToTsmTxt()}";
-            var tsm = new TSM(TargetEngine, messageTxt, serializedMessages)
-            {
-                UID = userId
-            };
+            var messageTxt = $"{MessageToken.Publish}:{new Topic(TsmBatchChannel.Create(block.Count), msgId, _wireVersion).ToTsmTxt()}";
+            var tsm = _encoder.EncodeBatch(block).ToTsm(TargetEngine, messageTxt);
+            tsm.UID = userId;
 
             _logger.LogDebug($"Send {MessageToken.Publish} (batch size={block.Count}), origin: {_line.Address}, target: {Tsm.ORG}");
             _line.AnswerToSender(Tsm, tsm);
@@ -153,7 +158,7 @@ internal class RemoteSubscriber : IRemoteSubscriber
     /// <summary>
     /// Splits an enumeration of messages into blocks. A block is finalized when it reaches
     /// either the maximum number of messages (<see cref="MaxMessagesPerBlock"/>) or the cumulative
-    /// UTF-8 encoded payload size exceeds <see cref="MaxPayloadBytesPerBlock"/>.
+    /// payload size - UTF-8 encoded text plus binary - exceeds <see cref="MaxPayloadBytesPerBlock"/>.
     /// A single message larger than the payload limit will be placed in its own block.
     /// </summary>
     /// <param name="messages">The messages to split.</param>
@@ -165,7 +170,7 @@ internal class RemoteSubscriber : IRemoteSubscriber
 
         foreach (var msg in messages)
         {
-            var payloadSize = msg.Payload != null ? Encoding.UTF8.GetByteCount(msg.Payload) : 0;
+            var payloadSize = (msg.Payload != null ? Encoding.UTF8.GetByteCount(msg.Payload) : 0) + (msg.BinaryPayload?.Length ?? 0);
 
             if (block.Count > 0 && (block.Count == MaxMessagesPerBlock || cumulativeSize + payloadSize > MaxPayloadBytesPerBlock))
             {

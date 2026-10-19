@@ -1,0 +1,356 @@
+// SPDX-FileCopyrightText: 2017-2026 TRUMPF Laser SE
+//
+// SPDX-License-Identifier: MPL-2.0
+
+namespace SAF.Communication.PubSub.Cde.Tests.WireFormat;
+
+using Communication.Cde;
+using Interfaces;
+using nsCDEngine.BaseClasses;
+using NSubstitute;
+using SAF.Communication.PubSub.Cde.MessageProcessing;
+using SAF.Communication.PubSub.Cde.WireFormat;
+using SAF.Messaging.Contracts;
+using TestUtilities.WireFormat;
+using Xunit;
+
+/// <summary>
+/// Records the C-DEngine wire format per negotiated peer version, as an old SAF node sees it.
+/// V3 matters in practice: a 9.x node announces <see cref="PubSubVersion.V3"/>, while 10.x and 11.x
+/// announce <see cref="PubSubVersion.V4"/>. A failure here means an old peer would read something
+/// different than it does today, which is only allowed together with a new <see cref="PubSubVersion"/>.
+/// Accepted reply formats are an optional addition that old peers ignore. <see cref="PubSubVersion.V5"/> adds
+/// binary payloads, which only 11.x peers receive.
+/// </summary>
+public class CdeWireFormatGoldenTests
+{
+    private const string MsgId = "00000000000000000000000000000001";
+
+    public static TheoryData<string> AllIds
+    {
+        get
+        {
+            var data = new TheoryData<string>();
+            foreach (var id in WireFormatReferenceMessages.Ids.Concat(WireFormatReferenceMessages.BinaryIds)) data.Add(id);
+            return data;
+        }
+    }
+
+    public static TheoryData<string> TextIds
+    {
+        get
+        {
+            var data = new TheoryData<string>();
+            foreach (var id in WireFormatReferenceMessages.Ids) data.Add(id);
+            return data;
+        }
+    }
+
+    [Theory]
+    [InlineData(WireFormatReferenceMessages.TopicOnly, "saf/wire/topic-only")]
+    [InlineData(WireFormatReferenceMessages.TextPayload, "saf/wire/text")]
+    [InlineData(WireFormatReferenceMessages.CustomProperties, "saf/wire/props")]
+    [InlineData(WireFormatReferenceMessages.EmptyPayload, "saf/wire/empty")]
+    [InlineData(WireFormatReferenceMessages.UnicodeAndEscapes, "saf/wire/unicode")]
+    [InlineData(WireFormatReferenceMessages.NullPropertyValue, "saf/wire/null-prop")]
+    [InlineData(WireFormatReferenceMessages.ReplyFormats, "saf/wire/reply-formats")]
+    [InlineData(WireFormatReferenceMessages.Request, "saf/wire/request")]
+    public async Task Broadcast_V1_SendsPayloadOnly(string id, string topic)
+    {
+        var message = WireFormatReferenceMessages.Create(id);
+
+        var tsm = await BroadcastAsync(PubSubVersion.V1, message);
+
+        Assert.Equal($"{MessageToken.Publish}:{topic}|{MsgId}|{PubSubVersion.V1}", tsm.TXT);
+        Assert.Equal(message.Payload, tsm.PLS);
+    }
+
+    [Theory]
+    [InlineData(PubSubVersion.V2)]
+    [InlineData(PubSubVersion.V3)]
+    public async Task Broadcast_V2AndV3_SendTheWholeMessageAsPascalCaseJson(string version)
+    {
+        foreach (var id in WireFormatReferenceMessages.Ids)
+        {
+            var message = WireFormatReferenceMessages.Create(id);
+
+            var tsm = await BroadcastAsync(version, message);
+
+            Assert.Equal($"{MessageToken.Publish}:{message.Topic}|{MsgId}|{version}", tsm.TXT);
+            Assert.Equal(GoldenJson(id), tsm.PLS);
+        }
+    }
+
+    [Theory]
+    [InlineData(WireFormatReferenceMessages.TopicOnly)]
+    [InlineData(WireFormatReferenceMessages.TextPayload)]
+    [InlineData(WireFormatReferenceMessages.CustomProperties)]
+    [InlineData(WireFormatReferenceMessages.EmptyPayload)]
+    [InlineData(WireFormatReferenceMessages.UnicodeAndEscapes)]
+    [InlineData(WireFormatReferenceMessages.NullPropertyValue)]
+    [InlineData(WireFormatReferenceMessages.ReplyFormats)]
+    [InlineData(WireFormatReferenceMessages.Request)]
+    public async Task Broadcast_V4_SendsABatchArray(string id)
+    {
+        var message = WireFormatReferenceMessages.Create(id);
+
+        var tsm = await BroadcastAsync(PubSubVersion.V4, message);
+
+        // The batch message id is generated per block and cannot be pinned, the rest of TXT can.
+        Assert.StartsWith($"{MessageToken.Publish}:$$batch:size=1$$|", tsm.TXT);
+        Assert.EndsWith($"|{PubSubVersion.V4}", tsm.TXT);
+        Assert.Equal($"[{GoldenJson(id)}]", tsm.PLS);
+    }
+
+    [Theory]
+    [MemberData(nameof(AllIds))]
+    public async Task Broadcast_V5_SendsABatchWithTheBinaryPayloadInPlb(string id)
+    {
+        var message = WireFormatReferenceMessages.Create(id);
+
+        var tsm = await BroadcastAsync(PubSubVersion.V5, message);
+
+        Assert.StartsWith($"{MessageToken.Publish}:$$batch:size=1$$|", tsm.TXT);
+        Assert.EndsWith($"|{PubSubVersion.V5}", tsm.TXT);
+        Assert.Equal($"[{GoldenJson(id)}]", tsm.PLS);
+        Assert.Equal(ExpectedPlb(message), tsm.PLB);
+    }
+
+    /// <summary>
+    /// A peer newer than this node is sent the newest format this node knows, marked with that version.
+    /// </summary>
+    [Fact]
+    public async Task Broadcast_ToANewerPeer_WritesTheLatestVersion()
+    {
+        var message = WireFormatReferenceMessages.Create(WireFormatReferenceMessages.Binary);
+
+        var tsm = await BroadcastAsync("6.0.0", message);
+
+        Assert.EndsWith($"|{PubSubVersion.Latest}", tsm.TXT);
+        Assert.Equal($"[{GoldenJson(WireFormatReferenceMessages.Binary)}]", tsm.PLS);
+        Assert.Equal(ExpectedPlb(message), tsm.PLB);
+    }
+
+    [Theory]
+    [InlineData(WireFormatReferenceMessages.TopicOnly)]
+    [InlineData(WireFormatReferenceMessages.TextPayload)]
+    [InlineData(WireFormatReferenceMessages.CustomProperties)]
+    [InlineData(WireFormatReferenceMessages.EmptyPayload)]
+    [InlineData(WireFormatReferenceMessages.UnicodeAndEscapes)]
+    [InlineData(WireFormatReferenceMessages.NullPropertyValue)]
+    [InlineData(WireFormatReferenceMessages.ReplyFormats)]
+    [InlineData(WireFormatReferenceMessages.Request)]
+    public void DecodeMessages_ReadsV2AndV3Samples(string id)
+    {
+        var expected = WireFormatReferenceMessages.Create(id);
+
+        foreach (var version in new[] { PubSubVersion.V2, PubSubVersion.V3 })
+        {
+            var messages = DecodeMessages(expected.Topic, version, GoldenJson(id));
+
+            AssertSingle(expected, messages);
+        }
+    }
+
+    [Theory]
+    [InlineData(WireFormatReferenceMessages.TopicOnly)]
+    [InlineData(WireFormatReferenceMessages.TextPayload)]
+    [InlineData(WireFormatReferenceMessages.CustomProperties)]
+    [InlineData(WireFormatReferenceMessages.EmptyPayload)]
+    [InlineData(WireFormatReferenceMessages.UnicodeAndEscapes)]
+    [InlineData(WireFormatReferenceMessages.NullPropertyValue)]
+    [InlineData(WireFormatReferenceMessages.ReplyFormats)]
+    [InlineData(WireFormatReferenceMessages.Request)]
+    public void DecodeMessages_ReadsV4BatchSamples(string id)
+    {
+        var expected = WireFormatReferenceMessages.Create(id);
+
+        var messages = DecodeMessages("$$batch:size=1$$", PubSubVersion.V4, $"[{GoldenJson(id)}]");
+
+        AssertSingle(expected, messages);
+    }
+
+    [Theory]
+    [MemberData(nameof(AllIds))]
+    public void DecodeMessages_ReadsV5BatchSamples(string id)
+    {
+        var expected = WireFormatReferenceMessages.Create(id);
+
+        var messages = DecodeMessages("$$batch:size=1$$", PubSubVersion.V5, $"[{GoldenJson(id)}]", ExpectedPlb(expected));
+
+        AssertSingle(expected, messages);
+    }
+
+    /// <summary>
+    /// A 9.x registry marks a message to an 11.x subscriber with the subscriber's version 5.0.0, but sends the V2 JSON.
+    /// </summary>
+    [Theory]
+    [MemberData(nameof(TextIds))]
+    public void DecodeMessages_ReadsV2JsonMarkedAsV5(string id)
+    {
+        var expected = WireFormatReferenceMessages.Create(id);
+
+        var messages = DecodeMessages(expected.Topic, PubSubVersion.V5, GoldenJson(id));
+
+        AssertSingle(expected, messages);
+    }
+
+    [Fact]
+    public void DecodeMessages_ReadsV1AsPayloadOnly()
+    {
+        var messages = DecodeMessages("saf/wire/text", PubSubVersion.V1, "just the payload");
+
+        Assert.Single(messages);
+        Assert.Equal("saf/wire/text", messages[0].Topic);
+        Assert.Equal("just the payload", messages[0].Payload);
+    }
+
+    /// <summary>
+    /// A non-batch message is still read as a single message on V4, which is what a 9.x or 10.x
+    /// sender produces when it talks to a V4 peer without batching.
+    /// </summary>
+    [Fact]
+    public void DecodeMessages_ReadsNonBatchV4AsSingleMessage()
+    {
+        var expected = WireFormatReferenceMessages.Create(WireFormatReferenceMessages.TextPayload);
+
+        var messages = DecodeMessages(expected.Topic, PubSubVersion.V4,
+            GoldenJson(WireFormatReferenceMessages.TextPayload));
+
+        AssertSingle(expected, messages);
+    }
+
+    /// <summary>
+    /// A node up to 11.0.0-alpha.11 reads the JSON into a type without the reply topic and the accepted reply formats.
+    /// </summary>
+    [Theory]
+    [InlineData(WireFormatReferenceMessages.ReplyFormats)]
+    [InlineData(WireFormatReferenceMessages.Request)]
+    public void OldNodes_IgnoreRequestMetadata(string id)
+    {
+        var expected = WireFormatReferenceMessages.Create(id);
+
+        var old = TheCommonUtils.DeserializeJSONStringToObject<LegacyMessage>(GoldenJson(id));
+
+        Assert.Equal(expected.Topic, old.Topic);
+        Assert.Equal(expected.Payload, old.Payload);
+    }
+
+    /// <summary>
+    /// Peers before V5 cannot receive binary payloads, so such a message is dropped for them
+    /// while the next message still goes out - on V4 alone in its batch.
+    /// </summary>
+    [Theory]
+    [InlineData(PubSubVersion.V1, "p")]
+    [InlineData(PubSubVersion.V2, """{"Topic":"saf/wire/text","Payload":"p"}""")]
+    [InlineData(PubSubVersion.V3, """{"Topic":"saf/wire/text","Payload":"p"}""")]
+    [InlineData(PubSubVersion.V4, """[{"Topic":"saf/wire/text","Payload":"p"}]""")]
+    public async Task Broadcast_DropsBinaryPayloads(string version, string expectedPls)
+    {
+        var binary = new Message { Topic = "saf/wire/binary", Payload = "dropped", BinaryPayload = [1, 2, 3] };
+        var text = new Message { Topic = "saf/wire/text", Payload = "p" };
+
+        var tsm = await BroadcastAsync(version, binary, text);
+
+        Assert.Equal(expectedPls, tsm.PLS);
+    }
+
+    /// <summary>
+    /// The recorded JSON of the whole message as C-DEngine's serializer writes it: PascalCase, nulls omitted,
+    /// every non-ASCII character literal - including astral ones, where SAF's own JSON serializer escapes
+    /// them as a surrogate pair. The two serializers are not interchangeable.
+    /// </summary>
+    private static string GoldenJson(string id) => id switch
+    {
+        WireFormatReferenceMessages.TopicOnly =>
+            """{"Topic":"saf/wire/topic-only"}""",
+        WireFormatReferenceMessages.TextPayload =>
+            """{"Topic":"saf/wire/text","Payload":"{\"value\":42,\"name\":\"sensor\"}"}""",
+        WireFormatReferenceMessages.CustomProperties =>
+            """{"Topic":"saf/wire/props","Payload":"{\"value\":42}","CustomProperties":[{"Name":"replyTo","Value":"saf/wire/reply"},{"Name":"correlationId","Value":"c3f1a0"}]}""",
+        WireFormatReferenceMessages.EmptyPayload =>
+            """{"Topic":"saf/wire/empty","Payload":""}""",
+        WireFormatReferenceMessages.UnicodeAndEscapes =>
+            """{"Topic":"saf/wire/unicode","Payload":"\"quote\" \\back\\slash / slash\r\n\ttab äöüß 日本語 😀"}""",
+        WireFormatReferenceMessages.NullPropertyValue =>
+            """{"Topic":"saf/wire/null-prop","Payload":"plain text","CustomProperties":[{"Name":"flag"}]}""",
+        // The flags travel as a number.
+        WireFormatReferenceMessages.ReplyFormats =>
+            """{"Topic":"saf/wire/reply-formats","Payload":"{\"value\":42}","AcceptedReplyFormats":3}""",
+        WireFormatReferenceMessages.Request =>
+            """{"Topic":"saf/wire/request","Payload":"{\"replyTo\":\"saf/wire/reply/1\"}","ReplyTo":"saf/wire/reply/1","AcceptedReplyFormats":3}""",
+        // From V5 on: the bytes travel in PLB, the JSON names their length.
+        WireFormatReferenceMessages.Binary =>
+            """{"Topic":"saf/wire/binary","BinaryPayloadLength":6}""",
+        WireFormatReferenceMessages.TextAndBinary =>
+            """{"Topic":"saf/wire/text-and-binary","Payload":"{\"name\":\"chunk\"}","CustomProperties":[{"Name":"index","Value":"3"}],"BinaryPayloadLength":5}""",
+        WireFormatReferenceMessages.EmptyBinary =>
+            """{"Topic":"saf/wire/empty-binary","BinaryPayloadLength":0}""",
+        _ => throw new ArgumentOutOfRangeException(nameof(id), id, "No recorded sample for this reference message.")
+    };
+
+    /// <summary>
+    /// Broadcasts the messages to one peer and returns the first TSM it is sent.
+    /// </summary>
+    private static async Task<TSM> BroadcastAsync(string version, params Message[] messages)
+    {
+        var captured = new TaskCompletionSource<TSM>();
+        var line = Substitute.For<ComLine>();
+        line.Address.Returns("origin");
+        line.When(l => l.AnswerToSender(Arg.Any<TSM>(), Arg.Any<TSM>()))
+            .Do(ci => captured.TrySetResult(ci.ArgAt<TSM>(1)));
+
+        var subscriberTsm = new TSM(Engines.PubSub, MessageToken.SubscribeRequest) { ORG = line.Address };
+        var request = new RegistrySubscriptionRequest { version = version, isRegistry = false };
+        var remote = new RemoteSubscriber(line, subscriberTsm, ["*"], request, TsmWireFormats.CreateCodec(), Substitute.For<IDroppedMessageWarning>());
+
+        foreach (var message in messages)
+        {
+            remote.Broadcast(new BroadcastMessage(new Topic(message.Topic, MsgId, version), message, "user", RoutingOptions.All));
+        }
+
+        return await captured.Task.WaitAsync(TimeSpan.FromSeconds(10), TestContext.Current.CancellationToken);
+    }
+
+    // C-DEngine drops an empty PLB; an even length is padded to an odd one.
+    private static byte[]? ExpectedPlb(Message message) => message.BinaryPayload switch
+    {
+        null or [] => null,
+        { Length: var length } bytes when length % 2 == 0 => [..bytes, 0],
+        var bytes => bytes
+    };
+
+    private static List<Message> DecodeMessages(string channel, string version, string pls, byte[]? plb = null)
+        => TsmWireFormats.CreateCodec().DecodeMessages(new Topic(channel, MsgId, version), new TsmPayload(pls, plb))!;
+
+    private static void AssertSingle(Message expected, List<Message> actual)
+    {
+        Assert.Single(actual);
+        Assert.Equal(expected.Topic, actual[0].Topic);
+        Assert.Equal(expected.Payload, actual[0].Payload);
+        Assert.Equal(expected.ReplyTo, actual[0].ReplyTo);
+        Assert.Equal(expected.AcceptedReplyFormats, actual[0].AcceptedReplyFormats);
+        Assert.Equal(expected.BinaryPayload, actual[0].BinaryPayload);
+
+        if (expected.CustomProperties == null)
+        {
+            Assert.Null(actual[0].CustomProperties);
+            return;
+        }
+
+        Assert.NotNull(actual[0].CustomProperties);
+        Assert.Equal(expected.CustomProperties.Count, actual[0].CustomProperties!.Count);
+        for (var i = 0; i < expected.CustomProperties.Count; i++)
+        {
+            Assert.Equal(expected.CustomProperties[i].Name, actual[0].CustomProperties![i].Name);
+            Assert.Equal(expected.CustomProperties[i].Value, actual[0].CustomProperties![i].Value);
+        }
+    }
+
+    private sealed class LegacyMessage
+    {
+        public string? Topic { get; set; }
+        public string? Payload { get; set; }
+        public List<MessageCustomProperty>? CustomProperties { get; set; }
+    }
+}

@@ -21,22 +21,42 @@ internal sealed class RequestClient : IRequestClient, IDisposable
 
     private readonly ConcurrentDictionary<string, OpenRequest> _openRequests = new();
         
+    private readonly IReplyTopics _replyTopics;
+
     private string _defaultPrefix = "private/reply";
-    private readonly string _postfix = $"requestclient/{Guid.NewGuid()}";
-    private object? _subscriptionHandle;
 
     public RequestClient(IMessagingInfrastructure messaging, IHeartbeat heartbeat, ILogger<RequestClient>? log)
+        : this(messaging, heartbeat, log, handleReply => new ReplyTopics(messaging, handleReply))
+    {
+    }
+
+    internal RequestClient(IMessagingInfrastructure messaging, IHeartbeat heartbeat, ILogger<RequestClient>? log,
+        Func<Action<Message>, IReplyTopics> createReplyTopics)
     {
         _messaging = messaging;
         _heartbeat = heartbeat;
         _log = log ?? NullLogger<RequestClient>.Instance;
+        _replyTopics = createReplyTopics(Handle);
+        SubscribeReplies();
 
         _heartbeat.Beat += CheckExpiringSubscriptions;
-
-        _subscriptionHandle = _messaging.Subscribe($"*/{_postfix}", Handle);
     }
 
     public void SetDefaultPrefix(string prefix) => _defaultPrefix = prefix.TrimEnd('/');
+
+    // As in 10.x, the client subscribes when it is created, so a request does not wait for the subscription, which
+    // can take seconds. A request still subscribes if this failed.
+    private void SubscribeReplies()
+    {
+        try
+        {
+            _replyTopics.Subscribe();
+        }
+        catch (Exception e)
+        {
+            _log.LogWarning(e, "Failed to subscribe the replies; the first request tries again.");
+        }
+    }
 
     public Task<TResponse?> SendRequestAwaitFirstAnswer<TRequest, TResponse>(string topic, TRequest request,
         string? replyTopicPrefix = null, double? millisecondsTimeoutTarget = null)
@@ -59,73 +79,73 @@ internal sealed class RequestClient : IRequestClient, IDisposable
             : null;
     }
 
-    public Task<string?> SendRequestAwaitFirstAnswer<TRequest>(string topic, TRequest request, IJsonObjectConverter[]? converters,
+    public async Task<string?> SendRequestAwaitFirstAnswer<TRequest>(string topic, TRequest request, IJsonObjectConverter[]? converters,
         string? replyTopicPrefix = null, double? millisecondsTimeoutTarget = null) where TRequest : MessageRequestBase
+    {
+        var reply = await SendRequest(topic, replyTopicPrefix, millisecondsTimeoutTarget, replyTo =>
+        {
+            // SAF 10.x responders read the reply topic from the payload only.
+            request.ReplyTo = replyTo;
+            return new Message { Topic = topic, Payload = JsonSerializer.Serialize(request), ReplyTo = replyTo };
+        });
+        return reply?.Payload;
+    }
+
+    public Task<Message?> SendRequestAwaitFirstReply(string topic, string? payload = null, byte[]? binaryPayload = null, RequestOptions? options = null)
+        => SendRequest(topic, options?.ReplyTopicPrefix, options?.MillisecondsTimeoutTarget, replyTo => new Message
+        {
+            Topic = topic,
+            Payload = payload,
+            BinaryPayload = binaryPayload,
+            ReplyTo = replyTo,
+            AcceptedReplyFormats = options?.AcceptedReplyFormats
+        });
+
+    private Task<Message?> SendRequest(string topic, string? replyTopicPrefix, double? millisecondsTimeoutTarget, Func<string, Message> createRequest)
     {
         if (string.IsNullOrEmpty(replyTopicPrefix))
             replyTopicPrefix = _defaultPrefix;
-            
-        var replyTo = string.Join("/", replyTopicPrefix.TrimEnd('/'), Guid.NewGuid().ToString(), _postfix);
-        request.ReplyTo = replyTo;
 
         var heartbeatsUntilExpiry =
             (long)Math.Ceiling((millisecondsTimeoutTarget ?? DefaultMillisecondsTimeoutTarget) / _heartbeat.BeatCycleTimeMillis);
 
-        var tcs = new TaskCompletionSource<string?>();
+        string? replyTo = null;
         try
         {
+            replyTo = _replyTopics.Create(replyTopicPrefix);
+            var message = createRequest(replyTo);
             var currentBeat = _heartbeat.CurrentBeat;
-            var openRequest = new OpenRequest
-            {
-                Topic = topic,
-                ReplyToTopic = replyTo,
-                RequestHandlerAction = resultJson =>
-                {
-                    if (!tcs.TrySetResult(resultJson))
-                        _log.LogWarning("SendRequestAwaitFirstAnswer: Couldn't set request result for {Topic}", topic);
-                },
-                TimeoutAction = () =>
-                {
-                    if (!tcs.TrySetResult(null))
-                        _log.LogWarning("SendRequestAwaitFirstAnswer: Couldn't set empty result for {Topic}", topic);
-                },
-                CancelAction = () =>
-                {
-                    if (!tcs.TrySetResult(null))
-                        _log.LogWarning("SendRequestAwaitFirstAnswer: Couldn't set empty result for {Topic}", topic);
-                },
-                PublishedOnHeartbeat = currentBeat,
-                ExpiresOnHeartbeat = currentBeat + heartbeatsUntilExpiry
-            };
+            var openRequest = new OpenRequest(message, replyTo, currentBeat, currentBeat + heartbeatsUntilExpiry);
 
-            if (_openRequests.TryAdd(replyTo, openRequest))
+            if (!_openRequests.TryAdd(replyTo, openRequest))
             {
-                _messaging.Publish(new Message
-                {
-                    Topic = topic,
-                    Payload = JsonSerializer.Serialize(request)
-                });
+                _log.LogError("Failed to open request for {Topic}!", topic);
+                return Task.FromResult<Message?>(null);
             }
-            else
-            {
-                _log.LogError("SendRequestAwaitFirstAnswer: Failed to open request for {Topic}!", topic);
-                tcs.TrySetResult(null);
-            }
+
+            _messaging.Publish(message);
+            return openRequest.Reply;
         }
         catch (Exception ex)
         {
-            _log.LogError(ex, "SendRequestAwaitFirstAnswer: Unexpected exception processing request {Topic}!", topic);
-            tcs.TrySetResult(null);
+            if (replyTo != null) _openRequests.TryRemove(replyTo, out _);
+            _log.LogError(ex, "Unexpected exception processing request {Topic}!", topic);
+            return Task.FromResult<Message?>(null);
         }
-
-        return tcs.Task;
     }
 
     public void Handle(Message message)
     {
-        if(!_openRequests.TryRemove(message.Topic, out var request)) return;
+        if (!_openRequests.TryRemove(message.Topic, out var request)) return;
 
-        request.RequestHandlerAction(message.Payload);
+        var format = message.GetFormat();
+        if (!request.Message.AcceptsReplyFormat(format))
+        {
+            _log.LogWarning("The reply to request {Topic} carries payload format {Format}, which the request does not accept.",
+                request.Topic, format);
+        }
+
+        request.Complete(message);
     }
 
     private void CheckExpiringSubscriptions(object? sender, HeartbeatEventArgs e)
@@ -140,30 +160,32 @@ internal sealed class RequestClient : IRequestClient, IDisposable
             _log.LogError("Cancelling timed out request '{Topic}' (replyTo={ReplyToTopic}) after {TimeoutMs}ms. Returning null.",
                 request.Topic, removedRequest.ReplyToTopic, timeoutTimeMs);
 
-            removedRequest.TimeoutAction();
+            removedRequest.Complete(null);
         }
     }
 
-    private sealed class OpenRequest
+    private sealed class OpenRequest(Message message, string replyToTopic, long publishedOnHeartbeat, long expiresOnHeartbeat)
     {
-        public long ExpiresOnHeartbeat { get; set; }
-        public Action<string?> RequestHandlerAction { get; set; } = default!;
-        public Action TimeoutAction { get; set; } = default!;
-        public Action CancelAction { get; set; } = default!;
-        public string ReplyToTopic { get; set; } = default!;
-        public string Topic { get; set; } = default!;
-        public long PublishedOnHeartbeat { get; set; }
+        // The caller's continuation must not run on the transport thread that delivers the reply: a request it sends
+        // on a new prefix would wait there for a subscription that the same thread has to confirm.
+        private readonly TaskCompletionSource<Message?> _reply = new(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        public Message Message { get; } = message;
+        public string Topic => Message.Topic;
+        public string ReplyToTopic { get; } = replyToTopic;
+        public long PublishedOnHeartbeat { get; } = publishedOnHeartbeat;
+        public long ExpiresOnHeartbeat { get; } = expiresOnHeartbeat;
+        public Task<Message?> Reply => _reply.Task;
+
+        // Only the caller that removed the request from the open requests completes it.
+        public void Complete(Message? reply) => _reply.SetResult(reply);
     }
 
     public void Dispose()
     {
-        _log.LogInformation("Disposing RequestClient {RequestClientPostfix}.", _postfix);
+        _log.LogInformation("Disposing RequestClient.");
 
-        if (_subscriptionHandle != null)
-        {
-            _messaging.Unsubscribe(_subscriptionHandle);
-            _subscriptionHandle = null;
-        }
+        _replyTopics.Dispose();
 
         var requests = _openRequests.Values.ToList();
         requests.ForEach(request =>
@@ -172,7 +194,7 @@ internal sealed class RequestClient : IRequestClient, IDisposable
 
             _log.LogError("Cancelling request '{Topic}' (replyTo={ReplyToTopic}) on shutdown. Returning null.",
                 request.Topic, request.ReplyToTopic);
-            request.CancelAction();
+            request.Complete(null);
         });
 
         _openRequests.Clear();

@@ -8,6 +8,8 @@ using StackExchange.Redis;
 using SAF.Common;
 using SAF.Messaging.Contracts;
 using System.Runtime.CompilerServices;
+using SAF.Messaging.Redis.WireFormat;
+using SAF.Messaging.WireFormat;
 
 [assembly: InternalsVisibleTo("SAF.Messaging.Redis.Tests")]
 [assembly: InternalsVisibleTo("DynamicProxyGenAssembly2")]
@@ -114,27 +116,47 @@ public static class ServiceCollectionExtensions
                     MessagingInfrastructureKeys.Redis,
                     cfg => CreateMessagingInfrastructure(sp, cfg, config)));
 
-    private static Messaging CreateMessagingInfrastructure(IServiceProvider serviceProvider, MessagingConfiguration config, RedisConfiguration defaultConfiguration)
+    /// <summary>
+    /// A route's own values take precedence over the <c>Redis</c> section.
+    /// </summary>
+    internal static RedisConfiguration ResolveConfiguration(MessagingConfiguration config, RedisConfiguration defaultConfiguration)
     {
         if (config.Config is null || config.Config.Count == 0)
         {
-            return CreateMessagingInfrastructure(serviceProvider, defaultConfiguration);
+            return defaultConfiguration;
         }
 
         var msgCfg = new RedisMessagingConfiguration(config);
-        var redisCfg = new RedisConfiguration
+        return new RedisConfiguration
         {
             ConnectionString = msgCfg.ConnectionString ?? defaultConfiguration.ConnectionString,
-            Timeout = defaultConfiguration.Timeout
+            Timeout = defaultConfiguration.Timeout,
+            EnableBinaryPayloads = msgCfg.EnableBinaryPayloads ?? defaultConfiguration.EnableBinaryPayloads
         };
-
-        return CreateMessagingInfrastructure(serviceProvider, redisCfg);
     }
 
+    internal static IWireMessageWriter<RedisValue> CreateWriter(RedisConfiguration config)
+    {
+        IWireMessageWriter<RedisValue> writer = new RedisMessageWriter(RedisWireFormats.All, new RedisBinaryFrame());
+        return config.EnableBinaryPayloads ? writer : new BinaryPayloadsDisabledWriter<RedisValue>(writer);
+    }
+
+    internal static IRedisMessageReader CreateReader(ILogger logger)
+        => new RedisMessageReader(RedisWireFormats.All, new RedisEnvelopeHeaderReader(), new RedisBinaryFrame(),
+            new WireVersion(), new UnknownVersionWarning(logger, "Redis"), logger);
+
+    private static Messaging CreateMessagingInfrastructure(IServiceProvider serviceProvider, MessagingConfiguration config, RedisConfiguration defaultConfiguration)
+        => CreateMessagingInfrastructure(serviceProvider, ResolveConfiguration(config, defaultConfiguration));
+
     private static Messaging CreateMessagingInfrastructure(IServiceProvider serviceProvider, RedisConfiguration config)
-        => new Messaging(serviceProvider.GetRequiredService<ILogger<Messaging>>(),
-            CreateRedisConnection(config, serviceProvider.GetRequiredService<ILogger<Messaging>>()).multiplexer,
-            ResolveMessageDispatcher(serviceProvider));
+    {
+        var logger = serviceProvider.GetRequiredService<ILogger<Messaging>>();
+        return new Messaging(logger,
+            CreateRedisConnection(config, logger).multiplexer,
+            ResolveMessageDispatcher(serviceProvider),
+            CreateWriter(config),
+            CreateReader(logger));
+    }
 
     private static IServiceMessageDispatcher ResolveMessageDispatcher(IServiceProvider serviceProvider)
         => serviceProvider.GetService<IServiceMessageDispatcher>() ??

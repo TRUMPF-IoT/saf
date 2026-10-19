@@ -16,6 +16,18 @@ public interface IMessagingInfrastructure
     void Publish(Message message);
 
     /// <summary>
+    ///     Gets the payload formats <see cref="Publish"/> sends on the topic. Without <see cref="MessageFormats.Binary"/>,
+    ///     a message with a <see cref="Message.BinaryPayload"/> does not arrive, for example while sending binary payloads
+    ///     is disabled.
+    /// </summary>
+    /// <remarks>
+    ///     Says nothing about single subscribers: C-DEngine still skips subscribers on SAF 10.x or older for a binary payload.
+    ///     The default is text only, so callers do not hand binary payloads to infrastructures written without them.
+    /// </remarks>
+    /// <param name="topic">The topic to publish on.</param>
+    MessageFormats GetPublishableFormats(string topic) => MessageFormats.Text;
+
+    /// <summary>
     ///     Subscribes to all received routes in the mesh.
     /// </summary>
     /// <typeparam name="TMessageHandler">The type of the message handler.</typeparam>

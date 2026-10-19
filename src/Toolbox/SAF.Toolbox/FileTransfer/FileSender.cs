@@ -5,7 +5,8 @@
 using System.IO.Abstractions;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
-using SAF.Toolbox.FileTransfer.Messages;
+using SAF.Messaging.Contracts;
+using SAF.Toolbox.FileTransfer.Chunks;
 using SAF.Toolbox.RequestClient;
 
 namespace SAF.Toolbox.FileTransfer;
@@ -14,7 +15,9 @@ internal class FileSender(
     ILogger<FileSender> log,
     IOptions<FileSenderOptions> options,
     IFileSystem fileSystem,
-    IRequestClient requestClient) : IFileSender
+    IRequestClient requestClient,
+    IMessagingInfrastructure messaging,
+    IReadOnlyList<IFileChunkSender> chunkSenders) : IFileSender
 {
     private readonly FileSenderOptions _options = options.Value;
 
@@ -46,12 +49,14 @@ internal class FileSender(
                 Properties = properties
             };
 
-            var receiverState = await requestClient.GetReceiverStateAsync(log, topic, transportFile, _options);
-            if (receiverState == null)
+            var receiver = await requestClient.GetReceiverStateAsync(log, topic, transportFile, _options);
+            if (receiver == null)
             {
                 log.LogError("Failed to retrieve transmitted chunk information for file {FullFilePath} on topic {ReceiverTopic}", fullFilePath, topic);
                 return FileTransferStatus.Error;
             }
+
+            var receiverState = receiver.State;
 
             if (receiverState.FileExists || receiverState.TransmittedChunks.Count == totalChunks)
             {
@@ -59,12 +64,14 @@ internal class FileSender(
                 return FileTransferStatus.Delivered;
             }
 
-            log.LogInformation("Sending {FullFilePath} with {MissingChunks} of {TotalChunks} chunks to {ReceiverTopic}",
-                fullFilePath, totalChunks - receiverState.TransmittedChunks.Count, totalChunks, topic);
+            // Receivers on SAF 10.x or older announce no formats and read text only.
+            var chunkSender = SelectChunkSender(topic, receiver.AcceptedChunkFormats ?? MessageFormats.Text);
+
+            log.LogInformation("Sending {FullFilePath} with {MissingChunks} of {TotalChunks} chunks as {ChunkFormat} to {ReceiverTopic}",
+                fullFilePath, totalChunks - receiverState.TransmittedChunks.Count, totalChunks, chunkSender.Format, topic);
 
             await using var fileStream = fi.Open(FileMode.Open, FileAccess.Read, FileShare.Read);
-            
-            var buffer = new byte[_options.MaxChunkSizeInBytes];
+
             for (uint chunk = 0; chunk < totalChunks; chunk++)
             {
                 if(receiverState.TransmittedChunks.Contains(chunk))
@@ -73,15 +80,12 @@ internal class FileSender(
                     continue;
                 }
 
-                var fileChunk = await ReadFileChunkAsync(chunk, fileStream, buffer);
+                var fileChunk = await ReadFileChunkAsync(chunk, fileStream, transportFile);
 
-                var transferStatus = await requestClient.SendFileChunkAsync(log, topic,
-                    new SendFileChunkRequest { File = transportFile, FileChunk = fileChunk },
-                    _options, timeoutMs);
-                if(transferStatus != FileTransferStatus.Delivered)
+                var receiverStatus = await chunkSender.SendAsync(topic, transportFile, fileChunk, timeoutMs);
+                if (receiverStatus != FileReceiverStatus.Ok)
                 {
-                    log.LogError("Failed to send chunk {ChunkIndex} of file {FullFilePath} to topic {ReceiverTopic}", chunk, fullFilePath, topic);
-                    return transferStatus;
+                    return ToFailedTransferStatus(receiverStatus, chunk, topic, fullFilePath);
                 }
             }
 
@@ -113,23 +117,40 @@ internal class FileSender(
         }
     }
 
-    private static async Task<FileChunk> ReadFileChunkAsync(uint chunkIndex, FileSystemStream fileStream, byte[] buffer)
+    private FileTransferStatus ToFailedTransferStatus(FileReceiverStatus? receiverStatus, uint chunk, string topic, string fullFilePath)
     {
-        var bytesRead = await fileStream.ReadAsync(buffer, CancellationToken.None);
-        if (bytesRead == 0)
+        if (receiverStatus == FileReceiverStatus.ContentMismatch)
         {
-            throw new EndOfStreamException("Reached unexpected EOF");
+            log.LogError("Receiver on topic {ReceiverTopic} rejected file {FullFilePath}: it does not match the sent content. The next transfer sends the whole file",
+                topic, fullFilePath);
+            return FileTransferStatus.Error;
         }
 
-        if (bytesRead != buffer.Length)
-        {
-            Array.Resize(ref buffer, bytesRead);
-        }
+        log.LogError("Failed to send chunk {ChunkIndex} of file {FullFilePath} to topic {ReceiverTopic}", chunk, fullFilePath, topic);
+        return receiverStatus == null ? FileTransferStatus.TimedOut : FileTransferStatus.Error;
+    }
+
+    // The first sender in order of preference whose format the receiver accepts and the messaging publishes.
+    // Text chunks work with every receiver and messaging.
+    private IFileChunkSender SelectChunkSender(string topic, MessageFormats acceptedFormats)
+    {
+        var formats = (acceptedFormats & messaging.GetPublishableFormats(topic)) | MessageFormats.Text;
+        return chunkSenders.First(sender => formats.HasFlag(sender.Format));
+    }
+
+    private static async Task<FileChunk> ReadFileChunkAsync(uint chunkIndex, FileSystemStream fileStream, TransportFile file)
+    {
+        // Chunks the receiver already has are skipped, so each chunk is read at its own offset.
+        var offset = (long)chunkIndex * file.ChunkSize;
+        // A binary payload is passed on by reference and must not change after publishing, so each chunk gets its own buffer.
+        var data = new byte[Math.Min(file.ChunkSize, file.ContentLength - offset)];
+        fileStream.Position = offset;
+        await fileStream.ReadExactlyAsync(data, CancellationToken.None);
 
         return new FileChunk
         {
             Index = chunkIndex,
-            Data = buffer
+            Data = data
         };
     }
 

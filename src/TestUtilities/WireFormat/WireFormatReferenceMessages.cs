@@ -1,0 +1,135 @@
+// SPDX-FileCopyrightText: 2017-2026 TRUMPF Laser SE
+//
+// SPDX-License-Identifier: MPL-2.0
+
+namespace TestUtilities.WireFormat;
+
+using SAF.Messaging.Contracts;
+
+/// <summary>
+/// The canonical message set every transport records its wire-format golden samples for.
+/// Changing an entry invalidates the recorded samples of all transports - that is intended.
+/// </summary>
+public static class WireFormatReferenceMessages
+{
+    public const string TopicOnly = "topic-only";
+    public const string TextPayload = "text-payload";
+    public const string CustomProperties = "custom-properties";
+    public const string EmptyPayload = "empty-payload";
+    public const string UnicodeAndEscapes = "unicode-and-escapes";
+    public const string NullPropertyValue = "null-property-value";
+
+    /// <summary>
+    /// Accepted reply formats. Not part of the samples old SAF versions produce; old nodes ignore the field.
+    /// </summary>
+    public const string ReplyFormats = "reply-formats";
+
+    /// <summary>
+    /// A request with its reply topic, as IRequestClient sends it. Old nodes ignore the field.
+    /// </summary>
+    public const string Request = "request";
+
+    /// <summary>
+    /// Binary payloads, not part of <see cref="Ids"/>: only transports that carry binary payloads record them.
+    /// </summary>
+    public const string Binary = "binary";
+    public const string TextAndBinary = "text-and-binary";
+    public const string EmptyBinary = "empty-binary";
+
+    /// <summary>
+    /// Covers quote, backslash, slash, control characters, non-ASCII and a surrogate pair.
+    /// </summary>
+    public const string UnicodeAndEscapesPayload =
+        "\"quote\" \\back\\slash / slash\r\n\ttab äöüß 日本語 😀";
+
+    public static IReadOnlyList<string> Ids =>
+    [
+        TopicOnly,
+        TextPayload,
+        CustomProperties,
+        EmptyPayload,
+        UnicodeAndEscapes,
+        NullPropertyValue,
+        ReplyFormats,
+        Request
+    ];
+
+    public static IReadOnlyList<string> BinaryIds => [Binary, TextAndBinary, EmptyBinary];
+
+    /// <summary>
+    /// Creates a fresh instance so a test can never observe mutations made by another test.
+    /// </summary>
+    public static Message Create(string id) => id switch
+    {
+        TopicOnly => new Message
+        {
+            Topic = "saf/wire/topic-only"
+        },
+        TextPayload => new Message
+        {
+            Topic = "saf/wire/text",
+            Payload = """{"value":42,"name":"sensor"}"""
+        },
+        CustomProperties => new Message
+        {
+            Topic = "saf/wire/props",
+            Payload = """{"value":42}""",
+            CustomProperties =
+            [
+                new MessageCustomProperty { Name = "replyTo", Value = "saf/wire/reply" },
+                new MessageCustomProperty { Name = "correlationId", Value = "c3f1a0" }
+            ]
+        },
+        EmptyPayload => new Message
+        {
+            Topic = "saf/wire/empty",
+            Payload = ""
+        },
+        UnicodeAndEscapes => new Message
+        {
+            Topic = "saf/wire/unicode",
+            Payload = UnicodeAndEscapesPayload
+        },
+        NullPropertyValue => new Message
+        {
+            Topic = "saf/wire/null-prop",
+            Payload = "plain text",
+            CustomProperties =
+            [
+                new MessageCustomProperty { Name = "flag", Value = null }
+            ]
+        },
+        ReplyFormats => new Message
+        {
+            Topic = "saf/wire/reply-formats",
+            Payload = """{"value":42}""",
+            AcceptedReplyFormats = MessageFormats.Text | MessageFormats.Binary
+        },
+        Request => new Message
+        {
+            Topic = "saf/wire/request",
+            Payload = """{"replyTo":"saf/wire/reply/1"}""",
+            ReplyTo = "saf/wire/reply/1",
+            AcceptedReplyFormats = MessageFormats.Text | MessageFormats.Binary
+        },
+        // Includes bytes that are no valid UTF-8.
+        Binary => new Message
+        {
+            Topic = "saf/wire/binary",
+            BinaryPayload = [0x00, 0x01, 0x7F, 0x80, 0xFE, 0xFF]
+        },
+        TextAndBinary => new Message
+        {
+            Topic = "saf/wire/text-and-binary",
+            Payload = """{"name":"chunk"}""",
+            BinaryPayload = [0x53, 0x41, 0x46, 0x00, 0xFF],
+            CustomProperties = [new MessageCustomProperty { Name = "index", Value = "3" }]
+        },
+        EmptyBinary => new Message
+        {
+            Topic = "saf/wire/empty-binary",
+            BinaryPayload = []
+        },
+        _ => throw new ArgumentOutOfRangeException(nameof(id), id, "Unknown reference message id.")
+    };
+}

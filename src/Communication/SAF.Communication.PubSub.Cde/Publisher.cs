@@ -5,6 +5,7 @@
 using SAF.Messaging.Contracts;
 using SAF.Communication.Cde;
 using SAF.Communication.PubSub.Interfaces;
+using SAF.Communication.PubSub.Cde.WireFormat;
 
 namespace SAF.Communication.PubSub.Cde;
 
@@ -18,6 +19,8 @@ public class Publisher : IPublisher, IDisposable
     private bool _disposed;
     private readonly ComLine _line; //Only needed temporarily to initialize the SubscriptionRegistry object.
     private readonly CancellationTokenSource _tokenSource;
+    private readonly ITsmMessageEncoder _encoder;
+    private readonly ITsmMessageDecoder _decoder;
     internal ISubscriptionRegistry? _subscriptionRegistry;
 
     public Publisher(ComLine line)
@@ -29,9 +32,19 @@ public class Publisher : IPublisher, IDisposable
     { }
 
     public Publisher(ComLine line, CancellationTokenSource tokenSource)
+        : this(line, tokenSource, TsmWireFormats.CreateCodec())
+    { }
+
+    private Publisher(ComLine line, CancellationTokenSource tokenSource, TsmMessageCodec codec)
+        : this(line, tokenSource, codec, codec)
+    { }
+
+    internal Publisher(ComLine line, CancellationTokenSource tokenSource, ITsmMessageEncoder encoder, ITsmMessageDecoder decoder)
     {
         _line = line;
         _tokenSource = tokenSource;
+        _encoder = encoder;
+        _decoder = decoder;
     }
 
     public async Task<IPublisher> ConnectAsync()
@@ -39,7 +52,7 @@ public class Publisher : IPublisher, IDisposable
         var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(_tokenSource.Token);
         try
         {
-            _subscriptionRegistry = new SubscriptionRegistry(_line);
+            _subscriptionRegistry = new SubscriptionRegistry(_line, _encoder, _decoder);
             await _subscriptionRegistry.ConnectAsync(linkedCts.Token);
             return this;
         }

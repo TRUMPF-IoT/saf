@@ -10,6 +10,7 @@ namespace SAF.Messaging.Contracts;
 public interface IMessagingInfrastructure
 {
     void   Publish(Message message);
+    MessageFormats GetPublishableFormats(string topic) => MessageFormats.Text;
     object Subscribe<TMessageHandler>() where TMessageHandler : IMessageHandler;
     object Subscribe<TMessageHandler>(string routeFilterPattern) where TMessageHandler : IMessageHandler;
     object Subscribe(Action<Message> handler);
@@ -20,16 +21,93 @@ public interface IMessagingInfrastructure
 
 `routeFilterPattern` is a **regular expression** applied to `Message.Topic`.
 
+`GetPublishableFormats` tells in which payload formats `Publish` sends messages on a topic. A message with a
+`BinaryPayload` arrives only if the result contains `MessageFormats.Binary`:
+
+| Infrastructure | Formats |
+|---|---|
+| In-Process, C-DEngine | text and binary |
+| Redis, NATS | text and binary; text only while `EnableBinaryPayloads` is `false` |
+| [Routing](#routing-multiple-brokers) | those that every route publishing the topic sends |
+| Default implementation of the interface | text only |
+
+Check it before you send a binary payload for which a text alternative exists:
+`messaging.GetPublishableFormats(topic).HasFlag(MessageFormats.Binary)`. It says nothing about single subscribers:
+C-DEngine still skips 9.x and 10.x subscribers for a binary payload. Substitutes from mocking libraries return
+`MessageFormats.None` unless configured.
+
 ## The Message Type
 
 ```csharp
 public class Message
 {
-    public string  Topic            { get; set; }   // routing key / topic
-    public string? Payload          { get; set; }   // usually JSON
+    public string  Topic          { get; set; }   // routing key / topic
+    public string? Payload        { get; set; }   // textual payload, usually JSON
+    public byte[]? BinaryPayload  { get; set; }   // binary payload
+    public string? ReplyTo        { get; set; }   // topic a reply is expected on
+    public MessageFormats? AcceptedReplyFormats { get; set; }   // payload formats the sender reads in a reply
     public List<MessageCustomProperty>? CustomProperties { get; set; }
+
+    public MessageFormats GetFormat();   // payload formats present in this message
+    public bool AcceptsReplyFormat(MessageFormats formats);   // whether a reply may carry these formats
 }
+
+[Flags]
+public enum MessageFormats { None = 0, Text = 1, Binary = 2 }
 ```
+
+`CustomProperties` are string key/value pairs for metadata, such as a correlation id. Every network transport
+delivers them to the receiver. On NATS this needs SAF 11.x on both sides; see [NATS](#nats).
+
+`ReplyTo` is the topic a responder publishes its reply on. The [Request Client](./toolbox.md#request-client) sets
+it on every request. Requests from SAF 10.x or older carry the reply topic only in their JSON payload, as
+`MessageRequestBase.ReplyTo`, so a responder that serves them as well reads `message.ReplyTo ?? request.ReplyTo`.
+
+`AcceptedReplyFormats` tells a responder which payload formats the requester can read in the reply. `null` means
+the requester stated nothing and reads text only, which is what every request from SAF 10.x or older looks like.
+Reply with a binary payload only if the request allows `MessageFormats.Binary`:
+`message.AcceptsReplyFormat(MessageFormats.Binary)` checks that and treats `null` as text only. The
+[Request Client](./toolbox.md#binary-payloads-in-requests-and-replies) sets `AcceptedReplyFormats` and returns
+binary replies.
+
+`ReplyTo` and `AcceptedReplyFormats` reach every SAF 11.x receiver on every network transport. Older SAF nodes
+ignore them, and so do C-DEngine peers that negotiated version `1.0.0`; see
+[Compatibility Between SAF Versions](#compatibility-between-saf-versions).
+
+A message does not describe what its payloads contain: the topic defines that, and the handler interprets them. If
+one topic carries different kinds of content, mark them with a custom property.
+
+### Binary Payloads
+
+`BinaryPayload` carries bytes without Base64 encoding them into `Payload`. A message can carry both, for example
+a JSON description in `Payload` and the data in `BinaryPayload`.
+
+Which transports deliver binary payloads:
+
+- **In-Process** delivers them.
+- **C-DEngine** delivers them to peers on SAF 11.x (pub/sub version `5.0.0`). It **does not send** such a message
+  to a 9.x or 10.x peer and logs one warning per peer; see [C-DEngine](#c-dengine).
+- **Redis** and **NATS** deliver them between SAF 11.x nodes. They cannot tell which nodes listen: a 9.x or 10.x
+  node on the same channel or subject **receives the bytes as corrupt text** in `Payload`, without an error. While
+  such nodes use the same server, set `EnableBinaryPayloads` to `false`; see
+  [Binary Payloads With Older Nodes on Redis or NATS](#binary-payloads-with-older-nodes-on-redis-or-nats).
+
+The 11.0 pre-releases up to 11.0.0-alpha.11 cannot read binary payloads either; here they count as 10.x.
+
+With [Routing](#routing-multiple-brokers), each route's transport decides on its own.
+
+### Messages Are Read-Only
+
+Do not change a message after you publish it, and do not change a message you receive. This applies to every
+transport, including the arrays in `BinaryPayload`:
+
+- **In-Process** hands the published instance itself to every handler, and the handlers run in parallel. A change
+  made by the publisher after `Publish`, or by one handler, is seen by all others.
+- **C-DEngine** hands one instance of a batched message to all subscriptions of a node.
+- A transport may still read the `BinaryPayload` array after `Publish` has returned, and receivers on one node
+  may share one array. A publisher that reuses a buffer must put a new array into each message.
+
+To pass on changed data, create a new `Message`.
 
 ---
 
@@ -63,7 +141,9 @@ For each implementation, add its DLL to your plugin discovery `IncludePatterns` 
 
 ### In-Process (Development / Tests)
 
-Messages are dispatched synchronously within the same process. No external dependencies.
+Messages are delivered within the same process, without serialization: every matching handler receives the
+published `Message` instance itself and runs on the thread pool. `Publish` returns without waiting for the
+handlers. No external dependencies.
 
 **Package / plug-in DLL:** `SAF.Messaging.InProcess` (`SAF.Messaging.InProcess.dll`)
 
@@ -77,37 +157,114 @@ Messages are dispatched synchronously within the same process. No external depen
 
 Backed by [StackExchange.Redis](https://github.com/StackExchange/StackExchange.Redis). Suitable for multi-process or multi-machine deployments. The Redis plug-in registers **both** a messaging factory and `IStorageInfrastructure`.
 
-**Package / plug-in DLL:** `SAF.Messaging.Redis` (`SAF.Messaging.Redis.dll`)
+**Package / plug-in DLL:** `SAF.Messaging.Redis` (`SAF.Messaging.Redis.dll`, with `SAF.Messaging.WireFormat.dll`)
 
 ```json
 {
   "Messaging": { "PrimaryKey": "Redis" },
   "Redis": {
     "ConnectionString": "localhost:6379",
-    "Timeout": 60000
+    "Timeout": 60000,
+    "EnableBinaryPayloads": true
   }
 }
 ```
 
 > The plug-in reads the `Redis` section from the plugin settings file, falling back to host configuration.
 
+| Setting | Default | Meaning |
+|---|---|---|
+| `EnableBinaryPayloads` | `true` | Sends messages with a `BinaryPayload`. Set it to `false` while nodes before SAF 11 use the same Redis server; see [Binary Payloads With Older Nodes on Redis or NATS](#binary-payloads-with-older-nodes-on-redis-or-nats). |
+
+A text message goes to the channel as a versioned JSON envelope, `{"version":"2.0.0","message":{…}}`. A receiver
+reads every `1.x` and `2.x` envelope. Only a JSON object with a `message` object counts as an envelope. Any other
+value, for example `{"version":"1","temp":21.5}` published by another application, is delivered with the raw value
+as `Payload` and the channel as `Topic`, unless it starts with the bytes `SAFB` and a byte below 32.
+
+`ReplyTo` and `AcceptedReplyFormats` are optional fields of the envelope's `message`, written only when set, the
+flags as a number: `"replyTo":"…","acceptedReplyFormats":3`. Older SAF nodes ignore them.
+
+A message with a `BinaryPayload` goes to the channel as a binary frame, without Base64:
+
+| Bytes | Content |
+|---|---|
+| 4 | `SAFB` |
+| 1 | Layout version of the frame, `1`; layout versions stay below 32, so text after `SAFB` is no frame |
+| 4 | Length of the envelope in bytes, as an unsigned little-endian integer |
+| length of the envelope | The envelope `{"version":"3.0.0","message":{…}}` in UTF-8, with topic, `Payload` and the other fields |
+| rest of the value | The binary payload |
+
+A JSON envelope never starts with `SAFB`, so the receiver tells the two apart by the first bytes. A frame that
+cannot be read, or that has an unknown layout version, is dropped with a warning. A version `3.0.0` envelope
+outside a frame, as code publishes it that builds envelopes with `RedisMessageVersion.Latest`, is read as a text
+message. Nodes before SAF 11 receive the frame as corrupt text; with `EnableBinaryPayloads` set to `false`, a
+message with a `BinaryPayload` is not sent, and Redis messaging logs an error.
+
+An envelope with an **unknown major version** comes from a newer SAF version that this node cannot read. It is
+**dropped**, and a warning is logged once per unknown version. Up to 11.0.0-alpha.11 such an envelope was read as
+if it were version 2, which could hand handlers a wrong message.
+
 ### NATS
 
 Backed by [NATS.Net](https://nats.io). High-performance, cloud-native messaging. Also provides NATS-backed storage.
 
-**Package / plug-in DLL:** `SAF.Messaging.NATS` (`SAF.Messaging.NATS.dll`)
+**Package / plug-in DLL:** `SAF.Messaging.NATS` (`SAF.Messaging.NATS.dll`, with `SAF.Messaging.WireFormat.dll`)
 
 ```json
 {
   "Messaging": { "PrimaryKey": "Nats" },
-  "Nats": { "Url": "nats://localhost:4222" }
+  "Nats": { "Url": "nats://localhost:4222", "EnableBinaryPayloads": true }
 }
 ```
+
+| Setting | Default | Meaning |
+|---|---|---|
+| `EnableBinaryPayloads` | `true` | Sends messages with a `BinaryPayload`. Set it to `false` while nodes before SAF 11 use the same NATS server; see [Binary Payloads With Older Nodes on Redis or NATS](#binary-payloads-with-older-nodes-on-redis-or-nats). |
 
 A subscription buffers incoming messages in a bounded channel. SAF configures that channel to **wait**
 when it is full (`SubPendingChannelFullMode = BoundedChannelFullMode.Wait`), so a handler that is slower
 than the publish rate applies backpressure to the reader rather than having messages dropped
 silently — NATS.Net's own default is to drop the newest message instead.
+
+`Publish` returns before NATS.Net has sent the message. If sending fails afterwards, NATS messaging logs an error
+with the topic, and the message is lost; SAF 10.x did not report such failures. A failure because the connection
+was disposed, for example at shutdown, is logged as information.
+
+**Requires NATS Server 2.2 or newer.** SAF sends the message metadata — `CustomProperties`, `ReplyTo` and
+`AcceptedReplyFormats` — in NATS message headers, which the server supports since version 2.2. Every request sent
+with `IRequestClient` carries `ReplyTo` and therefore headers. The body of a text message is always the payload,
+exactly as in earlier SAF versions:
+
+| Message | Body | Headers |
+|---|---|---|
+| Without metadata (all `null`) | `Payload` | none — identical on the wire to SAF 9.x and 10.x |
+| With metadata (an empty `CustomProperties` list included) | `Payload` | `saf-v: 2.0.0` and `saf-meta: {"replyTo":"…","acceptedReplyFormats":3,"customProperties":[{"name":…,"value":…}]}`, with the fields that are set; the flags as a number |
+| With a `BinaryPayload` | The binary payload, without Base64 | `saf-v: 3.0.0`, and `saf-meta` if any other field is set; a `Payload` travels there as `"payload":"…"` |
+
+NATS header values are ASCII, so `saf-meta` escapes every other character as a JSON `\u` sequence; apart from that,
+it escapes only what JSON requires, such as quotes. A non-SAF client that reads the header gets the original text
+back with any JSON parser.
+
+- **Older SAF nodes** (9.x, 10.x and 11.0.0-alpha.11 or earlier) ignore the headers. They receive topic and
+  payload as before, but no metadata: those versions never transported custom properties over NATS.
+- **A NATS server before 2.2** rejects a message with headers and closes the publisher's connection. The
+  message is lost, and the client reconnects. Messages without metadata are not affected.
+- In a message with both payloads, the text payload travels in the `saf-meta` header. There each non-ASCII
+  character takes six characters, and quotes and backslashes take two, so text with many non-ASCII characters can
+  become several times longer. Keep such text short, for example a small JSON description of the binary data.
+- The server's maximum message size (`max_payload`, 1 MB by default) counts body and headers, binary payloads
+  included.
+- **Older SAF nodes** receive a binary payload as corrupt text in `Payload`, without an error. With
+  `EnableBinaryPayloads` set to `false`, a message with a `BinaryPayload` is not sent, and NATS messaging logs an
+  error.
+- A message whose `saf-v` header has an **unknown major version** comes from a newer SAF version. It is
+  **dropped**, and a warning is logged once per unknown version. A message whose `saf-meta` header cannot be
+  read is dropped with a warning, too. Headers of other publishers are ignored.
+
+NATS matches `*` against exactly one topic level, except at the end of a pattern, where it matches several. A
+pattern that starts with `*`, such as `*/status`, therefore receives only topics with two levels. For this reason,
+the [request client](./toolbox.md#request-client) receives no replies over NATS without
+[Routing](#routing-multiple-brokers), as in SAF 10.x.
 
 ### C-DEngine
 
@@ -124,6 +281,33 @@ Backed by [C-DEngine](https://github.com/TRUMPF-IoT/C-DEngine), a mesh-network f
 
 The `Cde` section binds to `SAF.Cde.Common.CdeConfiguration` (package `SAF.Cde.Common`, which comes with the
 plug-in).
+
+Each peer announces its pub/sub version, and messages to it go out in the format of that version. From version
+`2.0.0` on, the whole message travels as JSON, including `ReplyTo` and `AcceptedReplyFormats` when they are set;
+older peers ignore those fields. A peer on version `1.0.0` receives the payload only. From `4.0.0` on, several
+messages travel together in one batch.
+
+Version `5.0.0`, announced by SAF 11.x, adds binary payloads:
+
+- The bytes travel in the binary field (`PLB`) of the C-DEngine message, not in the JSON. The JSON names their
+  length in `BinaryPayloadLength`; a batch carries the binary payloads of its messages one after the other.
+  SAF pads `PLB` to an odd length with one trailing byte: C-DEngine 6.112.2 and older loses a binary field whose
+  length is a whole multiple of its chunk size, and those sizes are even. A receiver relies on the announced
+  lengths and ignores the padding.
+- C-DEngine splits a large binary field into chunks and joins them again at the next node, relays included.
+  It still sends the field Base64-encoded inside its own frames, so the gain is in SAF, which encodes nothing,
+  not in bandwidth.
+- A peer before `5.0.0` (9.x announces `3.0.0`, 10.x `4.0.0`) cannot receive binary payloads. A message with a
+  `BinaryPayload` is not sent to such a peer, with one warning per peer in the C-DEngine log, not one per message; other peers still
+  receive it.
+
+A received message that cannot be read, for example because its binary payload does not have the announced
+length, is dropped with a warning in the C-DEngine log. A message from a peer before `5.0.0` is read from its JSON
+only; a binary field on it is ignored, as in 10.x.
+
+A peer whose announced version cannot be read (it must have the form `major.minor[.build]`) or is older than
+`1.0.0` is not registered: its subscription is ignored with a warning in the C-DEngine log, and it receives no
+messages from this node. Other peers are not affected.
 
 The plug-in provides messaging only. For the C-DEngine storage, load `SAF.Storage.Cde.dll` as well (see
 [Storage Infrastructure](./storage.md#c-dengine)); it reads the same `Cde` section.
@@ -172,6 +356,52 @@ Routes messages across multiple messaging infrastructures based on topic pattern
   "Redis": { "ConnectionString": "localhost:6379" }
 }
 ```
+
+---
+
+## Compatibility Between SAF Versions
+
+SAF nodes of 9.x, 10.x and 11.x can share one broker. Each transport versions its wire format and keeps reading
+the formats of older versions. The 11.0 pre-releases up to 11.0.0-alpha.11 use the wire formats of 10.x; wherever
+this section says 10.x, it includes them.
+
+| Transport | Mixed operation with 9.x and 10.x | Changed in 11.x |
+|---|---|---|
+| Redis | Supported; older nodes ignore `ReplyTo` and `AcceptedReplyFormats`. **Set `EnableBinaryPayloads` to `false`**: older nodes read binary payloads as corrupt text | An envelope with an unknown major version is dropped with a warning instead of being read as version 2. `ReplyTo` and `AcceptedReplyFormats` are optional envelope fields. Binary payloads travel in a binary frame, version `3.0.0` ([details](#redis)). |
+| NATS | Supported; older nodes receive no `CustomProperties`, `ReplyTo` or `AcceptedReplyFormats`. **Set `EnableBinaryPayloads` to `false`**: older nodes read binary payloads as corrupt text | The metadata travels in headers; NATS Server 2.2 or newer is required. Binary payloads are the body of version `3.0.0` messages ([details](#nats)). |
+| C-DEngine | Supported; the format is negotiated per peer (9.x announces version `3.0.0`, 10.x `4.0.0`, 11.x `5.0.0`); older nodes ignore `ReplyTo` and `AcceptedReplyFormats` and receive no binary payloads | Version `5.0.0` carries binary payloads; `ReplyTo` and `AcceptedReplyFormats` are optional JSON fields ([details](#c-dengine)). |
+| In-Process | Not applicable (single process) | Nothing. |
+
+Messages with a `BinaryPayload` are delivered by In-Process, and by C-DEngine, Redis and NATS between 11.x nodes;
+see [Binary Payloads](#binary-payloads).
+
+### Binary Payloads With Older Nodes on Redis or NATS
+
+C-DEngine negotiates the format with each peer. Redis and NATS cannot: every node subscribed to a channel or
+subject receives what is published there. A 9.x or 10.x node receives a binary payload as the `Payload` of a
+message, with the bytes turned into corrupt text, and logs no error. Its handlers then work with that text.
+
+While 9.x or 10.x nodes use the same Redis or NATS server, set `EnableBinaryPayloads` to `false` on every 11.x
+node:
+
+```json
+{
+  "Redis": { "ConnectionString": "localhost:6379", "EnableBinaryPayloads": false },
+  "Nats": { "Url": "nats://localhost:4222", "EnableBinaryPayloads": false }
+}
+```
+
+- A message with a `BinaryPayload` is then not sent. The sender logs an error, so a feature that needs binary
+  payloads fails visibly instead of feeding older nodes corrupt data.
+- `GetPublishableFormats` then reports text only, so code with a text alternative can use that instead. The
+  [file transfer](./toolbox.md#binary-chunks) does so on its own.
+- Text messages are not affected; they look on the wire exactly as with the setting on.
+- A node still reads binary payloads that other 11.x nodes send; the setting covers sending only.
+- A [route](#routing-multiple-brokers) with its own `Config` uses the value of the `Redis` or `Nats` section
+  unless it sets the key `EnableBinaryPayloads` itself. Redis and NATS read the keys of a route's `Config`
+  regardless of their casing, so `enableBinaryPayloads` works as well.
+
+Remove the setting, or set it to `true`, once all nodes run SAF 11.x.
 
 ---
 
@@ -257,7 +487,8 @@ _subscription = messaging.Subscribe<OrderMessageHandler>(@"orders/.*");
 
 ## How-To: Request / Reply Pattern
 
-Use the `IRequestClient` from `SAF.Toolbox` for request/reply over messaging. See [Toolbox Services → Request Client](./toolbox.md#request-client).
+Use the `IRequestClient` from `SAF.Toolbox` for request/reply over messaging. See [Toolbox Services → Request Client](./toolbox.md#request-client),
+and [Binary Payloads in Requests and Replies](./toolbox.md#binary-payloads-in-requests-and-replies) for requests and replies with a `BinaryPayload`.
 
 ---
 
@@ -290,6 +521,20 @@ public class MyCustomMessaging : IMessagingInfrastructure
     public void Unsubscribe(object subscription) { /* remove subscription */ }
 }
 ```
+
+If your infrastructure sends `Message.BinaryPayload`, also implement `GetPublishableFormats` to return
+`MessageFormats.Text | MessageFormats.Binary` for the topics it sends them on. The default implementation reports
+text only, so the [file transfer](./toolbox.md#binary-chunks) sends text chunks over your infrastructure.
+
+The package `SAF.Messaging.WireFormat` holds the building blocks that the Redis and NATS plug-ins share. Use them
+if your infrastructure versions its wire format the same way:
+
+| Type | Purpose |
+|---|---|
+| `IWireVersion` / `WireVersion` | Reads the major version of a wire format version such as `2.0.0`; a missing version is major version 1. Select the reader format by major version, since a minor version only adds optional fields. |
+| `IUnknownVersionWarning` / `UnknownVersionWarning` | Logs one warning per unknown version, at most 32, when you drop a message of a newer sender. |
+| `IWireMessageWriter<TWire>` | Turns a `Message` into what your transport sends (`TWire`), or names the reason it drops the message. Its `Formats` tell what `GetPublishableFormats` should report. |
+| `BinaryPayloadsDisabledWriter<TWire>` | Decorates a writer to drop messages with a `BinaryPayload`, as the `EnableBinaryPayloads` setting of Redis and NATS does. |
 
 Expose it through a plug-in. Provide an extension method that registers a keyed factory, then call it from your plug-in's `PluginManifest` (mirroring how the built-in implementations work):
 

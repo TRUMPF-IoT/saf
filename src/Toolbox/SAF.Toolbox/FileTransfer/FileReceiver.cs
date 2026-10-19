@@ -3,6 +3,7 @@
 // SPDX-License-Identifier: MPL-2.0
 
 using SAF.Messaging.Contracts;
+using SAF.Toolbox.FileTransfer.Chunks;
 using SAF.Toolbox.FileTransfer.Messages;
 using SAF.Toolbox.Serialization;
 
@@ -10,8 +11,11 @@ namespace SAF.Toolbox.FileTransfer;
 
 using Microsoft.Extensions.Logging;
 
-internal class FileReceiver(ILogger<FileReceiver> log, IMessagingInfrastructure messaging) : IFileReceiver
+internal class FileReceiver(ILogger<FileReceiver> log, IMessagingInfrastructure messaging, IReadOnlyList<IFileChunkReader> chunkReaders)
+    : IFileReceiver
 {
+    private readonly MessageFormats _acceptedChunkFormats = chunkReaders.Aggregate(MessageFormats.None, (formats, reader) => formats | reader.Format);
+
     private sealed class SubscriptionEntry
     {
         public required object SendFileChunk { get; init; }
@@ -78,38 +82,38 @@ internal class FileReceiver(ILogger<FileReceiver> log, IMessagingInfrastructure 
         }
 
         var request = JsonSerializer.Deserialize<GetReceiverStateRequest>(message.Payload);
-        if (request?.ReplyTo == null) return;
+        // SAF 10.x senders carry the reply topic only in the payload.
+        var replyTo = message.ReplyTo ?? request?.ReplyTo;
+        if (request == null || replyTo == null) return;
 
         log.LogDebug("GetReceiverState for file {FileName} on topic {ReceiverTopic}", request.File.FileName, topic);
 
         var receiverState = statefulFileReceiver.GetState(request.File);
-        
+
         messaging.Publish(new Message
         {
-            Topic = request.ReplyTo,
-            Payload = JsonSerializer.Serialize(new GetReceiverStateResponse { State = receiverState })
+            Topic = replyTo,
+            Payload = JsonSerializer.Serialize(new GetReceiverStateResponse { State = receiverState, AcceptedChunkFormats = _acceptedChunkFormats })
         });
     }
 
     private void HandleSendFileChunks(string topic, Message message, IStatefulFileReceiver statefulFileReceiver)
     {
-        if (message.Payload == null)
+        var request = chunkReaders.FirstOrDefault(reader => reader.CanRead(message))?.Read(message);
+        if (request == null)
         {
-            log.LogWarning("Missing payload in {MethodName}", nameof(HandleSendFileChunks));
+            log.LogWarning("Dropped a file chunk request without chunk or reply topic on {ReceiverTopic}", topic);
             return;
         }
 
-        var request = JsonSerializer.Deserialize<SendFileChunkRequest>(message.Payload);
-        if (request?.ReplyTo == null || request.FileChunk == null) return;
-
         log.LogTrace("HandleSendFileChunks for file {FileName} and chunk {ChunkIndex} on topic {ReceiverTopic}",
-            request.File.FileName, request.FileChunk.Index, topic);
+            request.File.FileName, request.Chunk.Index, topic);
 
-        var receiverStatus = statefulFileReceiver.WriteFile(request.File, request.FileChunk);
+        var receiverStatus = statefulFileReceiver.WriteFile(request.File, request.Chunk);
         if(receiverStatus != FileReceiverStatus.Ok)
         {
             log.LogWarning("Failed to write file chunk {ChunkIndex} of file {FileName}. Status: {Status}",
-                request.FileChunk.Index, request.File.FileName, receiverStatus);
+                request.Chunk.Index, request.File.FileName, receiverStatus);
         }
 
         messaging.Publish(new Message

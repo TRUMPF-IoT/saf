@@ -27,6 +27,15 @@ public class MessagingBasicTests
     }
 
     [Fact]
+    public void PublishesTextAndBinaryPayloads()
+    {
+        var dispatcher = new ServiceMessageDispatcher(NullLogger<ServiceMessageDispatcher>.Instance, Array.Empty<IMessageHandlerResolver>());
+        var sut = new InProcessMessaging(NullLogger<InProcessMessaging>.Instance, dispatcher);
+
+        Assert.Equal(MessageFormats.Text | MessageFormats.Binary, sut.GetPublishableFormats("a/test/channel/123"));
+    }
+
+    [Fact]
     public async Task WildcardMatchHits()
     {
         var dispatcher = new ServiceMessageDispatcher(NullLogger<ServiceMessageDispatcher>.Instance, Array.Empty<IMessageHandlerResolver>());

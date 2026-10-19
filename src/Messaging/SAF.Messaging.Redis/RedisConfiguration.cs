@@ -9,4 +9,10 @@ public class RedisConfiguration
 {
     public string ConnectionString { get; set; } = default!;
     public int Timeout { get; set; }
+
+    /// <summary>
+    /// Sends messages with a binary payload. Set it to <c>false</c> while nodes before SAF 11 use the same broker:
+    /// they read such a message as corrupt text.
+    /// </summary>
+    public bool EnableBinaryPayloads { get; set; } = true;
 }

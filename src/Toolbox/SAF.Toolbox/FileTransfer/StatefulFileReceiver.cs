@@ -84,6 +84,13 @@ public class StatefulFileReceiver : IStatefulFileReceiver
         var metadata = ReadFileMetadata(file.GetMetadataTargetFilePath(_fileSystem, targetFileInfo.DirectoryName!));
         if (metadata.ReceivedChunks.Count == file.TotalChunks)
         {
+            if (metadata.ContentMismatch || !HasSendersContent(tempTargetFileInfo.FullName, file))
+            {
+                _log.LogWarning("Received file {FileName} does not match the sender's content, signal sender to transfer all chunks again.", file.FileName);
+                DeleteTransferState(file, targetFileInfo.DirectoryName!);
+                return new FileReceiverState();
+            }
+
             _log.LogDebug("All chunks of file {FileName} already received, signal sender to skip transfer.", file.FileName);
             
             CompleteFileTransfer(file, tempTargetFileInfo.FullName, targetFilePath);
@@ -120,6 +127,22 @@ public class StatefulFileReceiver : IStatefulFileReceiver
 
             if (metadata.ReceivedChunks.Count == file.TotalChunks)
             {
+                // The state stays, so the sender's next request for it starts the transfer over.
+                if (metadata.ContentMismatch)
+                {
+                    _log.LogDebug("Received file {FileName} is known not to match the sender's content.", file.FileName);
+                    return FileReceiverStatus.ContentMismatch;
+                }
+
+                if (!HasSendersContent(tempTargetFilePath, file))
+                {
+                    _log.LogError("Received file {FileName} does not match the sender's content.", file.FileName);
+                    // Retries of the last chunk cannot succeed; they fail without reading the whole file again.
+                    metadata.ContentMismatch = true;
+                    SaveFileMetadata(metaTargetFilePath, metadata);
+                    return FileReceiverStatus.ContentMismatch;
+                }
+
                 CompleteFileTransfer(file, tempTargetFilePath, targetFilePath);
             }
 
@@ -182,23 +205,36 @@ public class StatefulFileReceiver : IStatefulFileReceiver
             _fileSystem.File.Copy(sourceFilePath, uniqueTargetFilePath, true);
         }
 
-        var targetFileDirectory = _fileSystem.Path.GetDirectoryName(uniqueTargetFilePath)!;
-        if (_fileSystem.File.Exists(file.GetTempTargetFilePath(_fileSystem, targetFileDirectory)))
-        {
-            _fileSystem.File.Delete(file.GetTempTargetFilePath(_fileSystem, targetFileDirectory));
-        }
-        if (_fileSystem.File.Exists(file.GetMetadataTargetFilePath(_fileSystem, targetFileDirectory)))
-        {
-            _fileSystem.File.Delete(file.GetMetadataTargetFilePath(_fileSystem, targetFileDirectory));
-        }
+        DeleteTransferState(file, _fileSystem.Path.GetDirectoryName(uniqueTargetFilePath)!);
 
         _log.LogDebug("Invoking FileReceived event for file: {TargetFilePath}", uniqueTargetFilePath);
         FileReceived?.Invoke(this, new FileReceivedEventArgs(file, uniqueTargetFilePath));
     }
 
+    // Wrong data or a chunk at the wrong position, for example from a sender before SAF 11, changes the hash.
+    private bool HasSendersContent(string receivedFilePath, TransportFile file)
+    {
+        var receivedFile = _fileSystem.FileInfo.New(receivedFilePath);
+        return receivedFile.Length == file.ContentLength && receivedFile.GetContentHash() == file.ContentHash;
+    }
+
+    private void DeleteTransferState(TransportFile file, string directory)
+    {
+        if (_fileSystem.File.Exists(file.GetTempTargetFilePath(_fileSystem, directory)))
+        {
+            _fileSystem.File.Delete(file.GetTempTargetFilePath(_fileSystem, directory));
+        }
+        if (_fileSystem.File.Exists(file.GetMetadataTargetFilePath(_fileSystem, directory)))
+        {
+            _fileSystem.File.Delete(file.GetMetadataTargetFilePath(_fileSystem, directory));
+        }
+    }
+
     private sealed class FileMetadata
     {
         public HashSet<uint> ReceivedChunks { get; set; } = [];
+
+        public bool ContentMismatch { get; set; }
     }
 
     private FileMetadata ReadFileMetadata(string metadataFilePath)
@@ -228,7 +264,7 @@ public class StatefulFileReceiver : IStatefulFileReceiver
         }
 
         using var tempFileStream = tempTargetFile.Open(FileMode.OpenOrCreate, FileAccess.Write, FileShare.None);
-        tempFileStream.Seek(fileChunk.Index * chunkSize, SeekOrigin.Begin);
+        tempFileStream.Seek((long)fileChunk.Index * chunkSize, SeekOrigin.Begin);
         tempFileStream.Write(fileChunk.Data);
     }
 

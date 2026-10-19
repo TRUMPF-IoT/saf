@@ -9,6 +9,7 @@ using SAF.Messaging.Contracts;
 internal interface IMessageRouting
 {
     public void Publish(Message message);
+    public MessageFormats GetPublishableFormats(string topic);
     public MessageRoutingSubscription? Subscribe<TMessageHandler>(string routeFilterPattern) where TMessageHandler : IMessageHandler;
     public MessageRoutingSubscription? Subscribe(string routeFilterPattern, Action<Message> handler);
 }

@@ -6,6 +6,7 @@ namespace SAF.Messaging.Redis.Tests;
 
 using NSubstitute;
 using SAF.Messaging.Contracts;
+using SAF.Messaging.Redis.Tests.WireFormat;
 using StackExchange.Redis;
 using System.Net;
 using Xunit;
@@ -20,7 +21,7 @@ public class TestMessagingRedis
         var subscriber = Substitute.For<ISubscriber>();
         connectionMultiplexer.GetSubscriber().Returns(subscriber);
 
-        Messaging messaging = new(null, connectionMultiplexer, smd);
+        Messaging messaging = new(null, connectionMultiplexer, smd, TestWireFormat.Writer(), TestWireFormat.Reader());
         messaging.Unsubscribe(null!);
         subscriber.DidNotReceive().Unsubscribe(Arg.Any<RedisChannel>(), Arg.Any<Action<RedisChannel, RedisValue>>(), Arg.Any<CommandFlags>());
         messaging.Unsubscribe("");
@@ -57,6 +58,26 @@ public class TestMessagingRedis
         mc.Config.Add("connectionString", "aConnectionString");
         rmc = new(mc);
         Assert.Equal("aConnectionString", rmc.ConnectionString);
+        Assert.Null(rmc.EnableBinaryPayloads);
+
+        mc.Config.Add("enableBinaryPayloads", "false");
+        Assert.False(new RedisMessagingConfiguration(mc).EnableBinaryPayloads);
+    }
+
+    [Theory]
+    [InlineData("enableBinaryPayloads")]
+    [InlineData("EnableBinaryPayloads")]
+    [InlineData("ENABLEBINARYPAYLOADS")]
+    public void RedisMessagingConfiguration_ReadsKeysRegardlessOfCasing(string key)
+    {
+        var config = new RedisMessagingConfiguration(new Dictionary<string, string>
+        {
+            [key] = "false",
+            ["ConnectionString"] = "aConnectionString"
+        });
+
+        Assert.False(config.EnableBinaryPayloads);
+        Assert.Equal("aConnectionString", config.ConnectionString);
     }
 
     [Fact]
