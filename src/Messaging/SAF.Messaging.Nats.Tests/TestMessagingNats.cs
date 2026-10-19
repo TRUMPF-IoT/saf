@@ -141,6 +141,22 @@ public class TestMessagingNats
         Assert.False(new NatsMessagingConfiguration(mc).EnableBinaryPayloads);
     }
 
+    [Theory]
+    [InlineData("EnableBinaryPayloads")]
+    [InlineData("enableBinaryPayloads")]
+    [InlineData("ENABLEBINARYPAYLOADS")]
+    public void NatsMessagingConfiguration_ReadsKeysRegardlessOfCasing(string key)
+    {
+        var config = new NatsMessagingConfiguration(new Dictionary<string, string>
+        {
+            [key] = "false",
+            ["url"] = "nats://localhost:2222"
+        });
+
+        Assert.False(config.EnableBinaryPayloads);
+        Assert.Equal("nats://localhost:2222", config.Url);
+    }
+
     [Fact]
     public void RunStorage()
     {

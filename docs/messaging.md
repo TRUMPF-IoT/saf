@@ -386,8 +386,8 @@ node:
 - Text messages are not affected; they look on the wire exactly as with the setting on.
 - A node still reads binary payloads that other 11.x nodes send; the setting covers sending only.
 - A [route](#routing-multiple-brokers) with its own `Config` uses the value of the `Redis` or `Nats` section
-  unless it sets the key itself: `enableBinaryPayloads` for Redis, `EnableBinaryPayloads` for NATS, like the
-  other keys of each transport.
+  unless it sets the key `EnableBinaryPayloads` itself. Redis and NATS read the keys of a route's `Config`
+  regardless of their casing, so `enableBinaryPayloads` works as well.
 
 Remove the setting, or set it to `true`, once all nodes run SAF 11.x.
 

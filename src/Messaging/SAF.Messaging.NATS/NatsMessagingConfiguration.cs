@@ -23,7 +23,9 @@ internal class NatsMessagingConfiguration
 
     public NatsMessagingConfiguration(IDictionary<string, string> config)
     {
-        _config = config;
+        // A key copied from another transport's route must not silently miss because of its casing.
+        _config = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var (key, value) in config) _config[key] = value;
     }
 
     public string? Url => _config.TryGetValue("Url", out var url) ? url : null;

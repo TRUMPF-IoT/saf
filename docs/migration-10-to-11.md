@@ -505,7 +505,8 @@ sender cannot leave older nodes out. The 11.0 pre-releases up to 11.0.0-alpha.11
 ```
 
 A message with a `BinaryPayload` is then not sent, and the sender logs an error; text messages are not affected.
-Remove the setting once all nodes run 11.x. Without older nodes, no action is required. See
+A route with its own `Config` can set the key as well; since 11.x, Redis and NATS read the keys of a route's
+`Config` regardless of their casing. Remove the setting once all nodes run 11.x. Without older nodes, no action is required. See
 [Binary Payloads With Older Nodes on Redis or NATS](./messaging.md#binary-payloads-with-older-nodes-on-redis-or-nats).
 
 ### Requests carry their reply topic in `Message.ReplyTo`

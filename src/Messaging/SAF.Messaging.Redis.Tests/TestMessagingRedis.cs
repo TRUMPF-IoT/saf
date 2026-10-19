@@ -64,6 +64,22 @@ public class TestMessagingRedis
         Assert.False(new RedisMessagingConfiguration(mc).EnableBinaryPayloads);
     }
 
+    [Theory]
+    [InlineData("enableBinaryPayloads")]
+    [InlineData("EnableBinaryPayloads")]
+    [InlineData("ENABLEBINARYPAYLOADS")]
+    public void RedisMessagingConfiguration_ReadsKeysRegardlessOfCasing(string key)
+    {
+        var config = new RedisMessagingConfiguration(new Dictionary<string, string>
+        {
+            [key] = "false",
+            ["ConnectionString"] = "aConnectionString"
+        });
+
+        Assert.False(config.EnableBinaryPayloads);
+        Assert.Equal("aConnectionString", config.ConnectionString);
+    }
+
     [Fact]
     public void RunStorage()
     {
