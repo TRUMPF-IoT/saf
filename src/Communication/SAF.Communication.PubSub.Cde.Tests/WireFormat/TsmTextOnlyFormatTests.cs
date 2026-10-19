@@ -56,4 +56,16 @@ public class TsmTextOnlyFormatTests
         Assert.Same(message, _format.Decode("c", payload));
         Assert.Same(messages, _format.DecodeBatch(payload));
     }
+
+    [Fact]
+    public void Decode_PassesNoPlbToTheInnerFormat()
+    {
+        var message = new Message { Topic = "t" };
+        List<Message> messages = [message];
+        _inner.Decode("c", new TsmPayload("pls")).Returns(message);
+        _inner.DecodeBatch(new TsmPayload("pls")).Returns(messages);
+
+        Assert.Same(message, _format.Decode("c", new TsmPayload("pls", [1, 2])));
+        Assert.Same(messages, _format.DecodeBatch(new TsmPayload("pls", [1, 2])));
+    }
 }

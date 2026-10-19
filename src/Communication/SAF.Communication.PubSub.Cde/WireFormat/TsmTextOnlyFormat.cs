@@ -17,9 +17,10 @@ internal sealed class TsmTextOnlyFormat(ITsmBatchFormat format, Version minimumV
 
     public TsmPayload Encode(Message message) => format.Encode(message);
 
-    public Message? Decode(string channel, TsmPayload payload) => format.Decode(channel, payload);
+    // These versions carry no PLB; as in 10.x, a PLB does not make the message unreadable.
+    public Message? Decode(string channel, TsmPayload payload) => format.Decode(channel, payload with { Plb = null });
 
     public TsmPayload EncodeBatch(IEnumerable<Message> messages) => format.EncodeBatch(messages);
 
-    public List<Message>? DecodeBatch(TsmPayload payload) => format.DecodeBatch(payload);
+    public List<Message>? DecodeBatch(TsmPayload payload) => format.DecodeBatch(payload with { Plb = null });
 }

@@ -91,6 +91,22 @@ public class TsmMessageCodecTests
             _codec.Decode("t", PubSubVersion.V4, new TsmPayload("""{"Topic":"t","AcceptedReplyFormats":7}"""))!.AcceptedReplyFormats);
 
     [Theory]
+    [InlineData(PubSubVersion.V2)]
+    [InlineData(PubSubVersion.V4)]
+    public void Decode_IgnoresAPlbBeforeV5(string version)
+    {
+        var message = _codec.Decode("t", version, new TsmPayload("""{"Topic":"t","Payload":"p"}""", [1, 2]));
+
+        Assert.Equal("p", message!.Payload);
+        Assert.Null(message.BinaryPayload);
+    }
+
+    [Fact]
+    public void DecodeBatch_IgnoresAPlbBeforeV5()
+        => Assert.Equal("p", Assert.Single(_codec.DecodeBatch(PubSubVersion.V4,
+            new TsmPayload("""[{"Topic":"t","Payload":"p"}]""", [1, 2]))!).Payload);
+
+    [Theory]
     [InlineData(PubSubVersion.V1)]
     [InlineData(PubSubVersion.V2)]
     [InlineData(PubSubVersion.V3)]

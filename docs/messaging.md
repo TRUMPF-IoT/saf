@@ -297,7 +297,8 @@ Version `5.0.0`, announced by SAF 11.x, adds binary payloads:
   receive it.
 
 A received message that cannot be read, for example because its binary payload does not have the announced
-length, is dropped with a warning in the C-DEngine log.
+length, is dropped with a warning in the C-DEngine log. A message from a peer before `5.0.0` is read from its JSON
+only; a binary field on it is ignored, as in 10.x.
 
 The plug-in provides messaging only. For the C-DEngine storage, load `SAF.Storage.Cde.dll` as well (see
 [Storage Infrastructure](./storage.md#c-dengine)); it reads the same `Cde` section.
