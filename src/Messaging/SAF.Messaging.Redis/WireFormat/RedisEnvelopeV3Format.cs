@@ -9,6 +9,8 @@ using SAF.Messaging.Contracts;
 /// <summary>
 /// A message with a binary payload: the envelope <c>{"version":"3.0.0","message":{...}}</c> and the binary payload,
 /// which travel together in a binary frame. Nodes before SAF 11 read that frame as corrupt text.
+/// Outside a frame, as code writes it that builds envelopes with <see cref="RedisMessageVersion.Latest"/>, the
+/// envelope is a text message.
 /// </summary>
 internal sealed class RedisEnvelopeV3Format(IRedisEnvelopeSerializer serializer) : IRedisEnvelopeFormat
 {
@@ -23,8 +25,6 @@ internal sealed class RedisEnvelopeV3Format(IRedisEnvelopeSerializer serializer)
 
     public Message? Read(RedisWireValue value)
     {
-        if (value.BinaryPayload is null) return null;
-
         var message = serializer.Deserialize(value.Envelope);
         if (message != null) message.BinaryPayload = value.BinaryPayload;
         return message;

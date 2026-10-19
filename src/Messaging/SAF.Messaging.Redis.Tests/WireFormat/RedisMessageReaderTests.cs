@@ -158,17 +158,18 @@ public class RedisMessageReaderTests
     }
 
     /// <summary>
-    /// A version 3 envelope belongs into a binary frame. As plain text it is unreadable, like a broken envelope of
-    /// any known version.
+    /// SAF puts a version 3 envelope into a binary frame, but code that builds envelopes with
+    /// <see cref="RedisMessageVersion.Latest"/> publishes it as text.
     /// </summary>
     [Fact]
-    public void Read_FallsBackToRawValue_ForAVersion3EnvelopeOutsideAFrame()
+    public void Read_ReadsAVersion3EnvelopeOutsideAFrameAsTextMessage()
     {
-        const string value = """{"version":"3.0.0","message":{"topic":"t","payload":"p"}}""";
+        var envelope = $"{{\"version\":\"{RedisMessageVersion.Latest}\",\"message\":{{\"topic\":\"t\",\"payload\":\"p\"}}}}";
 
-        var message = TestWireFormat.Reader().Read("channel", value);
+        var message = TestWireFormat.Reader().Read("channel", envelope);
 
-        Assert.Equal(value, message!.Payload);
+        Assert.Equal("t", message!.Topic);
+        Assert.Equal("p", message.Payload);
         Assert.Null(message.BinaryPayload);
     }
 

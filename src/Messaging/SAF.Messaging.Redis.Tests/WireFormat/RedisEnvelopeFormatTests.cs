@@ -67,8 +67,13 @@ public class RedisEnvelopeFormatTests
     }
 
     [Fact]
-    public void V3_ReturnsNull_WithoutBinaryPayload()
-        => Assert.Null(_v3.Read(new RedisWireValue(V3Envelope)));
+    public void V3_ReadsATextMessage_WithoutBinaryPayload()
+    {
+        var message = _v3.Read(new RedisWireValue(V3Envelope))!;
+
+        Assert.Equal("p", message.Payload);
+        Assert.Null(message.BinaryPayload);
+    }
 
     [Fact]
     public void V3_ReturnsNull_ForAnUnreadableMessage()

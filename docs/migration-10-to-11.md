@@ -466,6 +466,9 @@ being read as version 2. No action is required: 9.x, 10.x and 11.x all write ver
 Only a JSON object with a `message` object counts as an envelope. Values of other applications, such as
 `{"version":"1","temp":21.5}`, still arrive as the raw `Payload`, as in 10.x.
 
+`RedisMessageVersion.Latest` is now `3.0.0`, the version of the binary frame. If your own code publishes envelopes
+with it, 11.x nodes read them as text messages and 10.x nodes as before, since they ignore the version.
+
 ### Messages are read-only
 
 `Message` has new optional members: `BinaryPayload`, `ReplyTo`, `AcceptedReplyFormats`, `GetFormat()` and `AcceptsReplyFormat()` (see

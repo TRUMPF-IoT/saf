@@ -195,9 +195,10 @@ A message with a `BinaryPayload` goes to the channel as a binary frame, without 
 | rest of the value | The binary payload |
 
 A JSON envelope never starts with `SAFB`, so the receiver tells the two apart by the first bytes. A frame that
-cannot be read, or that has an unknown layout version, is dropped with a warning. Nodes before SAF 11 receive the
-frame as corrupt text; with `EnableBinaryPayloads` set to `false`, a message with a `BinaryPayload` is not sent,
-and Redis messaging logs an error.
+cannot be read, or that has an unknown layout version, is dropped with a warning. A version `3.0.0` envelope
+outside a frame, as code publishes it that builds envelopes with `RedisMessageVersion.Latest`, is read as a text
+message. Nodes before SAF 11 receive the frame as corrupt text; with `EnableBinaryPayloads` set to `false`, a
+message with a `BinaryPayload` is not sent, and Redis messaging logs an error.
 
 An envelope with an **unknown major version** comes from a newer SAF version that this node cannot read. It is
 **dropped**, and a warning is logged once per unknown version. Up to 11.0.0-alpha.11 such an envelope was read as
