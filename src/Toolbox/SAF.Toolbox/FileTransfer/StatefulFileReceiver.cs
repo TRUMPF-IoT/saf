@@ -84,7 +84,7 @@ public class StatefulFileReceiver : IStatefulFileReceiver
         var metadata = ReadFileMetadata(file.GetMetadataTargetFilePath(_fileSystem, targetFileInfo.DirectoryName!));
         if (metadata.ReceivedChunks.Count == file.TotalChunks)
         {
-            if (!HasSendersContent(tempTargetFileInfo.FullName, file))
+            if (metadata.ContentMismatch || !HasSendersContent(tempTargetFileInfo.FullName, file))
             {
                 _log.LogWarning("Received file {FileName} does not match the sender's content, signal sender to transfer all chunks again.", file.FileName);
                 DeleteTransferState(file, targetFileInfo.DirectoryName!);
@@ -128,9 +128,18 @@ public class StatefulFileReceiver : IStatefulFileReceiver
             if (metadata.ReceivedChunks.Count == file.TotalChunks)
             {
                 // The state stays, so the sender's next request for it starts the transfer over.
+                if (metadata.ContentMismatch)
+                {
+                    _log.LogDebug("Received file {FileName} is known not to match the sender's content.", file.FileName);
+                    return FileReceiverStatus.Failed;
+                }
+
                 if (!HasSendersContent(tempTargetFilePath, file))
                 {
                     _log.LogError("Received file {FileName} does not match the sender's content.", file.FileName);
+                    // Retries of the last chunk cannot succeed; they fail without reading the whole file again.
+                    metadata.ContentMismatch = true;
+                    SaveFileMetadata(metaTargetFilePath, metadata);
                     return FileReceiverStatus.Failed;
                 }
 
@@ -224,6 +233,8 @@ public class StatefulFileReceiver : IStatefulFileReceiver
     private sealed class FileMetadata
     {
         public HashSet<uint> ReceivedChunks { get; set; } = [];
+
+        public bool ContentMismatch { get; set; }
     }
 
     private FileMetadata ReadFileMetadata(string metadataFilePath)

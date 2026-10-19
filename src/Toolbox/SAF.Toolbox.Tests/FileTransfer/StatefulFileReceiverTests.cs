@@ -550,6 +550,59 @@ public class StatefulFileReceiverTests
     }
 
     [Fact]
+    public void WriteFile_FailsWithoutCheckingTheFileAgain_AfterAMismatch()
+    {
+        var (file, chunk) = MismatchingTransfer();
+        using var receiver = new StatefulFileReceiver(_logger, _fileSystem, _options.Value, _heartbeatPool, DefaultFolderPath);
+        FileReceivedEventArgs? fileReceived = null;
+        receiver.FileReceived += (_, fr) => fileReceived = fr;
+        Assert.Equal(FileReceiverStatus.Failed, receiver.WriteFile(file, chunk));
+
+        // A file that matches now proves that the retry does not read it.
+        _fileSystem.File.WriteAllText(file.GetTempTargetFilePath(_fileSystem, DefaultFolderPath), "content");
+
+        Assert.Equal(FileReceiverStatus.Failed, receiver.WriteFile(file, chunk));
+        Assert.Null(fileReceived);
+    }
+
+    [Fact]
+    public void GetState_StartsOverWithoutCheckingTheFileAgain_AfterAMismatch()
+    {
+        var (file, chunk) = MismatchingTransfer();
+        using var receiver = new StatefulFileReceiver(_logger, _fileSystem, _options.Value, _heartbeatPool, DefaultFolderPath);
+        FileReceivedEventArgs? fileReceived = null;
+        receiver.FileReceived += (_, fr) => fileReceived = fr;
+        receiver.WriteFile(file, chunk);
+        _fileSystem.File.WriteAllText(file.GetTempTargetFilePath(_fileSystem, DefaultFolderPath), "content");
+
+        var state = receiver.GetState(file);
+
+        Assert.False(state.FileExists);
+        Assert.Empty(state.TransmittedChunks);
+        Assert.Null(fileReceived);
+        Assert.False(_fileSystem.File.Exists(file.GetTempTargetFilePath(_fileSystem, DefaultFolderPath)));
+        Assert.False(_fileSystem.File.Exists(file.GetMetadataTargetFilePath(_fileSystem, DefaultFolderPath)));
+    }
+
+    // A one-chunk transfer of "content" whose chunk carries other data.
+    private (TransportFile File, FileChunk Chunk) MismatchingTransfer()
+    {
+        AddFile(_defaultTestFilePath, "content");
+        var fileInfo = _fileSystem.FileInfo.New(_defaultTestFilePath);
+        var file = new TransportFile
+        {
+            FileName = "file.txt",
+            FileId = fileInfo.GetFileId(DefaultChunkSize),
+            ContentHash = fileInfo.GetContentHash(),
+            ChunkSize = DefaultChunkSize,
+            ContentLength = fileInfo.Length,
+            TotalChunks = 1
+        };
+        fileInfo.Delete();
+        return (file, new FileChunk { Index = 0, Data = System.Text.Encoding.UTF8.GetBytes("c0ntent") });
+    }
+
+    [Fact]
     public void GetState_StartsOver_WhenTheReceivedFileDoesNotMatchTheSender()
     {
         AddFile(_defaultTestFilePath, "content");

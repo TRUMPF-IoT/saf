@@ -367,7 +367,7 @@ reported (`TransportFile.ContentLength` and `TransportFile.ContentHash`); this r
 differ, the receiver:
 
 - answers the last chunk with `FileReceiverStatus.Failed`, so `SendAsync` returns `FileTransferStatus.Error`, also
-  after retries of that chunk;
+  after retries of that chunk; it remembers the mismatch, so retries fail without reading the file again;
 - raises neither `BeforeFileReceived` nor `FileReceived`;
 - keeps the received chunks until the sender asks for the state again, then discards them, so the next `SendAsync`
   transfers the whole file.
