@@ -380,6 +380,22 @@ public class FileSenderTests
         await text.ReceivedWithAnyArgs(1).SendAsync(default!, default!, default!, default);
     }
 
+    [Fact]
+    public async Task SendAsync_LogsAContentMismatch_InsteadOfAFailedChunk()
+    {
+        AddFile("file.txt", new byte[10]);
+        ReturnReceiverState(new FileReceiverState(), null);
+        var text = CreateChunkSender(MessageFormats.Text);
+        text.SendAsync(default!, default!, default!, default).ReturnsForAnyArgs(FileReceiverStatus.ContentMismatch);
+        var logger = Substitute.For<ILogger<FileSender>>();
+        var sender = new FileSender(logger, _defaultOptions, _fileSystem, _requestClient, _messaging, [text]);
+
+        Assert.Equal(FileTransferStatus.Error, await sender.SendAsync("topic", "file.txt", 1000));
+        var error = Assert.Single(logger.ReceivedCalls(),
+            call => call.GetMethodInfo().Name == nameof(ILogger.Log) && Equals(call.GetArguments()[0], LogLevel.Error));
+        Assert.Contains("does not match the sent content", error.GetArguments()[2]!.ToString());
+    }
+
     private void ReturnReceiverState(FileReceiverState state, MessageFormats? acceptedChunkFormats)
         => _requestClient.SendRequestAwaitFirstAnswer<GetReceiverStateRequest, GetReceiverStateResponse>(
                 null!, null!, null!, null!, null!)

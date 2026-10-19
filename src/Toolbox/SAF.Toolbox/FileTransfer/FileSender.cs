@@ -83,17 +83,9 @@ internal class FileSender(
                 var fileChunk = await ReadFileChunkAsync(chunk, fileStream, transportFile);
 
                 var receiverStatus = await chunkSender.SendAsync(topic, transportFile, fileChunk, timeoutMs);
-                if (receiverStatus == FileReceiverStatus.ContentMismatch)
-                {
-                    log.LogError("Receiver on topic {ReceiverTopic} rejected file {FullFilePath}: it does not match the sent content. The next transfer sends the whole file",
-                        topic, fullFilePath);
-                    return FileTransferStatus.Error;
-                }
-
                 if (receiverStatus != FileReceiverStatus.Ok)
                 {
-                    log.LogError("Failed to send chunk {ChunkIndex} of file {FullFilePath} to topic {ReceiverTopic}", chunk, fullFilePath, topic);
-                    return receiverStatus == null ? FileTransferStatus.TimedOut : FileTransferStatus.Error;
+                    return ToFailedTransferStatus(receiverStatus, chunk, topic, fullFilePath);
                 }
             }
 
@@ -123,6 +115,19 @@ internal class FileSender(
         {
             // not required anymore, but kept for compatibility
         }
+    }
+
+    private FileTransferStatus ToFailedTransferStatus(FileReceiverStatus? receiverStatus, uint chunk, string topic, string fullFilePath)
+    {
+        if (receiverStatus == FileReceiverStatus.ContentMismatch)
+        {
+            log.LogError("Receiver on topic {ReceiverTopic} rejected file {FullFilePath}: it does not match the sent content. The next transfer sends the whole file",
+                topic, fullFilePath);
+            return FileTransferStatus.Error;
+        }
+
+        log.LogError("Failed to send chunk {ChunkIndex} of file {FullFilePath} to topic {ReceiverTopic}", chunk, fullFilePath, topic);
+        return receiverStatus == null ? FileTransferStatus.TimedOut : FileTransferStatus.Error;
     }
 
     // The first sender in order of preference whose format the receiver accepts and the messaging publishes.
