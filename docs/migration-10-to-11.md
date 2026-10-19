@@ -591,7 +591,9 @@ An 11.x receiver also checks every completed file against the length and the con
 that does not match, for example from a 10.x sender that resumed a transfer, is not completed: the last chunk fails,
 so the sender reports an error, and the next attempt transfers the whole file. See
 [Content Check](./toolbox.md#content-check). If you call `StatefulFileReceiver.WriteFile` yourself, it now returns
-`FileReceiverStatus.Failed` for the last chunk of such a file.
+the new value `FileReceiverStatus.ContentMismatch` for the last chunk of such a file. If you switch over
+`FileReceiverStatus`, handle that value: unlike `Failed`, sending the chunk again cannot succeed. A 10.x sender
+treats it like `Failed`.
 
 Files of 4 GiB or more sent to a 10.x receiver can still arrive corrupt; see
 [Transfers With Older Nodes](./toolbox.md#transfers-with-older-nodes). No action is required otherwise.

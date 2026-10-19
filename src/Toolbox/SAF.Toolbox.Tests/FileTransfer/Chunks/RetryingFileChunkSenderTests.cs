@@ -59,4 +59,13 @@ public class RetryingFileChunkSenderTests
         Assert.Equal(FileReceiverStatus.Ok, await CreateSender(5).SendAsync("topic", File, _chunk, 1000));
         await _inner.ReceivedWithAnyArgs(2).SendAsync(default!, default!, default!, default);
     }
+
+    [Fact]
+    public async Task SendAsync_DoesNotRetry_WhenTheContentDoesNotMatch()
+    {
+        _inner.SendAsync(default!, default!, default!, default).ReturnsForAnyArgs(FileReceiverStatus.Failed, FileReceiverStatus.ContentMismatch);
+
+        Assert.Equal(FileReceiverStatus.ContentMismatch, await CreateSender(5).SendAsync("topic", File, _chunk, 1000));
+        await _inner.ReceivedWithAnyArgs(2).SendAsync(default!, default!, default!, default);
+    }
 }

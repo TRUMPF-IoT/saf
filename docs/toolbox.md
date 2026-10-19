@@ -367,8 +367,10 @@ Before the receiver completes a file, it compares the file's length and SHA-256 
 reported (`TransportFile.ContentLength` and `TransportFile.ContentHash`); this reads the file once more. If they
 differ, the receiver:
 
-- answers the last chunk with `FileReceiverStatus.Failed`, so `SendAsync` returns `FileTransferStatus.Error`, also
-  after retries of that chunk; it remembers the mismatch, so retries fail without reading the file again;
+- answers the last chunk with `FileReceiverStatus.ContentMismatch`, so `SendAsync` returns `FileTransferStatus.Error`
+  at once. A sender on 11.x does not retry the chunk, because a retry cannot succeed; a sender before 11.x retries it
+  as after `FileReceiverStatus.Failed`. The receiver remembers the mismatch, so such retries fail without reading the
+  file again;
 - raises neither `BeforeFileReceived` nor `FileReceived`;
 - keeps the received chunks until the sender asks for the state again, then discards them, so the next `SendAsync`
   transfers the whole file.

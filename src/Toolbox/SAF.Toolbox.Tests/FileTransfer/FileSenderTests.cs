@@ -366,6 +366,7 @@ public class FileSenderTests
     [Theory]
     [InlineData(null, FileTransferStatus.TimedOut)]
     [InlineData(FileReceiverStatus.Failed, FileTransferStatus.Error)]
+    [InlineData(FileReceiverStatus.ContentMismatch, FileTransferStatus.Error)]
     public async Task SendAsync_StopsAtAChunkTheReceiverDoesNotConfirm(FileReceiverStatus? receiverStatus, FileTransferStatus expected)
     {
         AddFile("file.txt", new byte[10]);

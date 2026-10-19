@@ -25,6 +25,7 @@ public class TextFileChunkSenderTests
     [Theory]
     [InlineData(FileReceiverStatus.Ok)]
     [InlineData(FileReceiverStatus.Failed)]
+    [InlineData(FileReceiverStatus.ContentMismatch)]
     public async Task SendAsync_SendsTheChunkInTheJsonPayload_AndReturnsTheReceiverStatus(FileReceiverStatus status)
     {
         var file = File;

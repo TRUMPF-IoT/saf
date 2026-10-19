@@ -131,7 +131,7 @@ public class StatefulFileReceiver : IStatefulFileReceiver
                 if (metadata.ContentMismatch)
                 {
                     _log.LogDebug("Received file {FileName} is known not to match the sender's content.", file.FileName);
-                    return FileReceiverStatus.Failed;
+                    return FileReceiverStatus.ContentMismatch;
                 }
 
                 if (!HasSendersContent(tempTargetFilePath, file))
@@ -140,7 +140,7 @@ public class StatefulFileReceiver : IStatefulFileReceiver
                     // Retries of the last chunk cannot succeed; they fail without reading the whole file again.
                     metadata.ContentMismatch = true;
                     SaveFileMetadata(metaTargetFilePath, metadata);
-                    return FileReceiverStatus.Failed;
+                    return FileReceiverStatus.ContentMismatch;
                 }
 
                 CompleteFileTransfer(file, tempTargetFilePath, targetFilePath);

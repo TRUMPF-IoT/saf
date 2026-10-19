@@ -24,6 +24,7 @@ public class BinaryFileChunkSenderTests
     [Theory]
     [InlineData("""{"status":0}""", FileReceiverStatus.Ok)]
     [InlineData("""{"status":1}""", FileReceiverStatus.Failed)]
+    [InlineData("""{"status":2}""", FileReceiverStatus.ContentMismatch)]
     public async Task SendAsync_SendsTheDataAsBinaryPayload_AndReturnsTheReceiverStatus(string reply, FileReceiverStatus expected)
     {
         var chunk = new FileChunk { Index = 1, Data = ChunkData };

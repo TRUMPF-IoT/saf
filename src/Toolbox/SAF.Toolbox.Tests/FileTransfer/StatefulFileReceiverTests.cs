@@ -519,7 +519,7 @@ public class StatefulFileReceiverTests
     [Theory]
     [InlineData("c0ntent", 7)]
     [InlineData("content", 8)]
-    public void WriteFile_ReturnsFailed_AndKeepsTheState_WhenTheFileDoesNotMatchTheSender(string received, long contentLength)
+    public void WriteFile_ReturnsContentMismatch_AndKeepsTheState_WhenTheFileDoesNotMatchTheSender(string received, long contentLength)
     {
         AddFile(_defaultTestFilePath, "content");
         var fileInfo = _fileSystem.FileInfo.New(_defaultTestFilePath);
@@ -539,9 +539,9 @@ public class StatefulFileReceiverTests
         receiver.FileReceived += (_, fr) => fileReceived = fr;
         var chunk = new FileChunk { Index = 0, Data = System.Text.Encoding.UTF8.GetBytes(received) };
 
-        Assert.Equal(FileReceiverStatus.Failed, receiver.WriteFile(file, chunk));
+        Assert.Equal(FileReceiverStatus.ContentMismatch, receiver.WriteFile(file, chunk));
         // A retry of the last chunk fails as well instead of reporting success.
-        Assert.Equal(FileReceiverStatus.Failed, receiver.WriteFile(file, chunk));
+        Assert.Equal(FileReceiverStatus.ContentMismatch, receiver.WriteFile(file, chunk));
 
         Assert.Null(fileReceived);
         Assert.False(_fileSystem.File.Exists(_defaultTestFilePath));
@@ -556,12 +556,12 @@ public class StatefulFileReceiverTests
         using var receiver = new StatefulFileReceiver(_logger, _fileSystem, _options.Value, _heartbeatPool, DefaultFolderPath);
         FileReceivedEventArgs? fileReceived = null;
         receiver.FileReceived += (_, fr) => fileReceived = fr;
-        Assert.Equal(FileReceiverStatus.Failed, receiver.WriteFile(file, chunk));
+        Assert.Equal(FileReceiverStatus.ContentMismatch, receiver.WriteFile(file, chunk));
 
         // A file that matches now proves that the retry does not read it.
         _fileSystem.File.WriteAllText(file.GetTempTargetFilePath(_fileSystem, DefaultFolderPath), "content");
 
-        Assert.Equal(FileReceiverStatus.Failed, receiver.WriteFile(file, chunk));
+        Assert.Equal(FileReceiverStatus.ContentMismatch, receiver.WriteFile(file, chunk));
         Assert.Null(fileReceived);
     }
 
