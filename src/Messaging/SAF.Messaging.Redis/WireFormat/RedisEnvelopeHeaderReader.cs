@@ -36,7 +36,7 @@ internal sealed class RedisEnvelopeHeaderReader : IRedisEnvelopeHeaderReader
 
         string? version = null;
         bool hasVersion = false, hasMessage = false;
-        while (!(hasVersion && hasMessage) && reader.Read() && reader.TokenType == JsonTokenType.PropertyName)
+        while (reader.Read() && reader.TokenType == JsonTokenType.PropertyName)
         {
             var name = reader.GetString();
             reader.Read();
@@ -45,9 +45,12 @@ internal sealed class RedisEnvelopeHeaderReader : IRedisEnvelopeHeaderReader
                 if (reader.TokenType is not (JsonTokenType.String or JsonTokenType.Null)) return null;
                 version = reader.GetString();
                 hasVersion = true;
+                if (hasMessage) break;
             }
             else if (!hasMessage && IsProperty(name, "message") && reader.TokenType == JsonTokenType.StartObject)
             {
+                // The format reads the message; scanning it here too would read a large payload twice.
+                if (hasVersion) return new RedisEnvelopeHeader(version);
                 hasMessage = true;
                 reader.Skip();
             }

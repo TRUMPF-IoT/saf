@@ -56,6 +56,8 @@ public class RedisMessageReaderTests
     [InlineData("""{"message":{"topic":"t"},"version":"4.0.0"}""", "4.0.0")]
     [InlineData("""{"VERSION":"4.0.0","Message":{"topic":"t"}}""", "4.0.0")]
     [InlineData("""{"version":"1","message":{"topic":"t"}}""", "1")]
+    // The message is not scanned once the version is known.
+    [InlineData("""{"version":"4.0.0","message":{"topic":1""", "4.0.0")]
     public void Read_DropsUnknownVersionsAndWarns(string wireValue, string expectedVersion)
     {
         var logger = Substitute.For<MockLogger>();
@@ -78,7 +80,8 @@ public class RedisMessageReaderTests
     [InlineData("""{"version":"4.0.0","message":"opaque"}""")]
     [InlineData("""{"version":"4.0.0","message":[1,2,3]}""")]
     [InlineData("""{"version":4,"message":{"topic":"t"}}""")]
-    [InlineData("""{"version":"4.0.0","message":{"topic":1""")]
+    [InlineData("""{"version":"2.0.0","message":{"topic":1""")]
+    [InlineData("""{"message":{"topic":1""")]
     [InlineData("""[1,2,3]""")]
     [InlineData("""42""")]
     [InlineData("""null""")]
