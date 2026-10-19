@@ -254,9 +254,9 @@ public class NatsWireFormatGoldenTests
     private static string? GoldenBinaryMetadata(string id) => id switch
     {
         WireFormatReferenceMessages.Binary => null,
-        // JavaScriptEncoder.Default escapes the quotes inside the payload.
+        // The quotes inside the payload get a backslash, as JSON requires.
         WireFormatReferenceMessages.TextAndBinary =>
-            """{"payload":"{\u0022name\u0022:\u0022chunk\u0022}","customProperties":[{"name":"index","value":"3"}]}""",
+            """{"payload":"{\"name\":\"chunk\"}","customProperties":[{"name":"index","value":"3"}]}""",
         WireFormatReferenceMessages.EmptyBinary => null,
         _ => throw new ArgumentOutOfRangeException(nameof(id), id, "No recorded sample for this reference message.")
     };

@@ -241,16 +241,17 @@ exactly as in earlier SAF versions:
 | With metadata (an empty `CustomProperties` list included) | `Payload` | `saf-v: 2.0.0` and `saf-meta: {"replyTo":"…","acceptedReplyFormats":3,"customProperties":[{"name":…,"value":…}]}`, with the fields that are set; the flags as a number |
 | With a `BinaryPayload` | The binary payload, without Base64 | `saf-v: 3.0.0`, and `saf-meta` if any other field is set; a `Payload` travels there as `"payload":"…"` |
 
-NATS header values are ASCII, so `saf-meta` escapes every other character as a JSON `\u` sequence. A non-SAF
-client that reads the header gets the original text back with any JSON parser.
+NATS header values are ASCII, so `saf-meta` escapes every other character as a JSON `\u` sequence; apart from that,
+it escapes only what JSON requires, such as quotes. A non-SAF client that reads the header gets the original text
+back with any JSON parser.
 
 - **Older SAF nodes** (9.x, 10.x and 11.0.0-alpha.11 or earlier) ignore the headers. They receive topic and
   payload as before, but no metadata: those versions never transported custom properties over NATS.
 - **A NATS server before 2.2** rejects a message with headers and closes the publisher's connection. The
   message is lost, and the client reconnects. Messages without metadata are not affected.
-- In a message with both payloads, the text payload travels in the `saf-meta` header, where every non-ASCII
-  character, every quote and a few other characters are escaped, which can make the text several times longer.
-  Keep such text short, for example a small JSON description of the binary data.
+- In a message with both payloads, the text payload travels in the `saf-meta` header. There each non-ASCII
+  character takes six characters, and quotes and backslashes take two, so text with many non-ASCII characters can
+  become several times longer. Keep such text short, for example a small JSON description of the binary data.
 - The server's maximum message size (`max_payload`, 1 MB by default) counts body and headers, binary payloads
   included.
 - **Older SAF nodes** receive a binary payload as corrupt text in `Payload`, without an error. With

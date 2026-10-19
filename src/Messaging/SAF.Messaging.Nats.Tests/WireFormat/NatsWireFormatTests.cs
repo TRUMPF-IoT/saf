@@ -107,7 +107,7 @@ public class NatsWireFormatTests
     [Fact]
     public void V2_EscapesEverythingOutsideAscii()
     {
-        const string value = "äöü 日本 \U0001F600 \r\n\t \"q\"";
+        const string value = "äöü 日本 \U0001F600 \r\n\t \u007F \"q\"";
         var message = new Message { Topic = "t", CustomProperties = [new MessageCustomProperty { Name = "ü", Value = value }] };
 
         var wire = _v2.Write(message);
@@ -116,6 +116,23 @@ public class NatsWireFormatTests
         Assert.All(wire.Headers![NatsHeaderNames.Metadata].ToString(), c => Assert.InRange(c, ' ', '~'));
         Assert.Equal("ü", read.CustomProperties![0].Name);
         Assert.Equal(value, read.CustomProperties[0].Value);
+    }
+
+    /// <summary>
+    /// A JSON text payload next to a binary one travels in the header and must not grow by escaping.
+    /// </summary>
+    [Fact]
+    public void V3_EscapesOnlyWhatJsonRequires()
+    {
+        const string payload = """{"file":"a+b<c>&'d'.bin","path":"c:\\x"}""";
+        var message = new Message { Topic = "t", Payload = payload, BinaryPayload = [1] };
+
+        var wire = _v3.Write(message);
+        var read = _v3.Read("t", new NatsBody(wire.BinaryBody), wire.Headers)!;
+
+        Assert.Equal("""{"payload":"{\"file\":\"a+b<c>&'d'.bin\",\"path\":\"c:\\\\x\"}"}""",
+            wire.Headers![NatsHeaderNames.Metadata].ToString());
+        Assert.Equal(payload, read.Payload);
     }
 
     [Fact]
