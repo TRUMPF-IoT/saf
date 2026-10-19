@@ -34,34 +34,50 @@ internal sealed class RedisEnvelopeHeaderReader : IRedisEnvelopeHeaderReader
     {
         if (!reader.Read() || reader.TokenType != JsonTokenType.StartObject) return null;
 
-        string? version = null;
-        bool hasVersion = false, hasMessage = false;
-        while (reader.Read() && reader.TokenType == JsonTokenType.PropertyName)
+        var scan = new HeaderScan();
+        while (!scan.IsComplete && reader.Read() && reader.TokenType == JsonTokenType.PropertyName)
+        {
+            if (!scan.ReadProperty(ref reader)) return null;
+        }
+
+        return scan.HasMessage ? new RedisEnvelopeHeader(scan.Version) : null;
+    }
+
+    private ref struct HeaderScan
+    {
+        public string? Version { get; private set; }
+        public bool HasMessage { get; private set; }
+        private bool _hasVersion;
+
+        public readonly bool IsComplete => _hasVersion && HasMessage;
+
+        // Returns false if the value is no envelope.
+        public bool ReadProperty(ref Utf8JsonReader reader)
         {
             var name = reader.GetString();
             reader.Read();
-            if (!hasVersion && IsProperty(name, "version"))
+            if (!_hasVersion && IsProperty(name, "version"))
+                return ReadVersion(ref reader);
+
+            if (IsProperty(name, "message") && reader.TokenType == JsonTokenType.StartObject)
             {
-                if (reader.TokenType is not (JsonTokenType.String or JsonTokenType.Null)) return null;
-                version = reader.GetString();
-                hasVersion = true;
-                if (hasMessage) break;
-            }
-            else if (!hasMessage && IsProperty(name, "message") && reader.TokenType == JsonTokenType.StartObject)
-            {
+                HasMessage = true;
                 // The format reads the message; scanning it here too would read a large payload twice.
-                if (hasVersion) return new RedisEnvelopeHeader(version);
-                hasMessage = true;
-                reader.Skip();
+                if (_hasVersion) return true;
             }
-            else
-            {
-                reader.Skip();
-            }
+
+            reader.Skip();
+            return true;
         }
 
-        return hasMessage ? new RedisEnvelopeHeader(version) : null;
-    }
+        private bool ReadVersion(ref Utf8JsonReader reader)
+        {
+            if (reader.TokenType is not (JsonTokenType.String or JsonTokenType.Null)) return false;
+            Version = reader.GetString();
+            _hasVersion = true;
+            return true;
+        }
 
-    private static bool IsProperty(string? name, string expected) => string.Equals(name, expected, StringComparison.OrdinalIgnoreCase);
+        private static bool IsProperty(string? name, string expected) => string.Equals(name, expected, StringComparison.OrdinalIgnoreCase);
+    }
 }

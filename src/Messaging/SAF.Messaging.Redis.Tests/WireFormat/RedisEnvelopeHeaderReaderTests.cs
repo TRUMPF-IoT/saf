@@ -18,6 +18,7 @@ public class RedisEnvelopeHeaderReaderTests
     [InlineData("""{"extra":[1,{"a":2}],"Version":"3.0.0","MESSAGE":{}}""", "3.0.0")]
     [InlineData("""{"version":null,"message":{}}""", null)]
     [InlineData("""{"message":{}}""", null)]
+    [InlineData("""{"version":"2.0.0","version":4,"message":{}}""", "2.0.0")]
     public void Read_ReturnsTheVersionOfAnEnvelope(string json, string? expectedVersion)
         => Assert.Equal(new RedisEnvelopeHeader(expectedVersion), Read(json));
 
