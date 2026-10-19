@@ -43,12 +43,16 @@ public class TsmMessageFormatV5Tests
         Assert.Equal(binary, _v5.Decode("t", payload)!.BinaryPayload);
     }
 
+    /// <summary>
+    /// Versions 2 to 4 send this JSON too; <see cref="CdeWireFormatGoldenTests"/> pins its bytes.
+    /// </summary>
     [Fact]
-    public void Encode_WritesTheV2JsonForATextMessage()
+    public void Encode_WritesNoBinaryPartsForATextMessage()
     {
-        var message = WireFormatReferenceMessages.Create(WireFormatReferenceMessages.CustomProperties);
+        var payload = _v5.Encode(WireFormatReferenceMessages.Create(WireFormatReferenceMessages.CustomProperties));
 
-        Assert.Equal(new TsmMessageFormatV2().Encode(message), _v5.Encode(message));
+        Assert.Null(payload.Plb);
+        Assert.DoesNotContain("BinaryPayloadLength", payload.Pls);
     }
 
     /// <summary>

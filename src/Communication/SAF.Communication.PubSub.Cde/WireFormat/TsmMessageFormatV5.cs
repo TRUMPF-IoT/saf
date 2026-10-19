@@ -9,14 +9,15 @@ using SAF.Messaging.Contracts;
 using Interfaces;
 
 /// <summary>
-/// The JSON of <see cref="TsmMessageFormatV2"/> in <c>PLS</c> and the binary payloads in <c>PLB</c>, used from
-/// <see cref="PubSubVersion.V5"/> on. Each message names the length of its binary payload; the injected
-/// <see cref="ITsmPlbLayout"/> places the binary payloads in <c>PLB</c>.
+/// The whole message as PascalCase JSON in <c>PLS</c>, several messages at once as a JSON array, and the binary
+/// payloads in <c>PLB</c>, used from <see cref="PubSubVersion.V5"/> on. Each message names the length of its binary
+/// payload; the injected <see cref="ITsmPlbLayout"/> places the binary payloads in <c>PLB</c>. Without binary
+/// payloads, this is the JSON that <see cref="PubSubVersion.V2"/> to <see cref="PubSubVersion.V4"/> send.
 /// </summary>
 /// <remarks>
 /// <c>PLS</c> is never empty, otherwise C-DEngine would read <c>PLB</c> as a compressed <c>PLS</c>.
-/// A 9.x registry writes the subscriber's version into the TSM text but sends <see cref="TsmMessageFormatV2"/>
-/// JSON, so messages without binary payloads must stay readable without <c>PLB</c>.
+/// A 9.x registry writes the subscriber's version into the TSM text but sends the JSON of version 2,
+/// so messages without binary payloads must stay readable without <c>PLB</c>.
 /// </remarks>
 internal sealed class TsmMessageFormatV5(ITsmPlbLayout plbLayout) : ITsmBatchFormat
 {
