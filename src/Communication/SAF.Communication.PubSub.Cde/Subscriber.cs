@@ -32,7 +32,7 @@ public class Subscriber : ISubscriber, IDisposable
     private readonly ComLine _line;
     private readonly CancellationTokenSource _tokenSource;
     private readonly ITsmMessageDecoder _decoder;
-    private bool _disposed;
+    private volatile bool _disposed;
 
     private readonly Dictionary<string, CountdownEvent> _subscriptions = new(); // Temporarily used to broadcast a subscribe request to all known registered nodes.
     private readonly ConcurrentDictionary<Guid, ISubscription> _subscribers = new();
@@ -84,7 +84,8 @@ public class Subscriber : ISubscriber, IDisposable
 
     public void Unsubscribe(ISubscription subscription)
     {
-        if (_subscribers.TryRemove(subscription.Id, out var _))
+        // After the SubscriberShutdown broadcast the registries have dropped all subscriptions of this subscriber.
+        if (_subscribers.TryRemove(subscription.Id, out var _) && !_disposed)
         {
             RemoteUnsubscribe(subscription);
         }

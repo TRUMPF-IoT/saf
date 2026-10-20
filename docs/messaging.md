@@ -318,6 +318,12 @@ effect at host start only. C-DEngine cannot be started a second time in the same
 [live reload](./plugin-system.md#live-reload-reconfiguration) is not supported while a C-DEngine plug-in is
 loaded: restart the host instead.
 
+When the host disposes the C-DEngine plug-in, its messaging announces its shutdown to the other nodes, and they
+drop all of its subscriptions. A subscription released after that is removed locally only, without a message to
+the other nodes. This is the case with routes to C-DEngine (`Messaging:PrimaryKey=Routing`): the runtime plug-in
+owns the routing messaging and disposes it, together with the subscriptions that are still open, after the
+C-DEngine plug-in (see [Shutdown and Disposal](./plugin-system.md#shutdown-and-disposal)). No action is required.
+
 If you load both C-DEngine plug-ins, deploy them to the **host's base directory** (`AppContext.BaseDirectory`),
 preferably through a `PackageReference` in the host, so that `SAF.Cde.Common` and C-DEngine are in the
 host's `deps.json` and both plug-ins share one copy of them. A shared plug-in folder outside the base directory
