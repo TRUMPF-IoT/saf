@@ -564,7 +564,7 @@ with `PluginSettingsRootPath` defaulting to `./config` and `PluginSettingsFilePa
 - A relative `PluginSettingsRootPath` is resolved against the application's base directory (`AppContext.BaseDirectory`, the folder of the host executable), not against the working directory. Environment variables in it, such as `%ProgramData%`, are expanded.
 - The plugin system **only reads** the settings directory and never creates it. The host therefore also starts when its application folder is read-only, for example under an AppArmor profile, in a container with `readOnlyRootFilesystem: true`, as a non-root user, or as a Windows service below `Program Files`.
 - If the directory exists, the settings file and its overlay are optional: a missing file is logged at `Information` level (`Plugin configuration file not found: …`), and a file that is created or changed later is picked up while the host runs.
-- If the directory does not exist, the plugin system logs `Plugin configuration directory not found: …` at `Information` level and starts with an empty plugin configuration. Nothing in the directory is watched then. If you add the directory and the file later, restart the host so that it loads them.
+- If the directory does not exist, the plugin system logs `Plugin configuration directory not found: …` at `Information` level and starts with an empty plugin configuration. Nothing in the directory is watched then. If you add the directory and the file later, restart the host so that it loads them. To be able to add the file later without a restart, create the directory when you deploy the host.
 - To switch the plugin settings file off completely, set `PluginSettingsFilePath` to an empty string. The plugin system then logs `No plugin configuration file configured.`
 
 To keep the settings outside a read-only application folder, point `PluginSettingsRootPath` to a writable folder:
@@ -576,12 +576,6 @@ To keep the settings outside a read-only application folder, point `PluginSettin
   }
 }
 ```
-
-> **Changed after 11.0.0-alpha.11:** The pre-releases up to 11.0.0-alpha.11 created the settings directory (by default
-> `<application folder>/config`) on startup, even when there was no settings file. A host whose application folder is
-> read-only failed to start with an `UnauthorizedAccessException`. Now the directory is not created. If you relied on
-> the plugin system creating the directory, so that a settings file placed into it later is picked up without a
-> restart, create the directory when you deploy the host.
 
 `PluginSystemOptions` stays a pure data object (paths/patterns only). To add further plugin configuration providers from outside (for example XML, INI, custom sources, or application-specific file names/extensions), use the host builder API:
 
