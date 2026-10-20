@@ -183,7 +183,7 @@ internal sealed class RequestClient : IRequestClient, IDisposable
 
     public void Dispose()
     {
-        _log.LogInformation("Disposing RequestClient.");
+        _log.LogDebug("Disposing RequestClient.");
 
         _replyTopics.Dispose();
 
