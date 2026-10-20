@@ -235,6 +235,31 @@ public class SubscriptionTests
         Assert.False(dict.ContainsKey(subscription.Id));
     }
 
+    [Fact]
+    public void Unsubscribe_SendsUnsubscribeToTheRegistries()
+    {
+        var subscription = _subscriber.Subscribe("sensor/*");
+
+        subscription.Unsubscribe();
+
+        _comLine.Received(1).AnswerToSender(Arg.Any<TSM>(), Arg.Is<TSM>(tsm => tsm.TXT.StartsWith(MessageToken.Unsubscribe)));
+    }
+
+    [Fact]
+    public void Unsubscribe_AfterTheSubscriberIsDisposed_SendsNothing()
+    {
+        var subscription = _subscriber.Subscribe("sensor/*");
+        _subscriber.Dispose();
+
+        subscription.Unsubscribe();
+
+        _comLine.DidNotReceive().AnswerToSender(Arg.Any<TSM>(), Arg.Is<TSM>(tsm => tsm.TXT.StartsWith(MessageToken.Unsubscribe)));
+
+        var subsDictField = typeof(Subscriber).GetField("_subscribers", BindingFlags.Instance | BindingFlags.NonPublic)!;
+        var dict = (ConcurrentDictionary<Guid, ISubscription>)subsDictField.GetValue(_subscriber)!;
+        Assert.False(dict.ContainsKey(subscription.Id));
+    }
+
     private void RaisePublication(string topic, string version, string payload, byte[]? plb = null)
     {
         var messageTxt = $"{MessageToken.Publish}:{new Topic(topic, Guid.NewGuid().ToString("N"), version).ToTsmTxt()}";
