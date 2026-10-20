@@ -559,6 +559,24 @@ All plugins share a single plugin settings file, exposed to each manifest as `co
 
 with `PluginSettingsRootPath` defaulting to `./config` and `PluginSettingsFilePath` defaulting to `./pluginsettings.json`. An optional environment-specific overlay named `{file}.{EnvironmentName}.json` (e.g. `pluginsettings.Development.json`) is layered on top if present. Both paths come from the `PluginSystem` configuration section.
 
+### Where the settings file is looked for
+
+- A relative `PluginSettingsRootPath` is resolved against the application's base directory (`AppContext.BaseDirectory`, the folder of the host executable), not against the working directory. Environment variables in it, such as `%ProgramData%`, are expanded.
+- The plugin system **only reads** the settings directory and never creates it. The host therefore also starts when its application folder is read-only, for example under an AppArmor profile, in a container with `readOnlyRootFilesystem: true`, as a non-root user, or as a Windows service below `Program Files`.
+- If the directory exists, the settings file and its overlay are optional: a missing file is logged at `Information` level (`Plugin configuration file not found: …`), and a file that is created or changed later is picked up while the host runs.
+- If the directory does not exist, the plugin system logs `Plugin configuration directory not found: …` at `Information` level and starts with an empty plugin configuration. Nothing in the directory is watched then. If you add the directory and the file later, restart the host so that it loads them. To be able to add the file later without a restart, create the directory when you deploy the host.
+- To switch the plugin settings file off completely, set `PluginSettingsFilePath` to an empty string. The plugin system then logs `No plugin configuration file configured.`
+
+To keep the settings outside a read-only application folder, point `PluginSettingsRootPath` to a writable folder:
+
+```json
+{
+  "PluginSystem": {
+    "PluginSettingsRootPath": "/etc/myapp"
+  }
+}
+```
+
 `PluginSystemOptions` stays a pure data object (paths/patterns only). To add further plugin configuration providers from outside (for example XML, INI, custom sources, or application-specific file names/extensions), use the host builder API:
 
 ```csharp
@@ -603,6 +621,9 @@ load and logs a warning instead of crashing host startup or silently wiping valu
 `HostServices` — the host's fully-built `IServiceProvider`. Building sources through
 `source.SettingsFileProvider` keeps them rooted at the same directory as the default plugin JSON
 regardless of how `PluginSettingsRootPath` resolves — there is no separate path to keep in sync.
+`SettingsFileProvider` and `SettingsFileName` are `null` only if `PluginSettingsFilePath` is empty. If the
+settings directory does not exist, `SettingsFileProvider` is a `NullFileProvider`: optional sources built on it
+find no file, and a source that is not optional behaves as it does for any other missing file.
 
 The callback runs exactly once, during `IPluginSystemHostContext` construction; any exception it throws
 propagates into host startup. Additional providers are appended after the default plugin JSON sources.

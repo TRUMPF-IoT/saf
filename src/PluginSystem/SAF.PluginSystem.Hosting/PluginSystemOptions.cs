@@ -18,8 +18,10 @@ public class PluginSystemOptions
     /// <summary>
     /// Gets or sets the relative or absolute root directory path where plugin settings are stored.
     /// </summary>
-    /// <remarks>The path can be relative or absolute. By default, it is set to "./config", which refers to a
-    /// directory named "config" in the application's working directory.</remarks>
+    /// <remarks>The path can be relative or absolute. A relative path is resolved against the application's base
+    /// directory (<see cref="AppContext.BaseDirectory"/>), not the working directory. By default, it is set to
+    /// "./config", which refers to a directory named "config" in the application's base directory. The plugin
+    /// system does not create the directory; if it does not exist, no plugin settings file is loaded.</remarks>
     public string PluginSettingsRootPath { get; set; } = "./config";
 
     /// <summary>
