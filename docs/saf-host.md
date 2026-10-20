@@ -67,7 +67,7 @@ Controls how plug-ins are discovered and configured:
 
 | Key | Default | Description |
 |---|---|---|
-| `PluginSettingsRootPath` | `./config` | Root directory for per-plugin `pluginsettings.json` files |
+| `PluginSettingsRootPath` | `./config` | Directory of the plugin settings file. A relative path is resolved against the application's base directory. The directory is not created; if it is missing, no plugin settings are loaded (see [Where the settings file is looked for](./plugin-system.md#where-the-settings-file-is-looked-for)) |
 | `PluginSettingsFilePath` | `./pluginsettings.json` | Path relative to `PluginSettingsRootPath` for the plugin's settings file |
 | `PluginContractsSearchPattern` | `SAF.Common.dll;SAF.Messaging.Contracts.dll` via `AddSafHost()` | Semicolon-separated glob patterns for additional assemblies exposing public plugin service types |
 

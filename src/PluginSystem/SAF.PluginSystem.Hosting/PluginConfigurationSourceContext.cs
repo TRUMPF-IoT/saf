@@ -22,7 +22,8 @@ public sealed class PluginConfigurationSourceContext
     /// <summary>
     /// The <see cref="IFileProvider"/> scoped to the resolved plugin settings directory, i.e. the same
     /// provider the default plugin settings JSON file(s) are loaded through. <see langword="null"/> if
-    /// <see cref="PluginSystemOptions.PluginSettingsFilePath"/> is not configured.
+    /// <see cref="PluginSystemOptions.PluginSettingsFilePath"/> is not configured. If the settings directory
+    /// does not exist, it is a <see cref="NullFileProvider"/> that finds no files.
     /// </summary>
     public required IFileProvider? SettingsFileProvider { get; init; }
 

@@ -14,7 +14,7 @@ using System.IO.Abstractions;
 public sealed class PluginSystemHostContext : IPluginSystemHostContext, IDisposable
 {
     private readonly IConfigurationRoot _pluginConfigurationRoot;
-    private readonly PhysicalFileProvider? _pluginSettingsFileProvider;
+    private readonly IFileProvider? _pluginSettingsFileProvider;
     private readonly PhysicalFileProvider _customSourcesDefaultFileProvider;
 
     public PluginSystemHostContext(
@@ -44,11 +44,11 @@ public sealed class PluginSystemHostContext : IPluginSystemHostContext, IDisposa
             disposableConfigurationRoot.Dispose();
         }
 
-        _pluginSettingsFileProvider?.Dispose();
+        (_pluginSettingsFileProvider as IDisposable)?.Dispose();
         _customSourcesDefaultFileProvider.Dispose();
     }
 
-    private static (IConfigurationRoot configurationRoot, PhysicalFileProvider? settingsFileProvider, PhysicalFileProvider customSourcesDefaultFileProvider) BuildPluginConfiguration(
+    private static (IConfigurationRoot configurationRoot, IFileProvider? settingsFileProvider, PhysicalFileProvider customSourcesDefaultFileProvider) BuildPluginConfiguration(
         ILogger logger,
         PluginSystemOptions options,
         IPluginSystemHostEnvironment environment,
@@ -104,12 +104,12 @@ public sealed class PluginSystemHostContext : IPluginSystemHostContext, IDisposa
             // Both providers own FileSystemWatcher handles. Dispose them before the exception escapes
             // so that the constructor failure does not leak handles until process exit.
             customSourcesDefaultFileProvider.Dispose();
-            settingsFileProvider?.Dispose();
+            (settingsFileProvider as IDisposable)?.Dispose();
             throw;
         }
     }
 
-    private static (PhysicalFileProvider? settingsFileProvider, string? settingsFileName) AddDefaultPluginConfigurationSources(
+    private static (IFileProvider? settingsFileProvider, string? settingsFileName) AddDefaultPluginConfigurationSources(
         IConfigurationBuilder builder,
         ILogger logger,
         PluginSystemOptions options,
@@ -131,15 +131,10 @@ public sealed class PluginSystemHostContext : IPluginSystemHostContext, IDisposa
             options.PluginSettingsFilePath, settingsFilePath);
 
         var settingsDirectoryPath = fileSystem.Path.GetDirectoryName(settingsFilePath) ?? AppContext.BaseDirectory;
-        if (!fileSystem.Directory.Exists(settingsDirectoryPath))
-        {
-            fileSystem.Directory.CreateDirectory(settingsDirectoryPath);
-        }
-
-        var settingsFileProvider = new PhysicalFileProvider(settingsDirectoryPath);
+        var settingsFileProvider = CreateSettingsFileProvider(logger, fileSystem, settingsDirectoryPath);
         var settingsFileName = fileSystem.Path.GetFileName(settingsFilePath);
 
-        if (!fileSystem.File.Exists(settingsFilePath))
+        if (settingsFileProvider is PhysicalFileProvider && !fileSystem.File.Exists(settingsFilePath))
         {
             logger.LogInformation("Plugin configuration file not found: {PluginSettingsFilePath}, {PluginSettingsFileFullName}",
                 options.PluginSettingsFilePath, settingsFilePath);
@@ -151,6 +146,19 @@ public sealed class PluginSystemHostContext : IPluginSystemHostContext, IDisposa
         AddJsonFile(builder, settingsFileProvider, environmentSettingsFileName, onLoadException);
 
         return (settingsFileProvider, settingsFileName);
+    }
+
+    private static IFileProvider CreateSettingsFileProvider(ILogger logger, IFileSystem fileSystem, string settingsDirectoryPath)
+    {
+        // Never create the directory: the application folder may be read-only.
+        if (fileSystem.Directory.Exists(settingsDirectoryPath))
+        {
+            return new PhysicalFileProvider(settingsDirectoryPath);
+        }
+
+        logger.LogInformation("Plugin configuration directory not found: {PluginSettingsDirectoryPath}. No plugin configuration file is loaded.",
+            settingsDirectoryPath);
+        return new NullFileProvider();
     }
 
     private static void AddCustomPluginConfigurationSources(
@@ -186,7 +194,7 @@ public sealed class PluginSystemHostContext : IPluginSystemHostContext, IDisposa
             exceptionContext.Provider?.Source.Path);
     };
 
-    private static void AddJsonFile(IConfigurationBuilder builder, PhysicalFileProvider settingsFileProvider, string settingsFileName, Action<FileLoadExceptionContext> onLoadException)
+    private static void AddJsonFile(IConfigurationBuilder builder, IFileProvider settingsFileProvider, string settingsFileName, Action<FileLoadExceptionContext> onLoadException)
         => builder.AddJsonFile(source =>
         {
             source.FileProvider = settingsFileProvider;
