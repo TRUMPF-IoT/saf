@@ -240,6 +240,20 @@ public class RequestClientTests
     }
 
     [Fact]
+    public async Task Dispose_LogsTheDisposalAtDebug_AndACancelledRequestAsError()
+    {
+        var sut = CreateSut();
+
+        var task = sut.SendRequestAwaitFirstReply("test");
+        sut.Dispose();
+        await task;
+
+        _logger.AssertLogged(LogLevel.Debug, m => m.Contains("Disposing"));
+        _logger.AssertNotLogged(LogLevel.Information);
+        _logger.AssertLogged(LogLevel.Error, m => m.Contains("test") && m.Contains("shutdown"));
+    }
+
+    [Fact]
     public async Task SendRequestAwaitFirstReply_ReturnsNullAndClosesTheRequest_WhenPublishFails()
     {
         _messaging.When(m => m.Publish(Arg.Any<Message>())).Do(_ => throw new InvalidOperationException("publish failed"));

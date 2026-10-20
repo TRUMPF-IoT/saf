@@ -156,6 +156,10 @@ next request subscribes before it is sent. The task of a request completes async
 not run on the thread that delivered the reply. Disposing the client waits for a subscription still in progress and
 unsubscribes it.
 
+The client is disposed when the container that created it is disposed, usually when the host stops. It logs its
+disposal at `Debug` only. Each request still open at that point completes with `null`, and the client logs an
+`Error` for it ("Cancelling request ... on shutdown").
+
 With [Routing](./messaging.md#routing-multiple-brokers), a route that has subscription patterns subscribes those of
 its patterns that end in `*` for the request client, so the client also receives the other messages on them and
 ignores them. It receives replies over that route only if one of these patterns covers the prefix, for example
