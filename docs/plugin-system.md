@@ -867,7 +867,9 @@ infrastructure plug-ins first.
 > **Release subscriptions in `StopAsync`.** The disposal order cannot express every dependency between plug-ins. The
 > primary `IMessagingInfrastructure`, for example, belongs to the runtime plug-in, which is loaded first, but it is
 > created by the messaging plug-ins loaded after it, and so it is disposed after them. Subscribe in `StartAsync` and
-> unsubscribe in `StopAsync`: the plug-ins are stopped while everything is still running.
+> unsubscribe in `StopAsync`: the plug-ins are stopped while everything is still running. If a subscription on the
+> C-DEngine messaging is still open when its plug-in is disposed, it is later released locally only (see
+> [C-DEngine](./messaging.md#c-dengine)).
 
 **Cancellation.** If the host's `ShutdownTimeout` expires during a stop phase, the remaining plug-ins are still
 called, with the canceled token, as the .NET host does with its hosted services. A plug-in whose `StopAsync` takes too
