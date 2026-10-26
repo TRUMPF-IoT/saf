@@ -8,6 +8,7 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using NSubstitute;
+using NSubstitute.ExceptionExtensions;
 using SAF.Cde.Common;
 using SAF.Messaging.Contracts;
 using SAF.Communication.Cde;
@@ -79,6 +80,17 @@ public class TestMessagingCde
         Messaging messaging = new(null, Substitute.For<IServiceMessageDispatcher>(), Substitute.For<IPublisher>(), Substitute.For<ISubscriber>());
 
         Assert.Equal(MessageFormats.Text | MessageFormats.Binary, messaging.GetPublishableFormats("t"));
+    }
+
+    [Fact]
+    public void Subscribe_ThrowsObjectDisposedException_WhenTheSubscriberIsDisposed()
+    {
+        var subscriber = Substitute.For<ISubscriber>();
+        subscriber.Subscribe(Arg.Any<RoutingOptions>(), Arg.Any<string>()).Throws(new ObjectDisposedException(nameof(ISubscriber)));
+        Messaging messaging = new(null, Substitute.For<IServiceMessageDispatcher>(), Substitute.For<IPublisher>(), subscriber);
+
+        Assert.Throws<ObjectDisposedException>(() => messaging.Subscribe<IMessageHandler>("a/b"));
+        Assert.Throws<ObjectDisposedException>(() => messaging.Subscribe("a/b", _ => { }));
     }
 
     [Fact]

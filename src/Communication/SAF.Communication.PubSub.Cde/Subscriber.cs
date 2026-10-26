@@ -73,6 +73,7 @@ public class Subscriber : ISubscriber, IDisposable
 
     public ISubscription Subscribe(RoutingOptions routingOptions, params string[] patterns)
     {
+        ObjectDisposedException.ThrowIf(_disposed, this);
         if (patterns.Length == 0) patterns = ["*"];
 
         var subscription = new Subscription(this, _decoder, routingOptions, patterns);
@@ -179,7 +180,7 @@ public class Subscriber : ISubscriber, IDisposable
         if (topics.Length <= 0) return;
 
         var registries = _registryLifetimeHandler?.Registries
-            .Where(reg => reg.IsRoutingAllowed(routingOptions)).ToList() ?? new List<TSM>();
+            .Where(reg => reg.IsRoutingAllowed(routingOptions)).ToList() ?? [];
         if (registries.Count == 0) return;
 
         var request = CreateSubscriptionRequest(subscriptionId, topics);
@@ -187,13 +188,13 @@ public class Subscriber : ISubscriber, IDisposable
         var requestEvent = new CountdownEvent(registries.Count);
         try
         {
-            lock (_subscriptions) _subscriptions[request.id!] = requestEvent;
+            lock (_subscriptions) _subscriptions[request.id] = requestEvent;
             registries.ForEach(reg => SendSubscribeRequest(reg, request));
             requestEvent.Wait(SubscribeResponseTimeoutMs, linkedCts.Token);
         }
         finally
         {
-            lock (_subscriptions) _subscriptions.Remove(request.id!);
+            lock (_subscriptions) _subscriptions.Remove(request.id);
             requestEvent.Dispose();
             linkedCts.Dispose();
         }

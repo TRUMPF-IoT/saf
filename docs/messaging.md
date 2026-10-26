@@ -324,6 +324,12 @@ the other nodes. This is the case with routes to C-DEngine (`Messaging:PrimaryKe
 owns the routing messaging and disposes it, together with the subscriptions that are still open, after the
 C-DEngine plug-in (see [Shutdown and Disposal](./plugin-system.md#shutdown-and-disposal)). No action is required.
 
+A subscription requested after that is not created: `Subscribe` throws an `ObjectDisposedException`, on the
+C-DEngine messaging as well as on the `Subscriber` of `SAF.Communication.PubSub.Cde`. With routes to C-DEngine, the
+`Subscribe` of the routing messaging passes the exception on. Subscribe in `StartAsync`, while the C-DEngine plug-in
+is running. SAF 10.x threw the exception only for a pattern that was not subscribed yet; for a pattern subscribed
+already it created a subscription that received no messages.
+
 If you load both C-DEngine plug-ins, deploy them to the **host's base directory** (`AppContext.BaseDirectory`),
 preferably through a `PackageReference` in the host, so that `SAF.Cde.Common` and C-DEngine are in the
 host's `deps.json` and both plug-ins share one copy of them. A shared plug-in folder outside the base directory
