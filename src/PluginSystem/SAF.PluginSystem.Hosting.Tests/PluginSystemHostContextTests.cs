@@ -11,6 +11,7 @@ using NSubstitute;
 using Contracts;
 using System.Linq;
 using Testably.Abstractions;
+using TestUtilities;
 
 public class PluginSystemHostContextTests
 {
@@ -75,6 +76,93 @@ public class PluginSystemHostContextTests
         // Assert
         Assert.NotNull(context.PluginConfiguration);
         Assert.Empty(context.PluginConfiguration.GetChildren());
+    }
+
+    [Fact]
+    public void BuildPluginConfiguration_ShouldNotCreateSettingsDirectory_WhenItDoesNotExist()
+    {
+        // Arrange — the application folder may be read-only, so a missing settings directory must not be created.
+        var logger = Substitute.For<MockLogger<PluginSystemHostContext>>();
+        var settingsDirectoryPath = Path.Combine(Path.GetTempPath(), $"saf-missing-plugin-settings-{Guid.NewGuid():N}");
+        var environment = Substitute.For<IPluginSystemHostEnvironment>();
+        environment.EnvironmentName.Returns("Environment");
+        environment.PluginSettingsRootPath.Returns(settingsDirectoryPath);
+        var hostConfiguration = Substitute.For<IConfigurationManager>();
+        var options = new PluginSystemOptions { PluginSettingsFilePath = "settings.json" };
+        var fileSystem = new RealFileSystem();
+        var hostServices = Substitute.For<IServiceProvider>();
+
+        // Act
+        using var context = new PluginSystemHostContext(logger, environment, hostConfiguration, options, fileSystem, hostServices);
+
+        // Assert
+        Assert.False(Directory.Exists(settingsDirectoryPath));
+        Assert.Empty(context.PluginConfiguration.GetChildren());
+        logger.AssertLogged(LogLevel.Information, message => message.Contains("directory not found", StringComparison.Ordinal)
+            && message.Contains(settingsDirectoryPath, StringComparison.Ordinal));
+        logger.AssertNotLogged(message => message.Contains("file not found", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public void BuildPluginConfiguration_PassesNullFileProviderAndFileNameToCustomSources_WhenSettingsDirectoryDoesNotExist()
+    {
+        // Arrange
+        var logger = Substitute.For<ILogger<PluginSystemHostContext>>();
+        var settingsDirectoryPath = Path.Combine(Path.GetTempPath(), $"saf-missing-plugin-settings-{Guid.NewGuid():N}");
+        var environment = Substitute.For<IPluginSystemHostEnvironment>();
+        environment.EnvironmentName.Returns("Environment");
+        environment.PluginSettingsRootPath.Returns(settingsDirectoryPath);
+        var hostConfiguration = Substitute.For<IConfigurationManager>();
+        var options = new PluginSystemOptions { PluginSettingsFilePath = "settings.json" };
+        var fileSystem = new RealFileSystem();
+        var hostServices = Substitute.For<IServiceProvider>();
+
+        PluginConfigurationSourceContext? capturedContext = null;
+        var configureSources = new List<Action<PluginConfigurationSourceContext>>
+        {
+            sourceContext =>
+            {
+                capturedContext = sourceContext;
+                sourceContext.Builder.AddJsonFile(json =>
+                {
+                    json.FileProvider = sourceContext.SettingsFileProvider;
+                    json.Path = "custom.json";
+                    json.Optional = true;
+                    json.ReloadOnChange = true;
+                });
+            },
+        };
+
+        // Act
+        using var context = new PluginSystemHostContext(logger, environment, hostConfiguration, options, fileSystem, hostServices, configureSources);
+
+        // Assert — custom sources keep working as optional sources that find no file.
+        Assert.NotNull(capturedContext);
+        Assert.IsType<NullFileProvider>(capturedContext.SettingsFileProvider);
+        Assert.Equal("settings.json", capturedContext.SettingsFileName);
+        Assert.Empty(context.PluginConfiguration.GetChildren());
+        Assert.False(Directory.Exists(settingsDirectoryPath));
+    }
+
+    [Fact]
+    public void BuildPluginConfiguration_ShouldLogFileNotFound_WhenSettingsDirectoryExistsWithoutFile()
+    {
+        // Arrange — the settings directory is the application's base directory, which always exists.
+        var logger = Substitute.For<MockLogger<PluginSystemHostContext>>();
+        var environment = Substitute.For<IPluginSystemHostEnvironment>();
+        environment.EnvironmentName.Returns("Environment");
+        environment.PluginSettingsRootPath.Returns(AppContext.BaseDirectory);
+        var hostConfiguration = Substitute.For<IConfigurationManager>();
+        var options = new PluginSystemOptions { PluginSettingsFilePath = "nonexistent.json" };
+        var fileSystem = new RealFileSystem();
+        var hostServices = Substitute.For<IServiceProvider>();
+
+        // Act
+        using var context = new PluginSystemHostContext(logger, environment, hostConfiguration, options, fileSystem, hostServices);
+
+        // Assert
+        logger.AssertLogged(LogLevel.Information, message => message.Contains("file not found", StringComparison.Ordinal));
+        logger.AssertNotLogged(message => message.Contains("directory not found", StringComparison.Ordinal));
     }
 
     [Fact]
