@@ -73,6 +73,7 @@ public class Subscriber : ISubscriber, IDisposable
 
     public ISubscription Subscribe(RoutingOptions routingOptions, params string[] patterns)
     {
+        ObjectDisposedException.ThrowIf(_disposed, this);
         if (patterns.Length == 0) patterns = ["*"];
 
         var subscription = new Subscription(this, _decoder, routingOptions, patterns);

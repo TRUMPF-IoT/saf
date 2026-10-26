@@ -260,6 +260,16 @@ public class SubscriptionTests
         Assert.False(dict.ContainsKey(subscription.Id));
     }
 
+    [Fact]
+    public void Subscribe_AfterTheSubscriberIsDisposed_Throws()
+    {
+        // The pattern is subscribed already, so no subscribe request reaches the disposed token source.
+        _subscriber.Subscribe("sensor/*");
+        _subscriber.Dispose();
+
+        Assert.Throws<ObjectDisposedException>(() => _subscriber.Subscribe("sensor/*"));
+    }
+
     private void RaisePublication(string topic, string version, string payload, byte[]? plb = null)
     {
         var messageTxt = $"{MessageToken.Publish}:{new Topic(topic, Guid.NewGuid().ToString("N"), version).ToTsmTxt()}";
