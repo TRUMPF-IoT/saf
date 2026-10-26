@@ -131,10 +131,10 @@ public sealed class PluginSystemHostContext : IPluginSystemHostContext, IDisposa
             options.PluginSettingsFilePath, settingsFilePath);
 
         var settingsDirectoryPath = fileSystem.Path.GetDirectoryName(settingsFilePath) ?? AppContext.BaseDirectory;
-        var settingsFileProvider = CreateSettingsFileProvider(logger, fileSystem, settingsDirectoryPath);
+        var (settingsFileProvider, settingsDirectoryExists) = CreateSettingsFileProvider(logger, fileSystem, settingsDirectoryPath);
         var settingsFileName = fileSystem.Path.GetFileName(settingsFilePath);
 
-        if (settingsFileProvider is PhysicalFileProvider && !fileSystem.File.Exists(settingsFilePath))
+        if (settingsDirectoryExists && !fileSystem.File.Exists(settingsFilePath))
         {
             logger.LogInformation("Plugin configuration file not found: {PluginSettingsFilePath}, {PluginSettingsFileFullName}",
                 options.PluginSettingsFilePath, settingsFilePath);
@@ -148,17 +148,17 @@ public sealed class PluginSystemHostContext : IPluginSystemHostContext, IDisposa
         return (settingsFileProvider, settingsFileName);
     }
 
-    private static IFileProvider CreateSettingsFileProvider(ILogger logger, IFileSystem fileSystem, string settingsDirectoryPath)
+    private static (IFileProvider settingsFileProvider, bool settingsDirectoryExists) CreateSettingsFileProvider(ILogger logger, IFileSystem fileSystem, string settingsDirectoryPath)
     {
         // Never create the directory: the application folder may be read-only.
         if (fileSystem.Directory.Exists(settingsDirectoryPath))
         {
-            return new PhysicalFileProvider(settingsDirectoryPath);
+            return (new PhysicalFileProvider(settingsDirectoryPath), true);
         }
 
         logger.LogInformation("Plugin configuration directory not found: {PluginSettingsDirectoryPath}. No plugin configuration file is loaded.",
             settingsDirectoryPath);
-        return new NullFileProvider();
+        return (new NullFileProvider(), false);
     }
 
     private static void AddCustomPluginConfigurationSources(
