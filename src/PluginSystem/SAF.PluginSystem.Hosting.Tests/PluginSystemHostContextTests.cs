@@ -147,10 +147,11 @@ public class PluginSystemHostContextTests
     [Fact]
     public void BuildPluginConfiguration_ShouldLogFileNotFound_WhenSettingsDirectoryExistsWithoutFile()
     {
-        // Arrange
+        // Arrange — the settings directory is the application's base directory, which always exists.
         var logger = Substitute.For<MockLogger<PluginSystemHostContext>>();
         var environment = Substitute.For<IPluginSystemHostEnvironment>();
         environment.EnvironmentName.Returns("Environment");
+        environment.PluginSettingsRootPath.Returns(AppContext.BaseDirectory);
         var hostConfiguration = Substitute.For<IConfigurationManager>();
         var options = new PluginSystemOptions { PluginSettingsFilePath = "nonexistent.json" };
         var fileSystem = new RealFileSystem();
