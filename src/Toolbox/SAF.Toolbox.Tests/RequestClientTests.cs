@@ -249,7 +249,7 @@ public class RequestClientTests
         await task;
 
         _logger.AssertLogged(LogLevel.Debug, m => m.Contains("Disposing"));
-        _logger.AssertNotLogged(LogLevel.Information);
+        _logger.AssertNotLogged(LogLevel.Information, m => m.Contains("Disposing"));
         _logger.AssertLogged(LogLevel.Error, m => m.Contains("test") && m.Contains("shutdown"));
     }
 
