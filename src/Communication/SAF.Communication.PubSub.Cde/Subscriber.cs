@@ -85,6 +85,7 @@ public class Subscriber : ISubscriber, IDisposable
     public void Unsubscribe(ISubscription subscription)
     {
         // After the SubscriberShutdown broadcast the registries have dropped all subscriptions of this subscriber.
+        // An Unsubscribe racing with Dispose may still send; the registries ignore it.
         if (_subscribers.TryRemove(subscription.Id, out var _) && !_disposed)
         {
             RemoteUnsubscribe(subscription);
