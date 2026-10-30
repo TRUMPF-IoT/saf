@@ -21,6 +21,8 @@ using Xunit;
 /// different than it does today, which is only allowed together with a new <see cref="PubSubVersion"/>.
 /// Accepted reply formats are an optional addition that old peers ignore. <see cref="PubSubVersion.V5"/> adds
 /// binary payloads, which only 11.x peers receive.
+/// The written JSON is compared in its canonical spelling (<see cref="CdeJsonExtensions.ToCanonicalJson"/>):
+/// C-DEngine 7 escapes characters inside strings where C-DEngine 6 wrote them literally, which old peers do not notice.
 /// </summary>
 public class CdeWireFormatGoldenTests
 {
@@ -77,7 +79,7 @@ public class CdeWireFormatGoldenTests
             var tsm = await BroadcastAsync(version, message);
 
             Assert.Equal($"{MessageToken.Publish}:{message.Topic}|{MsgId}|{version}", tsm.TXT);
-            Assert.Equal(GoldenJson(id), tsm.PLS);
+            Assert.Equal(GoldenJson(id).ToCanonicalJson(), tsm.PLS.ToCanonicalJson());
         }
     }
 
@@ -99,7 +101,7 @@ public class CdeWireFormatGoldenTests
         // The batch message id is generated per block and cannot be pinned, the rest of TXT can.
         Assert.StartsWith($"{MessageToken.Publish}:$$batch:size=1$$|", tsm.TXT);
         Assert.EndsWith($"|{PubSubVersion.V4}", tsm.TXT);
-        Assert.Equal($"[{GoldenJson(id)}]", tsm.PLS);
+        Assert.Equal($"[{GoldenJson(id)}]".ToCanonicalJson(), tsm.PLS.ToCanonicalJson());
     }
 
     [Theory]
@@ -112,7 +114,7 @@ public class CdeWireFormatGoldenTests
 
         Assert.StartsWith($"{MessageToken.Publish}:$$batch:size=1$$|", tsm.TXT);
         Assert.EndsWith($"|{PubSubVersion.V5}", tsm.TXT);
-        Assert.Equal($"[{GoldenJson(id)}]", tsm.PLS);
+        Assert.Equal($"[{GoldenJson(id)}]".ToCanonicalJson(), tsm.PLS.ToCanonicalJson());
         Assert.Equal(ExpectedPlb(message), tsm.PLB);
     }
 
@@ -127,7 +129,7 @@ public class CdeWireFormatGoldenTests
         var tsm = await BroadcastAsync("6.0.0", message);
 
         Assert.EndsWith($"|{PubSubVersion.Latest}", tsm.TXT);
-        Assert.Equal($"[{GoldenJson(WireFormatReferenceMessages.Binary)}]", tsm.PLS);
+        Assert.Equal($"[{GoldenJson(WireFormatReferenceMessages.Binary)}]".ToCanonicalJson(), tsm.PLS.ToCanonicalJson());
         Assert.Equal(ExpectedPlb(message), tsm.PLB);
     }
 
@@ -256,9 +258,9 @@ public class CdeWireFormatGoldenTests
     }
 
     /// <summary>
-    /// The recorded JSON of the whole message as C-DEngine's serializer writes it: PascalCase, nulls omitted,
-    /// every non-ASCII character literal - including astral ones, where SAF's own JSON serializer escapes
-    /// them as a surrogate pair. The two serializers are not interchangeable.
+    /// The recorded JSON of the whole message as C-DEngine 6 writes it: PascalCase, nulls omitted, every non-ASCII
+    /// character literal - including astral ones, where SAF's own JSON serializer escapes them as a surrogate pair.
+    /// The two serializers are not interchangeable. The decode tests read it as a C-DEngine 6 peer sends it.
     /// </summary>
     private static string GoldenJson(string id) => id switch
     {

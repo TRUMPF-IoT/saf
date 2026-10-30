@@ -15,13 +15,15 @@ internal sealed class CdeApplication : IDisposable
 {
     private readonly ILogger<CdeApplication> _log;
     private readonly CdeConfiguration _config;
+    private readonly ICdeStartArguments _startArguments;
 
     private TheBaseApplication? _cdeApp;
 
-    public CdeApplication(ILogger<CdeApplication>? log, CdeConfiguration config)
+    public CdeApplication(ILogger<CdeApplication>? log, CdeConfiguration config, ICdeStartArguments startArguments)
     {
         _log = log ?? NullLogger<CdeApplication>.Instance;
         _config = config;
+        _startArguments = startArguments;
     }
 
     public void Start()
@@ -49,19 +51,7 @@ internal sealed class CdeApplication : IDisposable
 
             InitializeServiceHostInfo(config);
 
-            IDictionary<string, string> arguments = new Dictionary<string, string>
-            {
-                { "DontVerifyTrust", $"{config.DontVerifyTrust}" },
-                { "UseUserMapper", $"{config.UseUserMapper}" },
-                { "UseRandomDeviceID", $"{config.UseRandomDeviceId}" },
-                { "AROLE", eEngineName.NMIService + ";" + eEngineName.ContentService },
-                { "SROLE", eEngineName.NMIService + ";" + eEngineName.ContentService }
-            };
-
-            if (!string.IsNullOrEmpty(config.ScopeId))
-                arguments["EasyScope"] = config.ScopeId;
-
-            arguments = MergeDictionaries(arguments, config.AdditionalArguments);
+            var arguments = _startArguments.Create(config);
 
             var app = new TheBaseApplication();
             var startTime = DateTimeOffset.UtcNow;
@@ -123,13 +113,6 @@ internal sealed class CdeApplication : IDisposable
             cryptoLibConfig.AppCertAssemblyPath, cryptoLibConfig.VerifyTrustPath, cryptoLibConfig.DontVerifyIntegrity);
         if (!string.IsNullOrWhiteSpace(error))
             throw new InvalidOperationException($"Failed loading configured crypto DLL: '{error}'");
-    }
-
-    private static IDictionary<string, string> MergeDictionaries(IDictionary<string, string> dict1, IDictionary<string, string> dict2)
-    {
-        return dict1
-            .Concat(dict2.Where(kvp => !dict1.ContainsKey(kvp.Key)))
-            .ToDictionary(kvp => kvp.Key, kvp => kvp.Value);
     }
 
     private static eDEBUG_LEVELS GetDebugLevel(string debugLevel, eDEBUG_LEVELS defaultValue)

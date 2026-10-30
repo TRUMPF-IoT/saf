@@ -12,7 +12,7 @@ internal sealed class CdeApplicationFactory : ICdeRuntimeFactory
 {
     public IDisposable Start(CdeConfiguration configuration, ILoggerFactory loggerFactory)
     {
-        var cdeApp = new CdeApplication(loggerFactory.CreateLogger<CdeApplication>(), configuration);
+        var cdeApp = new CdeApplication(loggerFactory.CreateLogger<CdeApplication>(), configuration, new CdeStartArguments());
         cdeApp.Start();
         return cdeApp;
     }
