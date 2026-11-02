@@ -20,7 +20,7 @@ public class TsmMessageFormatV5Tests
 
         var payload = _v5.Encode(message);
 
-        Assert.Equal("""{"Topic":"saf/wire/text-and-binary","Payload":"{\"name\":\"chunk\"}","CustomProperties":[{"Name":"index","Value":"3"}],"BinaryPayloadLength":5}""", payload.Pls);
+        Assert.Equal("""{"Topic":"saf/wire/text-and-binary","Payload":"{\"name\":\"chunk\"}","CustomProperties":[{"Name":"index","Value":"3"}],"BinaryPayloadLength":5}""".ToCanonicalJson(), payload.Pls!.ToCanonicalJson());
         Assert.Same(message.BinaryPayload, payload.Plb);
     }
 
@@ -44,7 +44,7 @@ public class TsmMessageFormatV5Tests
     }
 
     /// <summary>
-    /// Versions 2 to 4 send this JSON too; <see cref="CdeWireFormatGoldenTests"/> pins its bytes.
+    /// Versions 2 to 4 send this JSON too; <see cref="CdeWireFormatGoldenTests"/> pins its content.
     /// </summary>
     [Fact]
     public void Encode_WritesNoBinaryPartsForATextMessage()

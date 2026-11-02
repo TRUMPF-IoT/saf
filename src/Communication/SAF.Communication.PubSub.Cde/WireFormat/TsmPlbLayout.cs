@@ -10,8 +10,9 @@ namespace SAF.Communication.PubSub.Cde.WireFormat;
 /// </summary>
 /// <remarks>
 /// C-DEngine drops an empty <c>PLB</c>, so empty binary payloads take no bytes; their lengths tell them apart.
-/// C-DEngine (6.112.2 and older) loses a <c>PLB</c> whose length is a whole multiple of its chunk size: it announces
-/// one chunk more than it sends. Its chunk sizes are even, so an odd length is never affected.
+/// C-DEngine before 7.110.3 loses a <c>PLB</c> whose length is a whole multiple of its chunk size: it announces one
+/// chunk more than it sends. A relay splits the <c>PLB</c> again with its own C-DEngine, which may be older. Its chunk
+/// sizes are even, so an odd length is never affected.
 /// </remarks>
 internal sealed class TsmPlbLayout : ITsmPlbLayout
 {

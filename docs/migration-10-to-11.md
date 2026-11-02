@@ -25,6 +25,8 @@ This document describes every breaking change and the steps needed to migrate fr
 | NATS server | Any version | **2.2 or newer**, because `CustomProperties` now travel in NATS headers |
 | Binary payloads on Redis and NATS | Not available | Sent by default; 9.x and 10.x nodes read them as corrupt text, so set `EnableBinaryPayloads` to `false` while they share the server; see [Redis and NATS send binary payloads](#redis-and-nats-send-binary-payloads) |
 | Received messages | A C-DEngine handler could change a batched message without affecting other subscriptions | Messages are read-only on every transport; see [Messages are read-only](#messages-are-read-only) |
+| C-DEngine | 6.112.2 | 7.110.3, .NET 10 only; code that uses C-DEngine directly must be rebuilt; see [SAF uses C-DEngine 7](#saf-uses-c-dengine-7) |
+| JSON reading in C-DEngine | Lenient: values of another type are converted | Strict by default (`Cde:UseStrictJson`); values of another type are rejected, except a number in quotes; see [C-DEngine reads JSON strictly](#c-dengine-reads-json-strictly) |
 | `IRequestClient` | Three `SendRequestAwaitFirstAnswer` methods; the reply topic only in the request object | Additional member `SendRequestAwaitFirstReply`, which only your own implementations of the interface must add; every request also carries `Message.ReplyTo`; see [Requests carry their reply topic in `Message.ReplyTo`](#requests-carry-their-reply-topic-in-messagereplyto) |
 
 ---
@@ -494,6 +496,56 @@ An 11.x node announces the C-DEngine pub/sub version `5.0.0`, which carries bina
 A message with a `BinaryPayload` is not sent to them; the sender logs one warning per such peer, not one per message. No action is
 required, but a feature that sends binary payloads works only between 11.x nodes.
 
+### SAF uses C-DEngine 7
+
+SAF 11.x depends on C-DEngine 7.110.3 instead of 6.112.2. C-DEngine 7 runs on .NET 10 only and writes its JSON
+with System.Text.Json instead of Newtonsoft.Json. Nodes on C-DEngine 5.x and 6.x keep exchanging messages with
+11.x nodes; only the escaping of some characters in the JSON text changes, such as emoji (see
+[C-DEngine](./messaging.md#c-dengine)).
+
+**Required** if your host or your plug-ins use C-DEngine directly:
+
+- Rebuild them against C-DEngine 7.110.3. C-DEngine 7 removed APIs, and code built against 6.x that uses one of
+  them fails only at run time, with a `MissingMethodException` or `MissingFieldException`, for example on
+  `TheCDEngines.eventAllEnginesStarted`. The same holds for C-DEngine plug-ins your host loads and for the crypto
+  library in `Cde:CryptoLibConfig:DllName`: use versions that support C-DEngine 7.
+- Compare JSON written by `TheCommonUtils.SerializeObjectToJSONString` by its content, not as text.
+
+### C-DEngine reads JSON strictly
+
+SAF 11.x starts C-DEngine with strict JSON reading, a new option `Cde:UseStrictJson` that defaults to `true`;
+C-DEngine's own default and 10.x read leniently. A strict node reads JSON without the converters that accept values
+of another type, which saves work on every received frame. Everything that SAF and C-DEngine 5.x to 7.x on .NET
+write is read as before, so a mesh of SAF and C-DEngine nodes needs no change.
+
+JSON whose values do not match the declared types is rejected: a number where a string is expected, `"true"` for a
+boolean, `null` for a number, a GUID in braces. A number in quotes is still read. This applies to everything in the
+process that reads JSON through C-DEngine (`TheCommonUtils.DeserializeJSONStringToObject`), your own code included.
+What a rejection does depends on where the JSON is read:
+
+- In C-DEngine's own fields of a received frame (`TheDeviceMessage` and its `TSM`), C-DEngine drops the whole frame,
+  including the other messages in it. A node that connected as WebSocket client logs error 4361; a node that
+  received the frame on an incoming connection logs error 5059 and answers with error 1710.
+- A direct call to `TheCommonUtils.DeserializeJSONStringToObject`, such as for the payload in `TSM.PLS`, throws a
+  `JsonException`; C-DEngine neither drops nor logs anything. Your code must handle the exception.
+
+**Required** if a node receives JSON from senders other than .NET C-DEngine nodes, such as browser clients,
+scripts or plug-ins of other products, or if your code reads JSON through C-DEngine that it did not write with
+`TheCommonUtils.SerializeObjectToJSONString`: test it with strict reading, or turn strict reading off:
+
+```json
+{
+  "Cde": { "UseStrictJson": false }
+}
+```
+
+`Cde:AdditionalArguments:UseStrictJSON` has no effect: SAF ignores an additional argument with the name of an
+argument it sets itself.
+
+Unit tests usually run without a C-DEngine node, and `TheCommonUtils.DeserializeJSONStringToObject` then reads
+leniently. To test your code as an 11.x node reads, set
+`TheBaseAssets.MyServiceHostInfo = new TheServiceHostInfo(cdeHostType.Application) { UseStrictJSON = true }` first.
+
 ### Redis and NATS send binary payloads
 
 SAF 11.x sends a message with a `BinaryPayload` over Redis and NATS without Base64: on Redis in a binary frame,
@@ -653,6 +705,8 @@ The [shared set](./plugin-system.md#the-shared-set) includes `SAF.PluginSystem.H
 - [ ] Reference `SAF.PluginSystem.Hosting.Extensions` explicitly if you use plugin assembly validation, and check the `RequireValidDigitalSignature = true` default against the signatures your plug-ins actually carry
 - [ ] Forward any additional host service your plug-ins need with `AddHostServiceForwarder<T>()` — v10's single shared container needed no such step
 - [ ] Replace `using SAF.Messaging.Cde;` with `using SAF.Cde.Common;` wherever you use `CdeConfiguration` or `CdeCryptoLibConfig`
+- [ ] If your host or plug-ins use C-DEngine directly, rebuild them against C-DEngine 7.110.3, and use C-DEngine plug-ins and a crypto library that support C-DEngine 7
+- [ ] If a C-DEngine node receives JSON from senders other than .NET C-DEngine nodes, or your code reads foreign JSON through C-DEngine, test it with strict JSON reading or set `Cde:UseStrictJson` to `false`
 - [ ] If you use NATS, run NATS Server 2.2 or newer
 - [ ] If 9.x or 10.x nodes share a Redis or NATS server with 11.x nodes, set `EnableBinaryPayloads` to `false` on the 11.x nodes until all nodes run 11.x
 - [ ] Make sure no handler changes a `Message` it receives; create a new one instead
