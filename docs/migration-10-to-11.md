@@ -26,7 +26,7 @@ This document describes every breaking change and the steps needed to migrate fr
 | Binary payloads on Redis and NATS | Not available | Sent by default; 9.x and 10.x nodes read them as corrupt text, so set `EnableBinaryPayloads` to `false` while they share the server; see [Redis and NATS send binary payloads](#redis-and-nats-send-binary-payloads) |
 | Received messages | A C-DEngine handler could change a batched message without affecting other subscriptions | Messages are read-only on every transport; see [Messages are read-only](#messages-are-read-only) |
 | C-DEngine | 6.112.2 | 7.110.3, .NET 10 only; code that uses C-DEngine directly must be rebuilt; see [SAF uses C-DEngine 7](#saf-uses-c-dengine-7) |
-| JSON reading in C-DEngine | Lenient: values of another type are converted | Strict by default (`Cde:UseStrictJson`); a received frame with such values is dropped; see [C-DEngine reads JSON strictly](#c-dengine-reads-json-strictly) |
+| JSON reading in C-DEngine | Lenient: values of another type are converted | Strict by default (`Cde:UseStrictJson`); values of another type are rejected, except a number in quotes; see [C-DEngine reads JSON strictly](#c-dengine-reads-json-strictly) |
 | `IRequestClient` | Three `SendRequestAwaitFirstAnswer` methods; the reply topic only in the request object | Additional member `SendRequestAwaitFirstReply`, which only your own implementations of the interface must add; every request also carries `Message.ReplyTo`; see [Requests carry their reply topic in `Message.ReplyTo`](#requests-carry-their-reply-topic-in-messagereplyto) |
 
 ---
@@ -514,14 +514,20 @@ with System.Text.Json instead of Newtonsoft.Json. Nodes on C-DEngine 5.x and 6.x
 ### C-DEngine reads JSON strictly
 
 SAF 11.x starts C-DEngine with strict JSON reading, a new option `Cde:UseStrictJson` that defaults to `true`;
-C-DEngine's own default and 10.x read leniently. A strict node no longer converts JSON values of another type, which
-saves work on every received frame. Everything that SAF and C-DEngine 5.x to 7.x on .NET write is read as before,
-so a mesh of SAF and C-DEngine nodes needs no change.
+C-DEngine's own default and 10.x read leniently. A strict node reads JSON without the converters that accept values
+of another type, which saves work on every received frame. Everything that SAF and C-DEngine 5.x to 7.x on .NET
+write is read as before, so a mesh of SAF and C-DEngine nodes needs no change.
 
-JSON whose values do not match the declared types is rejected: a number in quotes, `"true"` for a boolean, `null`
-for a number, a GUID in braces. C-DEngine then drops the whole received frame, including the other messages in it,
-and logs error 4361. This applies to everything in the process that reads JSON through C-DEngine
-(`TheCommonUtils.DeserializeJSONStringToObject`), your own code included.
+JSON whose values do not match the declared types is rejected: a number where a string is expected, `"true"` for a
+boolean, `null` for a number, a GUID in braces. A number in quotes is still read. This applies to everything in the
+process that reads JSON through C-DEngine (`TheCommonUtils.DeserializeJSONStringToObject`), your own code included.
+What a rejection does depends on where the JSON is read:
+
+- In C-DEngine's own fields of a received frame (`TheDeviceMessage` and its `TSM`), C-DEngine drops the whole frame,
+  including the other messages in it. A node that connected as WebSocket client logs error 4361; a node that
+  received the frame on an incoming connection logs error 5059 and answers with error 1710.
+- A direct call to `TheCommonUtils.DeserializeJSONStringToObject`, such as for the payload in `TSM.PLS`, throws a
+  `JsonException`; C-DEngine neither drops nor logs anything. Your code must handle the exception.
 
 **Required** if a node receives JSON from senders other than .NET C-DEngine nodes, such as browser clients,
 scripts or plug-ins of other products, or if your code reads JSON through C-DEngine that it did not write with

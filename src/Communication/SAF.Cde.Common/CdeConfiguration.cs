@@ -35,8 +35,10 @@ public class CdeConfiguration
     public bool DontVerifyTrust { get; set; }
 
     /// <summary>
-    /// Reads JSON without the converters that accept values of another type; a received frame with such JSON is
-    /// dropped. C-DEngine itself defaults to <see langword="false"/>.
+    /// Reads JSON without the converters that accept values of another type; only a number in quotes is still read.
+    /// C-DEngine drops a received frame with such a value in its own fields, and
+    /// <c>TheCommonUtils.DeserializeJSONStringToObject</c> throws a <see cref="System.Text.Json.JsonException"/> for
+    /// it. C-DEngine itself defaults to <see langword="false"/>.
     /// </summary>
     public bool UseStrictJson { get; set; } = true;
 

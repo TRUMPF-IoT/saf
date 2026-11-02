@@ -291,10 +291,16 @@ space or a byte order mark. Older nodes read them as before.
 SAF starts C-DEngine with **strict JSON reading** (`Cde:UseStrictJson`, default `true`; C-DEngine's own default is
 `false`). C-DEngine then reads JSON without the converters that accept values of another type, which saves work on
 every received frame. A strict node reads everything that SAF and C-DEngine 5.x to 7.x on .NET write. It rejects
-JSON whose values do not match the declared types, such as a number in quotes, `"true"` for a boolean, `null` for a
-number or a GUID in braces. It then drops the whole received frame, including the other messages in it, and logs
-error 4361 in the C-DEngine log. Strict reading applies to everything in the process that reads JSON through
-C-DEngine (`TheCommonUtils.DeserializeJSONStringToObject`), not only to SAF messages.
+JSON whose values do not match the declared types, such as a number where a string is expected, `"true"` for a
+boolean, `null` for a number or a GUID in braces; a number in quotes is still read. Strict reading applies to
+everything in the process that reads JSON through C-DEngine (`TheCommonUtils.DeserializeJSONStringToObject`), not
+only to SAF messages. What a rejection does depends on where the JSON is read:
+
+- **In C-DEngine's own fields of a received frame** (`TheDeviceMessage` and its `TSM`): C-DEngine drops the whole
+  frame, including the other messages in it. A node that connected as WebSocket client logs error 4361 in the
+  C-DEngine log; a node that received the frame on an incoming connection logs error 5059 and answers with error 1710.
+- **In a direct call** to `TheCommonUtils.DeserializeJSONStringToObject`, such as for the payload in `TSM.PLS`: the
+  call throws a `JsonException`, and C-DEngine neither drops nor logs anything.
 
 Turn it off where a node receives JSON from other senders, such as browser clients, scripts or plug-ins of other
 products, or where your own code reads JSON through C-DEngine that may not match the declared types:
