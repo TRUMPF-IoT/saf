@@ -13,7 +13,7 @@ internal sealed class CdeStartArguments : ICdeStartArguments
 {
     public IDictionary<string, string> Create(CdeConfiguration configuration)
     {
-        IDictionary<string, string> arguments = new Dictionary<string, string>
+        var arguments = new Dictionary<string, string>
         {
             { "DontVerifyTrust", $"{configuration.DontVerifyTrust}" },
             { "UseUserMapper", $"{configuration.UseUserMapper}" },
@@ -29,7 +29,7 @@ internal sealed class CdeStartArguments : ICdeStartArguments
         return MergeDictionaries(arguments, configuration.AdditionalArguments);
     }
 
-    private static IDictionary<string, string> MergeDictionaries(IDictionary<string, string> dict1, IDictionary<string, string> dict2)
+    private static Dictionary<string, string> MergeDictionaries(Dictionary<string, string> dict1, IDictionary<string, string> dict2)
     {
         return dict1
             .Concat(dict2.Where(kvp => !dict1.ContainsKey(kvp.Key)))
