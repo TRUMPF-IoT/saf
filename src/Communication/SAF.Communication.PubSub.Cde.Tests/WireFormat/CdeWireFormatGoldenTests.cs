@@ -22,7 +22,8 @@ using Xunit;
 /// Accepted reply formats are an optional addition that old peers ignore. <see cref="PubSubVersion.V5"/> adds
 /// binary payloads, which only 11.x peers receive.
 /// The written JSON is compared in its canonical spelling (<see cref="CdeJsonExtensions.ToCanonicalJson"/>):
-/// C-DEngine 7 escapes characters inside strings where C-DEngine 6 wrote them literally, which old peers do not notice.
+/// C-DEngine 7 escapes some characters inside strings, such as emoji, where C-DEngine 6 wrote them literally, which old
+/// peers do not notice.
 /// </summary>
 public class CdeWireFormatGoldenTests
 {

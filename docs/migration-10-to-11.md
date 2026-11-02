@@ -25,7 +25,7 @@ This document describes every breaking change and the steps needed to migrate fr
 | NATS server | Any version | **2.2 or newer**, because `CustomProperties` now travel in NATS headers |
 | Binary payloads on Redis and NATS | Not available | Sent by default; 9.x and 10.x nodes read them as corrupt text, so set `EnableBinaryPayloads` to `false` while they share the server; see [Redis and NATS send binary payloads](#redis-and-nats-send-binary-payloads) |
 | Received messages | A C-DEngine handler could change a batched message without affecting other subscriptions | Messages are read-only on every transport; see [Messages are read-only](#messages-are-read-only) |
-| C-DEngine | 6.112.2 | 7.110.1, .NET 10 only; code that uses C-DEngine directly must be rebuilt; see [SAF uses C-DEngine 7](#saf-uses-c-dengine-7) |
+| C-DEngine | 6.112.2 | 7.110.3, .NET 10 only; code that uses C-DEngine directly must be rebuilt; see [SAF uses C-DEngine 7](#saf-uses-c-dengine-7) |
 | JSON reading in C-DEngine | Lenient: values of another type are converted | Strict by default (`Cde:UseStrictJson`); a received frame with such values is dropped; see [C-DEngine reads JSON strictly](#c-dengine-reads-json-strictly) |
 | `IRequestClient` | Three `SendRequestAwaitFirstAnswer` methods; the reply topic only in the request object | Additional member `SendRequestAwaitFirstReply`, which only your own implementations of the interface must add; every request also carries `Message.ReplyTo`; see [Requests carry their reply topic in `Message.ReplyTo`](#requests-carry-their-reply-topic-in-messagereplyto) |
 
@@ -498,21 +498,18 @@ required, but a feature that sends binary payloads works only between 11.x nodes
 
 ### SAF uses C-DEngine 7
 
-SAF 11.x depends on C-DEngine 7.110.1 instead of 6.112.2. C-DEngine 7 runs on .NET 10 only and writes its JSON
+SAF 11.x depends on C-DEngine 7.110.3 instead of 6.112.2. C-DEngine 7 runs on .NET 10 only and writes its JSON
 with System.Text.Json instead of Newtonsoft.Json. Nodes on C-DEngine 5.x and 6.x keep exchanging messages with
-11.x nodes; only the escaping in the JSON text changes (see [C-DEngine](./messaging.md#c-dengine)).
+11.x nodes; only the escaping of some characters in the JSON text changes, such as emoji (see
+[C-DEngine](./messaging.md#c-dengine)).
 
 **Required** if your host or your plug-ins use C-DEngine directly:
 
-- Rebuild them against C-DEngine 7.110.1. C-DEngine 7 removed APIs, and code built against 6.x that uses one of
+- Rebuild them against C-DEngine 7.110.3. C-DEngine 7 removed APIs, and code built against 6.x that uses one of
   them fails only at run time, with a `MissingMethodException` or `MissingFieldException`, for example on
   `TheCDEngines.eventAllEnginesStarted`. The same holds for C-DEngine plug-ins your host loads and for the crypto
   library in `Cde:CryptoLibConfig:DllName`: use versions that support C-DEngine 7.
 - Compare JSON written by `TheCommonUtils.SerializeObjectToJSONString` by its content, not as text.
-- `TheCommonUtils.DeserializeJSONStringToObject` throws a `NullReferenceException` while no C-DEngine node runs in
-  the process, because it reads `TheBaseAssets.MyServiceHostInfo`. Unit tests that call it without a node set
-  `TheBaseAssets.MyServiceHostInfo = new TheServiceHostInfo(cdeHostType.Application) { UseStrictJSON = true }`
-  first, which reads JSON as an 11.x node does.
 
 ### C-DEngine reads JSON strictly
 
@@ -538,6 +535,10 @@ scripts or plug-ins of other products, or if your code reads JSON through C-DEng
 
 `Cde:AdditionalArguments:UseStrictJSON` has no effect: SAF ignores an additional argument with the name of an
 argument it sets itself.
+
+Unit tests usually run without a C-DEngine node, and `TheCommonUtils.DeserializeJSONStringToObject` then reads
+leniently. To test your code as an 11.x node reads, set
+`TheBaseAssets.MyServiceHostInfo = new TheServiceHostInfo(cdeHostType.Application) { UseStrictJSON = true }` first.
 
 ### Redis and NATS send binary payloads
 
@@ -698,7 +699,7 @@ The [shared set](./plugin-system.md#the-shared-set) includes `SAF.PluginSystem.H
 - [ ] Reference `SAF.PluginSystem.Hosting.Extensions` explicitly if you use plugin assembly validation, and check the `RequireValidDigitalSignature = true` default against the signatures your plug-ins actually carry
 - [ ] Forward any additional host service your plug-ins need with `AddHostServiceForwarder<T>()` — v10's single shared container needed no such step
 - [ ] Replace `using SAF.Messaging.Cde;` with `using SAF.Cde.Common;` wherever you use `CdeConfiguration` or `CdeCryptoLibConfig`
-- [ ] If your host or plug-ins use C-DEngine directly, rebuild them against C-DEngine 7.110.1, and use C-DEngine plug-ins and a crypto library that support C-DEngine 7
+- [ ] If your host or plug-ins use C-DEngine directly, rebuild them against C-DEngine 7.110.3, and use C-DEngine plug-ins and a crypto library that support C-DEngine 7
 - [ ] If a C-DEngine node receives JSON from senders other than .NET C-DEngine nodes, or your code reads foreign JSON through C-DEngine, test it with strict JSON reading or set `Cde:UseStrictJson` to `false`
 - [ ] If you use NATS, run NATS Server 2.2 or newer
 - [ ] If 9.x or 10.x nodes share a Redis or NATS server with 11.x nodes, set `EnableBinaryPayloads` to `false` on the 11.x nodes until all nodes run 11.x

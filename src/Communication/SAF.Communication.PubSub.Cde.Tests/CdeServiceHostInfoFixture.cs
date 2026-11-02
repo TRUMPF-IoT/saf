@@ -10,9 +10,9 @@ using nsCDEngine.BaseClasses;
 using nsCDEngine.ViewModels;
 
 /// <summary>
-/// C-DEngine 7 reads its JSON options from <see cref="TheBaseAssets.MyServiceHostInfo"/> and throws a
-/// <see cref="NullReferenceException"/> without it. A started node sets it; these tests use C-DEngine's serializer
-/// without a node, so they get a host info of their own. It reads JSON strictly, as a SAF node does by default.
+/// Makes C-DEngine read JSON strictly, as a SAF node does by default. C-DEngine takes the option from
+/// <see cref="TheBaseAssets.MyServiceHostInfo"/>, which only a started node sets, and reads leniently without it;
+/// these tests use C-DEngine's serializer without a node.
 /// </summary>
 public sealed class CdeServiceHostInfoFixture : IDisposable
 {
