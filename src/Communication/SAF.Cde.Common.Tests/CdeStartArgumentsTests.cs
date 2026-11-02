@@ -7,12 +7,10 @@ using Xunit;
 
 public class CdeStartArgumentsTests
 {
-    private readonly CdeStartArguments _startArguments = new();
-
     [Fact]
     public void Create_ReadsJsonStrictly_ByDefault()
     {
-        var arguments = _startArguments.Create(new CdeConfiguration());
+        var arguments = new CdeStartArguments(new CdeConfiguration()).Create();
 
         Assert.Equal("True", arguments["UseStrictJSON"]);
     }
@@ -20,7 +18,7 @@ public class CdeStartArgumentsTests
     [Fact]
     public void Create_ReadsJsonLeniently_WhenUseStrictJsonIsOff()
     {
-        var arguments = _startArguments.Create(new CdeConfiguration { UseStrictJson = false });
+        var arguments = new CdeStartArguments(new CdeConfiguration { UseStrictJson = false }).Create();
 
         Assert.Equal("False", arguments["UseStrictJSON"]);
     }
@@ -33,7 +31,7 @@ public class CdeStartArgumentsTests
             AdditionalArguments = new Dictionary<string, string> { ["UseStrictJSON"] = "False", ["key"] = "value" }
         };
 
-        var arguments = _startArguments.Create(configuration);
+        var arguments = new CdeStartArguments(configuration).Create();
 
         Assert.Equal("True", arguments["UseStrictJSON"]);
         Assert.Equal("value", arguments["key"]);
@@ -42,7 +40,7 @@ public class CdeStartArgumentsTests
     [Fact]
     public void Create_PassesTheScopeIdAsEasyScope()
     {
-        var arguments = _startArguments.Create(new CdeConfiguration { ScopeId = "4711" });
+        var arguments = new CdeStartArguments(new CdeConfiguration { ScopeId = "4711" }).Create();
 
         Assert.Equal("4711", arguments["EasyScope"]);
     }

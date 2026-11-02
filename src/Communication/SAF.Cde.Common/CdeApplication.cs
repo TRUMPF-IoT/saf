@@ -15,15 +15,13 @@ internal sealed class CdeApplication : IDisposable
 {
     private readonly ILogger<CdeApplication> _log;
     private readonly CdeConfiguration _config;
-    private readonly ICdeStartArguments _startArguments;
 
     private TheBaseApplication? _cdeApp;
 
-    public CdeApplication(ILogger<CdeApplication>? log, CdeConfiguration config, ICdeStartArguments startArguments)
+    public CdeApplication(ILogger<CdeApplication>? log, CdeConfiguration config)
     {
         _log = log ?? NullLogger<CdeApplication>.Instance;
         _config = config;
-        _startArguments = startArguments;
     }
 
     public void Start()
@@ -51,7 +49,7 @@ internal sealed class CdeApplication : IDisposable
 
             InitializeServiceHostInfo(config);
 
-            var arguments = _startArguments.Create(config);
+            var arguments = new CdeStartArguments(config).Create();
 
             var app = new TheBaseApplication();
             var startTime = DateTimeOffset.UtcNow;

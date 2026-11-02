@@ -9,9 +9,12 @@ using nsCDEngine.BaseClasses;
 /// Maps the <see cref="CdeConfiguration"/> to C-DEngine arguments. An additional argument with the name of an
 /// argument set here is ignored.
 /// </summary>
-internal sealed class CdeStartArguments : ICdeStartArguments
+internal sealed class CdeStartArguments(CdeConfiguration configuration)
 {
-    public IDictionary<string, string> Create(CdeConfiguration configuration)
+    /// <summary>
+    /// Creates the arguments C-DEngine is started with.
+    /// </summary>
+    public Dictionary<string, string> Create()
     {
         var arguments = new Dictionary<string, string>
         {
