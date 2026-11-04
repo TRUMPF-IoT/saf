@@ -7,6 +7,7 @@ These rules apply to **all** AI agents that create or modify changes in this rep
 1. For **every functional or technical code change**, the corresponding documentation in the `/docs` subfolder must be created or updated.
 2. A pull request or commit containing code changes is **incomplete** if it does not include a matching documentation update in `/docs`.
 3. Documentation-only changes are exempt (when no code has been changed).
+4. Dependency version updates are exempt if they do not change SAF's public API, behavior, or configuration. Document an update only if SAF users must act on it (e.g., a new major version of a shared assembly, or a changed default).
 
 ## Audience and focus of documentation in `/docs`
 
