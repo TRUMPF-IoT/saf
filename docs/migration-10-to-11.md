@@ -27,6 +27,7 @@ This document describes every breaking change and the steps needed to migrate fr
 | Received messages | A C-DEngine handler could change a batched message without affecting other subscriptions | Messages are read-only on every transport; see [Messages are read-only](#messages-are-read-only) |
 | C-DEngine | 6.112.2 | 7.110.3, .NET 10 only; code that uses C-DEngine directly must be rebuilt; see [SAF uses C-DEngine 7](#saf-uses-c-dengine-7) |
 | JSON reading in C-DEngine | Lenient: values of another type are converted | Strict by default (`Cde:UseStrictJson`); values of another type are rejected, except a number in quotes; see [C-DEngine reads JSON strictly](#c-dengine-reads-json-strictly) |
+| File receivers | Completed a file wherever its name or a `TargetFilePathResolved` handler pointed | Only inside the folder passed to `CreateForFolder`; other files are refused; see [File receivers write only inside their folder](#file-receivers-write-only-inside-their-folder) |
 | `IRequestClient` | Three `SendRequestAwaitFirstAnswer` methods; the reply topic only in the request object | Additional member `SendRequestAwaitFirstReply`, which only your own implementations of the interface must add; every request also carries `Message.ReplyTo`; see [Requests carry their reply topic in `Message.ReplyTo`](#requests-carry-their-reply-topic-in-messagereplyto) |
 
 ---
@@ -638,6 +639,20 @@ treats it like `Failed`.
 Files of 4 GiB or more sent to a 10.x receiver can still arrive corrupt; see
 [Transfers With Older Nodes](./toolbox.md#transfers-with-older-nodes). No action is required otherwise.
 
+### File receivers write only inside their folder
+
+In 10.x, a stateful file receiver completed a file wherever the file name from the sender or a
+`TargetFilePathResolved` handler pointed, also outside the folder passed to `CreateForFolder`. An 11.x receiver
+refuses such a file: it logs a warning and raises neither `BeforeFileReceived` nor `FileReceived`, and `SendAsync`
+on the sender returns `FileTransferStatus.Error`. Files sent with `IFileSender` of any version pass, because it sends
+the file name without its directory. A target path that spells the folder in another case is completed in the
+folder's own spelling, which `FileReceivedEventArgs.LocalFileFullName` reports. An event handler that changes
+`TransportFile.FileName` or `TransportFile.FileId` no longer changes where the receiver writes and deletes the state
+files. See [Target Paths](./toolbox.md#target-paths).
+
+**Required:** only if a `TargetFilePathResolved` handler moves files out of the receiver's folder: create the
+receiver for a folder that contains all target paths, or one receiver per folder.
+
 ### Digital-signature validation is secure by default
 
 `DigitalSignaturePluginAssemblyValidatorOptions.RequireValidDigitalSignature` defaults to `true`, so registering the validator without configuration demands a signature that is intact, covers the file and chains to a trusted root. Check that against the signatures your plug-ins actually carry before enabling the validator: unsigned plug-ins, and plug-ins whose signer chains to a root the host does not trust, are skipped with a warning.
@@ -715,3 +730,4 @@ The [shared set](./plugin-system.md#the-shared-set) includes `SAF.PluginSystem.H
 - [ ] Before a responder replies with a binary payload, check `message.AcceptsReplyFormat(MessageFormats.Binary)` and `messaging.GetPublishableFormats(message.ReplyTo)`
 - [ ] If you implement `IMessagingInfrastructure` and it sends `Message.BinaryPayload`, implement `GetPublishableFormats`
 - [ ] While 10.x nodes receive files of 4 GiB or more, check those files against `FileReceivedEventArgs.File.ContentHash`
+- [ ] If a `TargetFilePathResolved` handler moves received files out of the receiver's folder, create the receiver for a folder that contains them
