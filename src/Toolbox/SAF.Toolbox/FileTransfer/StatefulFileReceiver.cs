@@ -17,7 +17,7 @@ public class StatefulFileReceiver : IStatefulFileReceiver
     private readonly ILogger<StatefulFileReceiver> _log;
     private readonly IFileSystem _fileSystem;
     private readonly FileReceiverOptions _options;
-    private readonly string _folderPath;
+    private readonly ReceiverFolder _folder;
     private readonly TimeProvider _timeProvider;
     private readonly IHeartbeat? _heartbeat;
 
@@ -43,7 +43,7 @@ public class StatefulFileReceiver : IStatefulFileReceiver
         _log = log;
         _fileSystem = fileSystem;
         _options = options;
-        _folderPath = fileSystem.Path.GetFullPath(folderPath);
+        _folder = new ReceiverFolder(fileSystem, folderPath);
         _timeProvider = timeProvider;
 
         if (options.StateExpirationAfterHours != 0)
@@ -60,8 +60,14 @@ public class StatefulFileReceiver : IStatefulFileReceiver
         using var _ = _lockManager.Acquire(file.FileId);
 
         var targetFilePath = ResolveTargetFilePath(file);
+        if (targetFilePath == null)
+        {
+            // Nothing is received for a refused file. Its chunks are refused as well, so the sender reports an error.
+            return new FileReceiverState();
+        }
+
         var targetFileInfo = _fileSystem.FileInfo.New(targetFilePath);
-        
+
         _log.LogDebug("Sender requests transfer state for file {FileName}", targetFileInfo.FullName);
 
         if (targetFileInfo.Exists && file.ContentLength == targetFileInfo.Length && file.ContentHash == targetFileInfo.GetContentHash())
@@ -107,6 +113,11 @@ public class StatefulFileReceiver : IStatefulFileReceiver
             using var _ = _lockManager.Acquire(file.FileId);
 
             var targetFilePath = ResolveTargetFilePath(file);
+            if (targetFilePath == null)
+            {
+                return FileReceiverStatus.Failed;
+            }
+
             var targetFileDirectory = _fileSystem.Path.GetDirectoryName(targetFilePath)!;
             var tempTargetFilePath = file.GetTempTargetFilePath(_fileSystem, targetFileDirectory);
             var metaTargetFilePath = file.GetMetadataTargetFilePath(_fileSystem, targetFileDirectory);
@@ -175,11 +186,29 @@ public class StatefulFileReceiver : IStatefulFileReceiver
         }
     }
 
-    private string ResolveTargetFilePath(TransportFile file)
+    // The path the file is completed at, or null if the file is refused: its name or id holds a path, or the target
+    // path, possibly changed by a TargetFilePathResolved handler, lies outside the receiver's folder.
+    private string? ResolveTargetFilePath(TransportFile file)
     {
-        var eventArgs = new TargetFilePathResolvedEventArgs(file, file.GetTargetFilePath(_fileSystem, _folderPath));
+        if (!_folder.IsSingleSegment(file.FileName) || !_folder.IsSingleSegment(file.FileId))
+        {
+            _log.LogWarning("Refused file {FileName} with id {FileId}: a file name or id must not contain a path.",
+                file.FileName, file.FileId);
+            return null;
+        }
+
+        var eventArgs = new TargetFilePathResolvedEventArgs(file, file.GetTargetFilePath(_fileSystem, _folder.FullPath));
         TargetFilePathResolved?.Invoke(this, eventArgs);
-        return _fileSystem.Path.GetFullPath(eventArgs.TargetFilePath);
+        var targetFilePath = _fileSystem.Path.GetFullPath(eventArgs.TargetFilePath);
+
+        if (!_folder.Contains(targetFilePath))
+        {
+            _log.LogWarning("Refused file {FileName}: its target path {TargetFilePath} is outside the receiver folder {FileReceiverFolder}.",
+                file.FileName, targetFilePath, _folder.FullPath);
+            return null;
+        }
+
+        return targetFilePath;
     }
 
     private void CompleteFileTransfer(TransportFile file, string sourceFilePath, string targetFilePath)
@@ -292,14 +321,14 @@ public class StatefulFileReceiver : IStatefulFileReceiver
 
         try
         {
-            if (!_fileSystem.Directory.Exists(_folderPath))
+            if (!_fileSystem.Directory.Exists(_folder.FullPath))
             {
-                _log.LogDebug("Nothing to clean-up: Folder {FileReceiverFolder} does not exist", _folderPath);
+                _log.LogDebug("Nothing to clean-up: Folder {FileReceiverFolder} does not exist", _folder.FullPath);
                 return;
             }
 
-            var tempFiles = _fileSystem.Directory.GetFiles(_folderPath, "*.temp", new EnumerationOptions { RecurseSubdirectories = true });
-            var metadataFiles = _fileSystem.Directory.GetFiles(_folderPath, "*.meta", new EnumerationOptions { RecurseSubdirectories = true });
+            var tempFiles = _fileSystem.Directory.GetFiles(_folder.FullPath, "*.temp", new EnumerationOptions { RecurseSubdirectories = true });
+            var metadataFiles = _fileSystem.Directory.GetFiles(_folder.FullPath, "*.meta", new EnumerationOptions { RecurseSubdirectories = true });
 
             foreach (var fileInfo in tempFiles.Concat(metadataFiles).Select(fn => _fileSystem.FileInfo.New(fn)))
             {
@@ -321,7 +350,7 @@ public class StatefulFileReceiver : IStatefulFileReceiver
         }
         catch (Exception ex)
         {
-            _log.LogError(ex, "Failed to delete file receiver states in folder {FileReceiverFolder}", _folderPath);
+            _log.LogError(ex, "Failed to delete file receiver states in folder {FileReceiverFolder}", _folder.FullPath);
         }
     }
 }

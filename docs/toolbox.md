@@ -389,6 +389,25 @@ differ, the receiver:
 
 To recover, call `SendAsync` again.
 
+### Target Paths
+
+A receiver completes files only inside the folder it was created for (`CreateForFolder(folderPath)`), including its
+subfolders. Because the sender names the file, the receiver refuses a file if:
+
+- `TransportFile.FileName` or `TransportFile.FileId` is not a plain name: it is empty, `.` or `..`, or contains a
+  directory or drive separator or another character the platform does not allow in file names. `IFileSender` sends
+  the file name without its directory, so its files pass;
+- the target path lies outside the folder or is the folder itself, also after a `TargetFilePathResolved` handler
+  changed it. A handler can move a file into a subfolder, for example one named by a `TransportFile.Properties` value,
+  but not out of the folder.
+
+For a refused file, the receiver logs a warning, tells the sender it has received nothing, answers every chunk with
+`FileReceiverStatus.Failed`, and raises neither `BeforeFileReceived` nor `FileReceived`. `SendAsync` returns
+`FileTransferStatus.Error`.
+
+To deliver files to several folders, keep them below one folder and pass that to `CreateForFolder`, or create one
+receiver per folder. The check compares paths; it does not resolve symbolic links inside the folder.
+
 ### Transfers With Older Nodes
 
 Before 11.x, a resumed transfer sent each missing chunk with the data of another chunk, and the receiver completed a

@@ -11,6 +11,7 @@ using Microsoft.Extensions.Options;
 using NSubstitute.ExceptionExtensions;
 using SAF.Toolbox.Heartbeat;
 using System.IO.Abstractions;
+using System.Security.Cryptography;
 using Xunit;
 using TimeProvider = System.TimeProvider;
 
@@ -633,6 +634,119 @@ public class StatefulFileReceiverTests
         Assert.False(_fileSystem.File.Exists(_defaultTestFilePath));
         Assert.False(_fileSystem.File.Exists(file.GetTempTargetFilePath(_fileSystem, DefaultFolderPath)));
         Assert.False(_fileSystem.File.Exists(file.GetMetadataTargetFilePath(_fileSystem, DefaultFolderPath)));
+    }
+
+    // Names a sender could use to place the file outside the receiver's folder, or into a subfolder of it.
+    public static TheoryData<string> NamesWithAPath =>
+    [
+        "",
+        ".",
+        "..",
+        "sub/file.txt",
+        Path.Combine("..", "file.txt"),
+        Path.Combine("sub", "file.txt"),
+        Path.GetFullPath("file.txt")
+    ];
+
+    [Theory]
+    [MemberData(nameof(NamesWithAPath))]
+    public void WriteFile_RefusesTheFile_WhenItsNameHoldsAPath(string fileName)
+    {
+        var (file, chunk) = MatchingTransfer(fileName, "fileId");
+        using var receiver = new StatefulFileReceiver(_logger, _fileSystem, _options.Value, _heartbeatPool, DefaultFolderPath);
+        var events = RecordEvents(receiver);
+
+        Assert.Equal(FileReceiverStatus.Failed, receiver.WriteFile(file, chunk));
+        Assert.Empty(events);
+        Assert.Empty(AllFiles());
+    }
+
+    [Theory]
+    [MemberData(nameof(NamesWithAPath))]
+    public void WriteFile_RefusesTheFile_WhenItsIdHoldsAPath(string fileId)
+    {
+        var (file, chunk) = MatchingTransfer("file.txt", fileId);
+        using var receiver = new StatefulFileReceiver(_logger, _fileSystem, _options.Value, _heartbeatPool, DefaultFolderPath);
+        var events = RecordEvents(receiver);
+
+        Assert.Equal(FileReceiverStatus.Failed, receiver.WriteFile(file, chunk));
+        Assert.Empty(events);
+        Assert.Empty(AllFiles());
+    }
+
+    [Fact]
+    public void GetState_ReportsNothingReceived_ForAMatchingFileOutsideTheFolder()
+    {
+        AddFile("outside.txt", "content");
+        _fileSystem.Directory.CreateDirectory(DefaultFolderPath);
+        var (file, _) = MatchingTransfer(Path.Combine("..", "outside.txt"), "fileId");
+        using var receiver = new StatefulFileReceiver(_logger, _fileSystem, _options.Value, _heartbeatPool, DefaultFolderPath);
+        var events = RecordEvents(receiver);
+
+        var state = receiver.GetState(file);
+
+        Assert.False(state.FileExists);
+        Assert.Empty(state.TransmittedChunks);
+        Assert.Empty(events);
+    }
+
+    // Target paths a TargetFilePathResolved handler could set outside the receiver's folder.
+    public static TheoryData<string> TargetsOutsideTheFolder =>
+    [
+        DefaultFolderPath,
+        Path.Combine(DefaultFolderPath, "..", "file.txt"),
+        Path.Combine(DefaultFolderPath + "2", "file.txt"),
+        Path.GetFullPath("file.txt")
+    ];
+
+    [Theory]
+    [MemberData(nameof(TargetsOutsideTheFolder))]
+    public void Receiver_RefusesTheFile_WhenAHandlerMovesItOutOfTheFolder(string targetFilePath)
+    {
+        var (file, chunk) = MatchingTransfer("file.txt", "fileId");
+        using var receiver = new StatefulFileReceiver(_logger, _fileSystem, _options.Value, _heartbeatPool, DefaultFolderPath);
+        receiver.TargetFilePathResolved += (_, e) => e.TargetFilePath = targetFilePath;
+        var events = RecordEvents(receiver);
+
+        var state = receiver.GetState(file);
+        var status = receiver.WriteFile(file, chunk);
+
+        Assert.False(state.FileExists);
+        Assert.Empty(state.TransmittedChunks);
+        Assert.Equal(FileReceiverStatus.Failed, status);
+        Assert.Equal(["TargetFilePathResolved", "TargetFilePathResolved"], events);
+        Assert.Empty(AllFiles());
+    }
+
+    // A one-chunk transfer of "content" whose chunk and hash match, so only the name or id can make it fail.
+    private static (TransportFile File, FileChunk Chunk) MatchingTransfer(string fileName, string fileId)
+    {
+        var content = "content"u8.ToArray();
+        var file = new TransportFile
+        {
+            FileName = fileName,
+            FileId = fileId,
+            ContentHash = Convert.ToBase64String(SHA256.HashData(content)),
+            ChunkSize = DefaultChunkSize,
+            ContentLength = content.Length,
+            TotalChunks = 1
+        };
+        return (file, new FileChunk { Index = 0, Data = content });
+    }
+
+    private static List<string> RecordEvents(StatefulFileReceiver receiver)
+    {
+        var events = new List<string>();
+        receiver.TargetFilePathResolved += (_, _) => events.Add(nameof(receiver.TargetFilePathResolved));
+        receiver.BeforeFileReceived += (_, _) => events.Add(nameof(receiver.BeforeFileReceived));
+        receiver.FileReceived += (_, _) => events.Add(nameof(receiver.FileReceived));
+        return events;
+    }
+
+    private string[] AllFiles()
+    {
+        var root = _fileSystem.Path.GetPathRoot(_fileSystem.Directory.GetCurrentDirectory())!;
+        return _fileSystem.Directory.GetFiles(root, "*", SearchOption.AllDirectories);
     }
 
     [Fact]
