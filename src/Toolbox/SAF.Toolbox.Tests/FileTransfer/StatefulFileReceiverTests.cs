@@ -736,6 +736,56 @@ public class StatefulFileReceiverTests
         Assert.Equal([expectedFilePath], AllFiles());
     }
 
+    // A name or id a handler could set after the checks, and that would put the state files outside the folder.
+    public static TheoryData<string, string> NamesAndIdsLeadingOutOfTheFolder => new()
+    {
+        { Path.Combine("..", "outside.txt"), "fileId" },
+        { "file.txt", Path.Combine("x", "..", "..", "outside") }
+    };
+
+    [Theory]
+    [MemberData(nameof(NamesAndIdsLeadingOutOfTheFolder))]
+    public void Receiver_KeepsTheStateFilesInTheFolder_WhenATargetFilePathResolvedHandlerChangesTheFile(string fileName, string fileId)
+    {
+        var (file, chunk) = MatchingTransfer("file.txt", "fileId");
+        file.TotalChunks = 2; // the transfer stays open, so its state files remain
+        using var receiver = new StatefulFileReceiver(_logger, _fileSystem, _options.Value, _heartbeatPool, DefaultFolderPath);
+        receiver.TargetFilePathResolved += (_, e) => (e.File.FileName, e.File.FileId) = (fileName, fileId);
+
+        var status = receiver.WriteFile(file, chunk);
+
+        var folder = _fileSystem.Path.GetFullPath(DefaultFolderPath);
+        string[] expectedFiles = [_fileSystem.Path.Combine(folder, "file.fileId.meta"), _fileSystem.Path.Combine(folder, "file.fileId.temp")];
+        Assert.Equal(FileReceiverStatus.Ok, status);
+        Assert.Equal(expectedFiles, AllFiles().Order());
+    }
+
+    [Theory]
+    [MemberData(nameof(NamesAndIdsLeadingOutOfTheFolder))]
+    public void Receiver_DeletesOnlyItsOwnStateFiles_WhenABeforeFileReceivedHandlerChangesTheFile(string fileName, string fileId)
+    {
+        var (file, chunk) = MatchingTransfer("file.txt", "fileId");
+        // The files a receiver that took the state files from the changed name or id would delete.
+        var changedFile = MatchingTransfer(fileName, fileId).File;
+        string[] outsideFiles =
+        [
+            _fileSystem.Path.GetFullPath(changedFile.GetTempTargetFilePath(_fileSystem, DefaultFolderPath)),
+            _fileSystem.Path.GetFullPath(changedFile.GetMetadataTargetFilePath(_fileSystem, DefaultFolderPath))
+        ];
+        foreach (var outsideFile in outsideFiles)
+        {
+            AddFile(outsideFile, "outside");
+        }
+        using var receiver = new StatefulFileReceiver(_logger, _fileSystem, _options.Value, _heartbeatPool, DefaultFolderPath);
+        receiver.BeforeFileReceived += (_, e) => (e.File.FileName, e.File.FileId) = (fileName, fileId);
+
+        var status = receiver.WriteFile(file, chunk);
+
+        string[] expectedFiles = [.. outsideFiles, _fileSystem.Path.GetFullPath(_fileSystem.Path.Combine(DefaultFolderPath, "file.txt"))];
+        Assert.Equal(FileReceiverStatus.Ok, status);
+        Assert.Equal(expectedFiles.Order(), AllFiles().Order());
+    }
+
     // A one-chunk transfer of "content" whose chunk and hash match, so only the name or id can make it fail.
     private static (TransportFile File, FileChunk Chunk) MatchingTransfer(string fileName, string fileId)
     {

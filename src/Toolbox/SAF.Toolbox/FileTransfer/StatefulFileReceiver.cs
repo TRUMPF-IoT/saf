@@ -59,14 +59,14 @@ public class StatefulFileReceiver : IStatefulFileReceiver
     {
         using var _ = _lockManager.Acquire(file.FileId);
 
-        var targetFilePath = ResolveTargetFilePath(file);
-        if (targetFilePath == null)
+        var paths = ResolveTransferPaths(file);
+        if (paths == null)
         {
             // Nothing is received for a refused file. Its chunks are refused as well, so the sender reports an error.
             return new FileReceiverState();
         }
 
-        var targetFileInfo = _fileSystem.FileInfo.New(targetFilePath);
+        var targetFileInfo = _fileSystem.FileInfo.New(paths.TargetFilePath);
 
         _log.LogDebug("Sender requests transfer state for file {FileName}", targetFileInfo.FullName);
 
@@ -76,30 +76,30 @@ public class StatefulFileReceiver : IStatefulFileReceiver
                 "File {FileName} already exists with matching content hash, signal sender to skip transfer.",
                 targetFileInfo.FullName);
 
-            CompleteFileTransfer(file, targetFilePath, targetFilePath);
+            CompleteFileTransfer(file, paths.TargetFilePath, paths);
             return new FileReceiverState {FileExists = true};
         }
 
-        var tempTargetFileInfo = _fileSystem.FileInfo.New(file.GetTempTargetFilePath(_fileSystem, targetFileInfo.DirectoryName!));
+        var tempTargetFileInfo = _fileSystem.FileInfo.New(paths.TempFilePath);
         if (!tempTargetFileInfo.Exists)
         {
             _log.LogDebug("Temporary file {FileName} does not exist, signal sender to transfer all chunks.", tempTargetFileInfo.FullName);
             return new FileReceiverState();
         }
 
-        var metadata = ReadFileMetadata(file.GetMetadataTargetFilePath(_fileSystem, targetFileInfo.DirectoryName!));
+        var metadata = ReadFileMetadata(paths.MetadataFilePath);
         if (metadata.ReceivedChunks.Count == file.TotalChunks)
         {
             if (metadata.ContentMismatch || !HasSendersContent(tempTargetFileInfo.FullName, file))
             {
                 _log.LogWarning("Received file {FileName} does not match the sender's content, signal sender to transfer all chunks again.", file.FileName);
-                DeleteTransferState(file, targetFileInfo.DirectoryName!);
+                DeleteTransferState(paths);
                 return new FileReceiverState();
             }
 
             _log.LogDebug("All chunks of file {FileName} already received, signal sender to skip transfer.", file.FileName);
-            
-            CompleteFileTransfer(file, tempTargetFileInfo.FullName, targetFilePath);
+
+            CompleteFileTransfer(file, tempTargetFileInfo.FullName, paths);
             return new FileReceiverState {FileExists = true, TransmittedChunks = metadata.ReceivedChunks};
         }
 
@@ -112,28 +112,24 @@ public class StatefulFileReceiver : IStatefulFileReceiver
         {
             using var _ = _lockManager.Acquire(file.FileId);
 
-            var targetFilePath = ResolveTargetFilePath(file);
-            if (targetFilePath == null)
+            var paths = ResolveTransferPaths(file);
+            if (paths == null)
             {
                 return FileReceiverStatus.Failed;
             }
 
-            var targetFileDirectory = _fileSystem.Path.GetDirectoryName(targetFilePath)!;
-            var tempTargetFilePath = file.GetTempTargetFilePath(_fileSystem, targetFileDirectory);
-            var metaTargetFilePath = file.GetMetadataTargetFilePath(_fileSystem, targetFileDirectory);
-
-            var metadata = ReadFileMetadata(metaTargetFilePath);
+            var metadata = ReadFileMetadata(paths.MetadataFilePath);
             if (metadata.ReceivedChunks.Contains(fileChunk.Index))
             {
                 _log.LogDebug("Chunk {ChunkIndex} of file {FileName} already received, skipping.", fileChunk.Index, file.FileName);
             }
             else
             {
-                var tempTargetFile = _fileSystem.FileInfo.New(tempTargetFilePath);
+                var tempTargetFile = _fileSystem.FileInfo.New(paths.TempFilePath);
                 WriteChunk(tempTargetFile, fileChunk, file.ChunkSize);
 
                 metadata.ReceivedChunks.Add(fileChunk.Index);
-                SaveFileMetadata(metaTargetFilePath, metadata);
+                SaveFileMetadata(paths.MetadataFilePath, metadata);
             }
 
             if (metadata.ReceivedChunks.Count == file.TotalChunks)
@@ -145,16 +141,16 @@ public class StatefulFileReceiver : IStatefulFileReceiver
                     return FileReceiverStatus.ContentMismatch;
                 }
 
-                if (!HasSendersContent(tempTargetFilePath, file))
+                if (!HasSendersContent(paths.TempFilePath, file))
                 {
                     _log.LogError("Received file {FileName} does not match the sender's content.", file.FileName);
                     // Retries of the last chunk cannot succeed; they fail without reading the whole file again.
                     metadata.ContentMismatch = true;
-                    SaveFileMetadata(metaTargetFilePath, metadata);
+                    SaveFileMetadata(paths.MetadataFilePath, metadata);
                     return FileReceiverStatus.ContentMismatch;
                 }
 
-                CompleteFileTransfer(file, tempTargetFilePath, targetFilePath);
+                CompleteFileTransfer(file, paths.TempFilePath, paths);
             }
 
             return FileReceiverStatus.Ok;
@@ -186,10 +182,13 @@ public class StatefulFileReceiver : IStatefulFileReceiver
         }
     }
 
-    // The path the file is completed at, or null if the file is refused: its name or id holds a path, or the target
-    // path, possibly changed by a TargetFilePathResolved handler, lies outside the receiver's folder. A target path
-    // that spells the folder in another case is completed in the folder's own spelling.
-    private string? ResolveTargetFilePath(TransportFile file)
+    // The files of one transfer: the target file and the state files beside it.
+    private sealed record TransferPaths(string TargetFilePath, string TempFilePath, string MetadataFilePath);
+
+    // The paths of the transfer, or null if the file is refused: its name or id holds a path, or the target path,
+    // possibly changed by a TargetFilePathResolved handler, lies outside the receiver's folder. A target path that
+    // spells the folder in another case is completed in the folder's own spelling.
+    private TransferPaths? ResolveTransferPaths(TransportFile file)
     {
         if (!_folder.IsSingleSegment(file.FileName) || !_folder.IsSingleSegment(file.FileId))
         {
@@ -197,6 +196,11 @@ public class StatefulFileReceiver : IStatefulFileReceiver
                 file.FileName, file.FileId);
             return null;
         }
+
+        // Event handlers get the TransportFile and can change its name or id. Everything derived from them is
+        // therefore derived here, from the values just checked, and never from the TransportFile again.
+        var tempFileName = _fileSystem.Path.GetFileName(file.GetTempTargetFilePath(_fileSystem, _folder.FullPath));
+        var metadataFileName = _fileSystem.Path.GetFileName(file.GetMetadataTargetFilePath(_fileSystem, _folder.FullPath));
 
         var eventArgs = new TargetFilePathResolvedEventArgs(file, file.GetTargetFilePath(_fileSystem, _folder.FullPath));
         TargetFilePathResolved?.Invoke(this, eventArgs);
@@ -216,19 +220,21 @@ public class StatefulFileReceiver : IStatefulFileReceiver
                 requestedFilePath, _folder.FullPath, file.FileName, targetFilePath);
         }
 
-        return targetFilePath;
+        // The state files lie beside the target file. Their names are single segments, so they stay in the folder too.
+        var stateDirectory = _fileSystem.Path.GetDirectoryName(targetFilePath)!;
+        return new TransferPaths(targetFilePath,
+            _fileSystem.Path.Combine(stateDirectory, tempFileName),
+            _fileSystem.Path.Combine(stateDirectory, metadataFileName));
     }
 
-    private void CompleteFileTransfer(TransportFile file, string sourceFilePath, string targetFilePath)
+    private void CompleteFileTransfer(TransportFile file, string sourceFilePath, TransferPaths paths)
     {
-        var beforeEventArgs = new BeforeFileReceivedEventArgs(file, targetFilePath);
+        var beforeEventArgs = new BeforeFileReceivedEventArgs(file, paths.TargetFilePath);
         BeforeFileReceived?.Invoke(this, beforeEventArgs);
 
-        var uniqueTargetFilePath = _fileSystem.Path.GetFullPath(beforeEventArgs.TargetFilePath);
-        if (!beforeEventArgs.AllowOverwrite)
-        {
-            uniqueTargetFilePath = GenerateUniqueTargetFilePath(targetFilePath);
-        }
+        var uniqueTargetFilePath = beforeEventArgs.AllowOverwrite
+            ? paths.TargetFilePath
+            : GenerateUniqueTargetFilePath(paths.TargetFilePath);
 
         if (sourceFilePath != uniqueTargetFilePath)
         {
@@ -242,7 +248,7 @@ public class StatefulFileReceiver : IStatefulFileReceiver
             _fileSystem.File.Copy(sourceFilePath, uniqueTargetFilePath, true);
         }
 
-        DeleteTransferState(file, _fileSystem.Path.GetDirectoryName(uniqueTargetFilePath)!);
+        DeleteTransferState(paths);
 
         _log.LogDebug("Invoking FileReceived event for file: {TargetFilePath}", uniqueTargetFilePath);
         FileReceived?.Invoke(this, new FileReceivedEventArgs(file, uniqueTargetFilePath));
@@ -255,15 +261,15 @@ public class StatefulFileReceiver : IStatefulFileReceiver
         return receivedFile.Length == file.ContentLength && receivedFile.GetContentHash() == file.ContentHash;
     }
 
-    private void DeleteTransferState(TransportFile file, string directory)
+    private void DeleteTransferState(TransferPaths paths)
     {
-        if (_fileSystem.File.Exists(file.GetTempTargetFilePath(_fileSystem, directory)))
+        if (_fileSystem.File.Exists(paths.TempFilePath))
         {
-            _fileSystem.File.Delete(file.GetTempTargetFilePath(_fileSystem, directory));
+            _fileSystem.File.Delete(paths.TempFilePath);
         }
-        if (_fileSystem.File.Exists(file.GetMetadataTargetFilePath(_fileSystem, directory)))
+        if (_fileSystem.File.Exists(paths.MetadataFilePath))
         {
-            _fileSystem.File.Delete(file.GetMetadataTargetFilePath(_fileSystem, directory));
+            _fileSystem.File.Delete(paths.MetadataFilePath);
         }
     }
 

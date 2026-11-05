@@ -646,8 +646,9 @@ In 10.x, a stateful file receiver completed a file wherever the file name from t
 refuses such a file: it logs a warning and raises neither `BeforeFileReceived` nor `FileReceived`, and `SendAsync`
 on the sender returns `FileTransferStatus.Error`. Files sent with `IFileSender` of any version pass, because it sends
 the file name without its directory. A target path that spells the folder in another case is completed in the
-folder's own spelling, which `FileReceivedEventArgs.LocalFileFullName` reports. See
-[Target Paths](./toolbox.md#target-paths).
+folder's own spelling, which `FileReceivedEventArgs.LocalFileFullName` reports. An event handler that changes
+`TransportFile.FileName` or `TransportFile.FileId` no longer changes where the receiver writes and deletes the state
+files. See [Target Paths](./toolbox.md#target-paths).
 
 **Required:** only if a `TargetFilePathResolved` handler moves files out of the receiver's folder: create the
 receiver for a folder that contains all target paths, or one receiver per folder.

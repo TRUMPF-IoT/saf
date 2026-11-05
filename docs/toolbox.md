@@ -407,6 +407,11 @@ file is completed in `C:\Data\Inbox`, and `FileReceivedEventArgs.LocalFileFullNa
 system that distinguishes case, a target in a folder whose name differs from the receiver's folder only in case is
 completed in the receiver's folder as well, not beside it.
 
+The receiver reads the file name and the file id once, when it checks them, before it raises
+`TargetFilePathResolved`. The state files are named after these values. A handler that changes
+`TransportFile.FileName` or `TransportFile.FileId` afterwards moves neither the target file nor the state files
+the receiver writes and deletes. To move the file, set `TargetFilePathResolvedEventArgs.TargetFilePath`.
+
 For a refused file, the receiver logs a warning, tells the sender it has received nothing, answers every chunk with
 `FileReceiverStatus.Failed`, and raises neither `BeforeFileReceived` nor `FileReceived`. `SendAsync` returns
 `FileTransferStatus.Error`.
