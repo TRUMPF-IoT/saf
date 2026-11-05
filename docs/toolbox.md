@@ -401,12 +401,20 @@ subfolders. Because the sender names the file, the receiver refuses a file if:
   changed it. A handler can move a file into a subfolder, for example one named by a `TransportFile.Properties` value,
   but not out of the folder.
 
+The receiver compares the folder part of a target path ignoring case and completes the file in the folder's own
+spelling. For a receiver created for `C:\Data\Inbox`, a handler can therefore spell the folder `c:\data\inbox`; the
+file is completed in `C:\Data\Inbox`, and `FileReceivedEventArgs.LocalFileFullName` reports that spelling. On a file
+system that distinguishes case, a target in a folder whose name differs from the receiver's folder only in case is
+completed in the receiver's folder as well, not beside it.
+
 For a refused file, the receiver logs a warning, tells the sender it has received nothing, answers every chunk with
 `FileReceiverStatus.Failed`, and raises neither `BeforeFileReceived` nor `FileReceived`. `SendAsync` returns
 `FileTransferStatus.Error`.
 
 To deliver files to several folders, keep them below one folder and pass that to `CreateForFolder`, or create one
-receiver per folder. The check compares paths; it does not resolve symbolic links inside the folder.
+receiver per folder. The check compares paths: it does not resolve symbolic links inside the folder, and it refuses a
+target path that reaches the folder by another name than its own, such as an 8.3 short name or a mapped network
+drive.
 
 ### Transfers With Older Nodes
 

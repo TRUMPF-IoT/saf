@@ -718,6 +718,24 @@ public class StatefulFileReceiverTests
         Assert.Empty(AllFiles());
     }
 
+    // On a file system that distinguishes case, the handler's path names a sibling folder; the file stays in the folder.
+    [Fact]
+    public void Receiver_CompletesTheFileInTheFolder_WhenAHandlerSpellsTheFolderInAnotherCase()
+    {
+        var (file, chunk) = MatchingTransfer("file.txt", "fileId");
+        using var receiver = new StatefulFileReceiver(_logger, _fileSystem, _options.Value, _heartbeatPool, DefaultFolderPath);
+        receiver.TargetFilePathResolved += (_, e) => e.TargetFilePath = Path.Combine(DefaultFolderPath.ToUpperInvariant(), "Sub", "file.txt");
+        FileReceivedEventArgs? fileReceived = null;
+        receiver.FileReceived += (_, e) => fileReceived = e;
+
+        var status = receiver.WriteFile(file, chunk);
+
+        var expectedFilePath = _fileSystem.Path.GetFullPath(_fileSystem.Path.Combine(DefaultFolderPath, "Sub", "file.txt"));
+        Assert.Equal(FileReceiverStatus.Ok, status);
+        Assert.Equal(expectedFilePath, fileReceived?.LocalFileFullName);
+        Assert.Equal([expectedFilePath], AllFiles());
+    }
+
     // A one-chunk transfer of "content" whose chunk and hash match, so only the name or id can make it fail.
     private static (TransportFile File, FileChunk Chunk) MatchingTransfer(string fileName, string fileId)
     {
@@ -755,6 +773,7 @@ public class StatefulFileReceiverTests
         var fileSystem = Substitute.For<IFileSystem>();
         var fileInfo = Substitute.For<IFileInfo>();
         var stream = new SeekRecordingStream();
+        fileSystem.Path.Returns(_fileSystem.Path);
         fileSystem.FileInfo.New(Arg.Any<string>()).Returns(fileInfo);
         fileInfo.Open(FileMode.OpenOrCreate, FileAccess.Write, FileShare.None).Returns(stream);
 

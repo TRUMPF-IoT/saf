@@ -54,35 +54,64 @@ public class ReceiverFolderTests
     [InlineData("..file.txt")]
     [InlineData("sub", "file.txt")]
     [InlineData("sub", "..", "file.txt")]
-    public void Contains_AcceptsAPathInsideTheFolder(params string[] relativePath)
-        => Assert.True(_folder.Contains(_fileSystem.Path.Combine([_folder.FullPath, ..relativePath])));
+    public void PathInside_ReturnsTheFullPath_ForAPathInsideTheFolder(params string[] relativePath)
+    {
+        var filePath = _fileSystem.Path.Combine([_folder.FullPath, ..relativePath]);
+
+        Assert.Equal(_fileSystem.Path.GetFullPath(filePath), _folder.PathInside(filePath));
+    }
 
     [Theory]
     [InlineData]
     [InlineData("..")]
     [InlineData("..", "file.txt")]
     [InlineData("sub", "..", "..", "file.txt")]
-    public void Contains_RefusesTheFolderItselfAndPathsAboveIt(params string[] relativePath)
-        => Assert.False(_folder.Contains(_fileSystem.Path.Combine([_folder.FullPath, ..relativePath])));
+    public void PathInside_RefusesTheFolderItselfAndPathsAboveIt(params string[] relativePath)
+        => Assert.Null(_folder.PathInside(_fileSystem.Path.Combine([_folder.FullPath, ..relativePath])));
 
     [Fact]
-    public void Contains_RefusesASiblingFolderWhoseNameStartsLikeTheFolder()
-        => Assert.False(_folder.Contains(_fileSystem.Path.Combine(_folder.FullPath + "2", "file.txt")));
+    public void PathInside_RefusesTheFolderGivenWithATrailingSeparator()
+        => Assert.Null(_folder.PathInside(_folder.FullPath + _fileSystem.Path.DirectorySeparatorChar));
 
     [Fact]
-    public void Contains_RefusesAPathOnAnotherDrive()
+    public void PathInside_RefusesASiblingFolderWhoseNameStartsLikeTheFolder()
+        => Assert.Null(_folder.PathInside(_fileSystem.Path.Combine(_folder.FullPath + "2", "file.txt")));
+
+    // On a file system that distinguishes case, the path names a sibling folder. It must not lead there.
+    [Fact]
+    public void PathInside_SpellsTheFolderAsItself_WhenThePathSpellsItInAnotherCase()
+    {
+        var filePath = _fileSystem.Path.Combine(_folder.FullPath.ToUpperInvariant(), "Sub", "File.txt");
+
+        Assert.Equal(_fileSystem.Path.Combine(_folder.FullPath, "Sub", "File.txt"), _folder.PathInside(filePath));
+    }
+
+    [Fact]
+    public void PathInside_RefusesAPathOnAnotherDrive()
     {
         Assert.SkipUnless(OperatingSystem.IsWindows(), "Only Windows paths have drives.");
         var otherDrive = _folder.FullPath.StartsWith('Z') ? @"Y:\" : @"Z:\";
 
-        Assert.False(_folder.Contains(otherDrive + "file.txt"));
+        Assert.Null(_folder.PathInside(otherDrive + "file.txt"));
     }
 
     [Fact]
-    public void Contains_AcceptsAPathInsideAFolderGivenWithATrailingSeparator()
+    public void PathInside_AcceptsAPathInsideAFolderGivenWithATrailingSeparator()
     {
         var folder = new ReceiverFolder(_fileSystem, "folder" + _fileSystem.Path.DirectorySeparatorChar);
+        var filePath = _fileSystem.Path.Combine(_folder.FullPath, "file.txt");
 
-        Assert.True(folder.Contains(_fileSystem.Path.Combine(_folder.FullPath, "file.txt")));
+        Assert.Equal(filePath, folder.PathInside(filePath));
+    }
+
+    [Fact]
+    public void PathInside_AcceptsAPathInsideARootFolder()
+    {
+        var root = _fileSystem.Path.GetPathRoot(_folder.FullPath)!;
+        var folder = new ReceiverFolder(_fileSystem, root);
+        var filePath = _fileSystem.Path.Combine(root, "file.txt");
+
+        Assert.Equal(filePath, folder.PathInside(filePath));
+        Assert.Null(folder.PathInside(root));
     }
 }

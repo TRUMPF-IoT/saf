@@ -24,16 +24,25 @@ internal sealed class ReceiverFolder(IFileSystem fileSystem, string folderPath)
            && name.IndexOfAny(fileSystem.Path.GetInvalidFileNameChars()) < 0;
 
     /// <summary>
-    /// Whether <paramref name="fullFilePath"/> lies inside this folder or one of its subfolders. The folder itself
-    /// does not count. Paths are compared as .NET compares them on the platform: ignoring case on Windows and macOS,
-    /// but not on Linux.
+    /// The full path inside this folder or one of its subfolders that <paramref name="filePath"/> names, or
+    /// <c>null</c> for the folder itself and for paths outside it. The folder part is compared ignoring case and
+    /// returned in this folder's spelling, the rest as given. A path that spells the folder in another case therefore
+    /// stays inside this folder, also on a file system that distinguishes case and would take it for another folder.
     /// </summary>
-    public bool Contains(string fullFilePath)
+    public string? PathInside(string filePath)
     {
-        var relativePath = fileSystem.Path.GetRelativePath(FullPath, fullFilePath);
-        return relativePath != "."
-               && relativePath != ".."
-               && !relativePath.StartsWith(".." + fileSystem.Path.DirectorySeparatorChar, StringComparison.Ordinal)
-               && !fileSystem.Path.IsPathRooted(relativePath);
+        // A full path holds no . or .. segments, so whatever follows the folder part stays below the folder.
+        var fullFilePath = fileSystem.Path.GetFullPath(filePath);
+        var folderPrefix = fileSystem.Path.EndsInDirectorySeparator(FullPath)
+            ? FullPath
+            : FullPath + fileSystem.Path.DirectorySeparatorChar;
+
+        if (fullFilePath.Length <= folderPrefix.Length
+            || !fullFilePath.StartsWith(folderPrefix, StringComparison.OrdinalIgnoreCase))
+        {
+            return null;
+        }
+
+        return folderPrefix + fullFilePath[folderPrefix.Length..];
     }
 }

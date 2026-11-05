@@ -187,7 +187,8 @@ public class StatefulFileReceiver : IStatefulFileReceiver
     }
 
     // The path the file is completed at, or null if the file is refused: its name or id holds a path, or the target
-    // path, possibly changed by a TargetFilePathResolved handler, lies outside the receiver's folder.
+    // path, possibly changed by a TargetFilePathResolved handler, lies outside the receiver's folder. A target path
+    // that spells the folder in another case is completed in the folder's own spelling.
     private string? ResolveTargetFilePath(TransportFile file)
     {
         if (!_folder.IsSingleSegment(file.FileName) || !_folder.IsSingleSegment(file.FileId))
@@ -199,13 +200,20 @@ public class StatefulFileReceiver : IStatefulFileReceiver
 
         var eventArgs = new TargetFilePathResolvedEventArgs(file, file.GetTargetFilePath(_fileSystem, _folder.FullPath));
         TargetFilePathResolved?.Invoke(this, eventArgs);
-        var targetFilePath = _fileSystem.Path.GetFullPath(eventArgs.TargetFilePath);
+        var requestedFilePath = _fileSystem.Path.GetFullPath(eventArgs.TargetFilePath);
+        var targetFilePath = _folder.PathInside(requestedFilePath);
 
-        if (!_folder.Contains(targetFilePath))
+        if (targetFilePath == null)
         {
             _log.LogWarning("Refused file {FileName}: its target path {TargetFilePath} is outside the receiver folder {FileReceiverFolder}.",
-                file.FileName, targetFilePath, _folder.FullPath);
+                file.FileName, requestedFilePath, _folder.FullPath);
             return null;
+        }
+
+        if (!string.Equals(targetFilePath, requestedFilePath, StringComparison.Ordinal))
+        {
+            _log.LogDebug("Target path {RequestedFilePath} spells the receiver folder {FileReceiverFolder} in another case, completing file {FileName} at {TargetFilePath}.",
+                requestedFilePath, _folder.FullPath, file.FileName, targetFilePath);
         }
 
         return targetFilePath;
