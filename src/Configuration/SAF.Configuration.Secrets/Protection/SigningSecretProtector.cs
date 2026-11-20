@@ -34,7 +34,7 @@ using SAF.Configuration.Secrets.Contracts;
 public sealed class SigningSecretProtector : ISecretProtector, IDisposable
 {
     /// <summary>Appended to the inner protector's name to form this protector's <see cref="Name"/>.</summary>
-    public const string NameSuffix = "+signed";
+    public const string NameSuffix = "-signed";
 
     private static readonly Oid Sha256 = new("2.16.840.1.101.3.4.2.1");
     private static readonly string DocumentNameOid = new Pkcs9DocumentName().Oid!.Value!;

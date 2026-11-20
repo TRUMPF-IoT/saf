@@ -28,7 +28,7 @@ public sealed class SigningSecretProtectorTests : IDisposable
     {
         var protector = CreateProtector(CreateCertificate());
 
-        Assert.Equal("pkcs+signed", protector.Name);
+        Assert.Equal("pkcs-signed", protector.Name);
     }
 
     [Fact]

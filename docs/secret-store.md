@@ -409,7 +409,7 @@ private key can have data of their choice decrypted with it.
 - **Names** are compared case-insensitively, like the [store keys](#secret-names). A name that contains
   NUL or an unpaired surrogate cannot be signed unchanged, so `Protect` refuses it with an
   `ArgumentException`.
-- **Protector name.** It is the inner protector's name with `+signed` appended, `pkcs+signed` for the
+- **Protector name.** It is the inner protector's name with `-signed` appended, `pkcs-signed` for the
   example above. A file written by `PkcsSecretProtector` alone is stamped `pkcs`, and the store refuses
   every read **and write** on a file stamped by another protector. Switching an existing store therefore
   needs a new file; see [Switching an existing store](#switching-an-existing-store).
