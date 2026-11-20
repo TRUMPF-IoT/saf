@@ -49,7 +49,8 @@ public sealed class PkcsSecretProtector : ISecretProtector, IDisposable
     public string Name => ProtectorName;
 
     /// <inheritdoc />
-    public byte[] Protect(byte[] plaintext)
+    /// <remarks>The envelope does not depend on <paramref name="name"/>.</remarks>
+    public byte[] Protect(string name, byte[] plaintext)
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
         ArgumentNullException.ThrowIfNull(plaintext);
@@ -62,7 +63,8 @@ public sealed class PkcsSecretProtector : ISecretProtector, IDisposable
     }
 
     /// <inheritdoc />
-    public byte[] Unprotect(byte[] protectedData)
+    /// <remarks>The envelope does not depend on <paramref name="name"/>.</remarks>
+    public byte[] Unprotect(string name, byte[] protectedData)
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
         ArgumentNullException.ThrowIfNull(protectedData);

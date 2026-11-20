@@ -11,11 +11,9 @@ namespace SAF.Configuration.Secrets.Contracts;
 /// implementation uses PKCS#7/CMS enveloping.
 /// </summary>
 /// <remarks>
-/// The file store calls the overloads that take the secret's name. By default they ignore the name and
-/// call <see cref="Protect(byte[])"/> and <see cref="Unprotect(byte[])"/>, so a protector that does not
-/// care about names implements only those two. A protector that binds a payload to its name, such as
-/// the signing decorator, implements the named overloads; a decorator around another protector must
-/// forward them, or the name never reaches the protector it wraps.
+/// Every call carries the physical name of the secret. A protector that does not need it ignores it; one
+/// that binds a payload to its name, such as the signing decorator, refuses a payload found under another
+/// name. A decorator passes the name on to the protector it wraps.
 /// </remarks>
 public interface ISecretProtector
 {
@@ -26,35 +24,19 @@ public interface ISecretProtector
     string Name { get; }
 
     /// <summary>
-    /// Encrypts <paramref name="plaintext"/> and returns the self-describing protected payload.
-    /// </summary>
-    /// <param name="plaintext">The raw secret bytes to protect.</param>
-    /// <returns>The encrypted payload, safe to persist at rest.</returns>
-    byte[] Protect(byte[] plaintext);
-
-    /// <summary>
-    /// Decrypts a payload previously produced by <see cref="Protect(byte[])"/> and returns the plaintext bytes.
-    /// </summary>
-    /// <param name="protectedData">The protected payload to decrypt.</param>
-    /// <returns>The recovered plaintext bytes.</returns>
-    byte[] Unprotect(byte[] protectedData);
-
-    /// <summary>
-    /// Protects the value of the secret <paramref name="name"/>. The default ignores the name and calls
-    /// <see cref="Protect(byte[])"/>.
+    /// Encrypts <paramref name="plaintext"/>, the value of the secret <paramref name="name"/>, and returns
+    /// the self-describing protected payload.
     /// </summary>
     /// <param name="name">The physical name the secret is stored under.</param>
     /// <param name="plaintext">The raw secret bytes to protect.</param>
-    /// <returns>The protected payload, safe to persist at rest.</returns>
-    byte[] Protect(string name, byte[] plaintext) => Protect(plaintext);
+    /// <returns>The encrypted payload, safe to persist at rest.</returns>
+    byte[] Protect(string name, byte[] plaintext);
 
     /// <summary>
-    /// Recovers the value of the secret <paramref name="name"/> from a payload produced by
-    /// <see cref="Protect(string, byte[])"/>. The default ignores the name and calls
-    /// <see cref="Unprotect(byte[])"/>.
+    /// Decrypts a payload previously produced by <see cref="Protect"/> and returns the plaintext bytes.
     /// </summary>
     /// <param name="name">The physical name the payload was found under.</param>
     /// <param name="protectedData">The protected payload to decrypt.</param>
     /// <returns>The recovered plaintext bytes.</returns>
-    byte[] Unprotect(string name, byte[] protectedData) => Unprotect(protectedData);
+    byte[] Unprotect(string name, byte[] protectedData);
 }

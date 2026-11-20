@@ -10,29 +10,25 @@ using System.Security.Cryptography.X509Certificates;
 using SAF.Configuration.Secrets.Contracts;
 
 /// <summary>
-/// Wraps another <see cref="ISecretProtector"/> and signs each payload it produces, so that the store
-/// file is no longer trusted to its writers: a value can only be written by whoever holds the signing
-/// certificate's private key. The inner payload is wrapped in a PKCS#7/CMS <c>SignedData</c> signed with
-/// RSA-PSS and SHA-256, and the secret's name is part of what is signed. A reader therefore refuses a
-/// forged value, a changed byte and a value moved to another name, all of which
-/// <see cref="PkcsSecretProtector"/> alone cannot notice because protecting with it needs only the
-/// public key.
+/// Wraps another <see cref="ISecretProtector"/> and signs each payload it produces, so that writing a
+/// value needs the signing certificate's private key. The inner payload is wrapped in a PKCS#7/CMS
+/// <c>SignedData</c> signed with RSA-PSS and SHA-256, and the secret's name is part of what is signed. A
+/// reader therefore refuses a forged value, a changed byte and a value moved to another name, none of
+/// which <see cref="PkcsSecretProtector"/> alone can notice.
 /// </summary>
 /// <remarks>
 /// <para>
-/// A payload is verified against the configured certificate only, never against a certificate the
-/// payload carries itself; a payload that carries one is refused. Neither the certificate's validity
-/// period nor a chain is checked: trust comes from the certificate being the one this host was
-/// configured with, so a self-signed or expired certificate works.
+/// A payload is verified against the configured certificate only; a payload that carries a certificate
+/// of its own is refused. Neither the validity period nor a chain is checked, so a self-signed or
+/// expired certificate works.
 /// </para>
 /// <para>
-/// Not detected: a removed entry, and an older value of the same name that was valid when it was
-/// written (rollback).
+/// Not detected: a removed entry, an older value of the same name (rollback), and a value of the same
+/// name copied from another store signed with the same certificate.
 /// </para>
 /// <para>
-/// Signing needs the private key. A host that only provisions secrets therefore needs it too, unlike
-/// with <see cref="PkcsSecretProtector"/> alone. Verifying needs only the public key; decrypting is up
-/// to the inner protector.
+/// Signing needs the private key and a key usage that allows digital signatures. Verifying needs only
+/// the public key; decrypting is up to the inner protector.
 /// </para>
 /// </remarks>
 public sealed class SigningSecretProtector : ISecretProtector, IDisposable
@@ -41,8 +37,6 @@ public sealed class SigningSecretProtector : ISecretProtector, IDisposable
     public const string NameSuffix = "+signed";
 
     private static readonly Oid Sha256 = new("2.16.840.1.101.3.4.2.1");
-
-    // The signed attribute that carries the secret's name.
     private static readonly string DocumentNameOid = new Pkcs9DocumentName().Oid!.Value!;
 
     private readonly ISecretProtector _inner;
@@ -51,8 +45,9 @@ public sealed class SigningSecretProtector : ISecretProtector, IDisposable
 
     /// <summary>
     /// Creates a protector that signs the payloads of <paramref name="inner"/> with
-    /// <paramref name="certificate"/>, which must have an RSA key. This protector takes ownership of both
-    /// and disposes them when it is disposed itself, so the certificate may be the same instance the inner
+    /// <paramref name="certificate"/>. The certificate needs an RSA key, and if it has a key usage
+    /// extension, that must allow digital signatures. This protector takes ownership of both arguments and
+    /// disposes them when it is disposed itself, so the certificate may be the same instance the inner
     /// protector was given.
     /// </summary>
     public SigningSecretProtector(ISecretProtector inner, X509Certificate2 certificate)
@@ -70,6 +65,15 @@ public sealed class SigningSecretProtector : ISecretProtector, IDisposable
             }
         }
 
+        if (certificate.Extensions.OfType<X509KeyUsageExtension>().SingleOrDefault() is { } keyUsage
+            && !keyUsage.KeyUsages.HasFlag(X509KeyUsageFlags.DigitalSignature))
+        {
+            throw new ArgumentException(
+                $"The key usage of the certificate '{certificate.Subject}' ({keyUsage.KeyUsages}) does not allow " +
+                "digital signatures. Use a certificate whose key usage includes digitalSignature.",
+                nameof(certificate));
+        }
+
         _inner = inner;
         _certificate = certificate;
     }
@@ -78,27 +82,19 @@ public sealed class SigningSecretProtector : ISecretProtector, IDisposable
     public string Name => _inner.Name + NameSuffix;
 
     /// <summary>
-    /// Not supported: a value is bound to its name. Call <see cref="Protect(string, byte[])"/>.
-    /// </summary>
-    /// <exception cref="NotSupportedException">Always.</exception>
-    public byte[] Protect(byte[] plaintext) => throw NameRequired();
-
-    /// <summary>
-    /// Not supported: a value is bound to its name. Call <see cref="Unprotect(string, byte[])"/>.
-    /// </summary>
-    /// <exception cref="NotSupportedException">Always.</exception>
-    public byte[] Unprotect(byte[] protectedData) => throw NameRequired();
-
-    /// <summary>
     /// Protects <paramref name="plaintext"/> with the inner protector and signs the result together with
     /// <paramref name="name"/>.
     /// </summary>
+    /// <exception cref="ArgumentException"><paramref name="name"/> contains NUL or an unpaired surrogate.</exception>
     /// <exception cref="InvalidOperationException">The certificate has no private key.</exception>
+    /// <exception cref="CryptographicException">The key cannot sign.</exception>
     public byte[] Protect(string name, byte[] plaintext)
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
         ArgumentException.ThrowIfNullOrWhiteSpace(name);
         ArgumentNullException.ThrowIfNull(plaintext);
+
+        var nameAttribute = CreateNameAttribute(name);
 
         if (!_certificate.HasPrivateKey)
         {
@@ -107,19 +103,26 @@ public sealed class SigningSecretProtector : ISecretProtector, IDisposable
                 $"'{name}'. Writing a signed secret needs the private key, also on a host that only provisions secrets.");
         }
 
-        var content = _inner.Protect(name, plaintext);
-
-        using var privateKey = _certificate.GetRSAPrivateKey()!;
-        var signer = new CmsSigner(SubjectIdentifierType.IssuerAndSerialNumber, _certificate, privateKey, RSASignaturePadding.Pss)
+        var signed = new SignedCms(new ContentInfo(_inner.Protect(name, plaintext)), detached: false);
+        try
         {
-            DigestAlgorithm = Sha256,
-            // The reader verifies against its own certificate only, so there is nothing to carry along.
-            IncludeOption = X509IncludeOption.None
-        };
-        signer.SignedAttributes.Add(new Pkcs9DocumentName(name));
+            using var privateKey = _certificate.GetRSAPrivateKey()!;
+            var signer = new CmsSigner(SubjectIdentifierType.IssuerAndSerialNumber, _certificate, privateKey, RSASignaturePadding.Pss)
+            {
+                DigestAlgorithm = Sha256,
+                IncludeOption = X509IncludeOption.None
+            };
+            signer.SignedAttributes.Add(nameAttribute);
+            signed.ComputeSignature(signer, silent: true);
+        }
+        catch (CryptographicException e)
+        {
+            throw new CryptographicException(
+                $"The secret '{name}' could not be signed with the certificate '{_certificate.Subject}' " +
+                $"({_certificate.Thumbprint}). Check that this account may use its private key and that the key " +
+                "may sign; a key restricted to decryption cannot.", e);
+        }
 
-        var signed = new SignedCms(new ContentInfo(content), detached: false);
-        signed.ComputeSignature(signer, silent: true);
         return signed.Encode();
     }
 
@@ -157,9 +160,18 @@ public sealed class SigningSecretProtector : ISecretProtector, IDisposable
         _certificate.Dispose();
     }
 
-    private static NotSupportedException NameRequired()
-        => new($"{nameof(SigningSecretProtector)} binds each value to the name of its secret and needs that " +
-            "name. Call the overload that takes it; a decorator around this protector must forward that overload.");
+    // The attribute stores NUL-terminated UTF-16, so only a name that survives the round trip is bound exactly.
+    private static Pkcs9DocumentName CreateNameAttribute(string name)
+    {
+        var attribute = new Pkcs9DocumentName(name);
+        if (!string.Equals(new Pkcs9DocumentName(attribute.RawData!).DocumentName, name, StringComparison.Ordinal))
+        {
+            throw new ArgumentException(
+                "The name of a signed secret must not contain NUL or an unpaired surrogate.", nameof(name));
+        }
+
+        return attribute;
+    }
 
     private static SignedCms Decode(string name, byte[] protectedData)
     {
@@ -175,11 +187,6 @@ public sealed class SigningSecretProtector : ISecretProtector, IDisposable
                 $"{nameof(SigningSecretProtector)} are accepted; re-provision the secret.", e);
         }
 
-        if (signed.Detached)
-        {
-            throw new CryptographicException($"The value of the secret '{name}' does not contain the signed content.");
-        }
-
         return signed;
     }
 
@@ -191,8 +198,7 @@ public sealed class SigningSecretProtector : ISecretProtector, IDisposable
                 $"The value of the secret '{name}' has {signed.SignerInfos.Count} signatures instead of exactly one.");
         }
 
-        // SignerInfo.CheckSignature prefers a certificate the message carries over the ones it is given,
-        // so a message that carries any would let its author choose the key it is verified against.
+        // CheckSignature would prefer a certificate carried in the message over the configured one.
         if (signed.Certificates.Count != 0)
         {
             throw new CryptographicException(
@@ -205,7 +211,8 @@ public sealed class SigningSecretProtector : ISecretProtector, IDisposable
 
     private void VerifySignature(string name, SignerInfo signerInfo)
     {
-        if (!signerInfo.SignerIdentifier.MatchesCertificate(_certificate))
+        var signer = signerInfo.SignerIdentifier;
+        if (signer.Type != SubjectIdentifierType.IssuerAndSerialNumber || !signer.MatchesCertificate(_certificate))
         {
             throw new CryptographicException(
                 $"The value of the secret '{name}' was not signed with the certificate '{_certificate.Subject}' " +
@@ -214,8 +221,7 @@ public sealed class SigningSecretProtector : ISecretProtector, IDisposable
 
         try
         {
-            // verifySignatureOnly: no chain is built. A self-signed certificate never chains to a trusted root,
-            // and trust comes from the certificate being the configured one, not from its issuer or its dates.
+            // No chain: trust comes from the configured certificate, not from its issuer or its dates.
             signerInfo.CheckSignature(new X509Certificate2Collection(_certificate), verifySignatureOnly: true);
         }
         catch (CryptographicException e)
@@ -231,7 +237,7 @@ public sealed class SigningSecretProtector : ISecretProtector, IDisposable
     {
         var signedName = ReadSignedName(name, signerInfo);
 
-        // Case-insensitive like the store's keys: names that differ only in case are the same entry.
+        // Case-insensitive like the store's keys.
         if (!string.Equals(signedName, name, StringComparison.OrdinalIgnoreCase))
         {
             throw new CryptographicException(
@@ -252,6 +258,6 @@ public sealed class SigningSecretProtector : ISecretProtector, IDisposable
                 $"The value of the secret '{name}' does not name exactly one secret in its signed attributes.");
         }
 
-        return new Pkcs9DocumentName(value.RawData).DocumentName;
+        return new Pkcs9DocumentName(value.RawData!).DocumentName;
     }
 }

@@ -325,8 +325,6 @@ internal sealed class FileSecretStore : ISecretStoreProvider, IDisposable
     private static bool IsSharingConflict(IOException exception)
         => exception is not (FileNotFoundException or DirectoryNotFoundException or PathTooLongException or DriveNotFoundException);
 
-    // The name goes to the protector so that one which binds a value to its name (the signing decorator)
-    // can refuse a value that was moved to another entry of the file.
     private string Encrypt(string targetName, string value)
     {
         var plaintext = Encoding.UTF8.GetBytes(value);

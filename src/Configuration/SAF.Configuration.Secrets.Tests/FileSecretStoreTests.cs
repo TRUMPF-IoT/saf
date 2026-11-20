@@ -199,8 +199,7 @@ public class FileSecretStoreTests
             await store.SetSecretAsync("conn/user", "admin", TestToken);
             await store.SetSecretAsync("conn/pw", "s3cr3t", TestToken);
 
-            // Someone who may write the file but has no key swaps the two values. Only the name passed to the
-            // protector can tell the store that a value is not the one written under that name.
+            // Someone who may write the file but has no key swaps the two values.
             var document = JsonNode.Parse(await _fileSystem.File.ReadAllTextAsync(StorePath, TestToken))!;
             var secrets = document["Secrets"]!;
             var user = secrets["conn/user"]!.GetValue<string>();
