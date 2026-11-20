@@ -6,8 +6,9 @@ and write secrets through a single injected service, `ISecretStore`, without kno
 secrets are physically stored.
 
 > **Status.** The store, provider selection, transparent `secret://` configuration resolution, the
-> Windows Credential Manager provider and the cross-platform file-based provider are available today. A
-> systemd-credentials provider is planned — see [Roadmap](#roadmap).
+> Windows Credential Manager provider and the cross-platform file-based provider, optionally with
+> [signed values](#signed-values), are available today. A systemd-credentials provider is planned — see
+> [Roadmap](#roadmap).
 
 ## Why
 
@@ -39,13 +40,15 @@ sufficient privilege can". Understanding that boundary is important:
   sibling process that can spawn the service — can substitute **any** secret without touching the
   keystore or the encrypted file. That is why it defaults to `false`; see
   [Environment overrides](#environment-overrides).
-- **The writer is trusted.** Provisioning (whoever calls `SetSecretAsync` — an installer, an admin
-  tool) is assumed authorized, not adversarial. In particular, `PkcsSecretProtector`'s PKCS#7/CMS
-  envelope encrypts each value (AES-256-CBC content key wrapped with RSA-OAEP) but does not
-  authenticate it: `Protect` only needs the recipient certificate's *public* key, so anyone who can
-  write the store file could swap, replay, or forge entries without needing the private key. This is
-  an accepted trade-off given the trusted-writer assumption, not an oversight — if your deployment
-  cannot guarantee that, do not rely on this store's write path as a tamper-resistant boundary.
+- **The writer is trusted — unless values are signed.** Provisioning (whoever calls `SetSecretAsync` —
+  an installer, an admin tool) is assumed authorized, not adversarial. In particular,
+  `PkcsSecretProtector`'s PKCS#7/CMS envelope encrypts each value (AES-256-CBC content key wrapped with
+  RSA-OAEP) but does not authenticate it: `Protect` only needs the recipient certificate's *public*
+  key, so anyone who can write the store file could swap, replay, or forge entries without needing the
+  private key. If your deployment cannot guarantee that only authorized writers reach the file, wrap
+  the protector in `SigningSecretProtector` (see [Signed values](#signed-values)): writing a value then
+  needs the certificate's private key, and a forged, changed or swapped value is refused when it is
+  read. Replaying an older value of the same name and deleting an entry stay possible either way.
 
 The right operational posture is to run the process under a least-privileged identity and let that
 identity own the secrets.
@@ -55,7 +58,7 @@ identity own the secrets.
 | Package | Purpose |
 |---|---|
 | `SAF.Configuration.Secrets.Contracts` | Interfaces and types: `ISecretStore`, `ISecretReader`, `ISecretWriter`, `ISecretStoreProvider`, `ISecretProtector`, `SecretStoreOptions`, `FileSecretStoreOptions`, `SecretReference` |
-| `SAF.Configuration.Secrets` | Provider implementations (Windows Credential Manager, file store), the default `PkcsSecretProtector`, and provider selection |
+| `SAF.Configuration.Secrets` | Provider implementations (Windows Credential Manager, file store), the default `PkcsSecretProtector`, the `SigningSecretProtector` decorator, and provider selection |
 | `SAF.Configuration.Secrets.Extensions` | Plugin-system host-builder integration (`AddSecretStore`, `AddSecretConfigurationResolution`) |
 
 Reference `SAF.Configuration.Secrets.Extensions` from your host; it pulls in the other two.
@@ -286,8 +289,9 @@ Key points:
   opaque `CryptographicException` from deep inside CMS decryption.
 - **Protector identity is stamped** into the file. Opening a store written by a different protector
   fails fast with an explanatory error rather than producing garbage. This guards against
-  misconfiguration (wrong protector wired up), not against tampering — per the trusted-writer
-  assumption above, the stamp itself is unauthenticated and a missing stamp is not rejected.
+  misconfiguration (wrong protector wired up), not against tampering — the stamp itself is
+  unauthenticated and a missing stamp is not rejected. With [signed values](#signed-values), changing
+  the stamp gains nothing: every value is still verified when it is read.
 - **File permissions are the installer's responsibility — including the directory.** The provider
   neither grants nor restricts any principal's access: it writes where it is pointed, accepting whatever
   ACL that location already carries. Restricting the store is therefore a **required install step**, and
@@ -352,8 +356,67 @@ Key points:
   write therefore re-read the file instead of caching it, and only after that does the stamp become
   evidence that the cached document is current.
 
+### Signed values
+
+*Added after 11.0.0-alpha.15.* `PkcsSecretProtector` alone trusts whoever can write the store file,
+because protecting a value needs only the public key. `SigningSecretProtector` wraps another protector
+and signs each value it produces, so that writing a value needs the certificate's **private** key. Use
+it when the file's ACL is not the only thing you want between a local user and a forged secret, for
+example because an installer, a backup tool or a support engineer may write the file:
+
+```csharp
+// The same certificate encrypts (PkcsSecretProtector) and signs (SigningSecretProtector).
+ps.Services.AddSingleton<ISecretProtector>(_ =>
+    new SigningSecretProtector(new PkcsSecretProtector(certificate), certificate));
+```
+
+- **What is signed.** The value as the inner protector produced it, together with the secret's
+  physical name (see [Secret names](#secret-names)), in a PKCS#7/CMS `SignedData` with RSA-PSS and
+  SHA-256. The certificate is not embedded.
+- **What a read refuses**, with a `CryptographicException` naming the secret:
+  - a value that is not signed, such as one written by `PkcsSecretProtector` alone;
+  - a value signed by another key, including a signature that names the configured certificate but
+    carries a certificate of its own;
+  - a value signed for another name, such as one moved to another entry of the file;
+  - a value changed after it was signed;
+  - a value with more than one signature.
+- **What it does not detect.** A deleted entry, which then counts as missing, and an older value of
+  the same name that was valid when it was written (rollback). Only state kept outside the file, such
+  as a counter, could detect a rollback.
+- **Keys.** The certificate needs an RSA key. Signing needs its private key, so a host that only
+  provisions secrets needs the private key too, unlike with `PkcsSecretProtector` alone; without it,
+  `Protect` throws an `InvalidOperationException` naming the problem. Verifying needs only the public
+  key, and decrypting needs whatever the inner protector needs.
+- **No chain and no validity period.** A value is verified against the configured certificate and
+  nothing else: no chain is built and its dates are not checked. A self-signed certificate works, and so
+  does an expired one, so a store certificate that expires never makes the secrets unreadable. Trust
+  comes from the certificate being the configured one, so protect its private key: whoever can use it
+  can set any secret.
+- **Names** are compared case-insensitively, like the [store keys](#secret-names).
+- **Protector name.** It is the inner protector's name with `+signed` appended, `pkcs+signed` for the
+  example above. A file written by `PkcsSecretProtector` alone is stamped `pkcs`, so a store configured
+  with the signing protector refuses it with the protector-mismatch error, and vice versa. There is no
+  in-place upgrade: to switch an existing store, read its secrets with the old configuration and write
+  them to a new file with the new one, or provision them again.
+- **Ownership.** `SigningSecretProtector` disposes the inner protector (if it is `IDisposable`) and the
+  certificate when it is disposed itself. Passing the same certificate instance to both, as above, is
+  fine.
+
+### Writing a protector
+
+`ISecretProtector` has two pairs of methods. The file store calls `Protect(name, plaintext)` and
+`Unprotect(name, protectedData)` with the secret's physical name. By default they ignore the name and
+call `Protect(plaintext)` and `Unprotect(protectedData)`, so a protector that does not need the name
+implements only those two. Protectors written before the named overloads existed keep working without
+a change.
+
+A protector that wraps another one must forward the named overloads; otherwise the name never reaches
+the protector it wraps. `SigningSecretProtector` makes that mistake visible: it needs the name, so its
+name-less `Protect(byte[])` and `Unprotect(byte[])` throw a `NotSupportedException`.
+
 > **Windows alternative (planned).** A DPAPI-backed protector can be added additively for Windows-only
-> file stores without changing the store — see [Roadmap](#roadmap).
+> file stores without changing the store — see [Roadmap](#roadmap). It can be wrapped in
+> `SigningSecretProtector` like the default one.
 
 ## Transparent configuration resolution
 
