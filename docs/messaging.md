@@ -282,7 +282,7 @@ Backed by [C-DEngine](https://github.com/TRUMPF-IoT/C-DEngine), a mesh-network f
 The `Cde` section binds to `SAF.Cde.Common.CdeConfiguration` (package `SAF.Cde.Common`, which comes with the
 plug-in).
 
-SAF 11.x uses C-DEngine 7.110.3, which runs on .NET 10 only. It shares a mesh with nodes on C-DEngine 5.x and 6.x,
+SAF 11.x uses C-DEngine 7.111.0, which requires .NET 10 or later. It shares a mesh with nodes on C-DEngine 5.x and 6.x,
 such as SAF 9.x and 10.x nodes or a C-DEngine 6 relay. C-DEngine 7 writes its JSON with System.Text.Json instead of
 Newtonsoft.Json: the values stay the same, and so does almost all of the text. Only some characters inside a string
 travel as `\uXXXX`: those outside the Basic Multilingual Plane, such as emoji, and invisible ones, such as a no-break
@@ -414,7 +414,7 @@ this section says 10.x, it includes them.
 |---|---|---|
 | Redis | Supported; older nodes ignore `ReplyTo` and `AcceptedReplyFormats`. **Set `EnableBinaryPayloads` to `false`**: older nodes read binary payloads as corrupt text | An envelope with an unknown major version is dropped with a warning instead of being read as version 2. `ReplyTo` and `AcceptedReplyFormats` are optional envelope fields. Binary payloads travel in a binary frame, version `3.0.0` ([details](#redis)). |
 | NATS | Supported; older nodes receive no `CustomProperties`, `ReplyTo` or `AcceptedReplyFormats`. **Set `EnableBinaryPayloads` to `false`**: older nodes read binary payloads as corrupt text | The metadata travels in headers; NATS Server 2.2 or newer is required. Binary payloads are the body of version `3.0.0` messages ([details](#nats)). |
-| C-DEngine | Supported; the format is negotiated per peer (9.x announces version `3.0.0`, 10.x `4.0.0`, 11.x `5.0.0`); older nodes ignore `ReplyTo` and `AcceptedReplyFormats` and receive no binary payloads | Version `5.0.0` carries binary payloads; `ReplyTo` and `AcceptedReplyFormats` are optional JSON fields. SAF uses C-DEngine 7.110.3, which escapes some characters in the JSON differently, such as emoji; older nodes read it as before. An 11.x node reads JSON strictly by default ([details](#c-dengine)). |
+| C-DEngine | Supported; the format is negotiated per peer (9.x announces version `3.0.0`, 10.x `4.0.0`, 11.x `5.0.0`); older nodes ignore `ReplyTo` and `AcceptedReplyFormats` and receive no binary payloads | Version `5.0.0` carries binary payloads; `ReplyTo` and `AcceptedReplyFormats` are optional JSON fields. SAF uses C-DEngine 7.111.0, which escapes some characters in the JSON differently, such as emoji; older nodes read it as before. An 11.x node reads JSON strictly by default ([details](#c-dengine)). |
 | In-Process | Not applicable (single process) | Nothing. |
 
 Messages with a `BinaryPayload` are delivered by In-Process, and by C-DEngine, Redis and NATS between 11.x nodes;
