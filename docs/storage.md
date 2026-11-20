@@ -78,7 +78,7 @@ All operations on the shared connection, including reads and disposal, are seria
 
 ### C-DEngine
 
-Keeps each area in the persistent storage cache of [C-DEngine](https://github.com/TRUMPF-IoT/C-DEngine), as the file `ClientBin/cache/saf.<area>.storage` below C-DEngine's base directory (by default the host's base directory). Entries are held in memory and written to the file every few seconds and when the host shuts down.
+Keeps each area in the persistent storage cache of [C-DEngine](https://github.com/TRUMPF-IoT/C-DEngine), as the file `ClientBin/cache/saf.<area>.storage` below C-DEngine's ClientBin root directory, by default the host's base directory (see [Moving the ClientBin folder](#moving-the-clientbin-folder)). Entries are held in memory and written to the file every few seconds and when the host shuts down.
 
 **Package / plug-in DLL:** `SAF.Storage.Cde` (`SAF.Storage.Cde.dll`)
 
@@ -91,6 +91,22 @@ Keeps each area in the persistent storage cache of [C-DEngine](https://github.co
 The plug-in reads the same `Cde` section as the C-DEngine messaging plug-in `SAF.Messaging.Cde`, from the plugin settings file with a fallback to the host configuration, and runs on the same C-DEngine node: there is one node per process, started by whichever of the two plug-ins needs it first. The storage plug-in also works on its own, for example next to Redis messaging. As with the messaging plug-in, a live reload is not supported while it is loaded.
 
 If you load both C-DEngine plug-ins, deploy them to the **host's base directory** (`AppContext.BaseDirectory`), preferably through a `PackageReference` in the host. A shared plug-in folder outside the base directory is **not** enough, because every plug-in assembly there gets its own `AssemblyLoadContext` with its own copy of C-DEngine. See [C-DEngine](./messaging.md#c-dengine) in the messaging documentation for the details and the error you get otherwise.
+
+#### Moving the ClientBin folder
+
+To keep the `ClientBin` folder outside the host's base directory, for example on a data drive, pass C-DEngine's start argument `ClientBinRootDirectory` as an additional argument. The name is case-sensitive:
+
+```json
+{
+  "Cde": {
+    "AdditionalArguments": { "ClientBinRootDirectory": "D:\\SafData" }
+  }
+}
+```
+
+C-DEngine then writes the storage areas to `D:\SafData\ClientBin\cache\`. A relative path is relative to the host's base directory. The setting applies to the whole C-DEngine node, so the messaging plug-in uses the same folder.
+
+The `ClientBin` folder also holds the identity of the C-DEngine node (`cache/TheProvInfo.cdeTPI`). Before you set or change the argument on an existing installation, stop the host and move the whole `ClientBin` folder to the new location. Otherwise the node starts with empty storage areas and announces itself under a new node ID. Make sure the account the host runs under can write to the new location.
 
 ### Redis
 
