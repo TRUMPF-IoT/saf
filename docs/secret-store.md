@@ -420,8 +420,10 @@ private key can have data of their choice decrypted with it.
 #### Switching an existing store
 
 There is no in-place upgrade, and the store cannot list its secrets, so the product must know their
-names. Read them with the old protector, write them to a new file with the new one, and only then put
-the new file in place of the old one:
+names. Stop the service first, and start it again only once it is configured with the new protector:
+a value it writes during the switch would be lost, and with the old protector it refuses the new file.
+Then read the secrets with the old protector, write them to a new file with the new one, and only then
+put the new file in place of the old one:
 
 ```csharp
 // A stand-alone store over one file, for example in an installer.
@@ -463,8 +465,23 @@ File.Move(newPath, path, overwrite: true);
 ```
 
 `LoadCertificate()` stands for however you obtain the certificate; each protector disposes the instance
-it is given. The new file inherits the ACL of the directory, like the old one. Provisioning every secret
-again works the same way, once the old file has been moved away or deleted.
+it is given.
+
+Unlike the store's own writes, which change the file in place, this creates a second file next to the
+store, so the account that runs it must be allowed to create files in that directory. The new file
+also does not keep the old file's permissions:
+
+- **Windows:** it inherits the ACL of the directory. If the directory is restricted as described under
+  *File permissions* above, the old file had that ACL as well; entries set on the old file itself are
+  lost.
+- **Linux:** it is created with mode `0600` and is owned by the account that runs the migration. Run the
+  migration as the service account (for example with `sudo -u myapp`), or give the file the old owner
+  and mode before the service starts again (for example
+  `chown myapp:myapp /var/lib/myapp/secrets.json`). Otherwise the service can no longer read its
+  secrets.
+
+Provisioning every secret again works the same way, once the old file has been moved away or deleted;
+the same applies to the new file's permissions.
 
 ### Writing a protector
 
