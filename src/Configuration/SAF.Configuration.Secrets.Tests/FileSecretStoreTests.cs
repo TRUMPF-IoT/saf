@@ -6,8 +6,10 @@ namespace SAF.Configuration.Secrets.Tests;
 
 using System.IO;
 using System.IO.Abstractions;
+using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
+using System.Text.Json.Nodes;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using NSubstitute;
@@ -179,6 +181,35 @@ public class FileSecretStoreTests
 
             Assert.Equal("real-cms-value", result);
             Assert.DoesNotContain("real-cms-value", await _fileSystem.File.ReadAllTextAsync(StorePath, TestToken));
+        }
+        finally
+        {
+            TestCertificates.DisposeAndDeleteKey(certificate);
+        }
+    }
+
+    [Fact]
+    public async Task GetSecretAsync_RefusesAValueMovedToAnotherName_WithASigningProtector()
+    {
+        var certificate = TestCertificates.CreateRsaCertificate();
+        try
+        {
+            var protector = new Protection.SigningSecretProtector(new ReversingSecretProtector(), certificate);
+            var store = CreateStore(protector: protector);
+            await store.SetSecretAsync("conn/user", "admin", TestToken);
+            await store.SetSecretAsync("conn/pw", "s3cr3t", TestToken);
+
+            // Someone who may write the file but has no key swaps the two values.
+            var document = JsonNode.Parse(await _fileSystem.File.ReadAllTextAsync(StorePath, TestToken))!;
+            var secrets = document["Secrets"]!;
+            var user = secrets["conn/user"]!.GetValue<string>();
+            secrets["conn/user"] = secrets["conn/pw"]!.GetValue<string>();
+            secrets["conn/pw"] = user;
+            await WriteStoreFileAsync(document.ToJsonString());
+
+            var ex = await Assert.ThrowsAsync<CryptographicException>(
+                async () => await CreateStore(protector: protector).GetSecretAsync("conn/pw", TestToken));
+            Assert.Contains("conn/user", ex.Message);
         }
         finally
         {

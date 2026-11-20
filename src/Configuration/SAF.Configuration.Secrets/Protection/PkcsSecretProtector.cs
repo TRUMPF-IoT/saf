@@ -19,7 +19,8 @@ using SAF.Configuration.Secrets.Contracts;
 /// <remarks>
 /// The envelope is encrypted, not authenticated: <see cref="Protect"/> needs only the recipient
 /// certificate's public key, so it assumes the party writing the store is trusted, not adversarial.
-/// See the "Security model" section of docs/secret-store.md.
+/// Wrap it in <see cref="SigningSecretProtector"/> where that does not hold. See the "Security model"
+/// section of docs/secret-store.md.
 /// </remarks>
 public sealed class PkcsSecretProtector : ISecretProtector, IDisposable
 {
@@ -48,7 +49,8 @@ public sealed class PkcsSecretProtector : ISecretProtector, IDisposable
     public string Name => ProtectorName;
 
     /// <inheritdoc />
-    public byte[] Protect(byte[] plaintext)
+    /// <remarks>The envelope does not depend on <paramref name="name"/>.</remarks>
+    public byte[] Protect(string name, byte[] plaintext)
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
         ArgumentNullException.ThrowIfNull(plaintext);
@@ -61,7 +63,8 @@ public sealed class PkcsSecretProtector : ISecretProtector, IDisposable
     }
 
     /// <inheritdoc />
-    public byte[] Unprotect(byte[] protectedData)
+    /// <remarks>The envelope does not depend on <paramref name="name"/>.</remarks>
+    public byte[] Unprotect(string name, byte[] protectedData)
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
         ArgumentNullException.ThrowIfNull(protectedData);

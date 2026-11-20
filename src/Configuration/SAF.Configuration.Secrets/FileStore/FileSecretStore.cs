@@ -150,7 +150,7 @@ internal sealed class FileSecretStore : ISecretStoreProvider, IDisposable
             EnsureDirectoryExists(path);
             await using var stream = await OpenExclusiveAsync(path, cancellationToken).ConfigureAwait(false);
             var document = await ReadDocumentAsync(path, stream, cancellationToken).ConfigureAwait(false);
-            document.Secrets[name] = Encrypt(value);
+            document.Secrets[name] = Encrypt(name, value);
             await WriteDocumentAsync(stream, document, cancellationToken).ConfigureAwait(false);
             _cachedDocument = null;
         }
@@ -325,12 +325,12 @@ internal sealed class FileSecretStore : ISecretStoreProvider, IDisposable
     private static bool IsSharingConflict(IOException exception)
         => exception is not (FileNotFoundException or DirectoryNotFoundException or PathTooLongException or DriveNotFoundException);
 
-    private string Encrypt(string value)
+    private string Encrypt(string targetName, string value)
     {
         var plaintext = Encoding.UTF8.GetBytes(value);
         try
         {
-            return Convert.ToBase64String(Protector.Protect(plaintext));
+            return Convert.ToBase64String(Protector.Protect(targetName, plaintext));
         }
         finally
         {
@@ -353,7 +353,7 @@ internal sealed class FileSecretStore : ISecretStoreProvider, IDisposable
                 "decrypted. An interrupted write can corrupt it; re-provision that secret.", e);
         }
 
-        var plaintext = Protector.Unprotect(enveloped);
+        var plaintext = Protector.Unprotect(targetName, enveloped);
         try
         {
             return Encoding.UTF8.GetString(plaintext);

@@ -11,18 +11,18 @@ using SAF.Configuration.Secrets.Contracts;
 /// can be asserted without depending on certificate crypto. Reversing the bytes keeps plaintext out of
 /// the persisted payload while remaining trivially invertible.
 /// </summary>
-internal sealed class ReversingSecretProtector(string name = "fake") : ISecretProtector
+internal sealed class ReversingSecretProtector(string protectorName = "fake") : ISecretProtector
 {
-    public string Name => name;
+    public string Name => protectorName;
 
-    public byte[] Protect(byte[] plaintext)
+    public byte[] Protect(string name, byte[] plaintext)
     {
         var copy = (byte[])plaintext.Clone();
         Array.Reverse(copy);
         return copy;
     }
 
-    public byte[] Unprotect(byte[] protectedData)
+    public byte[] Unprotect(string name, byte[] protectedData)
     {
         var copy = (byte[])protectedData.Clone();
         Array.Reverse(copy);
