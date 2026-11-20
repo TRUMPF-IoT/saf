@@ -164,7 +164,7 @@ public sealed class SigningSecretProtector : ISecretProtector, IDisposable
     private static Pkcs9DocumentName CreateNameAttribute(string name)
     {
         var attribute = new Pkcs9DocumentName(name);
-        if (!string.Equals(new Pkcs9DocumentName(attribute.RawData!).DocumentName, name, StringComparison.Ordinal))
+        if (!string.Equals(new Pkcs9DocumentName(attribute.RawData).DocumentName, name, StringComparison.Ordinal))
         {
             throw new ArgumentException(
                 "The name of a signed secret must not contain NUL or an unpaired surrogate.", nameof(name));
@@ -258,6 +258,6 @@ public sealed class SigningSecretProtector : ISecretProtector, IDisposable
                 $"The value of the secret '{name}' does not name exactly one secret in its signed attributes.");
         }
 
-        return new Pkcs9DocumentName(value.RawData!).DocumentName;
+        return new Pkcs9DocumentName(value.RawData).DocumentName;
     }
 }
