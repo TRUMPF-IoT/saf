@@ -450,7 +450,16 @@ await using (var current = BuildStore(path, new PkcsSecretProtector(LoadCertific
     }
 }
 
+// Created empty and owner-only before the store opens it. CreateNew refuses a file left over from an
+// earlier attempt, which may still hold secrets removed from the store since.
 var newPath = path + ".new";
+var staging = new FileStreamOptions { Mode = FileMode.CreateNew, Access = FileAccess.Write };
+if (!OperatingSystem.IsWindows())
+{
+    staging.UnixCreateMode = UnixFileMode.UserRead | UnixFileMode.UserWrite;
+}
+File.Open(newPath, staging).Dispose();
+
 var certificate = LoadCertificate();
 await using (var signed = BuildStore(newPath, new SigningSecretProtector(new PkcsSecretProtector(certificate), certificate)))
 {
@@ -466,6 +475,12 @@ File.Move(newPath, path, overwrite: true);
 
 `LoadCertificate()` stands for however you obtain the certificate; each protector disposes the instance
 it is given.
+
+The new file is created empty before anything is written to it, so the switch also works when none of
+the secrets exist: the new store is then empty. If an earlier attempt left `secrets.json.new` behind,
+`File.Open` throws an `IOException` and nothing is changed. Delete that file and run the migration
+again. It is not reused because the store keeps entries that are not written again, so it could bring
+back secrets that were removed in the meantime.
 
 Unlike the store's own writes, which change the file in place, this creates a second file next to the
 store, so the account that runs it must be allowed to create files in that directory. The new file
