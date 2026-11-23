@@ -72,7 +72,7 @@ graph TB
 | `SAF.Storage.SQLite` | SQLite-backed key/value storage |
 | `SAF.Storage.Cde` | C-DEngine-backed key/value storage |
 | `SAF.Configuration.Secrets.Contracts` | Secret store contracts: `ISecretStore`, `SecretStoreOptions`, `SecretReference` |
-| `SAF.Configuration.Secrets` | Secret store providers (Windows Credential Manager, cross-platform file store), the default `PkcsSecretProtector`, and provider selection |
+| `SAF.Configuration.Secrets` | Secret store providers (Windows Credential Manager, cross-platform file store), the default `PkcsSecretProtector`, the `SigningSecretProtector` decorator, and provider selection |
 | `SAF.Configuration.Secrets.Extensions` | Secret store host-builder integration (`AddSecretStore`, `AddSecretConfigurationResolution`) |
 | `SAF.PluginSystem.Hosting` | Plugin loading engine |
 | `SAF.PluginSystem.Hosting.Contracts` | Plugin contracts: `IPluginManifest`, `IServicePlugin`, `IPluginAssemblyValidator`, validation context/result, plus plugin-side DI helpers (`AddServicePlugin`, `AddKeyedOptions`) |

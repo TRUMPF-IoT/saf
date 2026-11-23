@@ -10,6 +10,11 @@ namespace SAF.Configuration.Secrets.Contracts;
 /// additively without modifying the store (open/closed principle). The default, cross-platform
 /// implementation uses PKCS#7/CMS enveloping.
 /// </summary>
+/// <remarks>
+/// Every call carries the physical name of the secret. A protector that does not need it ignores it; one
+/// that binds a payload to its name, such as the signing decorator, refuses a payload found under another
+/// name. A decorator passes the name on to the protector it wraps.
+/// </remarks>
 public interface ISecretProtector
 {
     /// <summary>
@@ -19,16 +24,19 @@ public interface ISecretProtector
     string Name { get; }
 
     /// <summary>
-    /// Encrypts <paramref name="plaintext"/> and returns the self-describing protected payload.
+    /// Encrypts <paramref name="plaintext"/>, the value of the secret <paramref name="name"/>, and returns
+    /// the self-describing protected payload.
     /// </summary>
+    /// <param name="name">The physical name the secret is stored under.</param>
     /// <param name="plaintext">The raw secret bytes to protect.</param>
     /// <returns>The encrypted payload, safe to persist at rest.</returns>
-    byte[] Protect(byte[] plaintext);
+    byte[] Protect(string name, byte[] plaintext);
 
     /// <summary>
     /// Decrypts a payload previously produced by <see cref="Protect"/> and returns the plaintext bytes.
     /// </summary>
+    /// <param name="name">The physical name the payload was found under.</param>
     /// <param name="protectedData">The protected payload to decrypt.</param>
     /// <returns>The recovered plaintext bytes.</returns>
-    byte[] Unprotect(byte[] protectedData);
+    byte[] Unprotect(string name, byte[] protectedData);
 }

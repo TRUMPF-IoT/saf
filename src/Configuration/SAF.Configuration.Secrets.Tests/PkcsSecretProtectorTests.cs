@@ -13,6 +13,8 @@ using Xunit;
 
 public class PkcsSecretProtectorTests : IDisposable
 {
+    private const string SecretName = "saf/conn/pw";
+
     private readonly List<X509Certificate2> _certificates = [];
 
     [Fact]
@@ -30,8 +32,8 @@ public class PkcsSecretProtectorTests : IDisposable
         var protector = new PkcsSecretProtector(CreateCertificate());
         var plaintext = Encoding.UTF8.GetBytes("s3cr3t-value-äöü");
 
-        var protectedData = protector.Protect(plaintext);
-        var recovered = protector.Unprotect(protectedData);
+        var protectedData = protector.Protect(SecretName, plaintext);
+        var recovered = protector.Unprotect(SecretName, protectedData);
 
         Assert.Equal(plaintext, recovered);
     }
@@ -42,7 +44,7 @@ public class PkcsSecretProtectorTests : IDisposable
         var protector = new PkcsSecretProtector(CreateCertificate());
         var plaintext = Encoding.UTF8.GetBytes("do-not-leak-me");
 
-        var protectedData = protector.Protect(plaintext);
+        var protectedData = protector.Protect(SecretName, plaintext);
 
         Assert.NotEqual(plaintext, protectedData);
         Assert.False(ContainsSubsequence(protectedData, plaintext));
@@ -54,8 +56,8 @@ public class PkcsSecretProtectorTests : IDisposable
         var protector = new PkcsSecretProtector(CreateCertificate());
         var plaintext = Encoding.UTF8.GetBytes("same-input");
 
-        var first = protector.Protect(plaintext);
-        var second = protector.Protect(plaintext);
+        var first = protector.Protect(SecretName, plaintext);
+        var second = protector.Protect(SecretName, plaintext);
 
         // A fresh content key / IV per call must yield distinct envelopes for identical plaintext.
         Assert.NotEqual(first, second);
@@ -67,9 +69,9 @@ public class PkcsSecretProtectorTests : IDisposable
         var writer = new PkcsSecretProtector(CreateCertificate());
         var reader = new PkcsSecretProtector(CreateCertificate());
 
-        var protectedData = writer.Protect(Encoding.UTF8.GetBytes("value"));
+        var protectedData = writer.Protect(SecretName, Encoding.UTF8.GetBytes("value"));
 
-        Assert.ThrowsAny<CryptographicException>(() => reader.Unprotect(protectedData));
+        Assert.ThrowsAny<CryptographicException>(() => reader.Unprotect(SecretName, protectedData));
     }
 
     [Fact]
@@ -77,7 +79,7 @@ public class PkcsSecretProtectorTests : IDisposable
     {
         var protector = new PkcsSecretProtector(CreateCertificate());
 
-        Assert.ThrowsAny<CryptographicException>(() => protector.Unprotect([1, 2, 3, 4]));
+        Assert.ThrowsAny<CryptographicException>(() => protector.Unprotect(SecretName, [1, 2, 3, 4]));
     }
 
     [Fact]
@@ -85,12 +87,12 @@ public class PkcsSecretProtectorTests : IDisposable
     {
         var writerCertificate = CreateCertificate();
         var writer = new PkcsSecretProtector(writerCertificate);
-        var protectedData = writer.Protect(Encoding.UTF8.GetBytes("value"));
+        var protectedData = writer.Protect(SecretName, Encoding.UTF8.GetBytes("value"));
 
         using var publicOnlyCertificate = X509CertificateLoader.LoadCertificate(writerCertificate.Export(X509ContentType.Cert));
         var reader = new PkcsSecretProtector(publicOnlyCertificate);
 
-        var ex = Assert.Throws<InvalidOperationException>(() => reader.Unprotect(protectedData));
+        var ex = Assert.Throws<InvalidOperationException>(() => reader.Unprotect(SecretName, protectedData));
         Assert.Contains("private key", ex.Message, StringComparison.OrdinalIgnoreCase);
     }
 
@@ -101,7 +103,7 @@ public class PkcsSecretProtectorTests : IDisposable
         using var publicOnlyCertificate = X509CertificateLoader.LoadCertificate(writerCertificate.Export(X509ContentType.Cert));
         var protector = new PkcsSecretProtector(publicOnlyCertificate);
 
-        var protectedData = protector.Protect(Encoding.UTF8.GetBytes("value"));
+        var protectedData = protector.Protect(SecretName, Encoding.UTF8.GetBytes("value"));
 
         Assert.NotEmpty(protectedData);
     }
@@ -123,7 +125,7 @@ public class PkcsSecretProtectorTests : IDisposable
         var protector = new PkcsSecretProtector(CreateCertificate());
         protector.Dispose();
 
-        Assert.Throws<ObjectDisposedException>(() => protector.Protect(Encoding.UTF8.GetBytes("value")));
+        Assert.Throws<ObjectDisposedException>(() => protector.Protect(SecretName, Encoding.UTF8.GetBytes("value")));
     }
 
     [Fact]
@@ -135,7 +137,7 @@ public class PkcsSecretProtectorTests : IDisposable
     {
         var protector = new PkcsSecretProtector(CreateCertificate());
 
-        Assert.Throws<ArgumentNullException>(() => protector.Protect(null!));
+        Assert.Throws<ArgumentNullException>(() => protector.Protect(SecretName, null!));
     }
 
     [Fact]
@@ -143,7 +145,7 @@ public class PkcsSecretProtectorTests : IDisposable
     {
         var protector = new PkcsSecretProtector(CreateCertificate());
 
-        Assert.Throws<ArgumentNullException>(() => protector.Unprotect(null!));
+        Assert.Throws<ArgumentNullException>(() => protector.Unprotect(SecretName, null!));
     }
 
     public void Dispose()

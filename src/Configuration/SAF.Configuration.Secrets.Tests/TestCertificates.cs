@@ -21,12 +21,18 @@ internal static class TestCertificates
     /// <c>Dispose()</c> to also remove it, or repeated test runs accumulate key files.
     /// </summary>
     public static X509Certificate2 CreateRsaCertificate()
+        => CreateRsaCertificate(DateTimeOffset.UtcNow.AddMinutes(-5), DateTimeOffset.UtcNow.AddHours(1));
+
+    /// <summary>
+    /// Like <see cref="CreateRsaCertificate()"/>, valid from <paramref name="notBefore"/> to
+    /// <paramref name="notAfter"/>, so a test can use a certificate that has already expired.
+    /// </summary>
+    public static X509Certificate2 CreateRsaCertificate(DateTimeOffset notBefore, DateTimeOffset notAfter)
     {
         using var rsa = RSA.Create(2048);
         var request = new CertificateRequest(
             "CN=SAF Secret Store Test", rsa, HashAlgorithmName.SHA256, RSASignaturePadding.Pkcs1);
-        using var ephemeral = request.CreateSelfSigned(
-            DateTimeOffset.UtcNow.AddMinutes(-5), DateTimeOffset.UtcNow.AddHours(1));
+        using var ephemeral = request.CreateSelfSigned(notBefore, notAfter);
 
         var pfx = ephemeral.Export(X509ContentType.Pfx);
         return X509CertificateLoader.LoadPkcs12(pfx, password: null, X509KeyStorageFlags.Exportable);
