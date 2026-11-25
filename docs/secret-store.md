@@ -40,6 +40,11 @@ sufficient privilege can". Understanding that boundary is important:
   sibling process that can spawn the service — can substitute **any** secret without touching the
   keystore or the encrypted file. That is why it defaults to `false`; see
   [Environment overrides](#environment-overrides).
+- **Whoever can write the configuration decides which key receives a secret.** Resolution replaces a
+  reference wherever it appears. If a party you trust less than the secret — a settings page, an API,
+  another node — can write the plugin configuration, it can put a reference into a key whose value
+  leaves the machine, such as a host name or a URL, and the plug-in sends the secret there. Register a
+  policy that binds each secret to its keys; see [Restricting references](#restricting-references).
 - **The writer is trusted — unless values are signed.** Provisioning (whoever calls `SetSecretAsync` —
   an installer, an admin tool) is assumed authorized, not adversarial. In particular,
   `PkcsSecretProtector`'s PKCS#7/CMS envelope encrypts each value (AES-256-CBC content key wrapped with
@@ -58,8 +63,8 @@ identity own the secrets.
 
 | Package | Purpose |
 |---|---|
-| `SAF.Configuration.Secrets.Contracts` | Interfaces and types: `ISecretStore`, `ISecretReader`, `ISecretWriter`, `ISecretStoreProvider`, `ISecretProtector`, `SecretStoreOptions`, `FileSecretStoreOptions`, `SecretReference` |
-| `SAF.Configuration.Secrets` | Provider implementations (Windows Credential Manager, file store), the default `PkcsSecretProtector`, the `SigningSecretProtector` decorator, and provider selection |
+| `SAF.Configuration.Secrets.Contracts` | Interfaces and types: `ISecretStore`, `ISecretReader`, `ISecretWriter`, `ISecretStoreProvider`, `ISecretProtector`, `ISecretReferencePolicy`, `SecretStoreOptions`, `FileSecretStoreOptions`, `SecretReference` |
+| `SAF.Configuration.Secrets` | Provider implementations (Windows Credential Manager, file store), the default `PkcsSecretProtector`, the `SigningSecretProtector` decorator, the `SecretReferenceAllowList` policy, and provider selection |
 | `SAF.Configuration.Secrets.Extensions` | Plugin-system host-builder integration (`AddSecretStore`, `AddSecretConfigurationResolution`) |
 
 Reference `SAF.Configuration.Secrets.Extensions` from your host; it pulls in the other two.
@@ -616,6 +621,38 @@ Then reference secrets in the plugin configuration with the `secret://` prefix:
 > Settings](./plugin-system.md#plugin-settings)). The resolver receives that provider and reads the
 > `ISecretStore` and `SecretStoreOptions` registered on it directly — there is no separate bootstrap
 > phase, and no action is required to make that happen.
+
+### Restricting references
+
+By default every key may refer to every secret. When parties that must not read the secrets can write
+the plugin configuration — a settings page, an API, another node — register a policy that names the keys
+each secret belongs in:
+
+```csharp
+ps.Services.AddSecretReferencePolicy(new SecretReferenceAllowList([
+    new("OpcUaConnections:0:User", "opcua/conn-1/user"),
+    new("OpcUaConnections:0:Password", "opcua/conn-1/password"),
+]));
+ps.AddSecretConfigurationResolution(o => o.Namespace = "myapp");
+```
+
+- A reference the policy refuses **reads as `null`** and is logged as a warning naming the key and the
+  reference; the store is not read for it. Startup does not fail over it, so a writer cannot stop the
+  host this way.
+- The policy is asked on every load and every reload, so a reference written while the host runs is
+  refused as soon as the configuration reloads.
+- `SecretReferenceAllowList` matches keys case-insensitively, as configuration keys match, and names the
+  way the store looks them up (see [Secret names](#secret-names)). Implement `ISecretReferencePolicy` for
+  other rules.
+- A container takes one policy: a second `AddSecretReferencePolicy` throws instead of replacing the
+  first and lifting its restrictions.
+- With the standalone `AddResolvedSecrets(...)`, register the policy with the providers:
+  `providers => { providers.AddDefaults(); providers.Services.AddSecretReferencePolicy(policy); }`.
+
+> **Keep the policy out of the writers' reach.** Build it in code, not from configuration those parties
+> can change, or they extend it. The policy binds a secret to its keys, not to where the plug-in sends
+> it: a writer who can change `OpcUaConnections:0:Host` still redirects the password. Keep the keys that
+> decide where a secret goes out of their reach as well.
 
 ## Options
 

@@ -9,6 +9,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using NSubstitute;
 using SAF.Configuration.Secrets;
+using SAF.Configuration.Secrets.Configuration;
 using SAF.Configuration.Secrets.Contracts;
 using SAF.Configuration.Secrets.Extensions;
 using SAF.PluginSystem.Hosting;
@@ -114,6 +115,29 @@ public class PluginSystemHostBuilderExtensionsTests
         var context = host.Services.GetRequiredService<IPluginSystemHostContext>();
 
         Assert.Equal("resolved:saf/db/pw", context.PluginConfiguration["MyPlugin:Password"]);
+    }
+
+    [Fact]
+    public void AddSecretConfigurationResolution_HidesAReferenceThePolicyRefuses_ThroughRealHost()
+    {
+        var builder = Host.CreateApplicationBuilder();
+        var pluginSystemBuilder = builder.AddPluginSystem(_ => { });
+
+        pluginSystemBuilder.AddPluginConfigurationSource(source =>
+            source.Builder.AddInMemoryCollection(new Dictionary<string, string?>
+            {
+                ["MyPlugin:Password"] = "secret://db/pw",
+                ["MyPlugin:Host"] = "secret://db/pw",
+            }));
+        pluginSystemBuilder.Services.AddSecretReferencePolicy(new SecretReferenceAllowList([new("MyPlugin:Password", "db/pw")]));
+        pluginSystemBuilder.AddSecretConfigurationResolution(
+            configureProviders: providers => providers.AddProvider<FakeSecretProvider>());
+
+        using var host = builder.Build();
+        var context = host.Services.GetRequiredService<IPluginSystemHostContext>();
+
+        Assert.Equal("resolved:saf/db/pw", context.PluginConfiguration["MyPlugin:Password"]);
+        Assert.Null(context.PluginConfiguration["MyPlugin:Host"]);
     }
 
     [Fact]

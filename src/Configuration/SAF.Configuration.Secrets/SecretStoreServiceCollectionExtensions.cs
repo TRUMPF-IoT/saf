@@ -38,6 +38,28 @@ public static class SecretStoreServiceCollectionExtensions
     }
 
     /// <summary>
+    /// Restricts transparent configuration resolution to the references <paramref name="policy"/> allows: a
+    /// reference it refuses reads as <see langword="null"/> and is logged, and the store is not read for it.
+    /// Without a policy, every reference is resolved.
+    /// </summary>
+    /// <exception cref="InvalidOperationException">A policy is already registered.</exception>
+    public static IServiceCollection AddSecretReferencePolicy(this IServiceCollection services, ISecretReferencePolicy policy)
+    {
+        ArgumentNullException.ThrowIfNull(services);
+        ArgumentNullException.ThrowIfNull(policy);
+
+        if (services.Any(descriptor => descriptor.ServiceType == typeof(ISecretReferencePolicy)))
+        {
+            throw new InvalidOperationException(
+                $"An {nameof(ISecretReferencePolicy)} is already registered. A second one would replace it and lift "
+                + "its restrictions, so put every allowed reference into one policy.");
+        }
+
+        services.AddSingleton(policy);
+        return services;
+    }
+
+    /// <summary>
     /// Registers the Windows Credential Manager provider. A no-op on non-Windows platforms, so it is
     /// safe to call unconditionally; the selector then falls back to another available provider.
     /// </summary>

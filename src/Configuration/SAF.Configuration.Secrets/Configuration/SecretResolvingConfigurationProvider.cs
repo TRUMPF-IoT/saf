@@ -16,7 +16,8 @@ using SAF.Configuration.Secrets.Contracts;
 /// <summary>
 /// A configuration provider that replaces secret references (values starting with
 /// <see cref="SecretStoreOptions.ReferencePrefix"/>) in the underlying configuration with the resolved
-/// secret. Values that are not references are left untouched. When
+/// secret. Values that are not references are left untouched, and a reference the registered
+/// <see cref="ISecretReferencePolicy"/> refuses reads as <see langword="null"/>. When
 /// <see cref="SecretStoreOptions.AllowEnvironmentOverride"/> is enabled, an environment variable derived
 /// from the store key takes precedence over the store (for provisioning in CI/containers).
 /// </summary>
@@ -34,7 +35,9 @@ internal sealed class SecretResolvingConfigurationProvider : ConfigurationProvid
     private readonly SecretStoreOptions _options;
     // PublicationOnly: the default mode caches a factory exception, latching a transient failure - a
     // custom provider's constructor, a shutdown race - for the process lifetime.
+    private readonly Lazy<IServiceProvider> _services;
     private readonly Lazy<ISecretReader> _reader;
+    private readonly Lazy<ISecretReferencePolicy> _policy;
     private readonly ILogger _logger;
     private readonly IDisposable? _innerReloadRegistration;
     private ServiceProvider? _standaloneServices;
@@ -65,8 +68,7 @@ internal sealed class SecretResolvingConfigurationProvider : ConfigurationProvid
         if (hostServices is not null)
         {
             _options = hostServices.GetRequiredService<IOptions<SecretStoreOptions>>().Value;
-            _reader = new Lazy<ISecretReader>(
-                () => hostServices.GetRequiredService<ISecretStore>(), LazyThreadSafetyMode.PublicationOnly);
+            _services = new Lazy<IServiceProvider>(hostServices);
             _logger = hostServices.GetRequiredService<ILogger<SecretResolvingConfigurationProvider>>();
         }
         else
@@ -75,11 +77,17 @@ internal sealed class SecretResolvingConfigurationProvider : ConfigurationProvid
             // options are needed even before a reader is built, so derive them directly from the callback.
             _options = new SecretStoreOptions();
             configure?.Invoke(_options);
-            _reader = new Lazy<ISecretReader>(
-                () => BuildStandaloneReader(configure, configureProviders), LazyThreadSafetyMode.PublicationOnly);
+            _services = new Lazy<IServiceProvider>(
+                () => BuildStandaloneServices(configure, configureProviders), LazyThreadSafetyMode.PublicationOnly);
             // No host ILoggerFactory to attach to either; the standalone overload never logged anything before.
             _logger = NullLogger<SecretResolvingConfigurationProvider>.Instance;
         }
+
+        _reader = new Lazy<ISecretReader>(
+            () => _services.Value.GetRequiredService<ISecretStore>(), LazyThreadSafetyMode.PublicationOnly);
+        _policy = new Lazy<ISecretReferencePolicy>(
+            () => _services.Value.GetService<ISecretReferencePolicy>() ?? new UnrestrictedSecretReferencePolicy(),
+            LazyThreadSafetyMode.PublicationOnly);
 
         if (_options.ResolveTimeout <= TimeSpan.Zero && _options.ResolveTimeout != Timeout.InfiniteTimeSpan)
         {
@@ -135,17 +143,30 @@ internal sealed class SecretResolvingConfigurationProvider : ConfigurationProvid
     {
         var references = new Dictionary<string, SecretReference>(StringComparer.Ordinal);
         var referencedKeys = new List<KeyValuePair<string, string>>();
+        var data = new Dictionary<string, string?>(StringComparer.OrdinalIgnoreCase);
 
         foreach (var pair in _inner.AsEnumerable())
         {
-            if (pair.Value is not null && SecretReference.TryParse(pair.Value, _options.ReferencePrefix, out var reference))
+            if (pair.Value is null || !SecretReference.TryParse(pair.Value, _options.ReferencePrefix, out var reference))
             {
-                references.TryAdd(reference.Name, reference);
-                referencedKeys.Add(new KeyValuePair<string, string>(pair.Key, reference.Name));
+                continue;
             }
+
+            if (!_policy.Value.Allows(pair.Key, reference))
+            {
+                // Overridden with null, or the consumer would read the literal token.
+                data[pair.Key] = null;
+                _logger.LogWarning(
+                    "The secret reference '{Reference}' at '{Key}' is not allowed there by the secret reference policy; the key reads as null.",
+                    reference,
+                    pair.Key);
+                continue;
+            }
+
+            references.TryAdd(reference.Name, reference);
+            referencedKeys.Add(new KeyValuePair<string, string>(pair.Key, reference.Name));
         }
 
-        var data = new Dictionary<string, string?>(StringComparer.OrdinalIgnoreCase);
         if (referencedKeys.Count == 0)
         {
             return data;
@@ -329,7 +350,7 @@ internal sealed class SecretResolvingConfigurationProvider : ConfigurationProvid
         return value;
     }
 
-    private ISecretReader BuildStandaloneReader(
+    private ServiceProvider BuildStandaloneServices(
         Action<SecretStoreOptions>? configure,
         Action<ISecretStoreBuilder>? configureProviders)
     {
@@ -355,7 +376,7 @@ internal sealed class SecretResolvingConfigurationProvider : ConfigurationProvid
             built.Dispose();
         }
 
-        return kept.GetRequiredService<ISecretStore>();
+        return kept;
     }
 
     private string BuildEnvironmentVariableName(string name)

@@ -6,6 +6,7 @@ namespace SAF.Configuration.Secrets.Tests;
 
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
+using SAF.Configuration.Secrets.Configuration;
 using SAF.Configuration.Secrets.Contracts;
 using Xunit;
 
@@ -67,6 +68,36 @@ public class SecretStoreServiceCollectionExtensionsTests
         {
             Assert.Empty(providers);
         }
+    }
+
+    [Fact]
+    public void AddSecretReferencePolicy_RegistersThePolicy()
+    {
+        var policy = new SecretReferenceAllowList([]);
+
+        using var provider = new ServiceCollection().AddSecretReferencePolicy(policy).BuildServiceProvider();
+
+        Assert.Same(policy, provider.GetRequiredService<ISecretReferencePolicy>());
+    }
+
+    [Fact]
+    public void AddSecretReferencePolicy_Throws_WhenAPolicyIsAlreadyRegistered()
+    {
+        var services = new ServiceCollection().AddSingleton<ISecretReferencePolicy>(new SecretReferenceAllowList([]));
+
+        var exception = Assert.Throws<InvalidOperationException>(
+            () => services.AddSecretReferencePolicy(new SecretReferenceAllowList([])));
+
+        Assert.Contains(nameof(ISecretReferencePolicy), exception.Message, StringComparison.Ordinal);
+        Assert.Single(services, descriptor => descriptor.ServiceType == typeof(ISecretReferencePolicy));
+    }
+
+    [Fact]
+    public void AddSecretReferencePolicy_Throws_OnNullArguments()
+    {
+        Assert.Throws<ArgumentNullException>(
+            () => SecretStoreServiceCollectionExtensions.AddSecretReferencePolicy(null!, new SecretReferenceAllowList([])));
+        Assert.Throws<ArgumentNullException>(() => new ServiceCollection().AddSecretReferencePolicy(null!));
     }
 
     [Fact]
