@@ -64,7 +64,7 @@ identity own the secrets.
 | Package | Purpose |
 |---|---|
 | `SAF.Configuration.Secrets.Contracts` | Interfaces and types: `ISecretStore`, `ISecretReader`, `ISecretWriter`, `ISecretStoreProvider`, `ISecretProtector`, `ISecretReferencePolicy`, `SecretStoreOptions`, `FileSecretStoreOptions`, `SecretReference` |
-| `SAF.Configuration.Secrets` | Provider implementations (Windows Credential Manager, file store), the default `PkcsSecretProtector`, the `SigningSecretProtector` decorator, the `SecretReferenceAllowList` policy, and provider selection |
+| `SAF.Configuration.Secrets` | Provider implementations (Windows Credential Manager, file store), the default `PkcsSecretProtector`, the `SigningSecretProtector` decorator, the reference policies (`KeyBoundSecretReferencePolicy`, `SecretReferenceAllowList`, `AnySecretReferencePolicy`), and provider selection |
 | `SAF.Configuration.Secrets.Extensions` | Plugin-system host-builder integration (`AddSecretStore`, `AddSecretConfigurationResolution`) |
 
 Reference `SAF.Configuration.Secrets.Extensions` from your host; it pulls in the other two.
@@ -519,6 +519,12 @@ Besides injecting `ISecretStore` directly, SAF can resolve secrets **transparent
 put a reference instead of the value in your plugin configuration, and existing
 `IConfiguration`/`Bind`-based plug-ins receive the real secret with no code change.
 
+> **New plug-ins read their secrets from `ISecretStore`.** A plug-in that asks the store for its secret by
+> name (step 3 of [Getting Started](#getting-started)) keeps no reference in the configuration,
+> so nobody who can write the configuration can point the secret at another key, and the host needs no
+> [policy](#restricting-references) entry for it — only `AddSecretStore`. Transparent resolution is for
+> plug-ins that already bind their settings from configuration.
+
 Enable it on the host builder (compose it with `AddSecretStore`, or use it on its own):
 
 ```csharp
@@ -625,13 +631,26 @@ Then reference secrets in the plugin configuration with the `secret://` prefix:
 ### Restricting references
 
 By default every key may refer to every secret. When parties that must not read the secrets can write
-the plugin configuration — a settings page, an API, another node — register a policy that names the keys
-each secret belongs in:
+the plugin configuration — a settings page, an API, another node — register a policy that binds each
+secret to its keys. SAF has two:
+
+- **`KeyBoundSecretReferencePolicy`** lets a key refer only to the secret whose name is spelled from it:
+  `OpcUaConnections:0:Password` to `opcua/connections/0/password`, with `:` as `/`. Nothing has to be
+  listed, so a plug-in can add a secret without a change to the host, as long as it names the secret
+  after its key. A key that contains `/` may refer to no secret, since `a/b` and `a:b` would share one
+  name.
+- **`SecretReferenceAllowList`** lists the keys each secret may appear in, for names that do not follow
+  the key: a secret shared by several keys, or one in an array whose order may change.
+
+`AnySecretReferencePolicy` combines them, allowing what any of them allows:
 
 ```csharp
-ps.Services.AddSecretReferencePolicy(new SecretReferenceAllowList([
-    new("OpcUaConnections:0:User", "opcua/conn-1/user"),
-    new("OpcUaConnections:0:Password", "opcua/conn-1/password"),
+ps.Services.AddSecretReferencePolicy(new AnySecretReferencePolicy([
+    new KeyBoundSecretReferencePolicy(),
+    new SecretReferenceAllowList([
+        new("OpcUaConnections:0:User", "opcua/conn-1/user"),
+        new("OpcUaConnections:0:Password", "opcua/conn-1/password"),
+    ]),
 ]));
 ps.AddSecretConfigurationResolution(o => o.Namespace = "myapp");
 ```
@@ -641,11 +660,10 @@ ps.AddSecretConfigurationResolution(o => o.Namespace = "myapp");
   host this way.
 - The policy is asked on every load and every reload, so a reference written while the host runs is
   refused as soon as the configuration reloads.
-- `SecretReferenceAllowList` matches keys case-insensitively, as configuration keys match, and names the
-  way the store looks them up (see [Secret names](#secret-names)). Implement `ISecretReferencePolicy` for
-  other rules.
+- Both policies match keys case-insensitively, as configuration keys match, and names the way the store
+  looks them up (see [Secret names](#secret-names)). Implement `ISecretReferencePolicy` for other rules.
 - A container takes one policy: a second `AddSecretReferencePolicy` throws instead of replacing the
-  first and lifting its restrictions.
+  first and lifting its restrictions. Combine several with `AnySecretReferencePolicy`.
 - With the standalone `AddResolvedSecrets(...)`, register the policy with the providers:
   `providers => { providers.AddDefaults(); providers.Services.AddSecretReferencePolicy(policy); }`.
 
