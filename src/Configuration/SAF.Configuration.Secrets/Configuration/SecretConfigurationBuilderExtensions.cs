@@ -31,15 +31,23 @@ public static class SecretConfigurationBuilderExtensions
     /// An optional callback to register providers explicitly, in priority order. When omitted, all
     /// built-in providers for the current platform are registered.
     /// </param>
+    /// <param name="policy">
+    /// An optional policy that restricts which keys may refer to which secrets; without it, every reference is
+    /// resolved. It is passed here, not registered in <paramref name="configureProviders"/>, so asking it does
+    /// not run that callback.
+    /// </param>
     /// <returns>The same <see cref="IConfigurationBuilder"/> instance for chaining.</returns>
     public static IConfigurationBuilder AddResolvedSecrets(
         this IConfigurationBuilder builder,
         Action<SecretStoreOptions>? configure = null,
-        Action<ISecretStoreBuilder>? configureProviders = null)
+        Action<ISecretStoreBuilder>? configureProviders = null,
+        ISecretReferencePolicy? policy = null)
     {
         ArgumentNullException.ThrowIfNull(builder);
+        ThrowIfBuiltEagerly(builder);
 
-        return builder.AddResolvedSecrets(hostServices: null, configure, configureProviders);
+        builder.Add(new SecretResolvingConfigurationSource(configure, configureProviders, policy, hostServices: null));
+        return builder;
     }
 
     /// <summary>
@@ -56,7 +64,7 @@ public static class SecretConfigurationBuilderExtensions
         ArgumentNullException.ThrowIfNull(builder);
         ThrowIfBuiltEagerly(builder);
 
-        builder.Add(new SecretResolvingConfigurationSource(configure, configureProviders, hostServices));
+        builder.Add(new SecretResolvingConfigurationSource(configure, configureProviders, policy: null, hostServices));
         return builder;
     }
 

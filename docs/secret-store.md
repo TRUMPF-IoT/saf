@@ -672,8 +672,11 @@ ps.AddSecretConfigurationResolution(o => o.Namespace = "myapp");
   looks them up (see [Secret names](#secret-names)). Implement `ISecretReferencePolicy` for other rules.
 - A container takes one policy: a second `AddSecretReferencePolicy` throws instead of replacing the
   first and lifting its restrictions. Combine several with `AnySecretReferencePolicy`.
-- With the standalone `AddResolvedSecrets(...)`, register the policy with the providers:
-  `providers => { providers.AddDefaults(); providers.Services.AddSecretReferencePolicy(policy); }`.
+- With the standalone `AddResolvedSecrets(...)`, pass the policy as its `policy` argument:
+  `.AddResolvedSecrets(o => o.Namespace = "myapp", policy: policy)`. Asking it then does not run
+  `configureProviders`, which runs only once the store is read. A policy registered inside
+  `configureProviders` is not used there, and the load throws an `InvalidOperationException` when it
+  finds one.
 
 > **Keep the policy out of the writers' reach.** Build it in code, not from configuration those parties
 > can change, or they extend it. The policy binds a secret to its keys, not to where the plug-in sends

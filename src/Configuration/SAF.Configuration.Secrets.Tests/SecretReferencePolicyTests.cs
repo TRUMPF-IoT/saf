@@ -98,20 +98,72 @@ public sealed class SecretReferencePolicyTests : IDisposable
     }
 
     [Fact]
-    public void StandaloneResolution_HonoursAPolicyRegisteredWithTheProviders()
+    public void StandaloneResolution_HonoursThePolicyItIsGiven()
     {
         using var config = (ConfigurationRoot)new ConfigurationBuilder()
             .AddInMemoryCollection(new Dictionary<string, string?> { ["Db:Password"] = Reference, ["Db:Host"] = Reference })
-            .AddResolvedSecrets(o => o.Namespace = "app", providers =>
-            {
-                providers.Services.AddSingleton(_store);
-                providers.AddProvider<RecordingProvider>();
-                providers.Services.AddSecretReferencePolicy(Policy());
-            })
+            .AddResolvedSecrets(o => o.Namespace = "app", RecordingProviders, Policy())
             .Build();
 
         Assert.Equal("value:app/db/pw", config["Db:Password"]);
         Assert.Null(config["Db:Host"]);
+    }
+
+    [Fact]
+    public void StandaloneResolution_DoesNotRunConfigureProviders_ForRefusedReferences()
+    {
+        var providersConfigured = false;
+        using var config = (ConfigurationRoot)new ConfigurationBuilder()
+            .AddInMemoryCollection(new Dictionary<string, string?> { ["Db:Host"] = Reference })
+            .AddResolvedSecrets(o => o.Namespace = "app", _ => providersConfigured = true, Policy())
+            .Build();
+
+        Assert.Null(config["Db:Host"]);
+        Assert.False(providersConfigured);
+    }
+
+    [Fact]
+    public void StandaloneResolution_DoesNotRunConfigureProviders_ForAReferenceFromTheEnvironment()
+    {
+        const string variable = "SECRET__standalone__db__pw";
+        Environment.SetEnvironmentVariable(variable, "from-environment");
+        try
+        {
+            var providersConfigured = false;
+            using var config = (ConfigurationRoot)new ConfigurationBuilder()
+                .AddInMemoryCollection(new Dictionary<string, string?> { ["Db:Password"] = Reference })
+                .AddResolvedSecrets(
+                    o =>
+                    {
+                        o.Namespace = "standalone";
+                        o.AllowEnvironmentOverride = true;
+                    },
+                    _ => providersConfigured = true,
+                    Policy())
+                .Build();
+
+            Assert.Equal("from-environment", config["Db:Password"]);
+            Assert.False(providersConfigured);
+        }
+        finally
+        {
+            Environment.SetEnvironmentVariable(variable, null);
+        }
+    }
+
+    [Fact]
+    public void StandaloneResolution_RefusesAPolicyRegisteredWithTheProviders()
+    {
+        var ex = Assert.Throws<InvalidOperationException>(() => new ConfigurationBuilder()
+            .AddInMemoryCollection(new Dictionary<string, string?> { ["Db:Password"] = Reference })
+            .AddResolvedSecrets(o => o.Namespace = "app", providers =>
+            {
+                RecordingProviders(providers);
+                providers.Services.AddSecretReferencePolicy(Policy());
+            })
+            .Build());
+
+        Assert.Contains("policy argument", ex.Message, StringComparison.Ordinal);
     }
 
     // The later source answers before the null the resolver sets, so the consumer would read the literal
@@ -120,12 +172,7 @@ public sealed class SecretReferencePolicyTests : IDisposable
     public void StandaloneResolution_ReportsARefusedReferenceFromALaterSource()
     {
         var ex = Assert.Throws<InvalidOperationException>(() => new ConfigurationBuilder()
-            .AddResolvedSecrets(o => o.Namespace = "app", providers =>
-            {
-                providers.Services.AddSingleton(_store);
-                providers.AddProvider<RecordingProvider>();
-                providers.Services.AddSecretReferencePolicy(Policy());
-            })
+            .AddResolvedSecrets(o => o.Namespace = "app", RecordingProviders, Policy())
             .AddInMemoryCollection(new Dictionary<string, string?> { ["Db:Host"] = Reference })
             .Build());
 
@@ -174,6 +221,12 @@ public sealed class SecretReferencePolicyTests : IDisposable
         {
             Environment.SetEnvironmentVariable(variable, null);
         }
+    }
+
+    private void RecordingProviders(ISecretStoreBuilder providers)
+    {
+        providers.Services.AddSingleton(_store);
+        providers.AddProvider<RecordingProvider>();
     }
 
     private static SecretReferenceAllowList Policy() => new([new("Db:Password", "db/pw")]);

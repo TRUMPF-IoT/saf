@@ -54,12 +54,17 @@ internal sealed class SecretResolvingConfigurationProvider : ConfigurationProvid
     /// source that created this provider. It also decides who reports a reload: a chained inner root is
     /// muted, so this provider raises the notification for every change, not only for changed secrets.
     /// </param>
+    /// <param name="policy">
+    /// The policy of the standalone overload; <see langword="null"/> with <paramref name="hostServices"/>, which
+    /// supply the registered one.
+    /// </param>
     public SecretResolvingConfigurationProvider(
         IConfiguration inner,
         IReadOnlyList<IConfigurationProvider> shadowingProviders,
         bool isChainedRoot,
         Action<SecretStoreOptions>? configure,
         Action<ISecretStoreBuilder>? configureProviders,
+        ISecretReferencePolicy? policy,
         IServiceProvider? hostServices)
     {
         ArgumentNullException.ThrowIfNull(inner);
@@ -70,6 +75,9 @@ internal sealed class SecretResolvingConfigurationProvider : ConfigurationProvid
             _options = hostServices.GetRequiredService<IOptions<SecretStoreOptions>>().Value;
             _services = new Lazy<IServiceProvider>(hostServices);
             _logger = hostServices.GetRequiredService<ILogger<SecretResolvingConfigurationProvider>>();
+            _policy = new Lazy<ISecretReferencePolicy>(
+                () => hostServices.GetService<ISecretReferencePolicy>() ?? new UnrestrictedSecretReferencePolicy(),
+                LazyThreadSafetyMode.PublicationOnly);
         }
         else
         {
@@ -81,14 +89,13 @@ internal sealed class SecretResolvingConfigurationProvider : ConfigurationProvid
                 () => BuildStandaloneServices(configure, configureProviders), LazyThreadSafetyMode.PublicationOnly);
             // No host ILoggerFactory to attach to either; the standalone overload never logged anything before.
             _logger = NullLogger<SecretResolvingConfigurationProvider>.Instance;
+            // Passed in, not taken from the standalone container: asking it must not run configureProviders,
+            // which main ran only once the store was read.
+            _policy = new Lazy<ISecretReferencePolicy>(policy ?? new UnrestrictedSecretReferencePolicy());
         }
 
         _reader = new Lazy<ISecretReader>(
             () => _services.Value.GetRequiredService<ISecretStore>(), LazyThreadSafetyMode.PublicationOnly);
-        _policy = new Lazy<ISecretReferencePolicy>(
-            () => _services.Value.GetService<ISecretReferencePolicy>() ?? new UnrestrictedSecretReferencePolicy(),
-            LazyThreadSafetyMode.PublicationOnly);
-
         if (_options.ResolveTimeout <= TimeSpan.Zero && _options.ResolveTimeout != Timeout.InfiniteTimeSpan)
         {
             throw new InvalidOperationException(
@@ -402,6 +409,15 @@ internal sealed class SecretResolvingConfigurationProvider : ConfigurationProvid
         }
 
         var built = services.BuildServiceProvider();
+
+        // The standalone overload never asks the container for a policy; one registered there would be ignored.
+        if (built.GetService<ISecretReferencePolicy>() is not null)
+        {
+            built.Dispose();
+            throw new InvalidOperationException(
+                $"An {nameof(ISecretReferencePolicy)} registered in configureProviders is not used by AddResolvedSecrets. "
+                + "Pass it as the policy argument instead.");
+        }
 
         // PublicationOnly lets several callers run this factory but keeps one value, and it disposes
         // none of them: without this, every loser's container would leak.
