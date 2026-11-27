@@ -133,6 +133,49 @@ public sealed class SecretReferencePolicyTests : IDisposable
         Assert.Equal(0, _store.ProvidersBuilt);
     }
 
+    [Fact]
+    public void NamesSharingAnEnvironmentVariable_AreReadFromTheStore_AndLogged()
+    {
+        const string variable = "SECRET__app__shared__conn_1__pw";
+        Environment.SetEnvironmentVariable(variable, "from-environment");
+        try
+        {
+            using var config = Resolve(
+                new() { ["Shared:Conn-1:Pw"] = "secret://shared/conn-1/pw", ["Shared:Conn_1:Pw"] = "secret://shared/conn_1/pw" },
+                HostServices(new KeyBoundSecretReferencePolicy(), allowEnvironmentOverride: true));
+
+            Assert.Equal("value:app/shared/conn-1/pw", config["Shared:Conn-1:Pw"]);
+            Assert.Equal("value:app/shared/conn_1/pw", config["Shared:Conn_1:Pw"]);
+            var warning = Assert.Single(_logger.Warnings);
+            Assert.Contains($"'{variable}'", warning, StringComparison.Ordinal);
+        }
+        finally
+        {
+            Environment.SetEnvironmentVariable(variable, null);
+        }
+    }
+
+    [Fact]
+    public void ANameWithAVariableOfItsOwn_IsReadFromTheEnvironment()
+    {
+        const string variable = "SECRET__app__own__conn_1__pw";
+        Environment.SetEnvironmentVariable(variable, "from-environment");
+        try
+        {
+            using var config = Resolve(
+                new() { ["Own:Conn-1:Pw"] = "secret://own/conn-1/pw", ["Own:CONN-1:Pw2"] = "secret://OWN/CONN-1/PW" },
+                HostServices(policy: null, allowEnvironmentOverride: true));
+
+            Assert.Equal("from-environment", config["Own:Conn-1:Pw"]);
+            Assert.Equal("from-environment", config["Own:CONN-1:Pw2"]);
+            Assert.Empty(_logger.Warnings);
+        }
+        finally
+        {
+            Environment.SetEnvironmentVariable(variable, null);
+        }
+    }
+
     private static SecretReferenceAllowList Policy() => new([new("Db:Password", "db/pw")]);
 
     private ConfigurationRoot ResolveWithPolicy(Dictionary<string, string?> values)
@@ -144,13 +187,17 @@ public sealed class SecretReferencePolicyTests : IDisposable
             .AddResolvedSecrets(hostServices)
             .Build();
 
-    private ServiceProvider HostServices(ISecretReferencePolicy? policy)
+    private ServiceProvider HostServices(ISecretReferencePolicy? policy, bool allowEnvironmentOverride = false)
     {
         var services = new ServiceCollection()
             .AddLogging()
             .AddSingleton<ILogger<SecretResolvingConfigurationProvider>>(_logger)
             .AddSingleton(_store);
-        services.AddSecretStore(o => o.Namespace = "app").AddProvider<RecordingProvider>();
+        services.AddSecretStore(o =>
+        {
+            o.Namespace = "app";
+            o.AllowEnvironmentOverride = allowEnvironmentOverride;
+        }).AddProvider<RecordingProvider>();
         if (policy is not null)
         {
             services.AddSecretReferencePolicy(policy);

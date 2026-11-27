@@ -739,10 +739,16 @@ case-sensitive, note the lower-casing: `secret://Db/Password` reads `SECRET__mya
 > **The derivation is readable, not injective.** `/` becomes `__` while every other non-alphanumeric
 > character becomes a single `_`, so two names can map onto one variable: under namespace `myapp`,
 > both `a/b` and `a--b` yield `SECRET__myapp__a__b`, and both `a-b` and `a.b` yield
-> `SECRET__myapp__a_b`. Setting that variable overrides *every* name mapping to it. Readable names
-> were preferred over injective ones because an operator types these by hand; the risk only becomes
-> real if two of your secret names differ solely in their non-alphanumeric characters, so avoid that
-> pairing, or leave overrides off.
+> `SECRET__myapp__a_b`. Readable names were preferred over injective ones because an operator types
+> these by hand.
+>
+> When one configuration load refers to two or more names that share a variable, none of them is read
+> from it: each is read from the store, and a warning names the references and the variable. This
+> matters with a [policy](#restricting-references) such as `KeyBoundSecretReferencePolicy`, where whoever
+> writes the configuration picks the names by picking the keys: a writer who adds `Conn_1` next to
+> `Conn-1` gets the store's value for `conn_1`, not the variable set for `conn-1`. It does not help
+> when the name the variable was set for is not referenced in the same load, so do not leave override
+> variables set for names nothing refers to.
 
 Because the override is checked *before* the store, it wins over a correctly provisioned keystore
 entry unconditionally, and the value it supplies never passes through the store's at-rest protection.

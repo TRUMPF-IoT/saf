@@ -176,7 +176,7 @@ internal sealed class SecretResolvingConfigurationProvider : ConfigurationProvid
 
         // Once per distinct reference, not once per configuration key: the same secret is routinely
         // referenced from several keys, and every resolution is a round-trip to the store.
-        var resolved = ResolveAll(references.Values);
+        var resolved = ResolveAll(references.Values, FindSharedOverrideNames(references.Values));
         foreach (var pair in referencedKeys)
         {
             data[pair.Key] = resolved[pair.Value];
@@ -212,7 +212,37 @@ internal sealed class SecretResolvingConfigurationProvider : ConfigurationProvid
             "win over the resolved value. Add that source before the AddResolvedSecrets call.");
     }
 
-    private Dictionary<string, string?> ResolveAll(Dictionary<string, SecretReference>.ValueCollection references)
+    // The variable name folds characters, so different names can share one variable; whoever picks the
+    // keys under a policy such as KeyBoundSecretReferencePolicy picks the names too. A shared variable
+    // cannot tell which of its names it was set for, so none of them is read from it.
+    private HashSet<string> FindSharedOverrideNames(IEnumerable<SecretReference> references)
+    {
+        if (!_options.AllowEnvironmentOverride)
+        {
+            return [];
+        }
+
+        var shared = new HashSet<string>(StringComparer.Ordinal);
+        foreach (var group in references.GroupBy(reference => BuildEnvironmentVariableName(reference.Name), StringComparer.Ordinal))
+        {
+            // Names that differ only in case are one secret, not a collision.
+            if (group.Select(reference => SecretTargetName.Build(_options.Namespace, reference.Name)).Distinct(StringComparer.Ordinal).Count() < 2)
+            {
+                continue;
+            }
+
+            shared.UnionWith(group.Select(reference => reference.Name));
+            _logger.LogWarning(
+                "The secret references {References} share the environment variable '{Variable}', so none of them is read from it; they are read from the store.",
+                string.Join(", ", group.Select(reference => $"'{reference}'")),
+                group.Key);
+        }
+
+        return shared;
+    }
+
+    private Dictionary<string, string?> ResolveAll(
+        Dictionary<string, SecretReference>.ValueCollection references, HashSet<string> sharedOverrideNames)
     {
         var timeout = new CancellationTokenSource();
 
@@ -233,7 +263,7 @@ internal sealed class SecretResolvingConfigurationProvider : ConfigurationProvid
         {
             try
             {
-                work.SetResult(ResolveAllAsync(references, timeout.Token).GetAwaiter().GetResult());
+                work.SetResult(ResolveAllAsync(references, sharedOverrideNames, timeout.Token).GetAwaiter().GetResult());
             }
             catch (Exception e)
             {
@@ -310,20 +340,22 @@ internal sealed class SecretResolvingConfigurationProvider : ConfigurationProvid
 
     private async Task<Dictionary<string, string?>> ResolveAllAsync(
         Dictionary<string, SecretReference>.ValueCollection references,
+        HashSet<string> sharedOverrideNames,
         CancellationToken cancellationToken)
     {
         var resolved = new Dictionary<string, string?>(StringComparer.Ordinal);
         foreach (var reference in references)
         {
-            resolved[reference.Name] = await ResolveAsync(reference, cancellationToken).ConfigureAwait(false);
+            resolved[reference.Name] = await ResolveAsync(
+                reference, !sharedOverrideNames.Contains(reference.Name), cancellationToken).ConfigureAwait(false);
         }
 
         return resolved;
     }
 
-    private async Task<string?> ResolveAsync(SecretReference reference, CancellationToken cancellationToken)
+    private async Task<string?> ResolveAsync(SecretReference reference, bool mayOverride, CancellationToken cancellationToken)
     {
-        if (_options.AllowEnvironmentOverride)
+        if (_options.AllowEnvironmentOverride && mayOverride)
         {
             var variableName = BuildEnvironmentVariableName(reference.Name);
             var overrideValue = Environment.GetEnvironmentVariable(variableName);
