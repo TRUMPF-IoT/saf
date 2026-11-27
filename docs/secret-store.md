@@ -520,10 +520,14 @@ put a reference instead of the value in your plugin configuration, and existing
 `IConfiguration`/`Bind`-based plug-ins receive the real secret with no code change.
 
 > **New plug-ins read their secrets from `ISecretStore`.** A plug-in that asks the store for its secret by
-> name (step 3 of [Getting Started](#getting-started)) keeps no reference in the configuration,
-> so nobody who can write the configuration can point the secret at another key, and the host needs no
-> [policy](#restricting-references) entry for it — only `AddSecretStore`. Transparent resolution is for
-> plug-ins that already bind their settings from configuration.
+> name (step 3 of [Getting Started](#getting-started)) keeps no reference in the configuration. On a
+> host without transparent resolution, nobody who can write the configuration can point that secret at
+> another key, and the host needs only `AddSecretStore`. Once the host also enables transparent
+> resolution, for example for older plug-ins, any key may refer to that secret too, unless a
+> [policy](#restricting-references) refuses it: with `KeyBoundSecretReferencePolicy` or
+> `SecretReferenceAllowList`, give secrets that are only read through `ISecretStore` names that the policy
+> allows at no key. Transparent resolution is for plug-ins that already bind their settings from
+> configuration.
 
 Enable it on the host builder (compose it with `AddSecretStore`, or use it on its own):
 
