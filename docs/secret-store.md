@@ -659,7 +659,9 @@ ps.AddSecretConfigurationResolution(o => o.Namespace = "myapp");
 
 - A reference the policy refuses **reads as `null`** and is logged as a warning naming the key and the
   reference; the store is not read for it. Startup does not fail over it, so a writer cannot stop the
-  host this way.
+  host this way. The one exception is the standalone `AddResolvedSecrets(...)`: a refused reference from
+  a source added after it throws at startup like any other reference from such a source, because that
+  source would serve the literal `secret://…` token instead of `null`.
 - The policy is asked on every load and every reload, so a reference written while the host runs is
   refused as soon as the configuration reloads.
 - Both policies match keys case-insensitively, as configuration keys match, and names the way the store

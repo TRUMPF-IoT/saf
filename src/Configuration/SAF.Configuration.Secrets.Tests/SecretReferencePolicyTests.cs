@@ -114,12 +114,12 @@ public sealed class SecretReferencePolicyTests : IDisposable
         Assert.Null(config["Db:Host"]);
     }
 
-    // Only a reference that would be resolved has to win over the sources after it; a refused one is no
-    // credential, and refusing to start over it would hand whoever writes such a source a way to stop the host.
+    // The later source answers before the null the resolver sets, so the consumer would read the literal
+    // token as its value.
     [Fact]
-    public void StandaloneResolution_DoesNotReportARefusedReferenceFromALaterSource()
+    public void StandaloneResolution_ReportsARefusedReferenceFromALaterSource()
     {
-        using var config = (ConfigurationRoot)new ConfigurationBuilder()
+        var ex = Assert.Throws<InvalidOperationException>(() => new ConfigurationBuilder()
             .AddResolvedSecrets(o => o.Namespace = "app", providers =>
             {
                 providers.Services.AddSingleton(_store);
@@ -127,9 +127,9 @@ public sealed class SecretReferencePolicyTests : IDisposable
                 providers.Services.AddSecretReferencePolicy(Policy());
             })
             .AddInMemoryCollection(new Dictionary<string, string?> { ["Db:Host"] = Reference })
-            .Build();
+            .Build());
 
-        Assert.Equal(Reference, config["Db:Host"]);
+        Assert.Contains("'Db:Host'", ex.Message, StringComparison.Ordinal);
         Assert.Equal(0, _store.ProvidersBuilt);
     }
 

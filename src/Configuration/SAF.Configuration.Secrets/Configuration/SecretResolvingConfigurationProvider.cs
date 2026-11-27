@@ -143,6 +143,7 @@ internal sealed class SecretResolvingConfigurationProvider : ConfigurationProvid
     {
         var references = new Dictionary<string, SecretReference>(StringComparer.Ordinal);
         var referencedKeys = new List<KeyValuePair<string, string>>();
+        var refusedKeys = new List<string>();
         var data = new Dictionary<string, string?>(StringComparer.OrdinalIgnoreCase);
 
         foreach (var pair in _inner.AsEnumerable())
@@ -160,6 +161,7 @@ internal sealed class SecretResolvingConfigurationProvider : ConfigurationProvid
                     "The secret reference '{Reference}' at '{Key}' is not allowed there by the secret reference policy; the key reads as null.",
                     reference,
                     pair.Key);
+                refusedKeys.Add(pair.Key);
                 continue;
             }
 
@@ -167,12 +169,14 @@ internal sealed class SecretResolvingConfigurationProvider : ConfigurationProvid
             referencedKeys.Add(new KeyValuePair<string, string>(pair.Key, reference.Name));
         }
 
+        // Refused keys too: a later source answers before the null set here, so the consumer would read
+        // the literal token as its value.
+        ThrowIfShadowed(referencedKeys.Select(pair => pair.Key).Concat(refusedKeys));
+
         if (referencedKeys.Count == 0)
         {
             return data;
         }
-
-        ThrowIfShadowed(referencedKeys);
 
         // Once per distinct reference, not once per configuration key: the same secret is routinely
         // referenced from several keys, and every resolution is a round-trip to the store.
@@ -189,7 +193,7 @@ internal sealed class SecretResolvingConfigurationProvider : ConfigurationProvid
     // here - that provider answers TryGet first, and the consumer would receive the literal secret://
     // token as its credential. Report it instead: silently handing out an unresolved reference is the
     // fail-open behaviour this provider exists to prevent.
-    private void ThrowIfShadowed(List<KeyValuePair<string, string>> referencedKeys)
+    private void ThrowIfShadowed(IEnumerable<string> referencedKeys)
     {
         if (_shadowingProviders.Count == 0)
         {
@@ -197,8 +201,7 @@ internal sealed class SecretResolvingConfigurationProvider : ConfigurationProvid
         }
 
         var shadowed = referencedKeys
-            .Where(pair => _shadowingProviders.Any(provider => provider.TryGet(pair.Key, out _)))
-            .Select(pair => pair.Key)
+            .Where(key => _shadowingProviders.Any(provider => provider.TryGet(key, out _)))
             .ToList();
 
         if (shadowed.Count == 0)
