@@ -1,0 +1,470 @@
+// SPDX-FileCopyrightText: 2017-2026 TRUMPF Laser SE
+//
+// SPDX-License-Identifier: MPL-2.0
+
+namespace SAF.Configuration.Secrets.Tests;
+
+using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
+using SAF.Configuration.Secrets.Configuration;
+using SAF.Configuration.Secrets.Contracts;
+using Xunit;
+
+public sealed class SecretReferencePolicyTests : IDisposable
+{
+    private const string Reference = "secret://db/pw";
+
+    private readonly StoreUse _store = new();
+    private readonly CapturingLogger _logger = new();
+    private readonly List<ServiceProvider> _hostServices = [];
+
+    public void Dispose()
+    {
+        foreach (var hostServices in _hostServices)
+        {
+            hostServices.Dispose();
+        }
+    }
+
+    [Fact]
+    public void ResolvesAReferenceThePolicyAllows()
+    {
+        using var config = ResolveWithPolicy(new() { ["Db:Password"] = Reference });
+
+        Assert.Equal("value:app/db/pw", config["Db:Password"]);
+        Assert.Empty(_logger.Warnings);
+    }
+
+    [Fact]
+    public void RefusedReference_ReadsAsNull_WithoutReadingTheStore()
+    {
+        using var config = ResolveWithPolicy(new() { ["Db:Password"] = Reference, ["Db:Host"] = Reference });
+
+        Assert.Null(config["Db:Host"]);
+        Assert.Contains(new KeyValuePair<string, string?>("Db:Host", null), config.AsEnumerable());
+        Assert.Equal("value:app/db/pw", config["Db:Password"]);
+        Assert.Equal(["app/db/pw"], _store.Requests);
+    }
+
+    [Fact]
+    public void RefusedReference_IsLogged_WithItsKeyAndReference()
+    {
+        using var config = ResolveWithPolicy(new() { ["Db:Host"] = Reference });
+
+        var warning = Assert.Single(_logger.Warnings);
+        Assert.Contains("'Db:Host'", warning, StringComparison.Ordinal);
+        Assert.Contains($"'{Reference}'", warning, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void OnlyRefusedReferences_LeaveTheStoreUnbuilt()
+    {
+        using var config = ResolveWithPolicy(new() { ["Db:Host"] = Reference });
+
+        Assert.Null(config["Db:Host"]);
+        Assert.Equal(0, _store.ProvidersBuilt);
+    }
+
+    [Fact]
+    public void WithoutAPolicy_ResolvesAReferenceInEveryKey()
+    {
+        using var config = Resolve(new() { ["Db:Host"] = Reference }, HostServices(policy: null));
+
+        Assert.Equal("value:app/db/pw", config["Db:Host"]);
+    }
+
+    [Fact]
+    public void AsksThePolicy_WithTheKeyAndTheReference()
+    {
+        var policy = new RecordingPolicy();
+        using var config = Resolve(new() { ["Db:Password"] = Reference, ["Db:Host"] = "localhost" }, HostServices(policy));
+
+        Assert.Equal([("Db:Password", Reference)], policy.Questions);
+    }
+
+    [Fact]
+    public void RefusesAReferenceThatOnlyAppearsOnReload_AndLogsIt()
+    {
+        var inner = new ConfigurationBuilder().AddInMemoryCollection(new Dictionary<string, string?> { ["Db:Host"] = "localhost" }).Build();
+        using var config = (ConfigurationRoot)inner.ResolveSecrets(HostServices(Policy()));
+
+        inner["Db:Host"] = Reference;
+        inner.Reload();
+
+        Assert.Null(config["Db:Host"]);
+        Assert.Single(_logger.Warnings);
+        Assert.Equal(0, _store.ProvidersBuilt);
+    }
+
+    [Fact]
+    public void StandaloneResolution_HonoursThePolicyItIsGiven()
+    {
+        using var config = (ConfigurationRoot)new ConfigurationBuilder()
+            .AddInMemoryCollection(new Dictionary<string, string?> { ["Db:Password"] = Reference, ["Db:Host"] = Reference })
+            .AddResolvedSecrets(o => o.Namespace = "app", RecordingProviders, Policy())
+            .Build();
+
+        Assert.Equal("value:app/db/pw", config["Db:Password"]);
+        Assert.Null(config["Db:Host"]);
+    }
+
+    [Fact]
+    public void StandaloneResolution_LogsARefusedReference_ToTheLoggerFactoryItIsGiven()
+    {
+        var providersConfigured = false;
+        using var config = (ConfigurationRoot)new ConfigurationBuilder()
+            .AddInMemoryCollection(new Dictionary<string, string?> { ["Db:Host"] = Reference })
+            .AddResolvedSecrets(o => o.Namespace = "app", _ => providersConfigured = true, Policy(), new CapturingLoggerFactory(_logger))
+            .Build();
+
+        var warning = Assert.Single(_logger.Warnings);
+        Assert.Contains("'Db:Host'", warning, StringComparison.Ordinal);
+        Assert.False(providersConfigured);
+    }
+
+    [Fact]
+    public void StandaloneResolution_PassesTheLoggerFactoryToTheStore()
+    {
+        var factory = new CapturingLoggerFactory(_logger);
+        var probe = new LoggerFactoryProbe();
+        using var config = (ConfigurationRoot)new ConfigurationBuilder()
+            .AddInMemoryCollection(new Dictionary<string, string?> { ["Db:Password"] = Reference })
+            .AddResolvedSecrets(
+                o => o.Namespace = "app",
+                providers =>
+                {
+                    RecordingProviders(providers);
+                    providers.Services.AddSingleton(probe);
+                    providers.AddProvider<ProbingProvider>();
+                },
+                loggerFactory: factory)
+            .Build();
+
+        Assert.Same(factory, probe.Factory);
+    }
+
+    [Fact]
+    public void StandaloneResolution_DoesNotRunConfigureProviders_ForRefusedReferences()
+    {
+        var providersConfigured = false;
+        using var config = (ConfigurationRoot)new ConfigurationBuilder()
+            .AddInMemoryCollection(new Dictionary<string, string?> { ["Db:Host"] = Reference })
+            .AddResolvedSecrets(o => o.Namespace = "app", _ => providersConfigured = true, Policy())
+            .Build();
+
+        Assert.Null(config["Db:Host"]);
+        Assert.False(providersConfigured);
+    }
+
+    [Fact]
+    public void StandaloneResolution_DoesNotRunConfigureProviders_ForAReferenceFromTheEnvironment()
+    {
+        const string variable = "SECRET__standalone__db__pw";
+        Environment.SetEnvironmentVariable(variable, "from-environment");
+        try
+        {
+            var providersConfigured = false;
+            using var config = (ConfigurationRoot)new ConfigurationBuilder()
+                .AddInMemoryCollection(new Dictionary<string, string?> { ["Db:Password"] = Reference })
+                .AddResolvedSecrets(
+                    o =>
+                    {
+                        o.Namespace = "standalone";
+                        o.AllowEnvironmentOverride = true;
+                    },
+                    _ => providersConfigured = true,
+                    Policy())
+                .Build();
+
+            Assert.Equal("from-environment", config["Db:Password"]);
+            Assert.False(providersConfigured);
+        }
+        finally
+        {
+            Environment.SetEnvironmentVariable(variable, null);
+        }
+    }
+
+    [Fact]
+    public void StandaloneResolution_RefusesAPolicyRegisteredWithTheProviders()
+    {
+        var ex = Assert.Throws<InvalidOperationException>(() => new ConfigurationBuilder()
+            .AddInMemoryCollection(new Dictionary<string, string?> { ["Db:Password"] = Reference })
+            .AddResolvedSecrets(o => o.Namespace = "app", providers =>
+            {
+                RecordingProviders(providers);
+                providers.Services.AddSecretReferencePolicy(Policy());
+            })
+            .Build());
+
+        Assert.Contains("policy argument", ex.Message, StringComparison.Ordinal);
+    }
+
+    // The later source answers before the null the resolver sets, so the consumer would read the literal
+    // token as its value.
+    [Fact]
+    public void StandaloneResolution_ReportsARefusedReferenceFromALaterSource()
+    {
+        var ex = Assert.Throws<InvalidOperationException>(() => new ConfigurationBuilder()
+            .AddResolvedSecrets(o => o.Namespace = "app", RecordingProviders, Policy())
+            .AddInMemoryCollection(new Dictionary<string, string?> { ["Db:Host"] = Reference })
+            .Build());
+
+        Assert.Contains("'Db:Host'", ex.Message, StringComparison.Ordinal);
+        Assert.Equal(0, _store.ProvidersBuilt);
+    }
+
+    [Fact]
+    public void NamesSharingAnEnvironmentVariable_AreReadFromTheStore_AndLogged()
+    {
+        const string variable = "SECRET__app__shared__conn_1__pw";
+        Environment.SetEnvironmentVariable(variable, "from-environment");
+        try
+        {
+            using var config = Resolve(
+                new() { ["Shared:Conn-1:Pw"] = "secret://shared/conn-1/pw", ["Shared:Conn_1:Pw"] = "secret://shared/conn_1/pw" },
+                HostServices(policy: null, allowEnvironmentOverride: true));
+
+            Assert.Equal("value:app/shared/conn-1/pw", config["Shared:Conn-1:Pw"]);
+            Assert.Equal("value:app/shared/conn_1/pw", config["Shared:Conn_1:Pw"]);
+            var warning = Assert.Single(_logger.Warnings);
+            Assert.Contains($"'{variable}'", warning, StringComparison.Ordinal);
+        }
+        finally
+        {
+            Environment.SetEnvironmentVariable(variable, null);
+        }
+    }
+
+    [Fact]
+    public void ANameWithAVariableOfItsOwn_IsReadFromTheEnvironment()
+    {
+        const string variable = "SECRET__app__own__conn_1__pw";
+        Environment.SetEnvironmentVariable(variable, "from-environment");
+        try
+        {
+            using var config = Resolve(
+                new() { ["Own:Conn-1:Pw"] = "secret://own/conn-1/pw", ["Own:CONN-1:Pw2"] = "secret://OWN/CONN-1/PW" },
+                HostServices(policy: null, allowEnvironmentOverride: true));
+
+            Assert.Equal("from-environment", config["Own:Conn-1:Pw"]);
+            Assert.Equal("from-environment", config["Own:CONN-1:Pw2"]);
+            Assert.Empty(_logger.Warnings);
+        }
+        finally
+        {
+            Environment.SetEnvironmentVariable(variable, null);
+        }
+    }
+
+    // The name the variable was set for is not referenced, so no collision is visible within the load.
+    [Fact]
+    public void WithAPolicy_ANameThatCanShareItsVariable_IsReadFromTheStore_AndLogged()
+    {
+        const string variable = "SECRET__app__gap__conn_1__pw";
+        Environment.SetEnvironmentVariable(variable, "set-for-conn-1");
+        try
+        {
+            using var config = Resolve(
+                new() { ["Gap:Conn_1:Pw"] = "secret://gap/conn_1/pw" },
+                HostServices(new KeyBoundSecretReferencePolicy(), allowEnvironmentOverride: true));
+
+            Assert.Equal("value:app/gap/conn_1/pw", config["Gap:Conn_1:Pw"]);
+            var warning = Assert.Single(_logger.Warnings);
+            Assert.Contains($"'{variable}'", warning, StringComparison.Ordinal);
+        }
+        finally
+        {
+            Environment.SetEnvironmentVariable(variable, null);
+        }
+    }
+
+    [Fact]
+    public void WithAPolicy_ANameThatCanShareItsVariable_IsReadFromTheStore_WithoutAWarning_WhenTheVariableIsUnset()
+    {
+        using var config = Resolve(
+            new() { ["Unset:Conn-1:Pw"] = "secret://unset/conn-1/pw" },
+            HostServices(new KeyBoundSecretReferencePolicy(), allowEnvironmentOverride: true));
+
+        Assert.Equal("value:app/unset/conn-1/pw", config["Unset:Conn-1:Pw"]);
+        Assert.Empty(_logger.Warnings);
+    }
+
+    [Theory]
+    [InlineData("Plain:Conn1:Pw", "secret://plain/conn1/pw", "SECRET__app__plain__conn1__pw")]
+    [InlineData("Plain:CONN2:Pw", "secret://PLAIN/CONN2/PW", "SECRET__app__plain__conn2__pw")]
+    public void WithAPolicy_ANameOfAsciiLettersDigitsAndSlashes_IsReadFromTheEnvironment(string key, string reference, string variable)
+    {
+        Environment.SetEnvironmentVariable(variable, "from-environment");
+        try
+        {
+            using var config = Resolve(
+                new() { [key] = reference },
+                HostServices(new KeyBoundSecretReferencePolicy(), allowEnvironmentOverride: true));
+
+            Assert.Equal("from-environment", config[key]);
+            Assert.Empty(_logger.Warnings);
+        }
+        finally
+        {
+            Environment.SetEnvironmentVariable(variable, null);
+        }
+    }
+
+    [Fact]
+    public void WithAPolicy_ANameWithNonAsciiLetters_IsReadFromTheStore()
+    {
+        const string variable = "SECRET__app__wide__\u00E4__pw";
+        Environment.SetEnvironmentVariable(variable, "from-environment");
+        try
+        {
+            using var config = Resolve(
+                new() { ["Wide:\u00C4:Pw"] = "secret://wide/\u00E4/pw" },
+                HostServices(new KeyBoundSecretReferencePolicy(), allowEnvironmentOverride: true));
+
+            Assert.Equal("value:app/wide/\u00E4/pw", config["Wide:\u00C4:Pw"]);
+        }
+        finally
+        {
+            Environment.SetEnvironmentVariable(variable, null);
+        }
+    }
+
+    private void RecordingProviders(ISecretStoreBuilder providers)
+    {
+        providers.Services.AddSingleton(_store);
+        providers.AddProvider<RecordingProvider>();
+    }
+
+    private static SecretReferenceAllowList Policy() => new([new("Db:Password", "db/pw")]);
+
+    private ConfigurationRoot ResolveWithPolicy(Dictionary<string, string?> values)
+        => Resolve(values, HostServices(Policy()));
+
+    private static ConfigurationRoot Resolve(Dictionary<string, string?> values, IServiceProvider hostServices)
+        => (ConfigurationRoot)new ConfigurationBuilder()
+            .AddInMemoryCollection(values)
+            .AddResolvedSecrets(hostServices)
+            .Build();
+
+    private ServiceProvider HostServices(ISecretReferencePolicy? policy, bool allowEnvironmentOverride = false)
+    {
+        var services = new ServiceCollection()
+            .AddLogging()
+            .AddSingleton<ILogger<SecretResolvingConfigurationProvider>>(_logger)
+            .AddSingleton(_store);
+        services.AddSecretStore(o =>
+        {
+            o.Namespace = "app";
+            o.AllowEnvironmentOverride = allowEnvironmentOverride;
+        }).AddProvider<RecordingProvider>();
+        if (policy is not null)
+        {
+            services.AddSecretReferencePolicy(policy);
+        }
+
+        var hostServices = services.BuildServiceProvider();
+        _hostServices.Add(hostServices);
+        return hostServices;
+    }
+
+    private sealed class StoreUse
+    {
+        public int ProvidersBuilt { get; set; }
+
+        public List<string> Requests { get; } = [];
+    }
+
+    private sealed class RecordingProvider : ISecretStoreProvider
+    {
+        private readonly StoreUse _use;
+
+        public RecordingProvider(StoreUse use)
+        {
+            _use = use;
+            _use.ProvidersBuilt++;
+        }
+
+        public string Name => "recording";
+
+        public bool IsAvailable => true;
+
+        public Task<string?> GetSecretAsync(string name, CancellationToken cancellationToken = default)
+        {
+            _use.Requests.Add(name);
+            return Task.FromResult<string?>($"value:{name}");
+        }
+
+        public Task SetSecretAsync(string name, string value, CancellationToken cancellationToken = default)
+            => Task.CompletedTask;
+
+        public Task RemoveSecretAsync(string name, CancellationToken cancellationToken = default)
+            => Task.CompletedTask;
+    }
+
+    private sealed class RecordingPolicy : ISecretReferencePolicy
+    {
+        public List<(string Key, string Reference)> Questions { get; } = [];
+
+        public bool Allows(string key, SecretReference reference)
+        {
+            Questions.Add((key, reference.ToString()));
+            return true;
+        }
+    }
+
+    private sealed class CapturingLoggerFactory(ILogger logger) : ILoggerFactory
+    {
+        public ILogger CreateLogger(string categoryName) => logger;
+
+        public void AddProvider(ILoggerProvider provider)
+        {
+        }
+
+        public void Dispose()
+        {
+        }
+    }
+
+    private sealed class LoggerFactoryProbe
+    {
+        public ILoggerFactory? Factory { get; set; }
+    }
+
+    private sealed class ProbingProvider : ISecretStoreProvider
+    {
+        public ProbingProvider(LoggerFactoryProbe probe, ILoggerFactory factory) => probe.Factory = factory;
+
+        public string Name => "probing";
+
+        public bool IsAvailable => false;
+
+        public Task<string?> GetSecretAsync(string name, CancellationToken cancellationToken = default)
+            => Task.FromResult<string?>(null);
+
+        public Task SetSecretAsync(string name, string value, CancellationToken cancellationToken = default)
+            => Task.CompletedTask;
+
+        public Task RemoveSecretAsync(string name, CancellationToken cancellationToken = default)
+            => Task.CompletedTask;
+    }
+
+    private sealed class CapturingLogger : ILogger<SecretResolvingConfigurationProvider>
+    {
+        public List<string> Warnings { get; } = [];
+
+        public IDisposable? BeginScope<TState>(TState state) where TState : notnull => null;
+
+        public bool IsEnabled(LogLevel logLevel) => true;
+
+        public void Log<TState>(
+            LogLevel logLevel, EventId eventId, TState state, Exception? exception, Func<TState, Exception?, string> formatter)
+        {
+            if (logLevel == LogLevel.Warning)
+            {
+                Warnings.Add(formatter(state, exception));
+            }
+        }
+    }
+}

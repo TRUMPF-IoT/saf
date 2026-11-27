@@ -40,6 +40,11 @@ sufficient privilege can". Understanding that boundary is important:
   sibling process that can spawn the service — can substitute **any** secret without touching the
   keystore or the encrypted file. That is why it defaults to `false`; see
   [Environment overrides](#environment-overrides).
+- **Whoever can write the configuration decides which key receives a secret.** Resolution replaces a
+  reference wherever it appears. If a party you trust less than the secret — a settings page, an API,
+  another node — can write the plugin configuration, it can put a reference into a key whose value
+  leaves the machine, such as a host name or a URL, and the plug-in sends the secret there. Register a
+  policy that binds each secret to its keys; see [Restricting references](#restricting-references).
 - **The writer is trusted — unless values are signed.** Provisioning (whoever calls `SetSecretAsync` —
   an installer, an admin tool) is assumed authorized, not adversarial. In particular,
   `PkcsSecretProtector`'s PKCS#7/CMS envelope encrypts each value (AES-256-CBC content key wrapped with
@@ -58,8 +63,8 @@ identity own the secrets.
 
 | Package | Purpose |
 |---|---|
-| `SAF.Configuration.Secrets.Contracts` | Interfaces and types: `ISecretStore`, `ISecretReader`, `ISecretWriter`, `ISecretStoreProvider`, `ISecretProtector`, `SecretStoreOptions`, `FileSecretStoreOptions`, `SecretReference` |
-| `SAF.Configuration.Secrets` | Provider implementations (Windows Credential Manager, file store), the default `PkcsSecretProtector`, the `SigningSecretProtector` decorator, and provider selection |
+| `SAF.Configuration.Secrets.Contracts` | Interfaces and types: `ISecretStore`, `ISecretReader`, `ISecretWriter`, `ISecretStoreProvider`, `ISecretProtector`, `ISecretReferencePolicy`, `SecretStoreOptions`, `FileSecretStoreOptions`, `SecretReference` |
+| `SAF.Configuration.Secrets` | Provider implementations (Windows Credential Manager, file store), the default `PkcsSecretProtector`, the `SigningSecretProtector` decorator, the reference policies (`KeyBoundSecretReferencePolicy`, `SecretReferenceAllowList`, `AnySecretReferencePolicy`), and provider selection |
 | `SAF.Configuration.Secrets.Extensions` | Plugin-system host-builder integration (`AddSecretStore`, `AddSecretConfigurationResolution`) |
 
 Reference `SAF.Configuration.Secrets.Extensions` from your host; it pulls in the other two.
@@ -514,6 +519,16 @@ Besides injecting `ISecretStore` directly, SAF can resolve secrets **transparent
 put a reference instead of the value in your plugin configuration, and existing
 `IConfiguration`/`Bind`-based plug-ins receive the real secret with no code change.
 
+> **New plug-ins read their secrets from `ISecretStore`.** A plug-in that asks the store for its secret by
+> name (step 3 of [Getting Started](#getting-started)) keeps no reference in the configuration. On a
+> host without transparent resolution, nobody who can write the configuration can point that secret at
+> another key, and the host needs only `AddSecretStore`. Once the host also enables transparent
+> resolution, for example for older plug-ins, any key may refer to that secret too, unless a
+> [policy](#restricting-references) refuses it: with `KeyBoundSecretReferencePolicy` or
+> `SecretReferenceAllowList`, give secrets that are only read through `ISecretStore` names that the policy
+> allows at no key. Transparent resolution is for plug-ins that already bind their settings from
+> configuration.
+
 Enable it on the host builder (compose it with `AddSecretStore`, or use it on its own):
 
 ```csharp
@@ -617,6 +632,59 @@ Then reference secrets in the plugin configuration with the `secret://` prefix:
 > `ISecretStore` and `SecretStoreOptions` registered on it directly — there is no separate bootstrap
 > phase, and no action is required to make that happen.
 
+### Restricting references
+
+By default every key may refer to every secret. When parties that must not read the secrets can write
+the plugin configuration — a settings page, an API, another node — register a policy that binds each
+secret to its keys. SAF has two:
+
+- **`KeyBoundSecretReferencePolicy`** lets a key refer only to the secret whose name is spelled from it:
+  `OpcUaConnections:0:Password` to `opcuaconnections/0/password`, lowercased and with `:` as `/`. Nothing has to be
+  listed, so a plug-in can add a secret without a change to the host, as long as it names the secret
+  after its key. A key that contains `/` may refer to no secret, since `a/b` and `a:b` would share one
+  name. Nor may a key with a character that lower-cases to a letter configuration keys still tell apart
+  from it, such as the Kelvin sign `K` (U+212A, lower-cased `k`): `Kiosk` with that sign and `Kiosk`
+  with a plain `K` are two keys but would share one name. Letters such as `Ä` or `ß` are not affected.
+- **`SecretReferenceAllowList`** lists the keys each secret may appear in, for names that do not follow
+  the key: a secret shared by several keys, or one in an array whose order may change.
+
+`AnySecretReferencePolicy` combines them, allowing what any of them allows:
+
+```csharp
+ps.Services.AddSecretReferencePolicy(new AnySecretReferencePolicy([
+    new KeyBoundSecretReferencePolicy(),
+    new SecretReferenceAllowList([
+        new("OpcUaConnections:0:User", "opcua/conn-1/user"),
+        new("OpcUaConnections:0:Password", "opcua/conn-1/password"),
+    ]),
+]));
+ps.AddSecretConfigurationResolution(o => o.Namespace = "myapp");
+```
+
+- A reference the policy refuses **reads as `null`** and is logged as a warning naming the key and the
+  reference; the store is not read for it. Startup does not fail over it, so a writer cannot stop the
+  host this way. The one exception is the standalone `AddResolvedSecrets(...)`: a refused reference from
+  a source added after it throws at startup like any other reference from such a source, because that
+  source would serve the literal `secret://…` token instead of `null`.
+- The policy is asked on every load and every reload, so a reference written while the host runs is
+  refused as soon as the configuration reloads.
+- Both policies match keys case-insensitively, as configuration keys match, and names the way the store
+  looks them up (see [Secret names](#secret-names)). Implement `ISecretReferencePolicy` for other rules.
+- A container takes one policy: a second `AddSecretReferencePolicy` throws instead of replacing the
+  first and lifting its restrictions. Combine several with `AnySecretReferencePolicy`.
+- With the standalone `AddResolvedSecrets(...)`, pass the policy as its `policy` argument:
+  `.AddResolvedSecrets(o => o.Namespace = "myapp", policy: policy)`. Asking it then does not run
+  `configureProviders`, which runs only once the store is read. A policy registered inside
+  `configureProviders` is not used there, and the load throws an `InvalidOperationException` when it
+  finds one. The standalone overload logs nothing unless it gets a `loggerFactory` argument, such as the
+  host's `ILoggerFactory`. Pass one so refusals are logged: `.AddResolvedSecrets(o => o.Namespace =
+  "myapp", policy: policy, loggerFactory: loggerFactory)`. The store uses the same factory.
+
+> **Keep the policy out of the writers' reach.** Build it in code, not from configuration those parties
+> can change, or they extend it. The policy binds a secret to its keys, not to where the plug-in sends
+> it: a writer who can change `OpcUaConnections:0:Host` still redirects the password. Keep the keys that
+> decide where a secret goes out of their reach as well.
+
 ## Options
 
 `SecretStoreOptions` (configure via the `AddSecretStore` / `AddSecretConfigurationResolution` callback):
@@ -682,10 +750,22 @@ case-sensitive, note the lower-casing: `secret://Db/Password` reads `SECRET__mya
 > **The derivation is readable, not injective.** `/` becomes `__` while every other non-alphanumeric
 > character becomes a single `_`, so two names can map onto one variable: under namespace `myapp`,
 > both `a/b` and `a--b` yield `SECRET__myapp__a__b`, and both `a-b` and `a.b` yield
-> `SECRET__myapp__a_b`. Setting that variable overrides *every* name mapping to it. Readable names
-> were preferred over injective ones because an operator types these by hand; the risk only becomes
-> real if two of your secret names differ solely in their non-alphanumeric characters, so avoid that
-> pairing, or leave overrides off.
+> `SECRET__myapp__a_b`. Readable names were preferred over injective ones because an operator types
+> these by hand.
+>
+> When one configuration load refers to two or more names that share a variable, none of them is read
+> from it: each is read from the store, and a warning names the references and the variable. This
+> matters with a [policy](#restricting-references) such as `KeyBoundSecretReferencePolicy`, where whoever
+> writes the configuration picks the names by picking the keys: a writer who adds `Conn_1` next to
+> `Conn-1` gets the store's value for `conn_1`, not the variable set for `conn-1`.
+>
+> That check only sees names referenced in the same load. So **when a secret reference policy is
+> registered, only names of ASCII letters, digits and `/` are read from the environment**: only those
+> have a variable to themselves. Every other name, such as `conn-1`, `conn_1` or `ä/pw`, is read from
+> the store, and if its variable is set, a warning names the variable and the reference. Without a
+> policy every name is read from the environment as before, because whoever writes the configuration
+> can refer to any secret anyway. To supply a secret from the environment on a host with a policy,
+> name it with letters, digits and `/` only, e.g. `opcua/conn1/password`.
 
 Because the override is checked *before* the store, it wins over a correctly provisioned keystore
 entry unconditionally, and the value it supplies never passes through the store's at-rest protection.

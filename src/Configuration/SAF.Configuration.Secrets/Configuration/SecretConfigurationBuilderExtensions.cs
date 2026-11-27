@@ -5,6 +5,7 @@
 namespace SAF.Configuration.Secrets.Configuration;
 
 using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Logging;
 using SAF.Configuration.Secrets;
 using SAF.Configuration.Secrets.Contracts;
 
@@ -31,15 +32,29 @@ public static class SecretConfigurationBuilderExtensions
     /// An optional callback to register providers explicitly, in priority order. When omitted, all
     /// built-in providers for the current platform are registered.
     /// </param>
+    /// <param name="policy">
+    /// An optional policy that restricts which keys may refer to which secrets; without it, every reference is
+    /// resolved. It is passed here, not registered in <paramref name="configureProviders"/>, so asking it does
+    /// not run that callback.
+    /// </param>
+    /// <param name="loggerFactory">
+    /// An optional logger factory for the resolver's warnings, such as a refused reference, and for the store;
+    /// without it, nothing is logged.
+    /// </param>
     /// <returns>The same <see cref="IConfigurationBuilder"/> instance for chaining.</returns>
     public static IConfigurationBuilder AddResolvedSecrets(
         this IConfigurationBuilder builder,
         Action<SecretStoreOptions>? configure = null,
-        Action<ISecretStoreBuilder>? configureProviders = null)
+        Action<ISecretStoreBuilder>? configureProviders = null,
+        ISecretReferencePolicy? policy = null,
+        ILoggerFactory? loggerFactory = null)
     {
         ArgumentNullException.ThrowIfNull(builder);
+        ThrowIfBuiltEagerly(builder);
 
-        return builder.AddResolvedSecrets(hostServices: null, configure, configureProviders);
+        builder.Add(new SecretResolvingConfigurationSource(
+            configure, configureProviders, new StandaloneResolution(policy, loggerFactory), hostServices: null));
+        return builder;
     }
 
     /// <summary>
@@ -56,7 +71,7 @@ public static class SecretConfigurationBuilderExtensions
         ArgumentNullException.ThrowIfNull(builder);
         ThrowIfBuiltEagerly(builder);
 
-        builder.Add(new SecretResolvingConfigurationSource(configure, configureProviders, hostServices));
+        builder.Add(new SecretResolvingConfigurationSource(configure, configureProviders, standalone: null, hostServices));
         return builder;
     }
 

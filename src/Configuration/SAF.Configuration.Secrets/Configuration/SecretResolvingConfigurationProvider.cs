@@ -16,7 +16,8 @@ using SAF.Configuration.Secrets.Contracts;
 /// <summary>
 /// A configuration provider that replaces secret references (values starting with
 /// <see cref="SecretStoreOptions.ReferencePrefix"/>) in the underlying configuration with the resolved
-/// secret. Values that are not references are left untouched. When
+/// secret. Values that are not references are left untouched, and a reference the registered
+/// <see cref="ISecretReferencePolicy"/> refuses reads as <see langword="null"/>. When
 /// <see cref="SecretStoreOptions.AllowEnvironmentOverride"/> is enabled, an environment variable derived
 /// from the store key takes precedence over the store (for provisioning in CI/containers).
 /// </summary>
@@ -34,7 +35,9 @@ internal sealed class SecretResolvingConfigurationProvider : ConfigurationProvid
     private readonly SecretStoreOptions _options;
     // PublicationOnly: the default mode caches a factory exception, latching a transient failure - a
     // custom provider's constructor, a shutdown race - for the process lifetime.
+    private readonly Lazy<IServiceProvider> _services;
     private readonly Lazy<ISecretReader> _reader;
+    private readonly Lazy<ISecretReferencePolicy> _policy;
     private readonly ILogger _logger;
     private readonly IDisposable? _innerReloadRegistration;
     private ServiceProvider? _standaloneServices;
@@ -51,12 +54,17 @@ internal sealed class SecretResolvingConfigurationProvider : ConfigurationProvid
     /// source that created this provider. It also decides who reports a reload: a chained inner root is
     /// muted, so this provider raises the notification for every change, not only for changed secrets.
     /// </param>
+    /// <param name="standalone">
+    /// The policy and logger factory of the standalone overload; <see langword="null"/> with
+    /// <paramref name="hostServices"/>, which supply both.
+    /// </param>
     public SecretResolvingConfigurationProvider(
         IConfiguration inner,
         IReadOnlyList<IConfigurationProvider> shadowingProviders,
         bool isChainedRoot,
         Action<SecretStoreOptions>? configure,
         Action<ISecretStoreBuilder>? configureProviders,
+        StandaloneResolution? standalone,
         IServiceProvider? hostServices)
     {
         ArgumentNullException.ThrowIfNull(inner);
@@ -65,9 +73,11 @@ internal sealed class SecretResolvingConfigurationProvider : ConfigurationProvid
         if (hostServices is not null)
         {
             _options = hostServices.GetRequiredService<IOptions<SecretStoreOptions>>().Value;
-            _reader = new Lazy<ISecretReader>(
-                () => hostServices.GetRequiredService<ISecretStore>(), LazyThreadSafetyMode.PublicationOnly);
+            _services = new Lazy<IServiceProvider>(hostServices);
             _logger = hostServices.GetRequiredService<ILogger<SecretResolvingConfigurationProvider>>();
+            _policy = new Lazy<ISecretReferencePolicy>(
+                () => hostServices.GetService<ISecretReferencePolicy>() ?? new UnrestrictedSecretReferencePolicy(),
+                LazyThreadSafetyMode.PublicationOnly);
         }
         else
         {
@@ -75,12 +85,18 @@ internal sealed class SecretResolvingConfigurationProvider : ConfigurationProvid
             // options are needed even before a reader is built, so derive them directly from the callback.
             _options = new SecretStoreOptions();
             configure?.Invoke(_options);
-            _reader = new Lazy<ISecretReader>(
-                () => BuildStandaloneReader(configure, configureProviders), LazyThreadSafetyMode.PublicationOnly);
-            // No host ILoggerFactory to attach to either; the standalone overload never logged anything before.
-            _logger = NullLogger<SecretResolvingConfigurationProvider>.Instance;
+            _services = new Lazy<IServiceProvider>(
+                () => BuildStandaloneServices(configure, configureProviders, standalone?.LoggerFactory),
+                LazyThreadSafetyMode.PublicationOnly);
+            // Both passed in, not taken from the standalone container: using them must not run
+            // configureProviders, which runs only once the store is read.
+            _logger = standalone?.LoggerFactory?.CreateLogger<SecretResolvingConfigurationProvider>()
+                ?? NullLogger<SecretResolvingConfigurationProvider>.Instance;
+            _policy = new Lazy<ISecretReferencePolicy>(standalone?.Policy ?? new UnrestrictedSecretReferencePolicy());
         }
 
+        _reader = new Lazy<ISecretReader>(
+            () => _services.Value.GetRequiredService<ISecretStore>(), LazyThreadSafetyMode.PublicationOnly);
         if (_options.ResolveTimeout <= TimeSpan.Zero && _options.ResolveTimeout != Timeout.InfiniteTimeSpan)
         {
             throw new InvalidOperationException(
@@ -135,27 +151,44 @@ internal sealed class SecretResolvingConfigurationProvider : ConfigurationProvid
     {
         var references = new Dictionary<string, SecretReference>(StringComparer.Ordinal);
         var referencedKeys = new List<KeyValuePair<string, string>>();
+        var refusedKeys = new List<string>();
+        var data = new Dictionary<string, string?>(StringComparer.OrdinalIgnoreCase);
 
         foreach (var pair in _inner.AsEnumerable())
         {
-            if (pair.Value is not null && SecretReference.TryParse(pair.Value, _options.ReferencePrefix, out var reference))
+            if (pair.Value is null || !SecretReference.TryParse(pair.Value, _options.ReferencePrefix, out var reference))
             {
-                references.TryAdd(reference.Name, reference);
-                referencedKeys.Add(new KeyValuePair<string, string>(pair.Key, reference.Name));
+                continue;
             }
+
+            if (!_policy.Value.Allows(pair.Key, reference))
+            {
+                // Overridden with null, or the consumer would read the literal token.
+                data[pair.Key] = null;
+                _logger.LogWarning(
+                    "The secret reference '{Reference}' at '{Key}' is not allowed there by the secret reference policy; the key reads as null.",
+                    reference,
+                    pair.Key);
+                refusedKeys.Add(pair.Key);
+                continue;
+            }
+
+            references.TryAdd(reference.Name, reference);
+            referencedKeys.Add(new KeyValuePair<string, string>(pair.Key, reference.Name));
         }
 
-        var data = new Dictionary<string, string?>(StringComparer.OrdinalIgnoreCase);
+        // Refused keys too: a later source answers before the null set here, so the consumer would read
+        // the literal token as its value.
+        ThrowIfShadowed(referencedKeys.Select(pair => pair.Key).Concat(refusedKeys));
+
         if (referencedKeys.Count == 0)
         {
             return data;
         }
 
-        ThrowIfShadowed(referencedKeys);
-
         // Once per distinct reference, not once per configuration key: the same secret is routinely
         // referenced from several keys, and every resolution is a round-trip to the store.
-        var resolved = ResolveAll(references.Values);
+        var resolved = ResolveAll(references.Values, FindNamesNotReadFromEnvironment(references.Values));
         foreach (var pair in referencedKeys)
         {
             data[pair.Key] = resolved[pair.Value];
@@ -168,7 +201,7 @@ internal sealed class SecretResolvingConfigurationProvider : ConfigurationProvid
     // here - that provider answers TryGet first, and the consumer would receive the literal secret://
     // token as its credential. Report it instead: silently handing out an unresolved reference is the
     // fail-open behaviour this provider exists to prevent.
-    private void ThrowIfShadowed(List<KeyValuePair<string, string>> referencedKeys)
+    private void ThrowIfShadowed(IEnumerable<string> referencedKeys)
     {
         if (_shadowingProviders.Count == 0)
         {
@@ -176,8 +209,7 @@ internal sealed class SecretResolvingConfigurationProvider : ConfigurationProvid
         }
 
         var shadowed = referencedKeys
-            .Where(pair => _shadowingProviders.Any(provider => provider.TryGet(pair.Key, out _)))
-            .Select(pair => pair.Key)
+            .Where(key => _shadowingProviders.Any(provider => provider.TryGet(key, out _)))
             .ToList();
 
         if (shadowed.Count == 0)
@@ -191,7 +223,68 @@ internal sealed class SecretResolvingConfigurationProvider : ConfigurationProvid
             "win over the resolved value. Add that source before the AddResolvedSecrets call.");
     }
 
-    private Dictionary<string, string?> ResolveAll(Dictionary<string, SecretReference>.ValueCollection references)
+    // The variable name folds characters, so different names can share one variable; whoever picks the
+    // keys under a policy such as KeyBoundSecretReferencePolicy picks the names too.
+    private HashSet<string> FindNamesNotReadFromEnvironment(IReadOnlyCollection<SecretReference> references)
+    {
+        if (!_options.AllowEnvironmentOverride)
+        {
+            return [];
+        }
+
+        var excluded = FindSharedOverrideNames(references);
+        if (_policy.Value is UnrestrictedSecretReferencePolicy)
+        {
+            return excluded;
+        }
+
+        // A name of another shape can share its variable with a name nobody refers to in this load, which the
+        // check above cannot see; a policy exists to keep writers away from such secrets.
+        foreach (var reference in references.Where(reference => !HasOwnEnvironmentVariable(reference.Name)))
+        {
+            excluded.Add(reference.Name);
+            var variable = BuildEnvironmentVariableName(reference.Name);
+            if (Environment.GetEnvironmentVariable(variable) is not null)
+            {
+                _logger.LogWarning(
+                    "The environment variable '{Variable}' is not used for the secret reference '{Reference}': with a secret reference policy, only names of ASCII letters, digits and '/' are read from the environment; it is read from the store.",
+                    variable,
+                    reference);
+            }
+        }
+
+        return excluded;
+    }
+
+    // Letters and digits stay as they are and only '/' becomes "__", so such a name has a variable to itself.
+    // ASCII only: Windows looks variables up case-insensitively, under which some non-ASCII letters coincide.
+    private static bool HasOwnEnvironmentVariable(string name)
+        => name.All(character => char.IsAsciiLetterOrDigit(character) || character == '/');
+
+    // A shared variable cannot tell which of its names it was set for, so none of them is read from it.
+    private HashSet<string> FindSharedOverrideNames(IEnumerable<SecretReference> references)
+    {
+        var shared = new HashSet<string>(StringComparer.Ordinal);
+        foreach (var group in references.GroupBy(reference => BuildEnvironmentVariableName(reference.Name), StringComparer.Ordinal))
+        {
+            // Names that differ only in case are one secret, not a collision.
+            if (group.Select(reference => SecretTargetName.Build(_options.Namespace, reference.Name)).Distinct(StringComparer.Ordinal).Count() < 2)
+            {
+                continue;
+            }
+
+            shared.UnionWith(group.Select(reference => reference.Name));
+            _logger.LogWarning(
+                "The secret references {References} share the environment variable '{Variable}', so none of them is read from it; they are read from the store.",
+                string.Join(", ", group.Select(reference => $"'{reference}'")),
+                group.Key);
+        }
+
+        return shared;
+    }
+
+    private Dictionary<string, string?> ResolveAll(
+        Dictionary<string, SecretReference>.ValueCollection references, HashSet<string> namesNotReadFromEnvironment)
     {
         var timeout = new CancellationTokenSource();
 
@@ -212,7 +305,7 @@ internal sealed class SecretResolvingConfigurationProvider : ConfigurationProvid
         {
             try
             {
-                work.SetResult(ResolveAllAsync(references, timeout.Token).GetAwaiter().GetResult());
+                work.SetResult(ResolveAllAsync(references, namesNotReadFromEnvironment, timeout.Token).GetAwaiter().GetResult());
             }
             catch (Exception e)
             {
@@ -289,20 +382,22 @@ internal sealed class SecretResolvingConfigurationProvider : ConfigurationProvid
 
     private async Task<Dictionary<string, string?>> ResolveAllAsync(
         Dictionary<string, SecretReference>.ValueCollection references,
+        HashSet<string> namesNotReadFromEnvironment,
         CancellationToken cancellationToken)
     {
         var resolved = new Dictionary<string, string?>(StringComparer.Ordinal);
         foreach (var reference in references)
         {
-            resolved[reference.Name] = await ResolveAsync(reference, cancellationToken).ConfigureAwait(false);
+            resolved[reference.Name] = await ResolveAsync(
+                reference, !namesNotReadFromEnvironment.Contains(reference.Name), cancellationToken).ConfigureAwait(false);
         }
 
         return resolved;
     }
 
-    private async Task<string?> ResolveAsync(SecretReference reference, CancellationToken cancellationToken)
+    private async Task<string?> ResolveAsync(SecretReference reference, bool mayOverride, CancellationToken cancellationToken)
     {
-        if (_options.AllowEnvironmentOverride)
+        if (_options.AllowEnvironmentOverride && mayOverride)
         {
             var variableName = BuildEnvironmentVariableName(reference.Name);
             var overrideValue = Environment.GetEnvironmentVariable(variableName);
@@ -329,11 +424,18 @@ internal sealed class SecretResolvingConfigurationProvider : ConfigurationProvid
         return value;
     }
 
-    private ISecretReader BuildStandaloneReader(
+    private ServiceProvider BuildStandaloneServices(
         Action<SecretStoreOptions>? configure,
-        Action<ISecretStoreBuilder>? configureProviders)
+        Action<ISecretStoreBuilder>? configureProviders,
+        ILoggerFactory? loggerFactory)
     {
         var services = new ServiceCollection();
+        if (loggerFactory is not null)
+        {
+            // An instance: the container does not dispose it, the caller owns it.
+            services.AddSingleton(loggerFactory);
+        }
+
         services.AddLogging();
         var storeBuilder = services.AddSecretStore(configure);
         if (configureProviders is null)
@@ -347,6 +449,15 @@ internal sealed class SecretResolvingConfigurationProvider : ConfigurationProvid
 
         var built = services.BuildServiceProvider();
 
+        // The standalone overload never asks the container for a policy; one registered there would be ignored.
+        if (built.GetService<ISecretReferencePolicy>() is not null)
+        {
+            built.Dispose();
+            throw new InvalidOperationException(
+                $"An {nameof(ISecretReferencePolicy)} registered in configureProviders is not used by AddResolvedSecrets. "
+                + "Pass it as the policy argument instead.");
+        }
+
         // PublicationOnly lets several callers run this factory but keeps one value, and it disposes
         // none of them: without this, every loser's container would leak.
         var kept = Interlocked.CompareExchange(ref _standaloneServices, built, null) ?? built;
@@ -355,7 +466,7 @@ internal sealed class SecretResolvingConfigurationProvider : ConfigurationProvid
             built.Dispose();
         }
 
-        return kept.GetRequiredService<ISecretStore>();
+        return kept;
     }
 
     private string BuildEnvironmentVariableName(string name)
