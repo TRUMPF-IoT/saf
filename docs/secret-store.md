@@ -757,9 +757,15 @@ case-sensitive, note the lower-casing: `secret://Db/Password` reads `SECRET__mya
 > from it: each is read from the store, and a warning names the references and the variable. This
 > matters with a [policy](#restricting-references) such as `KeyBoundSecretReferencePolicy`, where whoever
 > writes the configuration picks the names by picking the keys: a writer who adds `Conn_1` next to
-> `Conn-1` gets the store's value for `conn_1`, not the variable set for `conn-1`. It does not help
-> when the name the variable was set for is not referenced in the same load, so do not leave override
-> variables set for names nothing refers to.
+> `Conn-1` gets the store's value for `conn_1`, not the variable set for `conn-1`.
+>
+> That check only sees names referenced in the same load. So **when a secret reference policy is
+> registered, only names of ASCII letters, digits and `/` are read from the environment**: only those
+> have a variable to themselves. Every other name, such as `conn-1`, `conn_1` or `ä/pw`, is read from
+> the store, and if its variable is set, a warning names the variable and the reference. Without a
+> policy every name is read from the environment as before, because whoever writes the configuration
+> can refer to any secret anyway. To supply a secret from the environment on a host with a policy,
+> name it with letters, digits and `/` only, e.g. `opcua/conn1/password`.
 
 Because the override is checked *before* the store, it wins over a correctly provisioned keystore
 entry unconditionally, and the value it supplies never passes through the store's at-rest protection.

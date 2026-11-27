@@ -188,7 +188,7 @@ internal sealed class SecretResolvingConfigurationProvider : ConfigurationProvid
 
         // Once per distinct reference, not once per configuration key: the same secret is routinely
         // referenced from several keys, and every resolution is a round-trip to the store.
-        var resolved = ResolveAll(references.Values, FindSharedOverrideNames(references.Values));
+        var resolved = ResolveAll(references.Values, FindNamesNotReadFromEnvironment(references.Values));
         foreach (var pair in referencedKeys)
         {
             data[pair.Key] = resolved[pair.Value];
@@ -224,15 +224,46 @@ internal sealed class SecretResolvingConfigurationProvider : ConfigurationProvid
     }
 
     // The variable name folds characters, so different names can share one variable; whoever picks the
-    // keys under a policy such as KeyBoundSecretReferencePolicy picks the names too. A shared variable
-    // cannot tell which of its names it was set for, so none of them is read from it.
-    private HashSet<string> FindSharedOverrideNames(IEnumerable<SecretReference> references)
+    // keys under a policy such as KeyBoundSecretReferencePolicy picks the names too.
+    private HashSet<string> FindNamesNotReadFromEnvironment(IReadOnlyCollection<SecretReference> references)
     {
         if (!_options.AllowEnvironmentOverride)
         {
             return [];
         }
 
+        var excluded = FindSharedOverrideNames(references);
+        if (_policy.Value is UnrestrictedSecretReferencePolicy)
+        {
+            return excluded;
+        }
+
+        // A name of another shape can share its variable with a name nobody refers to in this load, which the
+        // check above cannot see; a policy exists to keep writers away from such secrets.
+        foreach (var reference in references.Where(reference => !HasOwnEnvironmentVariable(reference.Name)))
+        {
+            excluded.Add(reference.Name);
+            var variable = BuildEnvironmentVariableName(reference.Name);
+            if (Environment.GetEnvironmentVariable(variable) is not null)
+            {
+                _logger.LogWarning(
+                    "The environment variable '{Variable}' is not used for the secret reference '{Reference}': with a secret reference policy, only names of ASCII letters, digits and '/' are read from the environment; it is read from the store.",
+                    variable,
+                    reference);
+            }
+        }
+
+        return excluded;
+    }
+
+    // Letters and digits stay as they are and only '/' becomes "__", so such a name has a variable to itself.
+    // ASCII only: Windows looks variables up case-insensitively, under which some non-ASCII letters coincide.
+    private static bool HasOwnEnvironmentVariable(string name)
+        => name.All(character => char.IsAsciiLetterOrDigit(character) || character == '/');
+
+    // A shared variable cannot tell which of its names it was set for, so none of them is read from it.
+    private HashSet<string> FindSharedOverrideNames(IEnumerable<SecretReference> references)
+    {
         var shared = new HashSet<string>(StringComparer.Ordinal);
         foreach (var group in references.GroupBy(reference => BuildEnvironmentVariableName(reference.Name), StringComparer.Ordinal))
         {
@@ -253,7 +284,7 @@ internal sealed class SecretResolvingConfigurationProvider : ConfigurationProvid
     }
 
     private Dictionary<string, string?> ResolveAll(
-        Dictionary<string, SecretReference>.ValueCollection references, HashSet<string> sharedOverrideNames)
+        Dictionary<string, SecretReference>.ValueCollection references, HashSet<string> namesNotReadFromEnvironment)
     {
         var timeout = new CancellationTokenSource();
 
@@ -274,7 +305,7 @@ internal sealed class SecretResolvingConfigurationProvider : ConfigurationProvid
         {
             try
             {
-                work.SetResult(ResolveAllAsync(references, sharedOverrideNames, timeout.Token).GetAwaiter().GetResult());
+                work.SetResult(ResolveAllAsync(references, namesNotReadFromEnvironment, timeout.Token).GetAwaiter().GetResult());
             }
             catch (Exception e)
             {
@@ -351,14 +382,14 @@ internal sealed class SecretResolvingConfigurationProvider : ConfigurationProvid
 
     private async Task<Dictionary<string, string?>> ResolveAllAsync(
         Dictionary<string, SecretReference>.ValueCollection references,
-        HashSet<string> sharedOverrideNames,
+        HashSet<string> namesNotReadFromEnvironment,
         CancellationToken cancellationToken)
     {
         var resolved = new Dictionary<string, string?>(StringComparer.Ordinal);
         foreach (var reference in references)
         {
             resolved[reference.Name] = await ResolveAsync(
-                reference, !sharedOverrideNames.Contains(reference.Name), cancellationToken).ConfigureAwait(false);
+                reference, !namesNotReadFromEnvironment.Contains(reference.Name), cancellationToken).ConfigureAwait(false);
         }
 
         return resolved;

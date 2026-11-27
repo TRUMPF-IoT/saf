@@ -224,7 +224,7 @@ public sealed class SecretReferencePolicyTests : IDisposable
         {
             using var config = Resolve(
                 new() { ["Shared:Conn-1:Pw"] = "secret://shared/conn-1/pw", ["Shared:Conn_1:Pw"] = "secret://shared/conn_1/pw" },
-                HostServices(new KeyBoundSecretReferencePolicy(), allowEnvironmentOverride: true));
+                HostServices(policy: null, allowEnvironmentOverride: true));
 
             Assert.Equal("value:app/shared/conn-1/pw", config["Shared:Conn-1:Pw"]);
             Assert.Equal("value:app/shared/conn_1/pw", config["Shared:Conn_1:Pw"]);
@@ -251,6 +251,79 @@ public sealed class SecretReferencePolicyTests : IDisposable
             Assert.Equal("from-environment", config["Own:Conn-1:Pw"]);
             Assert.Equal("from-environment", config["Own:CONN-1:Pw2"]);
             Assert.Empty(_logger.Warnings);
+        }
+        finally
+        {
+            Environment.SetEnvironmentVariable(variable, null);
+        }
+    }
+
+    // The name the variable was set for is not referenced, so no collision is visible within the load.
+    [Fact]
+    public void WithAPolicy_ANameThatCanShareItsVariable_IsReadFromTheStore_AndLogged()
+    {
+        const string variable = "SECRET__app__gap__conn_1__pw";
+        Environment.SetEnvironmentVariable(variable, "set-for-conn-1");
+        try
+        {
+            using var config = Resolve(
+                new() { ["Gap:Conn_1:Pw"] = "secret://gap/conn_1/pw" },
+                HostServices(new KeyBoundSecretReferencePolicy(), allowEnvironmentOverride: true));
+
+            Assert.Equal("value:app/gap/conn_1/pw", config["Gap:Conn_1:Pw"]);
+            var warning = Assert.Single(_logger.Warnings);
+            Assert.Contains($"'{variable}'", warning, StringComparison.Ordinal);
+        }
+        finally
+        {
+            Environment.SetEnvironmentVariable(variable, null);
+        }
+    }
+
+    [Fact]
+    public void WithAPolicy_ANameThatCanShareItsVariable_IsReadFromTheStore_WithoutAWarning_WhenTheVariableIsUnset()
+    {
+        using var config = Resolve(
+            new() { ["Unset:Conn-1:Pw"] = "secret://unset/conn-1/pw" },
+            HostServices(new KeyBoundSecretReferencePolicy(), allowEnvironmentOverride: true));
+
+        Assert.Equal("value:app/unset/conn-1/pw", config["Unset:Conn-1:Pw"]);
+        Assert.Empty(_logger.Warnings);
+    }
+
+    [Theory]
+    [InlineData("Plain:Conn1:Pw", "secret://plain/conn1/pw", "SECRET__app__plain__conn1__pw")]
+    [InlineData("Plain:CONN2:Pw", "secret://PLAIN/CONN2/PW", "SECRET__app__plain__conn2__pw")]
+    public void WithAPolicy_ANameOfAsciiLettersDigitsAndSlashes_IsReadFromTheEnvironment(string key, string reference, string variable)
+    {
+        Environment.SetEnvironmentVariable(variable, "from-environment");
+        try
+        {
+            using var config = Resolve(
+                new() { [key] = reference },
+                HostServices(new KeyBoundSecretReferencePolicy(), allowEnvironmentOverride: true));
+
+            Assert.Equal("from-environment", config[key]);
+            Assert.Empty(_logger.Warnings);
+        }
+        finally
+        {
+            Environment.SetEnvironmentVariable(variable, null);
+        }
+    }
+
+    [Fact]
+    public void WithAPolicy_ANameWithNonAsciiLetters_IsReadFromTheStore()
+    {
+        const string variable = "SECRET__app__wide__\u00E4__pw";
+        Environment.SetEnvironmentVariable(variable, "from-environment");
+        try
+        {
+            using var config = Resolve(
+                new() { ["Wide:\u00C4:Pw"] = "secret://wide/\u00E4/pw" },
+                HostServices(new KeyBoundSecretReferencePolicy(), allowEnvironmentOverride: true));
+
+            Assert.Equal("value:app/wide/\u00E4/pw", config["Wide:\u00C4:Pw"]);
         }
         finally
         {
