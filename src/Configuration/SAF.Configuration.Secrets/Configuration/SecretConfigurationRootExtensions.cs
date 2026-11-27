@@ -32,7 +32,7 @@ internal static class SecretConfigurationRootExtensions
 
         return new ConfigurationBuilder()
             .Add(new ChainedConfigurationRootSource(new UnwatchedConfigurationRoot(inner), shouldDisposeRoot: true))
-            .Add(new SecretResolvingConfigurationSource(inner, configure, configureProviders, policy: null, hostServices))
+            .Add(new SecretResolvingConfigurationSource(inner, configure, configureProviders, standalone: null, hostServices))
             .Build();
     }
 }

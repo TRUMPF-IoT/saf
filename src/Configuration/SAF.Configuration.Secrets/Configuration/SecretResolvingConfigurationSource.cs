@@ -18,15 +18,15 @@ internal sealed class SecretResolvingConfigurationSource(
     IConfiguration? chainedRoot,
     Action<SecretStoreOptions>? configure,
     Action<ISecretStoreBuilder>? configureProviders,
-    ISecretReferencePolicy? policy,
+    StandaloneResolution? standalone,
     IServiceProvider? hostServices) : IConfigurationSource
 {
     public SecretResolvingConfigurationSource(
         Action<SecretStoreOptions>? configure,
         Action<ISecretStoreBuilder>? configureProviders,
-        ISecretReferencePolicy? policy,
+        StandaloneResolution? standalone,
         IServiceProvider? hostServices)
-        : this(chainedRoot: null, configure, configureProviders, policy, hostServices)
+        : this(chainedRoot: null, configure, configureProviders, standalone, hostServices)
     {
     }
 
@@ -39,7 +39,7 @@ internal sealed class SecretResolvingConfigurationSource(
             // Nothing can shadow the resolver here: it is the last provider of a configuration built for
             // exactly that purpose.
             return new SecretResolvingConfigurationProvider(
-                chainedRoot, [], isChainedRoot: true, configure, configureProviders, policy, hostServices);
+                chainedRoot, [], isChainedRoot: true, configure, configureProviders, standalone, hostServices);
         }
 
         var inner = BuildInner(builder);
@@ -53,7 +53,7 @@ internal sealed class SecretResolvingConfigurationSource(
             isChainedRoot: false,
             configure,
             configureProviders,
-            policy,
+            standalone,
             hostServices);
     }
 

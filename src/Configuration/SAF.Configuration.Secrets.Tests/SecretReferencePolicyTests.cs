@@ -110,6 +110,41 @@ public sealed class SecretReferencePolicyTests : IDisposable
     }
 
     [Fact]
+    public void StandaloneResolution_LogsARefusedReference_ToTheLoggerFactoryItIsGiven()
+    {
+        var providersConfigured = false;
+        using var config = (ConfigurationRoot)new ConfigurationBuilder()
+            .AddInMemoryCollection(new Dictionary<string, string?> { ["Db:Host"] = Reference })
+            .AddResolvedSecrets(o => o.Namespace = "app", _ => providersConfigured = true, Policy(), new CapturingLoggerFactory(_logger))
+            .Build();
+
+        var warning = Assert.Single(_logger.Warnings);
+        Assert.Contains("'Db:Host'", warning, StringComparison.Ordinal);
+        Assert.False(providersConfigured);
+    }
+
+    [Fact]
+    public void StandaloneResolution_PassesTheLoggerFactoryToTheStore()
+    {
+        var factory = new CapturingLoggerFactory(_logger);
+        var probe = new LoggerFactoryProbe();
+        using var config = (ConfigurationRoot)new ConfigurationBuilder()
+            .AddInMemoryCollection(new Dictionary<string, string?> { ["Db:Password"] = Reference })
+            .AddResolvedSecrets(
+                o => o.Namespace = "app",
+                providers =>
+                {
+                    RecordingProviders(providers);
+                    providers.Services.AddSingleton(probe);
+                    providers.AddProvider<ProbingProvider>();
+                },
+                loggerFactory: factory)
+            .Build();
+
+        Assert.Same(factory, probe.Factory);
+    }
+
+    [Fact]
     public void StandaloneResolution_DoesNotRunConfigureProviders_ForRefusedReferences()
     {
         var providersConfigured = false;
@@ -304,6 +339,42 @@ public sealed class SecretReferencePolicyTests : IDisposable
             Questions.Add((key, reference.ToString()));
             return true;
         }
+    }
+
+    private sealed class CapturingLoggerFactory(ILogger logger) : ILoggerFactory
+    {
+        public ILogger CreateLogger(string categoryName) => logger;
+
+        public void AddProvider(ILoggerProvider provider)
+        {
+        }
+
+        public void Dispose()
+        {
+        }
+    }
+
+    private sealed class LoggerFactoryProbe
+    {
+        public ILoggerFactory? Factory { get; set; }
+    }
+
+    private sealed class ProbingProvider : ISecretStoreProvider
+    {
+        public ProbingProvider(LoggerFactoryProbe probe, ILoggerFactory factory) => probe.Factory = factory;
+
+        public string Name => "probing";
+
+        public bool IsAvailable => false;
+
+        public Task<string?> GetSecretAsync(string name, CancellationToken cancellationToken = default)
+            => Task.FromResult<string?>(null);
+
+        public Task SetSecretAsync(string name, string value, CancellationToken cancellationToken = default)
+            => Task.CompletedTask;
+
+        public Task RemoveSecretAsync(string name, CancellationToken cancellationToken = default)
+            => Task.CompletedTask;
     }
 
     private sealed class CapturingLogger : ILogger<SecretResolvingConfigurationProvider>

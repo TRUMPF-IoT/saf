@@ -676,7 +676,9 @@ ps.AddSecretConfigurationResolution(o => o.Namespace = "myapp");
   `.AddResolvedSecrets(o => o.Namespace = "myapp", policy: policy)`. Asking it then does not run
   `configureProviders`, which runs only once the store is read. A policy registered inside
   `configureProviders` is not used there, and the load throws an `InvalidOperationException` when it
-  finds one.
+  finds one. The standalone overload logs nothing unless it gets a `loggerFactory` argument, such as the
+  host's `ILoggerFactory`. Pass one so refusals are logged: `.AddResolvedSecrets(o => o.Namespace =
+  "myapp", policy: policy, loggerFactory: loggerFactory)`. The store uses the same factory.
 
 > **Keep the policy out of the writers' reach.** Build it in code, not from configuration those parties
 > can change, or they extend it. The policy binds a secret to its keys, not to where the plug-in sends

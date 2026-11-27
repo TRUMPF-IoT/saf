@@ -54,9 +54,9 @@ internal sealed class SecretResolvingConfigurationProvider : ConfigurationProvid
     /// source that created this provider. It also decides who reports a reload: a chained inner root is
     /// muted, so this provider raises the notification for every change, not only for changed secrets.
     /// </param>
-    /// <param name="policy">
-    /// The policy of the standalone overload; <see langword="null"/> with <paramref name="hostServices"/>, which
-    /// supply the registered one.
+    /// <param name="standalone">
+    /// The policy and logger factory of the standalone overload; <see langword="null"/> with
+    /// <paramref name="hostServices"/>, which supply both.
     /// </param>
     public SecretResolvingConfigurationProvider(
         IConfiguration inner,
@@ -64,7 +64,7 @@ internal sealed class SecretResolvingConfigurationProvider : ConfigurationProvid
         bool isChainedRoot,
         Action<SecretStoreOptions>? configure,
         Action<ISecretStoreBuilder>? configureProviders,
-        ISecretReferencePolicy? policy,
+        StandaloneResolution? standalone,
         IServiceProvider? hostServices)
     {
         ArgumentNullException.ThrowIfNull(inner);
@@ -86,12 +86,13 @@ internal sealed class SecretResolvingConfigurationProvider : ConfigurationProvid
             _options = new SecretStoreOptions();
             configure?.Invoke(_options);
             _services = new Lazy<IServiceProvider>(
-                () => BuildStandaloneServices(configure, configureProviders), LazyThreadSafetyMode.PublicationOnly);
-            // No host ILoggerFactory to attach to either; the standalone overload never logged anything before.
-            _logger = NullLogger<SecretResolvingConfigurationProvider>.Instance;
-            // Passed in, not taken from the standalone container: asking it must not run configureProviders,
-            // which main ran only once the store was read.
-            _policy = new Lazy<ISecretReferencePolicy>(policy ?? new UnrestrictedSecretReferencePolicy());
+                () => BuildStandaloneServices(configure, configureProviders, standalone?.LoggerFactory),
+                LazyThreadSafetyMode.PublicationOnly);
+            // Both passed in, not taken from the standalone container: using them must not run
+            // configureProviders, which runs only once the store is read.
+            _logger = standalone?.LoggerFactory?.CreateLogger<SecretResolvingConfigurationProvider>()
+                ?? NullLogger<SecretResolvingConfigurationProvider>.Instance;
+            _policy = new Lazy<ISecretReferencePolicy>(standalone?.Policy ?? new UnrestrictedSecretReferencePolicy());
         }
 
         _reader = new Lazy<ISecretReader>(
@@ -394,9 +395,16 @@ internal sealed class SecretResolvingConfigurationProvider : ConfigurationProvid
 
     private ServiceProvider BuildStandaloneServices(
         Action<SecretStoreOptions>? configure,
-        Action<ISecretStoreBuilder>? configureProviders)
+        Action<ISecretStoreBuilder>? configureProviders,
+        ILoggerFactory? loggerFactory)
     {
         var services = new ServiceCollection();
+        if (loggerFactory is not null)
+        {
+            // An instance: the container does not dispose it, the caller owns it.
+            services.AddSingleton(loggerFactory);
+        }
+
         services.AddLogging();
         var storeBuilder = services.AddSecretStore(configure);
         if (configureProviders is null)
