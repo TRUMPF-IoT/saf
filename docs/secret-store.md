@@ -638,7 +638,9 @@ secret to its keys. SAF has two:
   `OpcUaConnections:0:Password` to `opcuaconnections/0/password`, lowercased and with `:` as `/`. Nothing has to be
   listed, so a plug-in can add a secret without a change to the host, as long as it names the secret
   after its key. A key that contains `/` may refer to no secret, since `a/b` and `a:b` would share one
-  name.
+  name. Nor may a key with a character that lower-cases to a letter configuration keys still tell apart
+  from it, such as the Kelvin sign `K` (U+212A, lower-cased `k`): `Kiosk` with that sign and `Kiosk`
+  with a plain `K` are two keys but would share one name. Letters such as `Ä` or `ß` are not affected.
 - **`SecretReferenceAllowList`** lists the keys each secret may appear in, for names that do not follow
   the key: a secret shared by several keys, or one in an array whose order may change.
 

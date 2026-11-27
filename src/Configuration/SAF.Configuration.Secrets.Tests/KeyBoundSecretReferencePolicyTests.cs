@@ -35,6 +35,20 @@ public class KeyBoundSecretReferencePolicyTests
     public void Refuses_EveryName_ForAKeyThatContainsTheNameDelimiter()
         => Assert.False(_policy.Allows("MyPlugin/Password", Reference("myplugin/password")));
 
+    // Each of these lower-cases to an ASCII letter (k, å, ω, ß), but configuration keys still tell them apart
+    // from that letter, so the key would share the secret of a sibling key.
+    [Theory]
+    [InlineData("MyPlugin:Connections:\u212Aiosk:Password", "myplugin/connections/kiosk/password")]
+    [InlineData("MyPlugin:\u212B:Password", "myplugin/\u00E5/password")]
+    [InlineData("MyPlugin:\u2126:Password", "myplugin/\u03C9/password")]
+    [InlineData("MyPlugin:\u1E9E:Password", "myplugin/\u00DF/password")]
+    public void Refuses_AKeyWhoseLowerCaseIsAnotherKey(string key, string name)
+        => Assert.False(_policy.Allows(key, Reference(name)));
+
+    [Fact]
+    public void Allows_AKeyWithLettersThatCaseFoldAsKeysDo()
+        => Assert.True(_policy.Allows("Gr\u00F6\u00DFe:\u00C4", Reference("gr\u00F6\u00DFe/\u00E4")));
+
     [Fact]
     public void Allows_Throws_OnNullArguments()
     {
