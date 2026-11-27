@@ -635,7 +635,7 @@ the plugin configuration — a settings page, an API, another node — register 
 secret to its keys. SAF has two:
 
 - **`KeyBoundSecretReferencePolicy`** lets a key refer only to the secret whose name is spelled from it:
-  `OpcUaConnections:0:Password` to `opcua/connections/0/password`, with `:` as `/`. Nothing has to be
+  `OpcUaConnections:0:Password` to `opcuaconnections/0/password`, lowercased and with `:` as `/`. Nothing has to be
   listed, so a plug-in can add a secret without a change to the host, as long as it names the secret
   after its key. A key that contains `/` may refer to no secret, since `a/b` and `a:b` would share one
   name.
